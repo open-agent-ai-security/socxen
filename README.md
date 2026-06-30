@@ -14,8 +14,8 @@ From your terminal:
 
 ```bash
 claude plugin marketplace add open-agent-ai-security/socxen
-claude plugin install socxen@open-agent-ai-security
-claude plugin list      # confirm: socxen@open-agent-ai-security, enabled
+claude plugin install socxen@socxen
+claude plugin list      # confirm: socxen@socxen, enabled
 ```
 
 Or run `./install.sh` (idempotent — does both and prints next steps). Full guide:

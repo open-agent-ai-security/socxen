@@ -27,9 +27,14 @@ Install from the plugin marketplace. From your terminal:
 
 ```bash
 claude plugin marketplace add open-agent-ai-security/socxen
-claude plugin install socxen@open-agent-ai-security
-claude plugin list      # confirm: socxen@open-agent-ai-security, enabled, v0.1.0+
+claude plugin install socxen@socxen
+claude plugin list      # confirm: socxen@socxen, enabled, v0.1.0+
 ```
+
+> The marketplace registers under the name `socxen` (from `.claude-plugin/marketplace.json`), so the
+> install target is `socxen@socxen` — the part after `@` is the marketplace name, not the repo owner.
+> This name is deliberately distinct from praxen's marketplace (`open-agent-ai-security`), so you can
+> have both org marketplaces added at the same time with no conflict.
 
 The skill registers as `soc-investigate`. The in-session equivalents — `/plugin marketplace add …`,
 `/plugin install …`, `/plugin list` — do the same thing; if you install from within a session, run
@@ -59,8 +64,8 @@ Merge the `permissions` block from `skills/soc-investigate/settings.snippet.json
 ## Updating
 
 ```bash
-claude plugin marketplace update open-agent-ai-security   # refresh the catalog
-claude plugin update socxen@open-agent-ai-security         # install the latest
+claude plugin marketplace update socxen     # refresh the catalog
+claude plugin update socxen@socxen          # install the latest
 ```
 
 Both steps matter: without the first, `plugin update` only sees your local (possibly stale) catalog
@@ -69,13 +74,13 @@ cache. Restart or `/reload-plugins` to apply.
 ### Auto-update / fleet config (Claude Code)
 
 Auto-update is per-marketplace and off by default for third-party marketplaces. Enable it
-interactively: `/plugin` → **Marketplaces** → `open-agent-ai-security` → **enable auto-update**. Or
-fleet-wide in managed `settings.json`:
+interactively: `/plugin` → **Marketplaces** → `socxen` → **enable auto-update**. Or fleet-wide in
+managed `settings.json`:
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "open-agent-ai-security": {
+    "socxen": {
       "source": { "source": "github", "repo": "open-agent-ai-security/socxen" },
       "autoUpdate": true
     }
@@ -93,15 +98,8 @@ socxen is just a skill folder in the repo — any capable coding agent can fetch
 ## Uninstalling
 
 ```bash
-claude plugin uninstall socxen@open-agent-ai-security
-claude plugin marketplace remove open-agent-ai-security
+claude plugin uninstall socxen@socxen
+claude plugin marketplace remove socxen
 ```
 
-The marketplace is removed by its registered name (`open-agent-ai-security`, from
-`.claude-plugin/marketplace.json`).
-
-> **Note — shared marketplace name.** socxen and praxen both register the marketplace name
-> `open-agent-ai-security` (one per repo). Claude Code keys marketplaces by that name, so a single
-> Claude Code install can't have *both* org marketplaces added at once under that name. If you need a
-> tester to run socxen and praxen side by side, consolidate the org's plugins into one marketplace
-> manifest (or give socxen a distinct marketplace name). Tracked as a follow-up.
+The marketplace is removed by its registered name (`socxen`, from `.claude-plugin/marketplace.json`).

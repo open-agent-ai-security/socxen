@@ -10,7 +10,7 @@
 set -euo pipefail
 
 MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/socxen}"
-MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-open-agent-ai-security}"
+MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-socxen}"
 PLUGIN="${SOCXEN_PLUGIN:-socxen}"
 SCOPE="${SOCXEN_SCOPE:-user}"
 
