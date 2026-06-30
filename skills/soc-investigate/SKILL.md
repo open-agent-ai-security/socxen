@@ -32,10 +32,11 @@ If the Exabeam MCP is **not** connected, do not improvise, guess, or invent aler
 the user this — calmly; it's a one-time setup step, not an error:
 
 > **Exabeam MCP not connected.** I run investigations through the Exabeam New-Scale MCP, which isn't
-> configured in this Claude Code yet. To enable it:
-> 1. Add the MCP — `claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp`
->    (supply your API key + secret). Exabeam's guide:
->    https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html
+> connected to this Claude Code yet. To connect it (one time):
+> 1. Clone https://github.com/open-agent-ai-security/socxen and run `./connector/connect-exabeam.sh`.
+>    Paste your Exabeam API key + secret once — it installs a small bridge that handles the OAuth
+>    token automatically and registers the `exabeam` MCP. (Background on Exabeam's MCP:
+>    https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html)
 > 2. (Recommended) merge the permissions from this skill's `settings.snippet.json`.
 > 3. Restart Claude Code (or `/reload-plugins`), then ask me to investigate again.
 

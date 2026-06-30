@@ -43,16 +43,37 @@ scripting — it's argument-driven and runs the same way on every interface.
 
 Or run the bundled convenience script after cloning: `./install.sh` (idempotent).
 
-## Configure the Exabeam MCP
+## Connect the Exabeam MCP
+
+The skill talks to Exabeam through an MCP connection. The bundled connector installs a small local
+bridge that **refreshes the OAuth token automatically** — Exabeam uses client-credentials tokens that
+expire every few hours, and the bridge handles that so you never see it — then registers it in Claude
+Code as `exabeam`:
 
 ```bash
-claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp
-claude mcp list      # confirm 'exabeam' is configured
+git clone https://github.com/open-agent-ai-security/socxen
+cd socxen && ./connector/connect-exabeam.sh
 ```
 
-Supply your API key/secret per your environment (OAuth client-credentials → bearer token). Regions:
-`us-west`, `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`. If you register the server under a name
-other than `exabeam`, note it for the governance step below.
+You paste your API key + secret once (stored owner-only in `~/.exabeam-mcp.env`); the bridge installs to
+`~/.socxen/` and registers at user scope. Requires [`uv`](https://docs.astral.sh/uv/). Restart Claude
+Code afterward. Regions: `us-west`, `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
+
+<details><summary>Advanced — wire it manually (no auto-refresh)</summary>
+
+You can register the remote MCP directly, but the bearer token expires in ~4h and you'll have to re-add
+it each time:
+
+```bash
+TOK=$(curl -s https://api.<region>.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \
+  -d '{"grant_type":"client_credentials","client_id":"<KEY>","client_secret":"<SECRET>"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp \
+  --header "Authorization: Bearer $TOK"
+```
+</details>
+
+Keep the server named `exabeam` so the governance rules (`mcp__exabeam__…`) match.
 
 ## Governance (recommended)
 

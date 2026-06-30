@@ -23,20 +23,26 @@ Or run `./install.sh` (idempotent — does both and prints next steps). Full gui
 
 Then just ask: **"investigate alert &lt;id&gt;"** or paste an alert/case.
 
-## Prerequisites
+## Connect Exabeam (one time)
 
-1. **Claude Code.**
-2. **The Exabeam New-Scale MCP**, configured in Claude Code with your region URL + an API key/secret
-   (OAuth client-credentials — generate one in the New-Scale platform; role-gated):
-   ```
-   claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp
-   ```
-   (Auth/token wiring per your environment — the MCP inherits the key's access level.)
-3. **Governance (recommended):** merge `skills/soc-investigate/settings.snippet.json` into your
-   `.claude/settings.json` `permissions`. It allows read + escalation tools, **gates `update_alert`
-   / `update_case`** (dismiss/close — where a wrong AI verdict does harm), and denies containment as
-   defense-in-depth. If you registered the MCP under a name other than `exabeam`, update the
-   `mcp__exabeam__…` prefixes to match.
+The skill talks to Exabeam through an MCP connection. A small bundled bridge sets it up and **handles
+the OAuth token for you** — no expiring tokens to manage:
+
+```bash
+git clone https://github.com/open-agent-ai-security/socxen
+cd socxen && ./connector/connect-exabeam.sh     # paste your API key + secret once
+```
+
+That registers the `exabeam` MCP in Claude Code. (Get an API key + secret from the New-Scale platform —
+Settings → API Keys; it's role-gated.) Restart Claude Code afterward, and you're set. Needs `uv`
+([install](https://docs.astral.sh/uv/getting-started/installation/)).
+
+## Governance (recommended)
+
+Merge `skills/soc-investigate/settings.snippet.json` into your `.claude/settings.json` `permissions`.
+It allows read + escalation tools, **gates `update_alert` / `update_case`** (dismiss/close — where a
+wrong AI verdict does harm), and denies containment as defense-in-depth. Keep the MCP named `exabeam`
+so the `mcp__exabeam__…` rules match.
 
 ## What it does
 
