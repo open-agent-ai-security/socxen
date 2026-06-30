@@ -8,18 +8,17 @@
 socxen ships as a portable **agent skill** (`skills/soc-investigate`) for **Claude Code**, running
 against the **Exabeam New-Scale MCP**. It investigates and triages alerts/cases end to end and produces
 a structured report. It takes no destructive action: containment is *recommended* for a human, and
-dismiss/close are *gated* by permission rules.
+dismiss/close are *gated* — by permission rules **and** an explicit confirmation the skill asks for.
 
 ## Prerequisites
 
 - **Claude Code** (the `claude` CLI) — tool use and multi-step instruction following.
-- **The Exabeam New-Scale MCP**, configured in Claude Code, with an **API key + secret** (OAuth
-  client-credentials) for your region. Generate the key in the New-Scale platform — this is role-gated,
-  and the MCP inherits the key's access level. The skill uses read tools to gather evidence and
-  case/alert workflow tools to act.
+- **An Exabeam New-Scale API key + secret** (OAuth client-credentials), from the New-Scale platform
+  (role-gated; the MCP inherits the key's access level). You wire it up in *Connect the Exabeam MCP*
+  below — the skill uses read tools to gather evidence and case/alert tools to act.
+- **[`uv`](https://docs.astral.sh/uv/)** — runs the connector's bridge; it auto-installs its own Python
+  dependencies, so there's nothing for you to `pip install`.
 - **Network access** for your agent's LLM provider during analysis.
-
-That's the entire dependency surface — no Python, nothing to `pip install`.
 
 ## Claude Code
 
@@ -28,7 +27,7 @@ Install from the plugin marketplace. From your terminal:
 ```bash
 claude plugin marketplace add open-agent-ai-security/socxen
 claude plugin install socxen@socxen
-claude plugin list      # confirm: socxen@socxen, enabled, v0.1.0+
+claude plugin list      # confirm: socxen@socxen, enabled, v0.2.2+
 ```
 
 > The marketplace registers under the name `socxen` (from `.claude-plugin/marketplace.json`), so the

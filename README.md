@@ -5,8 +5,8 @@
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
 false-positive verdict, and acts. No server, no database, no approval queue: the analyst at the terminal
-is the human-in-the-loop, and the unsafe actions are held back by **Claude Code permission rules**, not
-by trusting the model.
+is the human-in-the-loop, and the consequential action (dismiss/close) is held back by **two locks** —
+Claude Code permission rules *and* the skill asking you first — never left to the model alone.
 
 ## Install (Claude Code plugin marketplace)
 
@@ -21,7 +21,8 @@ claude plugin list      # confirm: socxen@socxen, enabled
 Or run `./install.sh` (idempotent — does both and prints next steps). Full guide:
 [docs/installation.md](docs/installation.md). The skill registers as `soc-investigate`.
 
-Then just ask: **"investigate alert &lt;id&gt;"** or paste an alert/case.
+That installs the skill. Two one-time steps remain below — **connect Exabeam** and (recommended)
+**governance** — after which you ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 
 ## Connect Exabeam (one time)
 
@@ -64,13 +65,16 @@ vocabulary, report template, and the containment list.
 ## Layout
 
 ```
-.claude-plugin/        marketplace.json + plugin.json (marketplace install)
+.claude-plugin/          marketplace.json + plugin.json (marketplace install)
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
+connector/               exabeam-mcp-bridge.py + connect-exabeam.sh (one-time MCP setup)
+install.sh               convenience installer · docs/installation.md  full guide
 ```
 
 ## Status
 
-`v0.1.0` — early. Validated against a live Exabeam staging MCP. Sharing with testers; feedback welcome.
+`v0.2.2` — early but validated end-to-end against a live Exabeam staging MCP
+(install → connect → investigate → gated dismiss). Sharing with testers; feedback welcome.
 
 ## License
 

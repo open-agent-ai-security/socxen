@@ -45,17 +45,17 @@ claude plugin list 2>/dev/null | grep -i "${PLUGIN}" || claude plugin list 2>/de
 
 cat <<'NEXT'
 
-✓ socxen installed. Two manual steps remain (per-environment):
+✓ socxen installed. Two steps remain (per-environment):
 
-  1. Configure the Exabeam New-Scale MCP in Claude Code:
-       claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp
-     (OAuth client-credentials — supply your API key/secret for your region.)
+  1. Connect Exabeam — from a clone of this repo, run:
+       ./connector/connect-exabeam.sh
+     Paste your API key + secret once; it installs a small bridge that handles the
+     OAuth token automatically and registers the `exabeam` MCP.
 
   2. (Recommended) Merge the governance permissions into ~/.claude/settings.json:
        the "permissions" block from skills/soc-investigate/settings.snippet.json
        — gates update_alert / update_case, denies containment as defense-in-depth.
-     If you named the MCP server something other than "exabeam", update the
-     mcp__exabeam__* prefixes to match.
+     ⚠️ Don't run with --dangerously-skip-permissions; it disables that gate.
 
-Then, in Claude Code:  "investigate alert <id>"
+Then restart Claude Code and ask:  "investigate alert <id>"
 NEXT
