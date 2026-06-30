@@ -26,21 +26,26 @@ too consequential to leave to an automatic prompt that can be switched off.
 ## Preflight — is the Exabeam MCP connected?
 
 Everything here runs through the **Exabeam New-Scale MCP** (the `exabeam_*` tools, e.g.
-`exabeam_search_alerts`, `exabeam_get_alert_details`). Before you investigate, make sure they're
-available to you — if you don't see `exabeam_*` tools in your toolset, run `claude mcp list` to check
-for an Exabeam server.
+`exabeam_search_alerts`, `exabeam_get_alert_details`). socxen **bundles** this connection — it
+auto-registers when the plugin is installed — so it's usually already there. Confirm you can see
+`exabeam_*` tools; if unsure, run `claude mcp list` and look for `exabeam`.
 
-If the Exabeam MCP is **not** connected, do not improvise, guess, or invent alert data. Stop and give
-the user this — calmly; it's a one-time setup step, not an error:
+If it's **not** connected, do not improvise, guess, or invent alert data. It's almost always one of two
+setup gaps. Stop and give the user this — calmly; it's setup, not an error:
 
-> **Exabeam MCP not connected.** I run investigations through the Exabeam New-Scale MCP, which isn't
-> connected to this Claude Code yet. To connect it (one time):
-> 1. Clone https://github.com/open-agent-ai-security/socxen and run `./connector/connect-exabeam.sh`.
->    Paste your Exabeam API key + secret once — it installs a small bridge that handles the OAuth
->    token automatically and registers the `exabeam` MCP. (Background on Exabeam's MCP:
->    https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html)
-> 2. (Recommended) merge the permissions from this skill's `settings.snippet.json`.
-> 3. Restart Claude Code (or `/reload-plugins`), then ask me to investigate again.
+> **Exabeam not connected.** socxen ships the connection, but it needs two things on your machine:
+> 1. **`uv`** installed (it runs the bundled bridge) — https://docs.astral.sh/uv/
+> 2. **Your credentials** in `~/.exabeam-mcp.env`:
+>    ```
+>    EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
+>    EXABEAM_API_KEY=<your key>
+>    EXABEAM_API_SECRET=<your secret>
+>    ```
+>    Then `chmod 600 ~/.exabeam-mcp.env`. Get a key + secret from the New-Scale platform → Settings →
+>    API Keys (role-gated). Exabeam's MCP guide:
+>    https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html
+>
+> Then restart Claude Code (or `/reload-plugins`) and ask me again.
 
 Then stop — don't proceed until the tools are available.
 

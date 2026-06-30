@@ -24,19 +24,24 @@ Or run `./install.sh` (idempotent — does both and prints next steps). Full gui
 That installs the skill. Two one-time steps remain below — **connect Exabeam** and (recommended)
 **governance** — after which you ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 
-## Connect Exabeam (one time)
+## Add your Exabeam credentials (one time)
 
-The skill talks to Exabeam through an MCP connection. A small bundled bridge sets it up and **handles
-the OAuth token for you** — no expiring tokens to manage:
+socxen **bundles** the Exabeam connection — installing the plugin **auto-registers** it (no
+`claude mcp add`, no clone, no expiring tokens to manage). The one thing it can't do for you is supply
+your secret, so create `~/.exabeam-mcp.env`:
 
 ```bash
-git clone https://github.com/open-agent-ai-security/socxen
-cd socxen && ./connector/connect-exabeam.sh     # paste your API key + secret once
+cat > ~/.exabeam-mcp.env <<'EOF'
+EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
+EXABEAM_API_KEY=your-key
+EXABEAM_API_SECRET=your-secret
+EOF
+chmod 600 ~/.exabeam-mcp.env
 ```
 
-That registers the `exabeam` MCP in Claude Code. (Get an API key + secret from the New-Scale platform —
-Settings → API Keys; it's role-gated.) Restart Claude Code afterward, and you're set. Needs `uv`
-([install](https://docs.astral.sh/uv/getting-started/installation/)).
+(Get a key + secret from the New-Scale platform → Settings → API Keys; role-gated. The bundled bridge
+runs via [`uv`](https://docs.astral.sh/uv/getting-started/installation/) and refreshes the OAuth token
+for you.) Restart Claude Code, and you're set.
 
 ## Governance (recommended)
 
@@ -66,8 +71,9 @@ vocabulary, report template, and the containment list.
 
 ```
 .claude-plugin/          marketplace.json + plugin.json (marketplace install)
+.mcp.json                bundled Exabeam MCP — auto-registers on install
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
-connector/               exabeam-mcp-bridge.py + connect-exabeam.sh (one-time MCP setup)
+connector/               exabeam-mcp-bridge.py (the bridge — auto token refresh)
 install.sh               convenience installer · docs/installation.md  full guide
 ```
 

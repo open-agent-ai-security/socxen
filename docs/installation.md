@@ -42,26 +42,30 @@ scripting — it's argument-driven and runs the same way on every interface.
 
 Or run the bundled convenience script after cloning: `./install.sh` (idempotent).
 
-## Connect the Exabeam MCP
+## Credentials (the only manual step)
 
-The skill talks to Exabeam through an MCP connection. The bundled connector installs a small local
-bridge that **refreshes the OAuth token automatically** — Exabeam uses client-credentials tokens that
-expire every few hours, and the bridge handles that so you never see it — then registers it in Claude
-Code as `exabeam`:
+socxen **bundles** the Exabeam connection: installing the plugin auto-registers a server named
+`exabeam` — a small local bridge that **refreshes the OAuth token automatically**, so you never deal
+with expiring tokens. No `claude mcp add`, no clone. The only thing you supply is your key + secret,
+in `~/.exabeam-mcp.env`:
 
 ```bash
-git clone https://github.com/open-agent-ai-security/socxen
-cd socxen && ./connector/connect-exabeam.sh
+cat > ~/.exabeam-mcp.env <<'EOF'
+EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
+EXABEAM_API_KEY=your-key
+EXABEAM_API_SECRET=your-secret
+EOF
+chmod 600 ~/.exabeam-mcp.env
 ```
 
-You paste your API key + secret once (stored owner-only in `~/.exabeam-mcp.env`); the bridge installs to
-`~/.socxen/` and registers at user scope. Requires [`uv`](https://docs.astral.sh/uv/). Restart Claude
-Code afterward. Regions: `us-west`, `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
+Requires [`uv`](https://docs.astral.sh/uv/) (it runs the bundled bridge). Restart Claude Code (or
+`/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔ Connected`. Regions: `us-west`,
+`us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
 
 <details><summary>Advanced — wire it manually (no auto-refresh)</summary>
 
-You can register the remote MCP directly, but the bearer token expires in ~4h and you'll have to re-add
-it each time:
+If you'd rather not use the bundled bridge, register the remote MCP directly — but the bearer token
+expires in ~4h and you'll have to re-add it each time:
 
 ```bash
 TOK=$(curl -s https://api.<region>.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \

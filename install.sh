@@ -45,12 +45,13 @@ claude plugin list 2>/dev/null | grep -i "${PLUGIN}" || claude plugin list 2>/de
 
 cat <<'NEXT'
 
-✓ socxen installed. Two steps remain (per-environment):
+✓ socxen installed — the Exabeam MCP auto-registers with the plugin. Two steps remain:
 
-  1. Connect Exabeam — from a clone of this repo, run:
-       ./connector/connect-exabeam.sh
-     Paste your API key + secret once; it installs a small bridge that handles the
-     OAuth token automatically and registers the `exabeam` MCP.
+  1. Add your Exabeam credentials — create ~/.exabeam-mcp.env (then chmod 600):
+       EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
+       EXABEAM_API_KEY=<your key>
+       EXABEAM_API_SECRET=<your secret>
+     (Needs `uv` installed — it runs the bundled bridge: https://docs.astral.sh/uv/)
 
   2. (Recommended) Merge the governance permissions into ~/.claude/settings.json:
        the "permissions" block from skills/soc-investigate/settings.snippet.json
