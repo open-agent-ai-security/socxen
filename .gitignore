@@ -1,0 +1,14 @@
+.DS_Store
+__MACOSX/
+local/
+
+# Secrets — never commit
+*.env
+.env
+
+# Claude Code harness internals
+.claude/
+
+# Python bytecode
+__pycache__/
+*.pyc

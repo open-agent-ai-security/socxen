@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__exabeam__exabeam_get_case_details",
+      "mcp__exabeam__exabeam_get_case_notes",
+      "mcp__exabeam__exabeam_get_case_threat_timeline",
+      "mcp__exabeam__exabeam_search_cases",
+      "mcp__exabeam__exabeam_get_alert_details",
+      "mcp__exabeam__exabeam_get_alert_threat_timeline",
+      "mcp__exabeam__exabeam_search_alerts",
+      "mcp__exabeam__exabeam_threat_summary",
+      "mcp__exabeam__exabeam_search_events",
+      "mcp__exabeam__exabeam_get_mitre_coverage",
+      "mcp__exabeam__exabeam_get_use_case_score",
+      "mcp__exabeam__exabeam_analytics_rule_list",
+      "mcp__exabeam__exabeam_correlation_rule_list",
+      "mcp__exabeam__exabeam_get_correlation_rule_details",
+      "mcp__exabeam__exabeam_context_table_list",
+      "mcp__exabeam__exabeam_get_context_table_records",
+      "mcp__exabeam__exabeam_create_case",
+      "mcp__exabeam__exabeam_create_case_notes"
+    ],
+    "ask": [
+      "mcp__exabeam__exabeam_update_alert",
+      "mcp__exabeam__exabeam_update_case"
+    ],
+    "deny": [
+      "mcp__exabeam__isolate_host",
+      "mcp__exabeam__quarantine_host",
+      "mcp__exabeam__isolate_device",
+      "mcp__exabeam__disable_account",
+      "mcp__exabeam__disable_user",
+      "mcp__exabeam__lock_account",
+      "mcp__exabeam__revoke_session",
+      "mcp__exabeam__force_mfa_reset",
+      "mcp__exabeam__revoke_oauth_grant",
+      "mcp__exabeam__block_ip",
+      "mcp__exabeam__block_url",
+      "mcp__exabeam__block_domain",
+      "mcp__exabeam__add_firewall_rule",
+      "mcp__exabeam__modify_firewall_rule",
+      "mcp__exabeam__kill_process",
+      "mcp__exabeam__delete_file",
+      "mcp__exabeam__run_script_on_host"
+    ]
+  }
+}

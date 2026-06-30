@@ -1,0 +1,29 @@
+{
+  "name": "socxen",
+  "owner": {
+    "name": "Open Agent AI Security",
+    "url": "https://github.com/open-agent-ai-security"
+  },
+  "metadata": {
+    "description": "Open Agent AI Security's marketplace for socxen — an agentic SOC analyst skill for Claude Code, running against the Exabeam New-Scale MCP.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "socxen",
+      "source": "./",
+      "description": "socxen — agentic SOC analyst. Triages Exabeam New-Scale alerts and cases end to end via the Exabeam MCP: gathers evidence, correlates activity, reaches a threat/false-positive verdict, and acts — containment recommended for human approval, and dismiss/close gated by Claude Code permission rules.",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "keywords": [
+        "soc",
+        "soc-analyst",
+        "alert-triage",
+        "exabeam",
+        "ai-agent-security",
+        "mcp"
+      ],
+      "category": "security"
+    }
+  ]
+}
