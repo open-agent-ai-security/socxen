@@ -3,6 +3,26 @@
 The 20 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact
 names. Grouped by how they serve the investigation loop.
 
+## Calling convention (read this first)
+
+Each tool takes a **single wrapper object**, and the key differs by tool family — getting it wrong is
+the most common first-call error:
+
+- **Read / get / search tools → `arg0`.** e.g. `exabeam_get_case_details` → `{"arg0": {"caseId": "…"}}`;
+  `exabeam_search_alerts` → `{"arg0": {"filter": "…", "fields": ["*"], "limit": 10, "orderBy": [], "startTime": "…", "endTime": "…"}}`.
+- **Write tools → `arg1`** (NOT `arg0`): `exabeam_create_case`, `exabeam_create_case_notes`,
+  `exabeam_update_alert`, `exabeam_update_case`.
+
+Write-tool fields (required in **bold**):
+
+- `exabeam_create_case_notes` → `arg1: {` **`caseId`** `,` **`note`** `}`
+- `exabeam_create_case` → `arg1: {` **`alertId`** `,` **`priority`** `, assignee, stage, queue, closedReason, supportingReason }`
+- `exabeam_update_alert` → `arg1: {` **`alertId`** `, alertStatus (e.g. "DISMISSED"), alertDescription, alertName, priority, tags }`
+- `exabeam_update_case` → `arg1: {` **`caseId`** `, stage, closedReason, supportingReason, assignee, priority, queue, tags, useCases }`
+
+If a call returns a schema/validation error, **swap `arg0`↔`arg1` before anything else** — that's almost
+always the cause.
+
 ## Intake — pull the work item
 - `exabeam_get_alert_details` — full detail for an **alert** ID (use when working an alert)
 - `exabeam_get_case_details` — full detail for a **case** ID (use when working a case)
@@ -23,7 +43,7 @@ names. Grouped by how they serve the investigation loop.
 - `exabeam_get_mitre_coverage` — MITRE ATT&CK coverage for the technique
 - `exabeam_get_use_case_score` — use-case detection score
 
-## Act
+## Act (args under `arg1` — see Calling convention)
 - `exabeam_create_case` — escalate an alert into a case *(allow — escalation is safe)*
 - `exabeam_create_case_notes` — document the investigation *(allow)*
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*

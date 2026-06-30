@@ -160,5 +160,9 @@ recommended containment. The report is the audit trail this skill produces in pl
 ## Tool names
 
 `reference/tool-map.md` lists the **real 20 tools** this MCP exposes (confirmed via `list_tools`),
-grouped by investigation phase. Use those exact names. If the server ever returns a name not in the
-map, list its tools to reconcile, and prefer read-only tools for evidence gathering.
+grouped by investigation phase, **with each tool's argument shape**. Use those exact names.
+
+**Calling convention** (saves a wasted first call): read / get / search tools wrap their args under
+`arg0`; the write tools — `create_case`, `create_case_notes`, `update_alert`, `update_case` — wrap under
+`arg1`, not `arg0`. On any schema/validation error, **swap `arg0`↔`arg1` first**. If the server returns
+a name not in the map, list its tools to reconcile; prefer read-only tools for evidence gathering.
