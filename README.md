@@ -44,6 +44,11 @@ It allows read + escalation tools, **gates `update_alert` / `update_case`** (dis
 wrong AI verdict does harm), and denies containment as defense-in-depth. Keep the MCP named `exabeam`
 so the `mcp__exabeam__…` rules match.
 
+> ⚠️ **Don't run with `--dangerously-skip-permissions`** (or bypass-permissions / auto-accept modes).
+> They disable *every* permission prompt — including the dismiss/close gate — so socxen would close
+> alerts with no human in the loop. The skill also asks before any close as a backstop, but the safety
+> model only fully holds with permissions **on**.
+
 ## What it does
 
 - **Investigates** with the real Exabeam read surface — `search_events` (data-lake logs),

@@ -82,6 +82,11 @@ Merge the `permissions` block from `skills/soc-investigate/settings.snippet.json
 (dismiss/close — where a wrong verdict does the most harm), and denies containment as defense-in-depth
 (the MCP exposes none). If your MCP server isn't named `exabeam`, update the `mcp__exabeam__*` prefixes.
 
+> ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
+> modes. They disable every permission prompt — including the dismiss/close gate — and socxen will then
+> close alerts with no human in the loop. (The skill asks before any close as a backstop, but the full
+> safety model depends on permissions being on.)
+
 ## Updating
 
 ```bash
