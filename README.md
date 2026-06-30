@@ -10,10 +10,16 @@ by trusting the model.
 
 ## Install (Claude Code plugin marketplace)
 
+From your terminal:
+
+```bash
+claude plugin marketplace add open-agent-ai-security/socxen
+claude plugin install socxen@open-agent-ai-security
+claude plugin list      # confirm: socxen@open-agent-ai-security, enabled
 ```
-/plugin marketplace add open-agent-ai-security/socxen
-/plugin install socxen@socxen
-```
+
+Or run `./install.sh` (idempotent — does both and prints next steps). Full guide:
+[docs/installation.md](docs/installation.md). The skill registers as `soc-investigate`.
 
 Then just ask: **"investigate alert &lt;id&gt;"** or paste an alert/case.
 
