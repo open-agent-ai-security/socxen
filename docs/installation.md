@@ -27,7 +27,7 @@ Install from the plugin marketplace. From your terminal:
 ```bash
 claude plugin marketplace add open-agent-ai-security/socxen
 claude plugin install socxen@socxen
-claude plugin list      # confirm: socxen@socxen, enabled, v0.2.2+
+claude plugin list      # confirm: socxen@socxen, enabled
 ```
 
 > The marketplace registers under the name `socxen` (from `.claude-plugin/marketplace.json`), so the

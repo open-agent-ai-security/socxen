@@ -73,8 +73,9 @@ install.sh               convenience installer · docs/installation.md  full gui
 
 ## Status
 
-`v0.2.2` — early but validated end-to-end against a live Exabeam staging MCP
-(install → connect → investigate → gated dismiss). Sharing with testers; feedback welcome.
+Early (v0.2.x) — validated end-to-end against a live Exabeam staging MCP
+(install → connect → investigate → gated dismiss). Run `claude plugin list` for your installed version.
+Sharing with testers; feedback welcome.
 
 ## License
 
