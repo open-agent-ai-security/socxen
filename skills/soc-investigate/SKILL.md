@@ -186,6 +186,8 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 Always end with the report (`reference/report-template.md`): the alert restated, the timeline, the
 evidence with its sources, the MITRE mapping, the verdict + confidence, the actions you took, and any
 recommended containment. The report is the audit trail this skill produces in place of a database.
+See `reference/examples/` for a full worked run in this shape (a coordinated-credential-access alert
+investigated end to end against a live MCP).
 
 **Redact secrets and PII.** If evidence contains a credential, token, key, or personal data, refer to it
 by location and pattern — never reproduce the value; replace it with `[REDACTED]` before it enters a

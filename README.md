@@ -73,8 +73,8 @@ prefixes to `mcp__exabeam__…`.
   **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
 See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, the
-**search cookbook** (EQL grammar + copy-paste query recipes), triage vocabulary, report template, and
-the containment list.
+**search cookbook** (EQL grammar + copy-paste query recipes), triage vocabulary, report template,
+the containment list, and **`reference/examples/`** (worked end-to-end investigations + eval fixtures).
 
 ## Layout
 

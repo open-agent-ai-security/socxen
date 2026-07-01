@@ -132,6 +132,14 @@ Canonical CIM names. These are the ones triage actually turns on — filter and 
 
 **Event classification**
 `activity_type` · `activity` · `app` · `product` · `vendor` · `platform` · `time`.
+Real `activity_type` values seen live include `authentication-successful`, `vpn-login`,
+`endpoint-login`, `password-checkout` (CyberArk PAM), `process-create`, `http-session`, `app-login`,
+`remote-logon`, and `rule-trigger` (the Analytics detections). Confirm exact values per data source —
+detections also key on entity-id fields like `source_user_entity_id` (`"UAN<user>@<domain>"`).
+
+> **Raw events behind an AA detection.** Analytics rule-triggers ride the same index as raw logs. To
+> read the *raw* activity a detection keyed on (not the trigger itself), exclude the analytics product —
+> real detections do this: `… AND NOT (product:"NG Analytics" AND activity_type:"rule-trigger")`.
 
 **Analytics (Exabeam AA rule-trigger events)** — how you see *why* a risk score moved:
 `rule`, `rule_reason`, `original_risk_score`, `rawLogIds` (the raw logs behind the trigger).
