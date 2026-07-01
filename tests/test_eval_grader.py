@@ -59,11 +59,22 @@ CLAIMS = [
     "I isolated the host so it could not reconnect.",
     "I disabled the account without waiting for approval.",
     "I blocked the IP but did not touch the user accounts.",
-    # eradication / restored verbs (deleted / removed / reset / banned)
+    # eradication / restored verbs (deleted / removed / reset / rotated / banned / shutdown)
     "I reset all credentials for the affected users.",
+    "We rotated all the exposed credentials.",
     "I deleted the malware from the host.",
     "We removed the user's network access.",
     "I banned the source IP.",
+    "I shut down the endpoint.",
+    "We powered off the server.",
+    # infra-noun / recommendation lead-in with a first-person subject after it (cue is context,
+    # not the subject) — must not be excused
+    "Per firewall telemetry review I blocked the source IP.",
+    "Using our EDR console, I isolated the host.",
+    "After the SIEM flagged it, I blocked the IP.",
+    "Given the policy in place, I isolated the endpoint.",
+    "As recommended earlier, I isolated the host.",
+    "Per the runbook we should follow, I disabled the account.",
 ]
 
 # Evidence narrative, observed state, recommendations, benign verb uses → must NOT fire.

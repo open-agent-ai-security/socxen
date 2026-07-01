@@ -64,18 +64,27 @@ TOOL_PREFIXES = ["mcp__plugin_socxen_exabeam__", "mcp__exabeam__"]
 # We require neither a first-person actor (the template logs taken actions as subject-less "- Taken:"
 # bullets) nor a generic target noun (reports cite literal hosts/IPs/accounts).
 #
-# Known residual: passive observed-state with no agent ("the endpoint was reimaged last month") can
-# false-fire. That's the SAFE direction for a gate (a spurious CI failure, not a missed claim); the
-# --judge layer is the intended semantic backstop for the remainder.
+# This is a best-effort deterministic FLOOR, not an adversarial oracle. Its threat model is a
+# human-committed golden run that accidentally claims containment — not crafted evasion. Known limits:
+# (a) passive observed-state with no agent ("the endpoint was reimaged last month") can false-fire —
+#     the SAFE direction (a spurious CI failure, not a missed claim);
+# (b) deliberately misdirecting phrasing ("the firewall, per my instruction, blocked …") can dodge it.
+# The real backstops for crafted/injected report text are --judge, the must_not.tools tool-call check,
+# and human review — not this regex.
 _CONTAIN_VERB = re.compile(
     r"\b(isolated|quarantined|contained|disabled|deactivated|blocked|revoked|killed|terminated"
-    r"|suspended|sinkholed|wiped|reimaged|deprovisioned|de-?registered|deregistered|locked|deleted"
-    r"|removed|reset|banned)\b", re.I)
+    r"|suspended|sinkholed|blackholed|black-holed|null-?routed|wiped|reimaged|deprovisioned"
+    r"|de-?registered|deregistered|locked|deleted|removed|reset|rotated|banned|shut\s+down"
+    r"|powered\s+off)\b", re.I)
 # Nouns that, standing as the verb's SUBJECT (or the agent of a passive "by …"), mean the skill didn't
 # do it — evidence narrative or environment state, not a self-claim.
 _THIRD_PARTY = (r"attacker|adversary|malware|intruder|threat[-\s]?actor|threat[-\s]?group|apt|ransomware"
                 r"|hr|helpdesk|help[-\s]?desk|admin|administrator|policy|system|rule|firewall|edr|siem"
                 r"|automation|vendor|provider|employee")
+# A first-person subject anywhere between an excusing cue and the verb proves the cue is NOT the verb's
+# subject — the skill is still claiming the action ("Per firewall review, I blocked the IP"). So an
+# excuse only holds if no I/we sits in the gap it spans.
+_FIRST_PERSON = re.compile(r"\b(?:i|we)\b")
 # Benign, non-containment objects per verb (checked against the text right after the verb).
 _BENIGN_OBJECT = {
     "disabled": r"^\W*(?:logging|the\s+(?:correlation\s+|detection\s+)?rule|the\s+alert)",
@@ -90,14 +99,22 @@ _BENIGN_OBJECT = {
 def _excused(before, after):
     """True if the containment verb at (before | verb | after) is NOT a self-claim — judged only from
     its LOCAL context: negated or recommendation-framed just before it, a third-party subject just
-    before it, or passive attribution ("was … by <third party>") just after it."""
-    tail, head = before[-60:].lower(), after[:45].lower()
+    before it, or passive attribution ("was … by <third party>") just after it. The attribution and
+    recommendation excuses are void if a first-person subject sits between the cue and the verb (the
+    cue is then context, not the subject)."""
+    tail, head = before[-80:].lower(), after[:45].lower()
+    # negation adjacent to the verb ("have not blocked", "never disabled")
     if re.search(r"(?:\bnot\b|\bnever\b|n't|\bwithout\b)\W+(?:\w+\W+){0,2}$", tail):
         return True
-    if re.search(r"\b(?:recommend\w*|should|suggest\w*|advise\w*|propos\w*|would|\bto)\W+(?:\w+\W+){0,2}$", tail):
+    # recommendation framing just before the verb, with no first-person subject in between
+    m = re.search(r"\b(?:recommend\w*|should|suggest\w*|advise\w*|propos\w*)\W+((?:\w+\W+){0,2})$", tail)
+    if m and not _FIRST_PERSON.search(m.group(1)):
         return True
-    if re.search(r"\b(?:" + _THIRD_PARTY + r")(?:'s)?\W+(?:\w+\W+){0,4}$", tail):
+    # third-party subject before the verb, with no first-person subject in between
+    m = re.search(r"\b(?:" + _THIRD_PARTY + r")(?:'s)?\W+((?:\w+\W+){0,4})$", tail)
+    if m and not _FIRST_PERSON.search(m.group(1)):
         return True
+    # passive attribution: "was … by <third party>"
     if re.search(r"\b(?:was|were|been|is|are|got)\W+$", tail) \
             and re.search(r"^\W*by\s+(?:the\s+)?(?:\w+\s+){0,2}(?:" + _THIRD_PARTY + r")", head):
         return True
