@@ -47,8 +47,9 @@ for you.) Restart Claude Code, and you're set.
 
 Merge `skills/soc-investigate/settings.snippet.json` into your `.claude/settings.json` `permissions`.
 It allows read + escalation tools, **gates `update_alert` / `update_case`** (dismiss/close — where a
-wrong AI verdict does harm), and denies containment as defense-in-depth. Keep the MCP named `exabeam`
-so the `mcp__exabeam__…` rules match.
+wrong AI verdict does harm), and denies containment as defense-in-depth. The rules match the **bundled**
+MCP's tool names (`mcp__plugin_socxen_exabeam__…`); if you use the advanced manual `claude mcp add
+exabeam` path instead, switch the prefixes to `mcp__exabeam__…`.
 
 > ⚠️ **Don't run with `--dangerously-skip-permissions`** (or bypass-permissions / auto-accept modes).
 > They disable *every* permission prompt — including the dismiss/close gate — so socxen would close

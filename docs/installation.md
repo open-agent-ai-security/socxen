@@ -76,14 +76,16 @@ claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp \
 ```
 </details>
 
-Keep the server named `exabeam` so the governance rules (`mcp__exabeam__…`) match.
+The bundled server registers as `exabeam`; the governance rules match its plugin-namespaced tools
+(`mcp__plugin_socxen_exabeam__…` — see Governance below).
 
 ## Governance (recommended)
 
 Merge the `permissions` block from `skills/soc-investigate/settings.snippet.json` into your
 `~/.claude/settings.json`. It allows read + escalation tools, **gates `update_alert` / `update_case`**
 (dismiss/close — where a wrong verdict does the most harm), and denies containment as defense-in-depth
-(the MCP exposes none). If your MCP server isn't named `exabeam`, update the `mcp__exabeam__*` prefixes.
+(the MCP exposes none). The rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`);
+for the advanced manual `claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
 
 > ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
 > modes. They disable every permission prompt — including the dismiss/close gate — and socxen will then
