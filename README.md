@@ -1,6 +1,15 @@
-# socxen
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
 
+# socxen
 **An agentic SOC analyst, as a Claude Code skill.**
+
+[![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
+[![version](https://img.shields.io/badge/version-v0.4.1-blue)](.claude-plugin/plugin.json)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
