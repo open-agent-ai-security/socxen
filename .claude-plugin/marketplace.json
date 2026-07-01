@@ -13,7 +13,7 @@
       "name": "socxen",
       "source": "./",
       "description": "socxen — agentic SOC analyst. Triages Exabeam New-Scale alerts and cases end to end via the Exabeam MCP: gathers evidence, correlates activity, reaches a threat/false-positive verdict, and acts — containment recommended for human approval, and dismiss/close gated by Claude Code permission rules.",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "license": "Apache-2.0",
       "keywords": [
         "soc",
