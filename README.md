@@ -90,9 +90,10 @@ install.sh               convenience installer · docs/installation.md  full gui
 
 ## Status
 
-Early (v0.2.x) — validated end-to-end against a live Exabeam staging MCP
-(install → connect → investigate → gated dismiss). Run `claude plugin list` for your installed version.
-Sharing with testers; feedback welcome.
+Early (v0.5.x) — validated end-to-end against a live Exabeam staging MCP
+(install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
+playbook, a worked investigation, and a regression harness (`evals/`). Run `claude plugin list` for your
+installed version. Sharing with testers; feedback welcome.
 
 ## License
 

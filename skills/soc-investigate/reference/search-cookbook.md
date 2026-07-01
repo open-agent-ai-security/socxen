@@ -24,10 +24,10 @@ Field Summary query (last section) rather than guessing.
 | `fields` | ✅ | Columns to return. `["*"]` = all applicable fields. Name specific fields to keep results skimmable. |
 | `startTime` | ✅ | ISO-8601, e.g. `2024-04-01T00:00:00Z`. |
 | `endTime` | ✅ | ISO-8601. Keep windows tight — search spans years; a wide window is slow and noisy. |
-| `limit` | | Max rows. **Default 3000.** Set it low (25–100) while pivoting, high only when counting. |
-| `groupBy` | | Fields to GROUP BY (aggregation). |
+| `limit` | | Max rows. **Always set it explicitly** (REST default is 3000; the MCP events tool's default isn't documented — `search_alerts` documents 10). Low (25–100) while pivoting, high only when counting. |
 | `orderBy` | | e.g. `["time DESC"]`, `["riskScore DESC"]`, `["app ASC"]`. |
-| `distinct` | | `true` → DISTINCT on the selected fields. |
+| `groupBy` | | Fields to GROUP BY. **REST only — dropped by the MCP tool** (see the tested-reality note). |
+| `distinct` | | `true` → DISTINCT on the selected fields. **REST only — dropped by the MCP tool.** |
 
 Minimal call:
 
