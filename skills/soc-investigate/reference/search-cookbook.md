@@ -112,6 +112,11 @@ real in-product queries.
 > filter and read `totalRows`, then break down by pulling the rows and counting client-side.** The
 > recipes below use that pattern. (If your integration can call the REST endpoint directly, the
 > aggregation grammar above works there as written.)
+>
+> **Coming:** MCP-side aggregation support (forwarding `groupBy`/`distinct` through the search tool) is
+> **planned but blocked on an MCP-server change**. Once it ships, the aggregation grammar documented
+> above will work through the skill directly and these recipes can use server-side `groupBy` instead of
+> client-side counting. Until then, the `totalRows`/client-side pattern is the supported path.
 
 ## Field vocabulary (what to pivot on)
 
