@@ -79,18 +79,24 @@ claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp \
 The bundled server registers as `exabeam`; the governance rules match its plugin-namespaced tools
 (`mcp__plugin_socxen_exabeam__…` — see Governance below).
 
-## Governance (recommended)
+## Governance (strongly recommended) — turn on the safety gate
 
-Merge the `permissions` block from `skills/soc-investigate/settings.snippet.json` into your
-`~/.claude/settings.json`. It allows read + escalation tools, **gates `update_alert` / `update_case`**
-(dismiss/close — where a wrong verdict does the most harm), and denies containment as defense-in-depth
-(the MCP exposes none). The rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`);
-for the advanced manual `claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
+This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
+`skills/soc-investigate/settings.snippet.json` into your `~/.claude/settings.json`:
+
+- **allow** the read + escalation tools,
+- **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
+- **`deny`** the 17 containment tools (defense-in-depth; the MCP exposes none today).
+
+Merged, this is a **hard, harness-enforced gate**: Claude Code prompts you before a dismiss/close runs
+and will not execute it without your approval, and deterministically hard-blocks the containment tools.
+**Until it's merged there is no permission-layer gate** — only the skill's in-prompt ask (softer). The
+rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); for the advanced manual
+`claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
 
 > ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
-> modes. They disable every permission prompt — including the dismiss/close gate — and socxen will then
-> close alerts with no human in the loop. (The skill asks before any close as a backstop, but the full
-> safety model depends on permissions being on.)
+> modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
+> soft ask. Keep permissions on.
 
 ## Updating
 

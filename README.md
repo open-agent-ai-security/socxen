@@ -43,18 +43,25 @@ chmod 600 ~/.exabeam-mcp.env
 runs via [`uv`](https://docs.astral.sh/uv/getting-started/installation/) and refreshes the OAuth token
 for you.) Restart Claude Code, and you're set.
 
-## Governance (recommended)
+## Governance (strongly recommended — this is the safety gate)
 
-Merge `skills/soc-investigate/settings.snippet.json` into your `.claude/settings.json` `permissions`.
-It allows read + escalation tools, **gates `update_alert` / `update_case`** (dismiss/close — where a
-wrong AI verdict does harm), and denies containment as defense-in-depth. The rules match the **bundled**
-MCP's tool names (`mcp__plugin_socxen_exabeam__…`); if you use the advanced manual `claude mcp add
-exabeam` path instead, switch the prefixes to `mcp__exabeam__…`.
+Do this before you point socxen at anything you care about. Merge the `permissions` block from
+`skills/soc-investigate/settings.snippet.json` into your `.claude/settings.json`:
 
-> ⚠️ **Don't run with `--dangerously-skip-permissions`** (or bypass-permissions / auto-accept modes).
-> They disable *every* permission prompt — including the dismiss/close gate — so socxen would close
-> alerts with no human in the loop. The skill also asks before any close as a backstop, but the safety
-> model only fully holds with permissions **on**.
+- **allow** the read + escalation tools (investigate and open/escalate cases freely),
+- **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong AI verdict does harm),
+- **`deny`** the 17 containment tools outright (defense-in-depth).
+
+Merging it makes the dismiss/close approval a **hard, Claude-Code-enforced gate**: Claude Code prompts
+you before those actions run and **won't execute them without your "yes,"** and hard-blocks containment
+deterministically. **Until you merge it there is no permission-layer gate** — only the skill's own
+in-prompt ask, which is a softer backstop. The rules match the **bundled** MCP's tool names
+(`mcp__plugin_socxen_exabeam__…`); on the advanced manual `claude mcp add exabeam` path, switch the
+prefixes to `mcp__exabeam__…`.
+
+> ⚠️ **Don't run with `--dangerously-skip-permissions`** (or bypass / auto-accept modes). They turn the
+> hard gate *off* — every permission prompt, including dismiss/close — leaving only the skill's soft ask
+> between the model and a suppressed alert. Keep permissions **on**.
 
 ## What it does
 
