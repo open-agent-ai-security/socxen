@@ -130,7 +130,9 @@ terminal action (see Action matrix). If you were handed only an ID, look it up f
 entities, and the time window. Restate the alert in one plain sentence before going further.
 
 **2 — Establish entities & baseline.** Identify the primary entity (user/host/IP). Pull its recent
-context. Ask whether the triggering activity is normal for it.
+context. Ask whether the triggering activity is normal for it. Enrich the entity with context tables
+(`reference/enrichment.md`) — identity/HR (title, department, employee type, MFA), host/asset, SID/UID
+mapping, watchlists — this is where "is this normal?" becomes a *positive* benign or malicious explanation.
 
 **3 — Gather evidence (read-only, run freely).** Use the Exabeam read surface, not generic intuition
 (see `reference/tool-map.md` for all 20 tools): pivot on the central entity with `exabeam_search_events`
@@ -139,7 +141,10 @@ context. Ask whether the triggering activity is normal for it.
 `exabeam_threat_summary`; read `exabeam_get_correlation_rule_details` to see exactly what the rule
 keyed on (often the fastest FP/TP tell); enrich via context tables; and note
 `exabeam_get_mitre_coverage`. There is **no dedicated entity-lookup tool** — establish "is this normal
-for them?" by filtering `search_events`/`search_alerts` on the entity. Correlate into a single timeline.
+for them?" by filtering `search_events`/`search_alerts` on the entity. **`search_events` is only as good
+as the query — see `reference/search-cookbook.md` for the EQL grammar (real field names, the entity
+accessor, `RGX()`/`IN`/value-sets) and copy-paste recipes for baselining and each entity pivot.**
+Correlate into a single timeline.
 
 **4 — Map & hypothesize.** Map the observed behavior to MITRE ATT&CK technique(s). Write the
 malicious hypothesis and the benign hypothesis, and note what evidence would confirm or kill each.
@@ -183,6 +188,8 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 Always end with the report (`reference/report-template.md`): the alert restated, the timeline, the
 evidence with its sources, the MITRE mapping, the verdict + confidence, the actions you took, and any
 recommended containment. The report is the audit trail this skill produces in place of a database.
+See `reference/examples/` for a full worked run in this shape (a coordinated-credential-access alert
+investigated end to end against a live MCP).
 
 **Redact secrets and PII.** If evidence contains a credential, token, key, or personal data, refer to it
 by location and pattern — never reproduce the value; replace it with `[REDACTED]` before it enters a

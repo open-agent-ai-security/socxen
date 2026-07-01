@@ -7,7 +7,7 @@
 **An agentic SOC analyst, as a Claude Code skill.**
 
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.4.1-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.5.0-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -81,8 +81,11 @@ prefixes to `mcp__exabeam__…`.
 - **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
-See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, triage
-vocabulary, report template, and the containment list.
+See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, the
+**search cookbook** (EQL grammar + copy-paste query recipes), the **enrichment playbook** (context
+tables that tip FP/TP), triage vocabulary, report template, the containment list, and
+**`reference/examples/`** (worked end-to-end investigations + eval fixtures). Regression tests live in
+`evals/`.
 
 ## Layout
 
@@ -96,9 +99,10 @@ install.sh               convenience installer · docs/installation.md  full gui
 
 ## Status
 
-Early (v0.2.x) — validated end-to-end against a live Exabeam staging MCP
-(install → connect → investigate → gated dismiss). Run `claude plugin list` for your installed version.
-Sharing with testers; feedback welcome.
+Early (v0.5.x) — validated end-to-end against a live Exabeam staging MCP
+(install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
+playbook, a worked investigation, and a regression harness (`evals/`). Run `claude plugin list` for your
+installed version. Sharing with testers; feedback welcome.
 
 ## License
 

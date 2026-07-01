@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/open-agent-ai-security/socxen/evals/schema.json",
+  "title": "socxen eval fixture",
+  "description": "Contract for skills/soc-investigate/reference/examples/*.fixture.json — an input alert/case plus the expected, gradeable outcome of a soc-investigate run.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "input", "expected"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "description": { "type": "string" },
+    "source": { "type": "string" },
+    "input": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["alert", "case"] },
+        "alertId": { "type": "string" },
+        "caseId": { "type": "string" },
+        "alertName": { "type": "string" },
+        "priority": { "type": "string" },
+        "riskScore": { "type": "number" },
+        "signals": { "type": "object" }
+      },
+      "anyOf": [
+        { "required": ["alertId"] },
+        { "required": ["caseId"] }
+      ]
+    },
+    "expected": {
+      "type": "object",
+      "required": ["taxonomy_outcome", "must_not"],
+      "properties": {
+        "taxonomy_outcome": { "enum": ["raised", "auto_closed", "fp_closed"] },
+        "verdict": { "type": "string" },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "primary_pivot": {
+          "type": "object",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "type": "string" },
+            "value": { "type": "string" }
+          }
+        },
+        "must_cite": { "type": "array", "items": { "type": "string" } },
+        "mitre": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" } },
+        "action": {
+          "type": "object",
+          "properties": {
+            "tools": { "type": "array", "items": { "type": "string" } },
+            "recommend_containment": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "must_not": {
+          "type": "object",
+          "properties": {
+            "outcomes": { "type": "array", "items": { "type": "string" } },
+            "tools": { "type": "array", "items": { "type": "string" } },
+            "reasoning": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "grader_notes": { "type": "string" }
+  }
+}
