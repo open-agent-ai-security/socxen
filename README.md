@@ -72,8 +72,9 @@ prefixes to `mcp__exabeam__…`.
 - **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
-See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, triage
-vocabulary, report template, and the containment list.
+See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, the
+**search cookbook** (EQL grammar + copy-paste query recipes), triage vocabulary, report template, and
+the containment list.
 
 ## Layout
 

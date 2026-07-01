@@ -139,7 +139,10 @@ context. Ask whether the triggering activity is normal for it.
 `exabeam_threat_summary`; read `exabeam_get_correlation_rule_details` to see exactly what the rule
 keyed on (often the fastest FP/TP tell); enrich via context tables; and note
 `exabeam_get_mitre_coverage`. There is **no dedicated entity-lookup tool** — establish "is this normal
-for them?" by filtering `search_events`/`search_alerts` on the entity. Correlate into a single timeline.
+for them?" by filtering `search_events`/`search_alerts` on the entity. **`search_events` is only as good
+as the query — see `reference/search-cookbook.md` for the EQL grammar (real field names, the entity
+accessor, `RGX()`/`IN`/value-sets) and copy-paste recipes for baselining and each entity pivot.**
+Correlate into a single timeline.
 
 **4 — Map & hypothesize.** Map the observed behavior to MITRE ATT&CK technique(s). Write the
 malicious hypothesis and the benign hypothesis, and note what evidence would confirm or kill each.
