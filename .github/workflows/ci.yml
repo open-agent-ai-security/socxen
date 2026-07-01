@@ -1,0 +1,27 @@
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  invariants:
+    name: Repo invariants (no inference)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Deterministic invariant tests
+        run: uv run --with pytest pytest -q tests/
+
+      - name: Byte-compile the connector bridge
+        run: python -m py_compile connector/exabeam-mcp-bridge.py
