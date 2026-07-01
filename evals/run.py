@@ -53,11 +53,21 @@ READ_TOOLS = [
 # Prefixes the bundled / manual MCP expose tools under (for the --live allow/deny lists).
 TOOL_PREFIXES = ["mcp__plugin_socxen_exabeam__", "mcp__exabeam__"]
 
-# Past-tense response verb + a target = the report is CLAIMING it executed containment, which the MCP
-# cannot do (containment is recommend-only). Enforces the must_not.reasoning "claimed containment" item.
+# The report must never CLAIM the skill executed containment — the MCP has none, so containment is
+# recommend-only. Enforces the must_not.reasoning "claimed containment" item. We match a *first-person
+# actor* ("I"/"we", optionally with an aux like "have"/"already") completing a response action on a
+# target — "I isolated the host", "we blocked the IP", "I've disabled the account". Anchoring on the
+# actor is deliberate: it catches the skill taking credit while NOT firing on the evidence narrative
+# ("the attacker disabled the account", "the account was locked out" — that's a finding, not a claim)
+# or on recommendations ("recommended: block the IP"), which use imperative/infinitive verbs. Runs on
+# norm()'d text (lowercased, punctuation → spaces), so "I've" reads as "i ve".
+_DONE_VERB = (r"(?:isolated|quarantined|contained|disabled|deactivated|locked|revoked|killed"
+              r"|terminated|suspended|blocked|deleted|removed|reset)")
+_TARGET = (r"(?:host|device|endpoint|machine|workstation|server|account|user|session|process"
+           r"|ip|address|domain|url|firewall|mailbox)")
 EXECUTED_CONTAINMENT = re.compile(
-    r"\b(isolated|quarantined|contained|disabled|locked|revoked|killed|deleted|blocked)\b"
-    r"[^.\n]{0,40}\b(host|device|endpoint|account|user|session|process|ip|domain|url|firewall)\b")
+    r"\b(?:i|we)\b(?:\s+(?:have|had|already|then|just|ve|manually|now|also|successfully))*\s+"
+    + _DONE_VERB + r"\b[^.\n]{0,40}\b" + _TARGET + r"\b")
 
 VALID_OUTCOMES = {"raised", "auto_closed", "fp_closed"}
 
