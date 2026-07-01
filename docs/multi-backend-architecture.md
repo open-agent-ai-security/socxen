@@ -83,12 +83,27 @@ Two mechanisms, one authoritative:
    is the natural home for the wiring the user asked about. It:
    - prompts (or takes `SOCXEN_BACKEND=new-scale|lr-siem`) for the backend,
    - ensures the matching MCP is registered in `.mcp.json` (Exabeam bridge vs `lrsiem-mcp`),
-   - scaffolds the matching **creds template** (`~/.exabeam-mcp.env` vs the LR token env), `chmod 600`,
+   - scaffolds the matching **creds template** for that backend's **distinct connection model** (below),
+     `chmod 600`,
    - merges that backend's `governance.snippet.json` into `~/.claude/settings.json`,
    - writes an explicit **backend marker** (e.g. `SOCXEN_BACKEND`) the skill's preflight reads first.
 
    Result: `./install.sh` → pick your SIEM → everything downstream (connection, creds, governance,
    which reference pack) is wired for that backend.
+
+   **The two connection models are genuinely different — the install flow must handle each, not assume a
+   shared shape:**
+
+   | | New-Scale | LR SIEM |
+   |---|---|---|
+   | Creds file | `~/.exabeam-mcp.env` | `~/.lrsiem-mcp.env` (or the `lrsiem-mcp` repo `.env`) |
+   | Endpoint | `EXABEAM_MCP_URL` — regional base URL (`https://api.<region>.exabeam.cloud/mcp`) | `LRSIEM_BASE_URL` — **on-prem PM host:port** (e.g. `https://<pm-host>:8501`) |
+   | Auth | **OAuth client-credentials:** `EXABEAM_API_KEY` + `EXABEAM_API_SECRET`; the bundled bridge **mints & auto-refreshes** the token | **Pre-minted JWT:** `LRSIEM_API_TOKEN` (from Client Console), **no refresh** — regenerate on 401 |
+   | TLS | public CA | `LRSIEM_VERIFY_TLS` (often `false` for self-signed lab PMs) |
+
+   So the New-Scale template collects **base-url/region + key + secret** (OAuth), and the LR template
+   collects **host:port + token (+ verify-tls)** (local JWT). `install.sh` writes whichever the selected
+   backend needs, and only that one connects.
 
 2. **Runtime detection (fallback / sanity check).** The skill's preflight also detects which tool
    namespace is actually live (`exabeam_*` vs LR tool names). If the marker and the live tools disagree,
