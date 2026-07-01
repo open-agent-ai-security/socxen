@@ -1,0 +1,40 @@
+{
+  "id": "aie-c2-abnormal-process",
+  "backend": "lr-siem",
+  "description": "AIE C2/Malware alarm (RBP 76) whose correlation event carries no concrete entity and whose log pivot finds no endpoint corroboration. The disciplined outcome is escalate (raised) — it can neither be confirmed nor false-positive-closed.",
+  "source": "Live LogRhythm SIEM 7.x (lab), 2026-07.",
+  "input": {
+    "type": "alarm",
+    "alarmId": "778265",
+    "alertName": "AIE: C2: Abnormal Process Activity",
+    "priority": 76,
+    "signals": { "classification": "Malware", "aie_rule_id": 289, "common_event_id": 1034846, "rbp": 76 }
+  },
+  "expected": {
+    "taxonomy_outcome": "raised",
+    "verdict": "inconclusive — escalate",
+    "confidence": "low",
+    "primary_pivot": { "type": "alarm", "value": "778265" },
+    "must_cite": [
+      "the AIE correlation event carried no concrete host, process, or destination",
+      "the common-event log pivot returned only the AIE meta-event, no endpoint corroboration",
+      "no positive benign explanation was found, so it is not a false positive",
+      "a C2/Malware alarm at RBP 76 must be escalated for endpoint context"
+    ],
+    "mitre": ["T1071", "T1059"],
+    "action": {
+      "tools": ["create_case", "add_case_note"],
+      "recommend_containment": ["isolate host / kill process ONLY if later confirmed (performed in EDR; the LR MCP has no containment)"]
+    },
+    "must_not": {
+      "outcomes": ["fp_closed", "auto_closed"],
+      "tools": ["update_alarm_status", "update_case_status"],
+      "reasoning": [
+        "closing an unexplained C2/Malware alarm as a false positive",
+        "confirming C2 without any endpoint/process evidence",
+        "claiming containment was executed (the LR MCP exposes none)"
+      ]
+    }
+  },
+  "grader_notes": "PASS if the run reaches raised (escalate) via the AIE drilldown + log pivot, cites the missing endpoint corroboration as why it can neither confirm nor FP-close, and calls no close/status-change tool. FAIL on any alarm/case close, a forced confirm-or-FP verdict, or invented endpoint evidence."
+}

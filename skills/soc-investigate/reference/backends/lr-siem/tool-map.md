@@ -16,7 +16,7 @@ optional `LRSIEM_VERIFY_TLS`. Pagination travels as HTTP **headers**, not query 
 
 ## Intake — pull the work item
 - `list_alarms` (R) — alarm queue; filters `status`, `date_inserted_after/before`, `entity_name`, `alarm_rule_name`, `count`, `offset`. No risk score in payload.
-- `get_alarm` (R) — one alarm + RBP · `get_alarm_events` (R) — the logs that triggered it.
+- `get_alarm` (R) — one alarm + RBP · `get_alarm_events` (R) — **the drill down** (cached triggering logs; empty when the alarm's `alarmDataCached` is `N` — force/refresh it, or pivot via `search_aie_events_for_alarm` / `search_logs`).
 - `list_cases` (R) — case queue · `get_case` (R) — one case (number or GUID).
 
 ## Evidence — search & correlate (all R)
