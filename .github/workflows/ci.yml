@@ -20,8 +20,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Deterministic invariant tests
-        run: uv run --with pytest pytest -q tests/
+      - name: Deterministic tests (invariants + bridge static + evals)
+        run: uv run --with pytest --with jsonschema pytest -q tests/
 
       - name: Byte-compile the connector bridge
         run: python -m py_compile connector/exabeam-mcp-bridge.py
