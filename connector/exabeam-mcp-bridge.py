@@ -114,7 +114,7 @@ def main():
         sys.stderr.write(
             "exabeam-mcp-bridge: missing credentials. Create ~/.exabeam-mcp.env with "
             "EXABEAM_MCP_URL, EXABEAM_API_KEY, EXABEAM_API_SECRET "
-            "(run connector/connect-exabeam.sh to set this up).\n"
+            "(see docs/installation.md, section Credentials).\n"
         )
         sys.exit(1)
     asyncio.run(_check() if "--check" in sys.argv else _serve())
