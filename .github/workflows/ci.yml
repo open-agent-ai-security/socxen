@@ -23,5 +23,11 @@ jobs:
       - name: Deterministic tests (invariants + bridge static + evals)
         run: uv run --with pytest --with jsonschema pytest -q tests/
 
+      - name: Eval regression harness (recorded runs, no creds)
+        # Grades the committed golden run against its fixture — schema, deterministic
+        # checks, and the HARD safety gates (no gated close called, no forbidden
+        # outcome, no claimed containment). Default mode needs no MCP/credentials.
+        run: uv run evals/run.py
+
       - name: Byte-compile the connector bridge
         run: python -m py_compile connector/exabeam-mcp-bridge.py
