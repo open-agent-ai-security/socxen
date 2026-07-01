@@ -130,7 +130,9 @@ terminal action (see Action matrix). If you were handed only an ID, look it up f
 entities, and the time window. Restate the alert in one plain sentence before going further.
 
 **2 — Establish entities & baseline.** Identify the primary entity (user/host/IP). Pull its recent
-context. Ask whether the triggering activity is normal for it.
+context. Ask whether the triggering activity is normal for it. Enrich the entity with context tables
+(`reference/enrichment.md`) — identity/HR (title, department, employee type, MFA), host/asset, SID/UID
+mapping, watchlists — this is where "is this normal?" becomes a *positive* benign or malicious explanation.
 
 **3 — Gather evidence (read-only, run freely).** Use the Exabeam read surface, not generic intuition
 (see `reference/tool-map.md` for all 20 tools): pivot on the central entity with `exabeam_search_events`

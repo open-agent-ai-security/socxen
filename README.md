@@ -73,8 +73,10 @@ prefixes to `mcp__exabeam__…`.
   **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
 See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, the
-**search cookbook** (EQL grammar + copy-paste query recipes), triage vocabulary, report template,
-the containment list, and **`reference/examples/`** (worked end-to-end investigations + eval fixtures).
+**search cookbook** (EQL grammar + copy-paste query recipes), the **enrichment playbook** (context
+tables that tip FP/TP), triage vocabulary, report template, the containment list, and
+**`reference/examples/`** (worked end-to-end investigations + eval fixtures). Regression tests live in
+`evals/`.
 
 ## Layout
 

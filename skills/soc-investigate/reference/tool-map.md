@@ -44,6 +44,9 @@ always the cause.
 - `exabeam_get_alert_threat_timeline` / `exabeam_get_case_threat_timeline` — prebuilt threat timelines
 - `exabeam_threat_summary` — summarized threat view
 - `exabeam_get_context_table_records` / `exabeam_context_table_list` — context-table enrichment
+  (identity/HR, host/asset, SID/UID mapping, watchlists). `context_table_list` takes no args;
+  `get_context_table_records` → `arg0: {tableId, limit, offset}`. Which tables tip FP/TP and how to use
+  them: `enrichment.md`.
 
 ## Understand what fired
 - `exabeam_get_correlation_rule_details` — what a correlation rule keys on (fast FP/TP tell)
