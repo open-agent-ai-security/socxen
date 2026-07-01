@@ -12,6 +12,9 @@ the most common first-call error:
   `exabeam_search_alerts` → `{"arg0": {"filter": "…", "fields": ["*"], "limit": 10, "orderBy": [], "startTime": "…", "endTime": "…"}}`.
 - **Write tools → `arg1`** (NOT `arg0`): `exabeam_create_case`, `exabeam_create_case_notes`,
   `exabeam_update_alert`, `exabeam_update_case`.
+- **No-arg tools → call with `{}`** (verified via `list_tools`: no `arg0`/`arg1`, empty schema):
+  `exabeam_context_table_list`, `exabeam_correlation_rule_list`, `exabeam_analytics_rule_list`,
+  `exabeam_get_mitre_coverage`, `exabeam_get_use_case_score`.
 
 Write-tool fields (required in **bold**):
 

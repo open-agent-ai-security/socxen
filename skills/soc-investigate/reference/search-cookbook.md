@@ -90,9 +90,25 @@ real in-product queries.
   `/search/v2/events` examples but not the general EQL UI docs, so treat `from <table>` as
   API-example-sourced rather than broadly documented.
 
-> **Object form vs. SQL form.** Simple filters go in `filter` with `fields`/`groupBy`/`orderBy` as
-> object keys (below). Complex analytics can instead be written entirely inside `filter` as one
-> `SELECT … WHERE … GROUP-BY …` string. Both hit the same engine — use whichever is clearer.
+> **Object form vs. SQL form.** Simple filters go in `filter` with `fields`/`orderBy` as object keys
+> (below). Complex analytics can *in principle* be written inside `filter` as one
+> `SELECT … WHERE … GROUP-BY …` string. But see the tested-reality note next before relying on either
+> aggregation path.
+
+> ⚠️ **Tested reality — aggregation/`groupBy` failed on the live MCP** (Exabeam staging, 2026-06,
+> `AAA_ESA` search engine). Across every construction tried, aggregation did **not** work through
+> `search_events`:
+> - object-form (`fields:["…","COUNT(x) as n"]` + `groupBy`) → **400** *"select list expression
+>   references column(s) which is neither grouped nor aggregated"* (with or without a filter/orderBy);
+> - SQL-form (`SELECT … GROUP-BY …` in `filter`) and bare `groupBy` → **500** internal error;
+> - `distinct:true` returned rows but with **empty field projections**.
+>
+> Plain searches (`filter` + `fields` + `orderBy` + `limit`) work perfectly. **So for counts, don't
+> aggregate server-side — run the targeted filter and read `totalRows`, then break down by pulling the
+> rows and counting client-side.** The recipes below use that pattern. The aggregation grammar is left
+> documented above because it's valid EQL and may work on other deployments/versions — but treat it as
+> *verify-before-use*, never as the basis of an automated verdict, until it's confirmed on your MCP.
+> (This looks like a server-side limitation/bug worth raising with the Exabeam MCP/search team.)
 
 ## Field vocabulary (what to pivot on)
 
@@ -123,25 +139,28 @@ Canonical CIM names. These are the ones triage actually turns on — filter and 
 ## Recipes — mapped to the investigation loop
 
 ### Step 2 — baseline: "is this normal for this entity?"
-There is no entity-lookup tool; you baseline with search. Pull the entity's recent behavior and eyeball
-what's routine before you judge the triggering event.
+There is no entity-lookup tool; you baseline with search. Since server-side aggregation is unreliable
+(above), pull the entity's recent rows and count/cluster them yourself.
 
 ```jsonc
-// What does jsmith normally do? (activity mix over the last week)
+// What does jsmith normally do? Pull a wide sample; read the activity_type spread client-side.
 {"arg0": {"filter": "user:\"jsmith\"",
-  "fields": ["activity_type","count(activity_type) as n"],
-  "groupBy": ["activity_type"], "orderBy": ["n DESC"],
-  "startTime": "<t-7d>", "endTime": "<t>", "limit": 100}}
+  "fields": ["time","activity_type","src_ip","dest_host","result"],
+  "orderBy": ["time DESC"], "startTime": "<t-7d>", "endTime": "<t>", "limit": 1000}}
 
-// Where does jsmith normally sign in from? (baseline geo/IP)
-{"arg0": {"filter": "user:\"jsmith\" AND activity_type:\"authentication\"",
-  "fields": ["src_ip","country","city","count(*) as n"],
-  "groupBy": ["src_ip","country","city"], "orderBy": ["n DESC"],
-  "startTime": "<t-30d>", "endTime": "<t>", "limit": 200}}
+// Baseline sign-in origins: pull auth events over 30d and eyeball the src_ip / country set.
+{"arg0": {"filter": "user:\"jsmith\" AND activity_type:\"authentication-successful\"",
+  "fields": ["time","src_ip","geo_src_ip.country"],
+  "orderBy": ["time DESC"], "startTime": "<t-30d>", "endTime": "<t>", "limit": 1000}}
+
+// Cheap "does it ever happen?" check — read totalRows, not the rows.
+{"arg0": {"filter": "user:\"jsmith\" AND geo_src_ip.country:\"ru\"",
+  "fields": ["time"], "startTime": "<t-30d>", "endTime": "<t>", "limit": 1}}
 ```
 
-A country/IP that appears for the first time in the alert window, against a 30-day baseline that never
-shows it, is a real signal. A country the user hits weekly is not.
+A country/IP that appears for the first time in the alert window, against a 30-day baseline where
+`totalRows` is 0, is a real signal. A country the user hits weekly is not. **`totalRows` is the count**
+— you don't need aggregation to answer "how many / ever?"
 
 ### Step 3 — pivot the entity chain (user → host → IP → process)
 Each answer feeds the next filter.
@@ -188,11 +207,13 @@ often decides the verdict before any correlation-rule reading.
   "fields": ["time","src_ip","auth_method","logon_type","result"],
   "orderBy": ["time DESC"], "startTime": "<t-6h>", "endTime": "<t>", "limit": 500}}
 ```
-Then count sources to tell spray from a single fat-fingered client:
+Then tell spray from a single fat-fingered client: pull the failed attempts and count `src_ip`
+client-side (server-side `groupBy` is unreliable). `totalRows` gives the volume; the rows give the
+spread of sources:
 ```jsonc
 {"arg0": {"filter": "dest_user:\"jsmith\" AND result:\"failed\"",
-  "fields": ["src_ip","count(*) as attempts"], "groupBy": ["src_ip"],
-  "orderBy": ["attempts DESC"], "startTime": "<t-6h>", "endTime": "<t>", "limit": 100}}
+  "fields": ["time","src_ip","auth_method"],
+  "orderBy": ["time DESC"], "startTime": "<t-6h>", "endTime": "<t>", "limit": 1000}}
 ```
 
 ### Watchlist / allowlist test (context tables)
@@ -230,38 +251,43 @@ value-sets do the heavy lifting (patterns below are real in-product query shapes
 > (`\\host\share`, `.library-ms`) the backslashes stack up fast — build and test the pattern in the
 > Search UI first, then escape it for the API call.
 
-## Queue sweep & reporting (aggregation)
+## Queue sweep & reporting
 
 **Untriaged alerts** — this is an *alert* search, not events, but it's the queue-sweep entry point
 (`exabeam_search_alerts`, same `SearchDetails` shape; real alert fields:
 `alertId, alertName, caseId, caseNumber, creationTimestamp, mitres, priority, product, riskScore,
-rules, tags, useCases, user, vendor`):
+rules, tags, useCases, user, vendor`). **Verified live** — this exact query returns real alerts:
 
 ```jsonc
 {"arg0": {"filter": "caseId:null",
   "fields": ["alertId","alertName","priority","riskScore","user","mitres","rules","creationTimestamp"],
   "orderBy": ["riskScore DESC"], "startTime": "<t-24h>", "endTime": "<t>", "limit": 500}}
 ```
-`caseId:null` = alerts not yet pulled into a case. Order by `riskScore DESC`, cluster by `user`/`rules`,
-and prioritize — remember (per SKILL Modes) a sweep *prioritizes*, it does not *conclude*.
+`caseId:null` = alerts not yet pulled into a case. Order by `riskScore DESC`, then cluster by
+`user`/`rules` **client-side** and prioritize — remember (per SKILL Modes) a sweep *prioritizes*, it
+does not *conclude*.
 
-**Field Summary / "what's in this data?"** — orient before you filter:
+**"What's in this data?" / field discovery** — orient before you filter. Server-side aggregation is
+unreliable (see the tested-reality note), so pull a recent sample and read the `product`/`activity_type`
+spread off the rows:
 ```jsonc
 {"arg0": {"filter": "",
-  "fields": ["product","COUNT(product) as product_count"],
-  "groupBy": ["product"], "orderBy": ["COUNT(product) DESC"],
-  "startTime": "<t-24h>", "endTime": "<t>", "limit": 100}}
+  "fields": ["time","product","vendor","activity_type"],
+  "orderBy": ["time DESC"], "startTime": "<t-24h>", "endTime": "<t>", "limit": 200}}
 ```
-Swap `product` for any field to discover its real values (and confirm a field name exists) instead of
-guessing. This is the honest way to find a field you're unsure of.
+Requested fields that are empty are simply omitted from a row — so a field that never appears across a
+healthy sample is either unpopulated in this data or misspelled. Confirm exact field values in the
+Search UI when in doubt rather than guessing.
 
-**Reporting caution** (per SKILL Modes): aggregation *amplifies* data-quality artifacts. A count that
-alarms mainly by its size is a noise hypothesis before it's a scale story — verify the underlying rows
-before a number goes in a brief.
+**Reporting caution** (per SKILL Modes): counts *amplify* data-quality artifacts. A number that alarms
+mainly by its size is a noise hypothesis before it's a scale story — verify the underlying rows before
+it goes in a brief. (And since you're counting client-side from a capped `limit`, note when a count is
+a floor, not a total: `totalRows` is the true count even when you only pulled `limit` rows.)
 
 ## Quality bar for a query
 
 - **Tight window.** Start narrow (the alert window ± hours); widen only with a reason.
 - **Named fields over `*`** once you know what you're after — skimmable evidence, cheaper calls.
-- **Count before you conclude.** `totalRows` and `groupBy` counts turn "I saw some" into a number.
+- **Count with `totalRows`, not aggregation.** A targeted filter + `totalRows` turns "I saw some" into a
+  number — and it actually works on the live MCP, where `groupBy` doesn't.
 - **Cite it.** Every row that lands in the report names the query/tool that produced it (report-template).
