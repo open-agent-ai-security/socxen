@@ -91,24 +91,27 @@ real in-product queries.
   API-example-sourced rather than broadly documented.
 
 > **Object form vs. SQL form.** Simple filters go in `filter` with `fields`/`orderBy` as object keys
-> (below). Complex analytics can *in principle* be written inside `filter` as one
-> `SELECT … WHERE … GROUP-BY …` string. But see the tested-reality note next before relying on either
-> aggregation path.
+> (below). The EQL aggregation grammar above (SQL-style `SELECT … GROUP-BY …`, `groupBy`, `distinct`) is
+> real and valid — but read the tested-reality note next: **through the MCP `search_events` tool it does
+> not reach the engine.**
 
-> ⚠️ **Tested reality — aggregation/`groupBy` failed on the live MCP** (Exabeam staging, 2026-06,
-> `AAA_ESA` search engine). Across every construction tried, aggregation did **not** work through
-> `search_events`:
-> - object-form (`fields:["…","COUNT(x) as n"]` + `groupBy`) → **400** *"select list expression
->   references column(s) which is neither grouped nor aggregated"* (with or without a filter/orderBy);
-> - SQL-form (`SELECT … GROUP-BY …` in `filter`) and bare `groupBy` → **500** internal error;
-> - `distinct:true` returned rows but with **empty field projections**.
+> ⚠️ **Tested reality — aggregation isn't available *through the MCP tool*** (verified against a live
+> Exabeam MCP, 2026-06; reproduce by sending any `groupBy` and watching it get dropped). The limitation
+> is the **MCP layer, not the API**:
+> - The MCP `search_events` tool forwards only `filter`, `fields`, `limit`, `startTime`, `endTime`,
+>   `orderBy`. **`groupBy` and `distinct` are silently dropped** — so an object-form aggregate becomes
+>   `SELECT col, COUNT(col) …` with no GROUP BY and the engine rejects it: **400** *"select list
+>   expression references column(s) which is neither grouped nor aggregated."*
+> - A SQL-style `SELECT … GROUP-BY …` placed in `filter` **500s** through the tool as well.
+> - Plain searches (`filter` + `fields` + `orderBy` + `limit`) work perfectly.
+> - **The underlying REST `POST /search/v2/events` *does* support full aggregation** (`groupBy`,
+>   `COUNT/SUM/AVG`, `distinct`, SQL-form) — confirmed returning correct counts when called directly.
+>   The gap is only in what the MCP tool forwards.
 >
-> Plain searches (`filter` + `fields` + `orderBy` + `limit`) work perfectly. **So for counts, don't
-> aggregate server-side — run the targeted filter and read `totalRows`, then break down by pulling the
-> rows and counting client-side.** The recipes below use that pattern. The aggregation grammar is left
-> documented above because it's valid EQL and may work on other deployments/versions — but treat it as
-> *verify-before-use*, never as the basis of an automated verdict, until it's confirmed on your MCP.
-> (This looks like a server-side limitation/bug worth raising with the Exabeam MCP/search team.)
+> **So, through this skill (which uses the MCP tool): don't aggregate server-side — run the targeted
+> filter and read `totalRows`, then break down by pulling the rows and counting client-side.** The
+> recipes below use that pattern. (If your integration can call the REST endpoint directly, the
+> aggregation grammar above works there as written.)
 
 ## Field vocabulary (what to pivot on)
 
@@ -297,5 +300,5 @@ a floor, not a total: `totalRows` is the true count even when you only pulled `l
 - **Tight window.** Start narrow (the alert window ± hours); widen only with a reason.
 - **Named fields over `*`** once you know what you're after — skimmable evidence, cheaper calls.
 - **Count with `totalRows`, not aggregation.** A targeted filter + `totalRows` turns "I saw some" into a
-  number — and it actually works on the live MCP, where `groupBy` doesn't.
+  number — and it works through the MCP tool, which drops `groupBy`/`distinct` (see tested-reality note).
 - **Cite it.** Every row that lands in the report names the query/tool that produced it (report-template).
