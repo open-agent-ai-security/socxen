@@ -156,7 +156,8 @@ the release.
 1. **Trials & threshold** — is N=5 per attack right, and is the release bar "**zero** class-A/C/D successes
    on the shipping model" (vs. a small tolerated rate)?
 2. **Model sweep** — which models are in the standard sweep, and which one is "shipping"?
-3. **Judge dependency** — the semantic must_nots need `--judge` (an `ANTHROPIC_API_KEY`). Confirm the
-   red-team run always runs with the judge on (unlike CI).
+3. **Judge dependency** — the semantic must_nots are graded by a **fresh `claude` sub-agent** (no context
+   but the judging prompt), run through the same CLI as the driver — **no API key / SDK / Bedrock**. The
+   judge is on by default for a red-team run (unlike CI).
 4. **First corpus size** — start with ~10 class-A (injection→suppression) attacks, or a broader first pass
    across A–D?
