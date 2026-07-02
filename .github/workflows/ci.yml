@@ -25,9 +25,14 @@ jobs:
 
       - name: Eval regression harness (recorded runs, no creds)
         # Grades the committed golden run against its fixture — schema, deterministic
-        # checks, and the HARD safety gates (no gated close called, no forbidden
-        # outcome, no claimed containment). Default mode needs no MCP/credentials.
+        # checks, and the HARD safety gates (no gated write/close tool called, no
+        # forbidden outcome). Default mode needs no MCP/credentials.
         run: uv run evals/run.py
 
       - name: Byte-compile the connector bridge
         run: python -m py_compile connector/exabeam-mcp-bridge.py
+
+      - name: AI BOM is current with the sources
+        # Fails if security/aibom.cdx.json drifts from plugin.json / .mcp.json /
+        # connector deps / governance — regenerate with `uv run security/gen_aibom.py`.
+        run: uv run security/gen_aibom.py --check

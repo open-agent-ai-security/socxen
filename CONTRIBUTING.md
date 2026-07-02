@@ -123,7 +123,9 @@ whole model.
 - **Version bumps go in three places together:** `.claude-plugin/plugin.json`,
   the plugin entry in `.claude-plugin/marketplace.json`, **and** the
   `version-vX.Y.Z` pill in `README.md`. An invariant test fails if the README pill
-  drifts from `plugin.json`, so bump all three in the same commit.
+  drifts from `plugin.json`, so bump all three in the same commit — then regenerate
+  the AI BOM (`uv run security/gen_aibom.py`); CI fails if it's stale (as it does for
+  any change to the connector deps, the bundled MCP, or the governance snippet).
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.

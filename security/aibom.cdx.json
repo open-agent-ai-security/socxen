@@ -1,0 +1,273 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:e3dd80de-63f6-512b-9ca1-9166db6c5f23",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "bom-ref": "socxen@0.5.0",
+      "type": "application",
+      "name": "socxen",
+      "version": "0.5.0",
+      "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "supplier": {
+        "name": "Open Agent AI Security",
+        "url": [
+          "https://github.com/open-agent-ai-security"
+        ]
+      },
+      "publisher": "Exabeam",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/open-agent-ai-security/socxen"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/open-agent-ai-security/socxen"
+        },
+        {
+          "type": "distribution",
+          "url": "https://github.com/open-agent-ai-security/socxen",
+          "comment": "Claude Code plugin marketplace: socxen@socxen"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ai:systemType",
+          "value": "agent"
+        },
+        {
+          "name": "ai:platform",
+          "value": "Claude Code plugin (skill)"
+        },
+        {
+          "name": "ai:skillName",
+          "value": "soc-investigate"
+        }
+      ]
+    },
+    "supplier": {
+      "name": "Open Agent AI Security",
+      "url": [
+        "https://github.com/open-agent-ai-security"
+      ]
+    },
+    "authors": [
+      {
+        "name": "Exabeam"
+      }
+    ],
+    "properties": [
+      {
+        "name": "ai:foundationModel",
+        "value": "Claude (Anthropic), external hosted API"
+      },
+      {
+        "name": "ai:humanInTheLoop",
+        "value": "required for dismiss/close (update_alert/update_case)"
+      },
+      {
+        "name": "ai:autonomousActions",
+        "value": "read/search + create_case/case_notes (escalation)"
+      },
+      {
+        "name": "ai:containmentCapability",
+        "value": "none — recommend-only, performed by a human in EDR/IAM"
+      },
+      {
+        "name": "ai:guardrails",
+        "value": "permission tiers 18 allow / 4 ask / 17 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+      },
+      {
+        "name": "ai:secretsHandling",
+        "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged"
+      },
+      {
+        "name": "aibom:generator",
+        "value": "security/gen_aibom.py (deterministic, from repo sources)"
+      }
+    ],
+    "timestamp": "2026-07-02T17:00:51Z"
+  },
+  "components": [
+    {
+      "bom-ref": "model:anthropic-claude",
+      "type": "machine-learning-model",
+      "name": "Claude (Anthropic)",
+      "description": "Foundation model the skill runs on. Hosted API — weights are not distributed with socxen. The specific member (e.g. Opus / Sonnet) is selected at runtime by Claude Code, not pinned by socxen.",
+      "supplier": {
+        "name": "Anthropic",
+        "url": [
+          "https://www.anthropic.com"
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://www.anthropic.com/claude"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ai:hosting",
+          "value": "external-hosted-api"
+        },
+        {
+          "name": "ai:weightsDistributed",
+          "value": "false"
+        },
+        {
+          "name": "ai:pinnedByThisProject",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "bom-ref": "artifact:soc-investigate-methodology",
+      "type": "data",
+      "name": "soc-investigate methodology (system prompt + reference corpus)",
+      "description": "The agent's instructions: SKILL.md (investigation methodology, governance, output discipline) plus reference/ (tool map, EQL search cookbook, enrichment playbook, report template, triage taxonomy, containment list, worked examples). This prompt corpus — not a model — is the primary AI artifact socxen ships.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "ai:artifactKind",
+          "value": "system-prompt/methodology"
+        },
+        {
+          "name": "ai:untrustedInputHandling",
+          "value": "treats tool output (alerts/events/case notes) as data, never instructions"
+        }
+      ]
+    },
+    {
+      "bom-ref": "component:exabeam-mcp-bridge",
+      "type": "application",
+      "name": "exabeam-mcp-bridge",
+      "description": "Bundled local stdio MCP connector (connector/exabeam-mcp-bridge.py). Forwards to the remote Exabeam New-Scale MCP and auto-refreshes the OAuth token. Read-through; handles the API key/secret.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "runtime",
+          "value": "python"
+        },
+        {
+          "name": "requires-python",
+          "value": ">=3.11"
+        },
+        {
+          "name": "pep723",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:pypi/mcp",
+      "type": "library",
+      "name": "mcp",
+      "version": ">=1.0",
+      "purl": "pkg:pypi/mcp",
+      "description": "Connector dependency (mcp>=1.0), resolved by uv at runtime (PEP 723)."
+    },
+    {
+      "bom-ref": "pkg:pypi/httpx",
+      "type": "library",
+      "name": "httpx",
+      "version": ">=0.27",
+      "purl": "pkg:pypi/httpx",
+      "description": "Connector dependency (httpx>=0.27), resolved by uv at runtime (PEP 723)."
+    },
+    {
+      "bom-ref": "pkg:pypi/certifi",
+      "type": "library",
+      "name": "certifi",
+      "version": "unspecified",
+      "purl": "pkg:pypi/certifi",
+      "description": "Connector dependency (certifi), resolved by uv at runtime (PEP 723)."
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "service:exabeam-mcp",
+      "name": "Exabeam New-Scale MCP",
+      "description": "External tool surface reached through the bundled connector: 20 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via .mcp.json as a bundled MCP server.",
+      "endpoint": "https://api.<region>.exabeam.cloud/mcp",
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "security-telemetry (alerts, events, cases — attacker-influenceable)"
+        },
+        {
+          "flow": "outbound",
+          "classification": "case-management actions (create/notes: free; dismiss/close: human-gated)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html"
+        }
+      ],
+      "properties": [
+        {
+          "name": "mcp:toolCount",
+          "value": "20"
+        },
+        {
+          "name": "mcp:containmentCapability",
+          "value": "none"
+        },
+        {
+          "name": "mcp:transport",
+          "value": "stdio bridge -> streamable-http"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "socxen@0.5.0",
+      "dependsOn": [
+        "model:anthropic-claude",
+        "artifact:soc-investigate-methodology",
+        "component:exabeam-mcp-bridge",
+        "service:exabeam-mcp"
+      ]
+    },
+    {
+      "ref": "component:exabeam-mcp-bridge",
+      "dependsOn": [
+        "pkg:pypi/mcp",
+        "pkg:pypi/httpx",
+        "pkg:pypi/certifi"
+      ]
+    },
+    {
+      "ref": "artifact:soc-investigate-methodology",
+      "dependsOn": [
+        "model:anthropic-claude"
+      ]
+    }
+  ]
+}
