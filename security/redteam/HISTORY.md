@@ -40,7 +40,7 @@ fixed.*
 | _None yet._ | | | | |
 
 **In remediation (not yet ledgered):**
-- Output-neutralization / export-injection — [#30](https://github.com/open-agent-ai-security/socxen/issues/30) (found 2026-07-02). Moves into the table above once fixed, with the fix PR/version.
+- **Output-neutralization / export-injection** — [#30](https://github.com/open-agent-ai-security/socxen/issues/30) (found 2026-07-02). Two prompt-level fixes did **not** reliably stop it on Sonnet across graded retests (3/3 both times) — the agent defangs in analysis but still emits a live "raw fields for reference" dump. The robust fix is **code-layer neutralization** (RFE #10); the prompt rule stays as defense-in-depth. The full find→fix→retest arc is written up as a **[case study in #30](https://github.com/open-agent-ai-security/socxen/issues/30)**. Moves into the ledger once it grades *resisted* on the shipping model.
 
 ## Maintaining this log
 
