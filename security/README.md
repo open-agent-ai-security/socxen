@@ -16,7 +16,7 @@ an SBOM and behavior-assurance reports.
 | `gen_aibom.py` | Generator — assembles the AI BOM deterministically from the repo's own sources. |
 | `aibom.cdx.json` | **AI Bill of Materials** — CycloneDX 1.6 JSON. The machine-readable inventory. |
 | `aibom.html` | Human-readable render of the same BOM (self-contained, no external assets). |
-| `redteam/` | **Red-team** — the pre-release adversarial exercise: `PLAN.md`, the `attacks/` corpus, `run.py` (live runner), and dated `results/`. See `redteam/PLAN.md`. |
+| `redteam/` | **Red-team** — the pre-release adversarial exercise. Start with `redteam/METHODOLOGY.md` (what we test & why); `redteam/PLAN.md` is the operational plan; `attacks/` is the corpus, `run.py` the live runner, `results/` the dated reports. |
 
 Planned neighbors (not yet here): an **SBOM** (dependency bill of materials) and
 **Praxen** agent-behavior reports.
