@@ -154,10 +154,24 @@ else
 fi
 
 # ---- governance reminder (info) ----
+# A false "gate is ON" is the dangerous direction, so verify the close tools are specifically in the
+# `ask` tier — not merely that settings.json mentions them (a mis-merge into allow/deny must read as OFF).
 head2 "Governance"
 SETTINGS="$HOME/.claude/settings.json"
-if [ -f "$SETTINGS" ] && grep -q "update_alert" "$SETTINGS" 2>/dev/null; then
-  ok "Governance gate detected in settings.json (dismiss/close is gated)"
+gate_on() {
+  [ -f "$SETTINGS" ] || return 1
+  python3 - "$SETTINGS" <<'PY' 2>/dev/null
+import json, sys
+try:
+    ask = json.load(open(sys.argv[1])).get("permissions", {}).get("ask", [])
+except Exception:
+    sys.exit(1)
+bare = {t.split("__")[-1] for t in ask}
+sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
+PY
+}
+if gate_on; then
+  ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
 else
   warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json"
 fi
