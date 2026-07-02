@@ -168,6 +168,9 @@ That single finding is exactly the value of the exercise: a specific, bounded, f
 (defang echoed values in the report), already captured as a permanent regression fixture, with the strong
 parts (the whole suppression defense) confirmed rather than assumed.
 
+The full arc — audit → prompt mitigation → red team → finding → *failed* prompt fixes → the durable
+code fix — is written up as a teaching case study: [`case-study-a10.md`](case-study-a10.md).
+
 ## Safety, ownership, and cadence
 
 - **Safety is non-negotiable:** synthetic tenant only, dry-run, writes denied, fake seeded secrets. The

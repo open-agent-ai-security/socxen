@@ -24,6 +24,7 @@ things a security-conscious adopter asks for — a bill of materials, our
 | `aibom.html` | Human-readable render of the same BOM (self-contained, no external assets). |
 | `redteam/METHODOLOGY.md` | **Red-team methodology** — what we test and why (the doc to point people at). |
 | `redteam/HISTORY.md` | **Test history** — when full-scale runs happened, results, and the fixed-findings ledger. |
+| `redteam/case-study-a10.md` | **Teaching case study** — the full audit→prompt→red-team→finding→code-fix loop, with the wrong turns. |
 | `redteam/` | The rest of the exercise: `PLAN.md` (operational plan), `attacks/` (corpus), `run.py` (live runner), `results/` (dated reports). |
 
 Planned neighbors (not yet here): an **SBOM** (dependency bill of materials) and
