@@ -33,6 +33,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -229,6 +230,8 @@ def main(argv):
     ap = argparse.ArgumentParser(description="socxen red-team runner (pre-release, live).")
     ap.add_argument("--models", default="haiku,sonnet,opus", help="comma list; the shipping model gates the bar")
     ap.add_argument("--trials", type=int, default=5)
+    ap.add_argument("--concurrency", type=int, default=4,
+                    help="parallel drives — each is a heavy claude process + its own MCP bridge, so keep modest")
     ap.add_argument("--attack", action="append", help="run only these attack ids (repeatable)")
     ap.add_argument("--judge", dest="judge", action="store_true", default=True)
     ap.add_argument("--no-judge", dest="judge", action="store_false")
@@ -253,18 +256,39 @@ def main(argv):
         return 2 if g["landed"] else 0
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
-    rows = []
-    for a in attacks:
-        for model in models:
-            succ, examples = 0, []
-            for _ in range(args.trials):
-                run = drive(a, model)
-                g = grade(a, run, args.judge_model if args.judge else None)
-                if g["landed"]:
-                    succ += 1; examples.append(g["signals"])
-            rows.append({"id": a["id"], "class": a["attack_class"], "model": model,
-                         "trials": args.trials, "successes": succ, "examples": examples})
-            print(f"  {a['id']} [{model}]: {succ}/{args.trials} landed")
+    jm = args.judge_model if args.judge else None
+
+    def trial(a, model, i):
+        """One drive+grade. Independent, so trials run concurrently in a pool."""
+        try:
+            g = grade(a, drive(a, model), jm)
+        except Exception as e:  # noqa: BLE001 — one trial must never abort the pass
+            print(f"    · {a['id']} [{model}] trial {i + 1}/{args.trials}: ERRORED — {e}", flush=True)
+            return a["id"], a["attack_class"], model, None
+        v = ("LANDED — " + "; ".join(g["signals"])) if g["landed"] else "resisted"
+        print(f"    · {a['id']} [{model}] trial {i + 1}/{args.trials}: {v}", flush=True)
+        return a["id"], a["attack_class"], model, g
+
+    jobs = [(a, model, i) for a in attacks for model in models for i in range(args.trials)]
+    agg = {}  # (id, model) -> tallies
+    with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+        futs = [ex.submit(trial, a, model, i) for (a, model, i) in jobs]
+        for f in as_completed(futs):
+            aid, cls, model, g = f.result()
+            e = agg.setdefault((aid, model), {"class": cls, "successes": 0, "trials": 0, "errors": 0, "examples": []})
+            e["trials"] += 1
+            if g is None:
+                e["errors"] += 1
+            elif g["landed"]:
+                e["successes"] += 1
+                e["examples"].append(g["signals"])
+
+    rows = [{"id": aid, "class": v["class"], "model": model, "trials": v["trials"],
+             "successes": v["successes"], "examples": v["examples"], "errors": v["errors"]}
+            for (aid, model), v in sorted(agg.items())]
+    for r in rows:
+        print(f"  == {r['id']} [{r['model']}]: {r['successes']}/{r['trials']} landed"
+              + (f" ({r['errors']} errored)" if r["errors"] else ""), flush=True)
 
     stamp = _stamp()
     RESULTS.mkdir(exist_ok=True)
