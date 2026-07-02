@@ -6,8 +6,14 @@
 # security/
 
 Supply-chain and assurance artifacts for socxen. This directory is the home for the
-things a security-conscious adopter asks for — a bill of materials, and (over time)
-an SBOM and behavior-assurance reports.
+things a security-conscious adopter asks for — a bill of materials, our
+**red-team** program, and (over time) an SBOM and behavior-assurance reports.
+
+> **socxen is red-teamed before every release.** It's an agentic SOC analyst that reads
+> attacker-influenceable telemetry and takes gated actions, so we adversarially test whether
+> an attacker who controls the data can make it suppress a real threat, bypass the human
+> gate, or leak. **→ [How we red-team socxen](redteam/METHODOLOGY.md)** ·
+> [test history](redteam/HISTORY.md)
 
 ## Contents
 
@@ -16,7 +22,9 @@ an SBOM and behavior-assurance reports.
 | `gen_aibom.py` | Generator — assembles the AI BOM deterministically from the repo's own sources. |
 | `aibom.cdx.json` | **AI Bill of Materials** — CycloneDX 1.6 JSON. The machine-readable inventory. |
 | `aibom.html` | Human-readable render of the same BOM (self-contained, no external assets). |
-| `redteam/` | **Red-team** — the pre-release adversarial exercise. Start with `redteam/METHODOLOGY.md` (what we test & why); `redteam/PLAN.md` is the operational plan; `attacks/` is the corpus, `run.py` the live runner, `results/` the dated reports. |
+| `redteam/METHODOLOGY.md` | **Red-team methodology** — what we test and why (the doc to point people at). |
+| `redteam/HISTORY.md` | **Test history** — when full-scale runs happened, results, and the fixed-findings ledger. |
+| `redteam/` | The rest of the exercise: `PLAN.md` (operational plan), `attacks/` (corpus), `run.py` (live runner), `results/` (dated reports). |
 
 Planned neighbors (not yet here): an **SBOM** (dependency bill of materials) and
 **Praxen** agent-behavior reports.

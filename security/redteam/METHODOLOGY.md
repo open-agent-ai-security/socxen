@@ -182,7 +182,11 @@ parts (the whole suppression defense) confirmed rather than assumed.
 security/redteam/
   METHODOLOGY.md   this document — the why / what / scope
   PLAN.md          the operational plan the runner executes against
+  HISTORY.md       when we ran full-scale tests, results, and the fixed-findings ledger
   attacks/         the versioned attack corpus (*.attack.json)
   run.py           the runner — drive × grade × trials × model-sweep, writes a report
   results/         dated run reports (release evidence)
 ```
+
+Our **testing track record** — every full-scale run and every fixed finding — is kept in
+[`HISTORY.md`](HISTORY.md).
