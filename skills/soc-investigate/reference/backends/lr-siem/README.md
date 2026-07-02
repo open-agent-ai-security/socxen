@@ -13,6 +13,13 @@ template) lives in the core; everything LogRhythm-specific lives here.
 Runs against the [`lrsiem-mcp`](https://github.com/…/lrsiem-mcp) server (LR SIEM 7.x
 REST, 77 tools). Connection: `LRSIEM_BASE_URL` + `LRSIEM_API_TOKEN` (pre-minted JWT).
 
+> ⚠️ **Security — connection.** LR auth is a **pre-minted JWT with no refresh**
+> (`LRSIEM_API_TOKEN`) — treat it like a password: `chmod 600` the creds file, and rotate it
+> in Client Console on any suspected exposure (there's no short-lived-token safety net). And
+> **`LRSIEM_VERIFY_TLS=false` is lab-only** — it disables TLS certificate verification, a real
+> man-in-the-middle exposure. **Do not set it `false` against a production PM;** install a
+> trusted cert and leave verification on.
+
 ## Contents & status
 
 | File | Status | Grounded in |

@@ -119,6 +119,61 @@ def test_deny_list_matches_containment_doc():
     assert not extra_in_deny, f"`deny` tools not documented in containment-tools.md: {extra_in_deny}"
 
 
+# --- LR SIEM backend governance invariants (mirror the New-Scale gate checks) ---
+# The LR MCP isn't bundled in .mcp.json yet (that's the Phase 3a refactor), so the plugin
+# prefix is the anticipated bundled name rather than derived from .mcp.json.
+
+_LR_SNIPPET = ROOT / "skills/soc-investigate/reference/backends/lr-siem/governance.snippet.json"
+LR_PRESENT = _LR_SNIPPET.exists()
+if LR_PRESENT:
+    _lr = json.loads(_LR_SNIPPET.read_text())["permissions"]
+    LR_ALLOW, LR_ASK, LR_DENY = _lr["allow"], _lr["ask"], _lr["deny"]
+LR_GATED = ["update_alarm_status", "update_case_status"]   # close/dismiss — must be gated
+LR_SAFE = ["create_case", "add_case_note"]                 # escalate/document — stay allowed
+LR_DENIED = ["delete_case_evidence", "delete_playbook", "retire_list",           # destructive
+             "update_aie_rule_statuses", "restart_aie_engine", "update_host_status"]  # admin/tuning
+_lr_skip = pytest.mark.skipif(not LR_PRESENT, reason="LR SIEM backend pack not present")
+
+
+@_lr_skip
+def test_lr_close_tools_are_gated_never_allowed():
+    """LR dismiss/close = update_alarm_status / update_case_status. Must be in `ask`, never `allow`."""
+    for verb in LR_GATED:
+        assert tier_has(LR_ASK, verb), f"LR {verb} must be in `ask` (the human gate)"
+        assert not tier_has(LR_ALLOW, verb), f"LR {verb} must NOT be in `allow` — that removes the gate"
+
+@_lr_skip
+def test_lr_safe_writes_stay_allowed():
+    for verb in LR_SAFE:
+        assert tier_has(LR_ALLOW, verb), f"LR {verb} should be in `allow` (escalate/document)"
+        assert not tier_has(LR_ASK, verb), f"LR {verb} should not be gated behind `ask`"
+
+@_lr_skip
+def test_lr_destructive_writes_denied_not_allowed():
+    for verb in LR_DENIED:
+        assert tier_has(LR_DENY, verb), f"LR destructive/admin {verb} must be in `deny`"
+        assert not tier_has(LR_ALLOW, verb), f"LR {verb} must not be in `allow`"
+        assert not tier_has(LR_ASK, verb), f"LR {verb} must not be in `ask`"
+
+@_lr_skip
+def test_lr_no_containment_in_allow_or_ask():
+    """LR SIEM MCP exposes no containment; the pack must never introduce a containment-class
+    tool into allow/ask (defense-in-depth for the day one is added)."""
+    verbs = re.compile(r"(isolat|quarantin|disable_(account|user|host)|block_(ip|url|domain)"
+                       r"|kill_|revoke_|lock_account|run_script|delete_file|contain)")
+    for tier_name, tier in (("allow", LR_ALLOW), ("ask", LR_ASK)):
+        hits = [t for t in tier if verbs.search(bare(t))]
+        assert not hits, f"LR: possible containment tool in `{tier_name}`: {hits}"
+
+@_lr_skip
+def test_lr_rules_use_expected_prefix():
+    expected = "mcp__plugin_socxen_lrsiem__"
+    plugin_rules = [t for r in (LR_ALLOW, LR_ASK, LR_DENY) for t in r if t.startswith("mcp__plugin_")]
+    assert plugin_rules, "no plugin-namespaced LR rules found"
+    bad = [t for t in plugin_rules if not t.startswith(expected)]
+    assert not bad, f"LR rules not using {expected!r}: {bad}"
+
+
 # --- supporting Tier-1 invariants ---
 
 def _canonical_tools():
