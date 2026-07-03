@@ -21,7 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Deterministic tests (invariants + bridge static + evals)
-        run: uv run --with pytest --with jsonschema --with regex pytest -q tests/
+        run: uv run --with pytest --with jsonschema pytest -q tests/
 
       - name: Eval regression harness (recorded runs, no creds)
         # Grades the committed golden run against its fixture — schema, deterministic

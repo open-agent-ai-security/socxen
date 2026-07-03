@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "regex>=2024.0"]
+# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi"]
 # ///
 """Exabeam MCP bridge.
 
@@ -108,15 +108,12 @@ _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "
 
 
 def _log_hygiene(hy):
-    """Log the hygiene record OUT-OF-BAND (stderr), never in-band. An earlier revision appended a
-    `⚠ [socxen hygiene] …` line onto the read text, but that (a) was forgeable — attacker telemetry can
-    carry the same marker, (b) re-embedded raw invisibles into the annotation, and (c) corrupted
-    structured (JSON) read payloads. The protection now lives in `clean` itself: canonicalize() strips
-    confirmed-obfuscation invisibles from the value, so nothing needs to be surfaced in-band."""
-    if hy.removed or hy.flagged:
+    """Log what canonicalize() stripped OUT-OF-BAND (stderr) — never appended to the read text (that would
+    be forgeable, could re-embed invisibles, and corrupts structured payloads). The protection lives in
+    `clean` itself: the smuggling code points are stripped from the value."""
+    if hy.removed:
         cps = ", ".join(dict.fromkeys(r["cp"] for r in hy.removed))
-        cls = ", ".join(dict.fromkeys(f["class"] for f in hy.flagged))
-        sys.stderr.write(f"bridge: hygiene — removed [{cps}] flagged [{cls}]\n")
+        sys.stderr.write(f"bridge: hygiene - stripped [{cps}]\n")
 
 
 def _block_text(block):

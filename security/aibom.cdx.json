@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-07-03T04:00:28Z"
+    "timestamp": "2026-07-03T19:36:28Z"
   },
   "components": [
     {
@@ -203,14 +203,6 @@
       "version": "unspecified",
       "purl": "pkg:pypi/certifi",
       "description": "Connector dependency (certifi), resolved by uv at runtime (PEP 723)."
-    },
-    {
-      "bom-ref": "pkg:pypi/regex",
-      "type": "library",
-      "name": "regex",
-      "version": ">=2024.0",
-      "purl": "pkg:pypi/regex",
-      "description": "Connector dependency (regex>=2024.0), resolved by uv at runtime (PEP 723)."
     }
   ],
   "services": [
@@ -268,8 +260,7 @@
       "dependsOn": [
         "pkg:pypi/mcp",
         "pkg:pypi/httpx",
-        "pkg:pypi/certifi",
-        "pkg:pypi/regex"
+        "pkg:pypi/certifi"
       ]
     },
     {

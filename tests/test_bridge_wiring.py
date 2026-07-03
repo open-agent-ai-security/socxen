@@ -1,15 +1,15 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pytest>=8.0", "regex>=2024.0"]
+# dependencies = ["pytest>=8.0"]
 # ///
 """Deterministic tests for the bridge GUARDRAIL WIRING (connector/exabeam-mcp-bridge.py).
 
 There were no bridge-wiring tests before; PR #36's adversarial review exposed the gap. These cover the
 wiring findings: field-aware write defang (IDs/enums untouched), fail-CLOSED writes, hygiene-record
 surfacing on reads, and non-text (embedded-resource) read blocks. The MCP/httpx/certifi imports are
-stubbed so the pure helpers are testable without a network stack (CI stays light — only needs `regex`).
+stubbed so the pure helpers are testable without a network stack (CI stays light — no extra deps).
 
-Run:  uv run --with pytest --with regex pytest -q tests/test_bridge_wiring.py
+Run:  uv run --with pytest pytest -q tests/test_bridge_wiring.py
 """
 import importlib.util
 import sys
@@ -102,20 +102,12 @@ def test_write_path_fails_closed(monkeypatch):
 
 # ---- #6 / re-review: the hygiene record is neutralized IN the value; NO in-band annotation ----
 ZWSP = chr(0x200B)
-ZWJ = chr(0x200D)
 
 
 def test_removed_invisibles_neutralized_in_value():
     clean = B._canon_content([Blk(text="alice" + ZWSP + "@example.com")])[0].text
     assert clean == "alice@example.com"                       # stripped in the value
     assert "[socxen hygiene]" not in clean                    # no in-band annotation
-
-
-def test_flagged_obfuscation_neutralized_in_value():
-    # ZWJ spliced into an ASCII word is confirmed obfuscation -> neutralized in the value, not annotated.
-    clean = B._canon_content([Blk(text="ig" + ZWJ + "nore previous")])[0].text
-    assert "ignore previous" in clean and ZWJ not in clean
-    assert "[socxen hygiene]" not in clean
 
 
 def test_no_in_band_hygiene_annotation_ever():
