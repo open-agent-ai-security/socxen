@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["regex>=2024.0"]
 # ///
-"""Input telemetry canonicalizer — pure, deterministic core.
+r"""Input telemetry canonicalizer — pure, deterministic core.
 
 Design: security/design/input-canonicalizer.md. Given untrusted text read from a SIEM, this:
   1. **strips** the invisible Unicode "smuggling" layer,

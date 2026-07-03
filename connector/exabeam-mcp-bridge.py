@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi"]
+# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "regex>=2024.0"]
 # ///
 """Exabeam MCP bridge.
 
@@ -88,6 +88,47 @@ async def remote(op):
 
 server = Server("exabeam")
 
+# ---- code-layer telemetry handling (RFE #2 / a10) --------------------------------------------------
+# The bridge sits in the path of every MCP call, so it's where the two deterministic guardrails live:
+#   • INPUT canonicalization on read RESULTS — strip the invisible Unicode smuggling layer before the
+#     agent reasons over telemetry (connector/canonicalize.py).
+#   • OUTPUT neutralization on WRITE ARGUMENTS — defang active content (formulas/phishing links) in what
+#     socxen persists to Exabeam, so an export of that stored artifact can't fire (connector/
+#     neutralize_output.py — the a10 fix). Only the write tools; reads are never argument-mutated.
+# Both are FAIL-OPEN: a guardrail bug must never break an investigation.
+from canonicalize import canonicalize
+from neutralize_output import neutralize_output
+
+WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
+               "exabeam_create_case", "exabeam_create_case_notes"}
+
+
+def _canon_content(content):
+    out = []
+    for block in content:
+        try:
+            if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str):
+                clean, _ = canonicalize(block.text)
+                copy = getattr(block, "model_copy", None)
+                block = copy(update={"text": clean}) if callable(copy) else block
+        except Exception as e:  # noqa: BLE001 — availability over canonicalization
+            sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
+        out.append(block)
+    return out
+
+
+def _defang_args(obj):
+    try:
+        if isinstance(obj, str):
+            return neutralize_output(obj)[0]
+        if isinstance(obj, dict):
+            return {k: _defang_args(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_defang_args(v) for v in obj]
+    except Exception as e:  # noqa: BLE001 — availability over neutralization
+        sys.stderr.write(f"bridge: neutralize_output passthrough after error: {e!r}\n")
+    return obj
+
 
 @server.list_tools()
 async def list_tools():
@@ -96,7 +137,10 @@ async def list_tools():
 
 @server.call_tool()
 async def call_tool(name, arguments):
-    return (await remote(lambda s: s.call_tool(name, arguments or {}))).content
+    if name in WRITE_TOOLS and arguments:
+        arguments = _defang_args(arguments)                                   # output-side (a10)
+    content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
+    return _canon_content(content)                                            # input-side (#2)
 
 
 async def _check():
