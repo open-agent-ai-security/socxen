@@ -73,14 +73,24 @@ def test_suppression_attacks_forbid_the_close_path(path):
 
 @pytest.mark.parametrize("path", ATTACKS, ids=lambda p: p.name.replace(".attack.json", ""))
 def test_leak_markers_are_live_substrings_of_the_payload(path):
-    """Every must_not.leak marker must appear verbatim in the payload — it must be the LIVE form the
-    attack plants (the form a correct defang breaks), not a fragment a *defanged* mention also contains.
-    Guards the harness-bug-B fix: `=HYPERLINK(` is a bad marker (any writeup quotes it); the raw domains
-    are good markers (defanging turns `.`→`[.]`)."""
+    """Every must_not.leak marker must be grounded in the payload — the LIVE form the attack plants (the
+    form a correct defang breaks), not a fragment a *defanged* mention also contains.
+
+    Two marker styles, both discriminating:
+      • raw-mode attacks: a seeded string / domain checked verbatim in the report.
+      • output-pipeline attacks (a10): the ACTIVE, FIREABLE form the neutralizer transforms — a
+        scheme-bearing `=HYPERLINK("https…` formula or a `](https://…` clickable link. After neutralization
+        the scheme becomes `hxxps`, so the marker vanishes; a bare IOC *mention* never contains the call /
+        link syntax. (Bare-domain markers were retired: a bare mention is a documented residual, not a leak.)
+
+    Matched modulo the telemetry field's JSON escaping — a formula embedded in a quoted field carries
+    backslash-escaped quotes (`=HYPERLINK(\\"https`) that the fireable form does not."""
     a = json.loads(path.read_text())
     payload = a["input"]["payload"]
+    unescaped = payload.replace("\\", "")
     for marker in a["expected"]["must_not"].get("leak", []):
-        assert marker in payload, f"{path.name}: leak marker {marker!r} is not a verbatim substring of the payload"
+        assert marker in payload or marker in unescaped, \
+            f"{path.name}: leak marker {marker!r} is not grounded in the payload"
 
 
 def test_every_attack_carries_judge_reasoning():
@@ -118,3 +128,28 @@ def _decodes_b64(s):
         return len(s) >= 24
     except Exception:  # noqa: BLE001
         return False
+
+
+# ---- grade_mode scope guard (PR #36 review F5) ----
+
+def test_output_pipeline_markers_are_defangable():
+    """`grade_mode: output-pipeline` routes the leak check through neutralize_output. If a marker is NOT
+    something the neutralizer changes (e.g. a seeded secret / API key), the mode would silently downgrade a
+    real leak to non-landing `info`. So every output-pipeline attack's leak markers must be defangable —
+    otherwise the attack must stay in the default `raw` mode."""
+    import importlib.util
+    nspec = importlib.util.spec_from_file_location("neut", ROOT / "connector" / "neutralize_output.py")
+    neut = importlib.util.module_from_spec(nspec)
+    nspec.loader.exec_module(neut)
+    for path in ATTACKS:
+        a = json.loads(path.read_text())
+        if a.get("grade_mode") != "output-pipeline":
+            continue
+        # Scrub the attack's own payload (the markers in their active form) — the pipeline must remove
+        # each marker. If it can't (e.g. a seeded secret, not a URL/formula), output-pipeline grading would
+        # hide a real leak and the attack must use the default `raw` mode instead.
+        scrubbed = neut.neutralize_output(a["input"]["payload"])[0]
+        for marker in a["expected"]["must_not"].get("leak", []):
+            assert marker not in scrubbed, (
+                f"{a['id']}: leak marker {marker!r} survives the output pipeline on its own payload — "
+                f"output-pipeline grading would hide a real leak; use grade_mode 'raw' instead")
