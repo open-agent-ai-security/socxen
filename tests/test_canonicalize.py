@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pytest>=8.0", "regex>=2024.0", "confusable-homoglyphs>=3.3"]
+# dependencies = ["pytest>=8.0", "regex>=2024.0"]
 # ///
 """Deterministic tests for the input canonicalizer core (connector/canonicalize.py). No model, CI-safe.
 
@@ -8,7 +8,7 @@ Every invisible character in this file comes from a \\uXXXX / \\U escape or a na
 contains NO literal invisible characters (a repo that tests smuggling must not itself carry hidden ones;
 visible non-ASCII like Cyrillic/accents/emoji bases are fine). Buckets follow design §11.
 
-Run:  uv run --with pytest --with regex --with confusable-homoglyphs pytest -q tests/test_canonicalize.py
+Run:  uv run --with pytest --with regex pytest -q tests/test_canonicalize.py
 """
 import importlib.util
 import json
@@ -73,12 +73,6 @@ def test_obfuscated_ascii_flagged(payload):
     # An ASCII word with a kept invisible/blank spliced in must NOT read as clean (Codex P1/P2).
     _, hy = C.canonicalize(payload)
     assert any(f["class"] == "obfuscated-ascii" for f in hy.flagged), f"{payload!r} not flagged"
-
-
-def test_homoglyph_flagged_not_stripped():
-    clean, hy = C.canonicalize("login at аpple.com now")   # Cyrillic а + Latin
-    assert "аpple.com" in clean, "homoglyph must be preserved (it may be the IOC), not stripped"
-    assert any(f["class"] == "mixed-script" for f in hy.flagged)
 
 
 # ---- the clean-corpus invariant (§2 executable): the anti-PR-#31 guardrail ----
@@ -153,9 +147,9 @@ def test_perf_is_not_quadratic():
 
 
 def test_counts_match_lists():
-    _, hy = C.canonicalize(f"user{ZWSP}{TAG_A} at аpple.com")
+    _, hy = C.canonicalize(f"user{ZWSP}{TAG_A} ig{ZWJ}nore")
     assert hy.counts == {"stripped": len(hy.removed), "flagged": len(hy.flagged)}
-    assert hy.counts["stripped"] == 2 and hy.counts["flagged"] == 1
+    assert hy.counts["stripped"] == 2 and hy.counts["flagged"] == 1  # ZWSP+TAG stripped; ig<ZWJ>nore flagged
 
 
 def test_empty_is_safe():

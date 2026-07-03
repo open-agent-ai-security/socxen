@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["regex>=2024.0", "confusable-homoglyphs>=3.3"]
+# dependencies = ["regex>=2024.0"]
 # ///
 """Input telemetry canonicalizer — pure, deterministic core.
 
@@ -8,23 +8,19 @@ Design: security/design/input-canonicalizer.md. Given untrusted text read from a
   1. **strips** the invisible Unicode "smuggling" layer,
   2. **NFC-normalizes**, and
   3. **flags** (never rewrites) obfuscated-ASCII tokens (a kept invisible/blank spliced into an ASCII
-     word) and homoglyph / mixed-script tokens,
+     word),
 returning `(clean_text, Hygiene)`.
 
-It leans on maintained libraries for the two *solved* primitives, rather than hand-rolling them:
-  - **strip set** = Unicode `\p{Cf}` ∪ `\p{Default_Ignorable_Code_Point}` ∪ `\p{Cc}` ∪ `\p{Cs}` via the
-    `regex` module (minus the whitespace + joiners we carve out). BOTH Cf and DI are needed — DI omits the
-    invisible Cf format controls (Arabic U+0600–0605/06DD, interlinear U+FFF9–FFFB, Syriac U+070F, …) and
-    Cf omits the DI Mn/Lo invisibles (variation selectors, CGJ, Hangul fillers). The properties (not an
-    enumerated list) keep it complete + zero-maintenance as the UCD evolves.
-  - **confusable detection** = `confusable_homoglyphs` (UTS #39), detection-only. KNOWN v1 FP: a legit
-    non-Latin word with attached ASCII in one token (localized filename/hostname) flags — restrict-vs-defer
-    under review.
-So this module is only the thin wrapper that adds socxen's pivot-safety guarantee and hygiene record.
+The strip set uses the `regex` module's Unicode properties rather than a hand-list:
+`\p{Cf}` ∪ `\p{Default_Ignorable_Code_Point}` ∪ `\p{Cc}` ∪ `\p{Cs}` (minus the whitespace + joiners we
+carve out). BOTH Cf and DI are needed — DI omits the invisible Cf format controls (Arabic U+0600–0605/
+06DD, interlinear U+FFF9–FFFB, Syriac U+070F, …) and Cf omits the DI Mn/Lo invisibles (variation
+selectors, CGJ, Hangul fillers). The properties (not an enumerated list) keep it complete +
+zero-maintenance as the UCD evolves. Everything else is plain stdlib.
 
-Runtime deps (`regex`, `confusable_homoglyphs`) are declared in this module's PEP-723 header for
-standalone/test use. WIRING TODO: when the bridge imports this module, move the deps into the bridge's
-own PEP-723 header (its `uv run` env doesn't read this file's) and regenerate the AI BOM.
+The single `regex` runtime dep is declared in this module's PEP-723 header for standalone/test use.
+WIRING TODO: when the bridge imports this module, add `regex` to the bridge's own PEP-723 header (its
+`uv run` env doesn't read this file's) and regenerate the AI BOM.
 
 Pivot-safety invariant (§2): a value with no invisible smuggling code points returns `NFC(value)` with an
 empty hygiene record — nothing legitimate (Cyrillic/Persian/emoji *visible* content) is mutated, so
@@ -37,7 +33,6 @@ import unicodedata
 from dataclasses import dataclass, field
 
 import regex
-from confusable_homoglyphs import confusables
 
 __all__ = ["canonicalize", "Hygiene", "is_strippable"]
 
@@ -70,7 +65,7 @@ def is_strippable(ch):
 @dataclass
 class Hygiene:
     removed: list = field(default_factory=list)   # [{"cp": "U+200B", "name": "ZERO WIDTH SPACE"}]
-    flagged: list = field(default_factory=list)   # [{"class": "mixed-script", "token": "аpple.com"}]
+    flagged: list = field(default_factory=list)   # [{"class": "obfuscated-ascii", "token": "..."}]
     counts: dict = field(default_factory=dict)
 
     def is_empty(self):
@@ -78,7 +73,7 @@ class Hygiene:
 
 
 def canonicalize(text):
-    """Strip invisibles → NFC → flag confusables. Pure and deterministic. See design §2–§11."""
+    """Strip invisibles → NFC → flag obfuscated-ASCII. Pure and deterministic. See design §2–§11."""
     if not text:
         return text, Hygiene(counts={"stripped": 0, "flagged": 0})
 
@@ -94,27 +89,20 @@ def canonicalize(text):
     # ---- normalize LAST: NFC is canonical-equivalent, so visible values are preserved (pivot-safe) ----
     clean = unicodedata.normalize("NFC", stripped)
 
-    # ---- flag (never rewrite), per token ----
+    # ---- flag obfuscated-ASCII: an ASCII word with a KEPT invisible/blank char spliced in — a keyword-
+    # splitting smuggle (a ZWJ inside "ignore", a Braille-blank in an ASCII token). Legit Persian/Indic/
+    # emoji have real non-ASCII LETTERS around the char, so removing the kept invisibles/blanks leaves a
+    # still-non-ASCII token and does NOT flag. Closes the carve-out + U+2800 channels.
+    # (Homoglyph / mixed-script detection is intentionally NOT here — it's advisory, FP-prone on legit
+    # localized filenames/hostnames, and needs UTS #39 restriction-level logic; a deliberate later
+    # feature, not part of this smuggling-layer core.)
     for m in regex.finditer(r"\S+", clean):
         tok = m.group()
         if tok.isascii():
             continue
-        # (a) obfuscated-ASCII: an ASCII word with a KEPT invisible/blank char spliced in — a keyword-
-        # splitting smuggle (a ZWJ inside "ignore", an FE0F inside "table", a Braille-blank in an ASCII
-        # token). Legit Persian/Indic/emoji have real non-ASCII LETTERS around the char, so removing the
-        # kept invisibles/blanks leaves a still-non-ASCII token and does NOT flag. (Closes the carve-out
-        # and U+2800 channels that would otherwise pass as clean.)
         bare = "".join(c for c in tok if ord(c) not in _KEEP_INVIS)
         if bare != tok and bare.isascii() and any(c.isalnum() for c in bare):
             hy.flagged.append({"class": "obfuscated-ascii", "token": tok[:_FIELD_CAP]})
-            continue
-        # (b) mixed-script (confusable). Check LETTERS only — the kept format chars aren't script-bearing
-        # and otherwise read as a script boundary (false-flag on Persian/emoji).
-        # KNOWN v1 FP (Reviewer A): a legit non-Latin word + attached ASCII in ONE token (localized
-        # filenames/hostnames like "процесс.exe", "北京-server01") flags. Restrict-vs-defer under review.
-        letters = "".join(c for c in tok if c.isalpha())
-        if letters and not letters.isascii() and confusables.is_mixed_script(letters):
-            hy.flagged.append({"class": "mixed-script", "token": tok[:_FIELD_CAP]})
 
     hy.counts = {"stripped": len(hy.removed), "flagged": len(hy.flagged)}
     return clean, hy
