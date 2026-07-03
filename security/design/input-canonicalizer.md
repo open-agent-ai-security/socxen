@@ -24,6 +24,24 @@ Changes folded in from the inline comments below:
 
 > **AUTHOR →** Fixed — the summary bullet now reads "OQ-1 resolved; OQ-6 promoted to a gate," consistent with §3 and §12. The gate is OQ-4/OQ-6/OQ-8; no coding until all three settle.
 
+## Implementation note (PR #32 — the built core)
+
+The shipped core (`connector/canonicalize.py`) **adopts libraries** for the two solved primitives rather
+than hand-rolling them — this simplified the module to ~100 lines and closed the completeness gaps two
+reviews found:
+- **Strip set = the Unicode `Default_Ignorable_Code_Point` property via the `regex` module** (carve-out A:
+  strip DI ∪ Cc ∪ Cs, minus `\t\n\r` and the kept joiners/marks). This replaces the hand-list in §4 —
+  the property *is* the authoritative invisible set, so there are no enumeration gaps to maintain.
+- **Confusable flag = `confusable_homoglyphs`** (UTS #39 `is_mixed_script`, per token, letters-only),
+  replacing the hand-rolled `_mixed_script` in §5. Known v1 limits: whole-script confusables and
+  script+digit mixes are not flagged (documented in code).
+
+**The rich forensic hygiene record of §9 (per-offset escaped-raw reconstruction, byte offsets, severity,
+sentinel transport) is DEFERRED to the bridge-wiring phase (gated: OQ-4/6/8).** The core returns a minimal
+record — `removed` (code points) + `flagged` (mixed-script tokens) + `counts` — which is all the un-wired
+core needs. §4–§9 below describe the *full* design; the core is the subset above. (These sections still
+carry the round-1/round-2 Codex review thread; cleaned before the spec is finalized for `main`.)
+
 ## 1. Purpose
 
 Untrusted telemetry (alert fields, event text, prior case notes) reaches the agent through the bridge. Attackers control that text, and a documented class of attacks hides payloads from the model's — and a human's — perception using **invisible / obfuscating Unicode**: tag-block "ASCII smuggling," zero-width characters, bidirectional overrides, variation-selector byte channels, and homoglyphs. Empirically these bypass *detection*-based guardrails at near-100% rates ([Mindgard/Lancaster, arXiv:2504.11168](https://arxiv.org/abs/2504.11168)), so the durable defense is **deterministic canonicalization that removes the obfuscation layer before anything reads the text** — not a classifier that tries to spot injections.
