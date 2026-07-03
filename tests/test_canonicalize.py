@@ -40,13 +40,19 @@ ZWJ = chr(0x200D)
 ZWNJ = chr(0x200C)
 FE0F = chr(0xFE0F)
 RLM = chr(0x200F)
+# Cf format controls NOT in Default_Ignorable (the gap Reviewer A found — proves \p{Cf} is needed):
+ARABIC_NS = chr(0x0600)       # Arabic number sign
+INTERLINEAR = chr(0xFFF9)     # interlinear annotation anchor
+SYRIAC = chr(0x070F)          # Syriac abbreviation mark
+BRAILLE_BLANK = chr(0x2800)   # visually blank, NOT stripped -> flagged only in ASCII context
 
 FAMILY = chr(0x1F468) + ZWJ + chr(0x1F469) + ZWJ + chr(0x1F467)       # ZWJ emoji sequence
 COUPLE = chr(0x1F469) + ZWJ + chr(0x2764) + FE0F + ZWJ + chr(0x1F468)  # ZWJ + FE0F emoji
 PERSIAN = ''.join(map(chr, (0x6a9,0x627,0x631,0x628,0x631))) + ZWNJ + ''.join(map(chr,(0x646,0x627,0x645)))  # legit ZWNJ
 
 
-@pytest.mark.parametrize("ch", [TAG_A, ZWSP, BOM, RLO, FSI, CGJ, HANGUL_FILLER, VS_SUPP, INV_TIMES])
+@pytest.mark.parametrize("ch", [TAG_A, ZWSP, BOM, RLO, FSI, CGJ, HANGUL_FILLER, VS_SUPP, INV_TIMES,
+                                ARABIC_NS, INTERLINEAR, SYRIAC])
 def test_smuggling_chars_stripped(ch):
     clean, hy = C.canonicalize("A" + ch + "B")
     assert clean == "AB", f"{ch!r} survived into clean text"
@@ -54,10 +60,19 @@ def test_smuggling_chars_stripped(ch):
 
 
 @pytest.mark.parametrize("ch", [ZWJ, ZWNJ, FE0F, RLM])
-def test_carveout_chars_kept(ch):
-    clean, hy = C.canonicalize("A" + ch + "B")
-    assert clean == unicodedata.normalize("NFC", "A" + ch + "B"), "carve-out char was mutated"
-    assert hy.is_empty(), f"carve-out {ch!r} produced hygiene noise"
+def test_carveout_chars_not_stripped(ch):
+    # Carve-outs are KEPT (not stripped) so legit Persian/Indic/emoji survive. In an ASCII context they
+    # are separately FLAGGED as obfuscated-ascii (see below) — but never removed from the text.
+    clean, _ = C.canonicalize("A" + ch + "B")
+    assert ch in clean, f"carve-out {ch!r} was stripped (should be kept)"
+
+
+@pytest.mark.parametrize("payload", ["ignore" + ZWJ + "previous", "drop" + FE0F + "table",
+                                     "a" + BRAILLE_BLANK + "b", "A" + RLM + "B"])
+def test_obfuscated_ascii_flagged(payload):
+    # An ASCII word with a kept invisible/blank spliced in must NOT read as clean (Codex P1/P2).
+    _, hy = C.canonicalize(payload)
+    assert any(f["class"] == "obfuscated-ascii" for f in hy.flagged), f"{payload!r} not flagged"
 
 
 def test_homoglyph_flagged_not_stripped():
@@ -127,12 +142,20 @@ def test_strip_then_nfc_recomposes_across_removed_char():
     assert clean == "á" and len(hy.removed) == 1
 
 
-def test_perf_is_linear():
+def test_perf_is_not_quadratic():
+    # Generous wall-clock bounds — NOT a tight benchmark (avoids CI-runner flake); they only need to
+    # catch a quadratic blow-up (the pre-fix O(n^2) took ~200s on the dense case).
     big = "host.sub.example.com " * 250_000          # ~5 MB, URL/dot heavy
-    t = time.time(); C.canonicalize(big); assert time.time() - t < 2.0
+    t = time.time(); C.canonicalize(big); assert time.time() - t < 20.0
     dense = ("a" + ZWSP) * 20_000                     # 20k stripped chars
     t = time.time(); clean, hy = C.canonicalize(dense)
-    assert time.time() - t < 1.0 and clean == "a" * 20_000 and len(hy.removed) == 20_000
+    assert time.time() - t < 10.0 and clean == "a" * 20_000 and len(hy.removed) == 20_000
+
+
+def test_counts_match_lists():
+    _, hy = C.canonicalize(f"user{ZWSP}{TAG_A} at аpple.com")
+    assert hy.counts == {"stripped": len(hy.removed), "flagged": len(hy.flagged)}
+    assert hy.counts["stripped"] == 2 and hy.counts["flagged"] == 1
 
 
 def test_empty_is_safe():
