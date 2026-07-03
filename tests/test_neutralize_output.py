@@ -103,7 +103,7 @@ def test_empty_is_safe():
     "host\t=cmd|'/C calc'!A0",                       # tab-separated DDE (paste-into-Excel column split)
     '| username | =HYPERLINK("http://evil.example/x") |',  # function in a markdown cell, not at column 0
     "a\t@SUM(1+1)*cmd",                              # @-function after a tab
-    "col1\t+cmd|calc",                              # +-lead DDE after a tab (keeps its pipe)
+    "col1\t+cmd|'x'!A0",                            # +-lead DDE channel after a tab (pipe...!item)
 ])
 def test_formula_neutralized_past_first_column(raw):
     """Finding #1 (Critical): a formula-lead char at the start of ANY tab/pipe field, not just column 0,
@@ -223,8 +223,32 @@ def test_dde_with_pipe_still_caught(dde):
     "-verbose logging was enabled",     # -word prose
     "+notes attached to the case",      # +word prose
     "=1+1 evaluates to two",            # arithmetic, no function/DDE syntax
+    # do-no-harm regression: a sign-lead line that HAPPENS to contain (, !, or | somewhere is still prose.
+    # A bare paren/bang/pipe is not a formula -- the danger signal must be STRUCTURALLY attached.
+    "- pending review (see below)",     # bullet + parenthetical
+    "- fixed! verified",                # bullet + exclamation
+    "-5 (approx)",                       # signed number + parenthetical
+    "@channel (all hands)",             # @-mention + parenthetical
+    "=summary: 3 accounts (contained)", # =word prose + parenthetical
+    "-3 dB (attenuation)",              # measurement + parenthetical
 ])
 def test_formula_lead_prose_not_quoted(prose):
-    """Harm reduction: a cell that merely OPENS with =/@/+/- but carries no function/DDE syntax (( | !)
-    is inert prose -- it must NOT be quote-prefixed."""
+    """Harm reduction: a cell that merely OPENS with =/@/+/- is inert prose unless a function call is
+    attached to the sign (=NAME() or a DDE channel (|..!) is present -- it must NOT be quote-prefixed.
+    Parentheses, exclamations, and pipe-separators are ubiquitous in analyst prose."""
     assert N.neutralize_output(prose)[0] == prose
+
+
+def test_formula_prose_bullet_does_not_defang_its_url():
+    """Compound-harm regression: a false-positive formula match also defangs a LEGIT reference URL on the
+    same line. A prose bullet with a parenthetical/bang and a real doc link must pass through untouched."""
+    line = "- see runbook! visit https://docs.exabeam.com for steps"
+    assert N.neutralize_output(line)[0] == line
+
+
+def test_multiline_note_with_signed_bullets_unchanged():
+    """A realistic multi-line SOC note whose bullets open with '-' and carry parentheticals/negatives
+    must survive verbatim -- none of its lines is an executable formula."""
+    note = ("Findings:\n- user p.mensah (finance) flagged\n"
+            "- risk score -5 (down from 70)\n- no lateral movement")
+    assert N.neutralize_output(note)[0] == note

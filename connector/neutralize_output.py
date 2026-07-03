@@ -23,7 +23,8 @@ import re
 
 __all__ = ["neutralize_output"]
 
-_DDE_SIGNAL_RE = re.compile(r"[(|!]")                               # what makes a formula-lead cell EXECUTE
+_FORMULA_CALL_RE = re.compile(r"^[=+\-@][\w.$]*\(")                 # sign + name + "(" : =HYPERLINK(, @SUM(
+_DDE_RE = re.compile(r"\|\S[^|!]*!")                                # DDE channel ref: cmd|'/C calc'!A0
 _QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')            # a quoted field value: "=HYPERLINK(...)"
 _MD_CELL_RE = re.compile(r"(\|[ \t]*)([^|\n]*)")                    # a markdown-table cell
 _MD_LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)\s]+)(\))")            # a markdown link: [text](target)
@@ -63,11 +64,16 @@ def _defang_target(t):
 
 
 def _is_formula(cell):
-    """True if a spreadsheet would EXECUTE this cell: opens with =/@/+/- AND carries function/DDE syntax
-    (( | !). Prose that merely opens with one of those chars (=baseline, @channel, -5 ms, ---, a number,
-    a "- " bullet) is left ALONE."""
+    """True only if a spreadsheet would EXECUTE this cell: it opens with =/@/+/- AND the danger signal is
+    STRUCTURALLY ATTACHED -- a function call right after the sign (=HYPERLINK(, @SUM(, +WEBSERVICE() or a
+    DDE channel reference (cmd|'..'!A0). A bare (, !, or | merely appearing SOMEWHERE in the text does NOT
+    count -- so an analyst line like '- pending (review)', '- fixed! ok', '-5 (approx)', '@channel (all
+    hands)', or '=summary: 3 accounts (contained)' opens with one of those chars but is plain prose and is
+    left ALONE (do no harm)."""
     s = cell.strip()
-    return len(s) >= 2 and s[0] in "=@+-" and bool(_DDE_SIGNAL_RE.search(s))
+    if len(s) < 2 or s[0] not in "=@+-":
+        return False
+    return bool(_FORMULA_CALL_RE.match(s) or _DDE_RE.search(s))
 
 
 def _neutralize_formulas(text, notes):
