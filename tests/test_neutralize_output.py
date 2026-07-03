@@ -80,3 +80,65 @@ def test_idempotent():
 
 def test_empty_is_safe():
     assert N.neutralize_output("") == ("", [])
+
+
+# ---- adversarial-review regressions (PR #36) ----
+
+@pytest.mark.parametrize("raw", [
+    "host\t=cmd|'/C calc'!A0",                       # tab-separated DDE (paste-into-Excel column split)
+    "| user | =cmd|'/C calc'!A0 |",                  # markdown-table cell DDE
+    '| username | =HYPERLINK("http://evil.example/x") |',  # =HYPERLINK not at column 0
+    "a\t@SUM(1+1)*cmd",                              # @-formula after a tab
+    "col1\t+2+3+cmd",                               # +-formula after a tab
+])
+def test_formula_neutralized_past_first_column(raw):
+    """Finding #1 (Critical): a formula-lead char at the start of ANY tab/pipe field, not just column 0,
+    must be quote-prefixed — otherwise it fires on paste/export."""
+    clean, notes = N.neutralize_output(raw)
+    assert "'=" in clean or "'@" in clean or "'+" in clean, f"formula field not quoted: {clean!r}"
+    assert notes
+
+
+@pytest.mark.parametrize("raw,gone", [
+    ("[x](javascript:alert(document.cookie))", "javascript:"),
+    ("open file:///etc/passwd", "file:"),
+    ("[r](data:text/html;base64,PHN2Zz4=)", "data:"),
+    ("run vbscript:msgbox(1)", "vbscript:"),
+])
+def test_dangerous_schemes_defanged(raw, gone):
+    """Finding #2 (High): non-navigational schemes must be rendered inert (`[:]`)."""
+    clean, _ = N.neutralize_output(raw)
+    assert gone not in clean and "[:]" in clean, f"dangerous scheme survived: {clean!r}"
+
+
+@pytest.mark.parametrize("raw,gone,present", [
+    ("[reset](sso-reset.evil.example/x)", "sso-reset.evil.example", "sso-reset[.]evil[.]example"),
+    ("[c2](evil-c2.example/path)", "evil-c2.example/path", "evil-c2[.]example"),
+])
+def test_schemeless_markdown_link_targets_defanged(raw, gone, present):
+    """Finding #3/M1 (Med): a scheme-less host used as a markdown link target is linkified by renderers,
+    so its host must be defanged."""
+    clean, _ = N.neutralize_output(raw)
+    assert gone not in clean and present in clean, f"scheme-less link target not defanged: {clean!r}"
+
+
+@pytest.mark.parametrize("benign", [
+    "The user logged in, then 3 - 2 failures, - see the note below",   # commas/dashes in prose
+    "| Time | Event | Source |",                                       # markdown table header row
+    "path is C:\\Users\\a\\report.pdf and v1.2.3 shipped",             # dotted filename/version
+])
+def test_review_benign_not_over_mangled(benign):
+    """The hardening must not quote/defang ordinary prose, table headers, filenames, or versions."""
+    clean, notes = N.neutralize_output(benign)
+    assert clean == benign and notes == [], f"benign mangled: {benign!r} -> {clean!r}"
+
+
+@pytest.mark.parametrize("raw", [
+    "host\t=cmd|'/C calc'!A0",
+    "[x](javascript:alert(1))",
+    "[reset](sso-reset.evil.example/x)",
+])
+def test_hardening_is_idempotent(raw):
+    once, _ = N.neutralize_output(raw)
+    twice, notes2 = N.neutralize_output(once)
+    assert twice == once and notes2 == [], f"second pass changed neutralized text: {once!r} -> {twice!r}"
