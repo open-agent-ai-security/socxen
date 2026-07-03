@@ -71,6 +71,12 @@ a report — a synthetic repro against a test tenant is preferred.
 - **Coordinated disclosure:** we prefer to ship the fix, then publish an advisory
   (crediting you unless you ask otherwise) and coordinate public-disclosure timing.
 
+> **Findings we discover ourselves follow the same path.** A vulnerability surfaced by our own pre-release
+> red team (`security/redteam/`) is treated exactly like an external report: its working details stay in a
+> private advisory until the fix ships, and only its *existence* is public before then. The operational
+> rules are in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md#disclosure-policy--read-this-first).
+> We hold ourselves to the standard we ask of you.
+
 ## Supported versions
 
 socxen is pre-`1.0`; security fixes ship in the **latest** release. Upgrade to the

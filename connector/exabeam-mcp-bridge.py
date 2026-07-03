@@ -34,6 +34,8 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
+from neutralize import neutralize_content
+
 _VERIFY = ssl.create_default_context(cafile=certifi.where())
 _token = {"value": None, "exp": 0.0}
 
@@ -96,7 +98,8 @@ async def list_tools():
 
 @server.call_tool()
 async def call_tool(name, arguments):
-    return (await remote(lambda s: s.call_tool(name, arguments or {}))).content
+    content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
+    return neutralize_content(content)  # inbound defang of untrusted telemetry (RFE #2); fail-open per block
 
 
 async def _check():

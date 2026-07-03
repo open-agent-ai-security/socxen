@@ -168,12 +168,17 @@ actionable result:
   when the report is exported. *This was not a suppression failure* (it didn't dismiss); it was an
   **output-neutralization gap.** Verdict: 🔴 **BLOCK.**
 
-That single finding is exactly the value of the exercise: a specific, bounded, fixable vulnerability
-(defang echoed values in the report), already captured as a permanent regression fixture, with the strong
-parts (the whole suppression defense) confirmed rather than assumed.
+That single finding is exactly the value of the exercise: a specific, bounded, fixable vulnerability, with
+the strong parts (the whole suppression defense) confirmed rather than assumed.
 
-The full find → fix → retest arc (including the two prompt fixes that *didn't* hold) is documented in
-the finding's tracking issue, [#30](https://github.com/open-agent-ai-security/socxen/issues/30).
+**It is now fixed.** Two *prompt-level* attempts did not hold on Sonnet (a10 landed 3/3 both times — the
+agent defanged in analysis but still emitted a live "raw fields" dump), which vindicated a **code-layer**
+fix: the bridge now neutralizes untrusted telemetry (defangs URLs/emails, inert-prefixes formula cells)
+*before* it reaches the agent (`connector/neutralize.py`, the code half of #2). a10 flipped to **resisted
+3/3** on re-test through the neutralizer, and is pinned by a deterministic, no-model regression test
+(`tests/test_neutralize.py`) plus its live fixture. The full find → fix → retest arc — publishable now
+that the fix has shipped, per the [disclosure policy](HISTORY.md#disclosure-policy--read-this-first) — is
+recorded in [`HISTORY.md`](HISTORY.md#fixed-findings) and issue [#30](https://github.com/open-agent-ai-security/socxen/issues/30).
 
 ## Safety, ownership, and cadence
 

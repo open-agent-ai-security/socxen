@@ -105,7 +105,10 @@ The runner **reuses the eval harness's grading** (`evals/run.py`) — it is a th
   canonicalization/neutralization once built (input-side #2, output-side #4), (c) gate-on vs
   gate-bypassed — to show *which layer* catches what, and whether the "two locks" claim holds empirically.
 - **Confirmed attacks become permanent regression fixtures.** Any injection that works, once mitigated,
-  is promoted into the deterministic guardrail suite so it can't silently return.
+  is promoted into the deterministic guardrail suite so it can't silently return. **Disclosure gate:** a
+  fixture whose payload + `must_not` reveal a *live, unfixed* exploit is held in the private advisory (or
+  committed as a neutralized placeholder) until the fix ships — the committed public corpus must not be
+  the thing that discloses an unremediated vulnerability. See [`HISTORY.md`](HISTORY.md#disclosure-policy--read-this-first).
 
 ## Release bar
 
