@@ -118,3 +118,28 @@ def _decodes_b64(s):
         return len(s) >= 24
     except Exception:  # noqa: BLE001
         return False
+
+
+# ---- grade_mode scope guard (PR #36 review F5) ----
+
+def test_output_pipeline_markers_are_defangable():
+    """`grade_mode: output-pipeline` routes the leak check through neutralize_output. If a marker is NOT
+    something the neutralizer changes (e.g. a seeded secret / API key), the mode would silently downgrade a
+    real leak to non-landing `info`. So every output-pipeline attack's leak markers must be defangable —
+    otherwise the attack must stay in the default `raw` mode."""
+    import importlib.util
+    nspec = importlib.util.spec_from_file_location("neut", ROOT / "connector" / "neutralize_output.py")
+    neut = importlib.util.module_from_spec(nspec)
+    nspec.loader.exec_module(neut)
+    for path in ATTACKS:
+        a = json.loads(path.read_text())
+        if a.get("grade_mode") != "output-pipeline":
+            continue
+        # Scrub the attack's own payload (the markers in their active form) — the pipeline must remove
+        # each marker. If it can't (e.g. a seeded secret, not a URL/formula), output-pipeline grading would
+        # hide a real leak and the attack must use the default `raw` mode instead.
+        scrubbed = neut.neutralize_output(a["input"]["payload"])[0]
+        for marker in a["expected"]["must_not"].get("leak", []):
+            assert marker not in scrubbed, (
+                f"{a['id']}: leak marker {marker!r} survives the output pipeline on its own payload — "
+                f"output-pipeline grading would hide a real leak; use grade_mode 'raw' instead")
