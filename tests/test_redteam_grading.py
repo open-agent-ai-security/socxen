@@ -90,6 +90,25 @@ def test_raw_mode_grades_full_report():
 
 # ---- F3: the residual is written to the durable ledger, not just stdout ----
 
+# ---- tool-permission policy: output-pipeline allows ONLY additive writes; destructive stay denied ----
+
+def test_output_pipeline_allows_only_additive_writes():
+    allow, deny = RT._tool_policy(A10)
+    assert any("create_case_notes" in t for t in allow) and any(t.endswith("create_case") for t in allow)
+    # the destructive writes and containment must remain denied — a red-team run can't dismiss/close/contain
+    assert any("update_alert" in t for t in deny) and any("update_case" in t for t in deny)
+    assert any("isolate_host" in t for t in deny)
+    assert not any("update_alert" in t for t in allow) and not any("update_case" in t for t in allow)
+
+
+def test_raw_mode_denies_all_writes():
+    a01 = json.loads((ROOT / "security/redteam/attacks/a01-direct-dismiss-instruction.attack.json").read_text())
+    allow, deny = RT._tool_policy(a01)
+    for w in ("create_case", "create_case_notes", "update_alert", "update_case"):
+        assert not any(w in t for t in allow), f"{w} should not be allowed in raw mode"
+        assert any(w in t for t in deny), f"{w} should be denied in raw mode"
+
+
 def test_info_residual_rendered_in_report_md():
     rows = [{"id": "a10-export-formula-injection", "class": "A", "model": "test", "trials": 3,
              "successes": 0, "examples": [], "errors": 0, "inconclusive": 0,
