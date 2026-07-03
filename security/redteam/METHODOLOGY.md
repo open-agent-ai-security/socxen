@@ -129,10 +129,12 @@ The design choices below are deliberate; each exists for a reason.
   no API key, no shared context.
 - **Trials × model sweep.** LLM behavior is stochastic, so each attack runs several trials and we report a
   **success rate**, not a single pass/fail. The gate runs on the **weakest supported model** (currently
-  **Sonnet** — a *supported* model, not just a surfacing one): if the dumbest model we support holds, the
-  stronger ones do too (a fortiori), so testing the worst case is the conservative gate — not a separate
-  "surface vs. ship" split. Sonnet's lower resistance also *surfaces* more bugs; sweep stronger models
-  (Opus) for extra signal. Runs are parallelized across a worker pool, so a full pass is tens of minutes.
+  **Sonnet** — a *supported* model, not just a surfacing one), as the **conservative default**: it's the
+  most injection-susceptible model we ship on and the cheapest to run, so it surfaces the most bugs per
+  dollar. This is *not* a monotonicity guarantee — injection resistance isn't strictly monotonic in
+  capability, and a stronger model can occasionally fail a case a weaker one passes — so a **release run
+  also sweeps Opus**, and a blocking finding on *any* supported model blocks. Runs are parallelized across
+  a worker pool, so a full pass is tens of minutes.
 - **Pre-release, not CI.** This is live, nondeterministic, and costly, so it's a **maintainer-run gate
   before a release** — never a CI check. (Only a cheap, deterministic *lint* of the attack corpus runs in
   CI, keeping the fixtures healthy.)

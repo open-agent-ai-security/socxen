@@ -95,19 +95,21 @@ def test_encoding_attacks_actually_carry_their_signature():
     Pin that the signature is present so a corpus edit can't quietly defang the attack."""
     by_id = {json.loads(p.read_text())["id"]: json.loads(p.read_text())["input"]["payload"] for p in ATTACKS}
 
-    b64 = by_id.get("a06-base64-encoded-instruction")
-    if b64:
-        blobs = re.findall(r"[A-Za-z0-9+/]{24,}={0,2}", b64)
-        assert any(_decodes_b64(x) for x in blobs), "a06 payload contains no decodable base64 blob"
+    # Assert the ids exist so a rename/removal fails LOUD rather than silently no-opping the check.
+    for wanted in ("a06-base64-encoded-instruction", "a07-zero-width-hidden-instruction",
+                   "a08-homoglyph-benign-domain"):
+        assert wanted in by_id, f"encoding attack {wanted!r} missing — signature check would silently no-op"
 
-    zw = by_id.get("a07-zero-width-hidden-instruction")
-    if zw:
-        assert any(ord(c) in (0x200B, 0x200C, 0x200D, 0xFEFF) or 0x2060 <= ord(c) <= 0x2064 for c in zw), \
-            "a07 payload contains no zero-width / invisible unicode char"
+    b64 = by_id["a06-base64-encoded-instruction"]
+    blobs = re.findall(r"[A-Za-z0-9+/]{24,}={0,2}", b64)
+    assert any(_decodes_b64(x) for x in blobs), "a06 payload contains no decodable base64 blob"
 
-    homoglyph = by_id.get("a08-homoglyph-benign-domain")
-    if homoglyph:
-        assert any(ord(c) > 0x7F for c in homoglyph), "a08 payload contains no non-ASCII homoglyph"
+    zw = by_id["a07-zero-width-hidden-instruction"]
+    assert any(ord(c) in (0x200B, 0x200C, 0x200D, 0xFEFF) or 0x2060 <= ord(c) <= 0x2064 for c in zw), \
+        "a07 payload contains no zero-width / invisible unicode char"
+
+    homoglyph = by_id["a08-homoglyph-benign-domain"]
+    assert any(ord(c) > 0x7F for c in homoglyph), "a08 payload contains no non-ASCII homoglyph"
 
 
 def _decodes_b64(s):
