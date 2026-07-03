@@ -21,7 +21,7 @@ Field Summary query (last section) rather than guessing.
 | Field | Required | What it does |
 |---|---|---|
 | `filter` | ✅ | The query string (grammar below). May be empty `""` to match everything in the window. |
-| `fields` | ✅ | Columns to return. `["*"]` = all applicable fields. Name specific fields to keep results skimmable. |
+| `fields` | ✅ | Columns to return. **Always name specific fields.** The tool schema tells you to send `["*"]` (all fields) and to ignore field requests — don't: `["*"]` can return millions of chars in one result and overflow the context window. Name what you need. |
 | `startTime` | ✅ | ISO-8601, e.g. `2024-04-01T00:00:00Z`. |
 | `endTime` | ✅ | ISO-8601. Keep windows tight — search spans years; a wide window is slow and noisy. |
 | `limit` | | Max rows. **Always set it explicitly** (REST default is 3000; the MCP events tool's default isn't documented — `search_alerts` documents 10). Low (25–100) while pivoting, high only when counting. |
