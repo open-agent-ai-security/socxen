@@ -89,7 +89,7 @@ def test_empty_is_safe():
     "| user | =cmd|'/C calc'!A0 |",                  # markdown-table cell DDE
     '| username | =HYPERLINK("http://evil.example/x") |',  # =HYPERLINK not at column 0
     "a\t@SUM(1+1)*cmd",                              # @-formula after a tab
-    "col1\t+2+3+cmd",                               # +-formula after a tab
+    "col1\t+cmd|calc",                              # +-lead DDE after a tab (keeps its pipe)
 ])
 def test_formula_neutralized_past_first_column(raw):
     """Finding #1 (Critical): a formula-lead char at the start of ANY tab/pipe field, not just column 0,
@@ -142,3 +142,52 @@ def test_hardening_is_idempotent(raw):
     once, _ = N.neutralize_output(raw)
     twice, notes2 = N.neutralize_output(once)
     assert twice == once and notes2 == [], f"second pass changed neutralized text: {once!r} -> {twice!r}"
+
+
+# ---- second-review regressions (PR #36 round 2) ----
+
+@pytest.mark.parametrize("raw", [
+    "[x](javascript&#58;alert(1))",       # entity-encoded colon
+    "[x](javascript&#09;:alert(1))",      # entity-tab before colon
+    "[x](JavaScript:alert(1))",           # case
+    "load vbscript&#58;msgbox(1)",
+])
+def test_scheme_entity_bypass_defanged(raw):
+    """Finding #5: the dangerous-scheme colon may be entity/whitespace encoded — an HTML sink decodes it.
+    The scheme must still be neutralized."""
+    clean, _ = N.neutralize_output(raw)
+    assert "[:]" in clean and "javascript:" not in clean.lower() and "vbscript:" not in clean.lower()
+
+
+@pytest.mark.parametrize("word", ["the database is fine", "metadata: none", "profile info"])
+def test_scheme_name_inside_a_word_not_mangled(word):
+    """The scheme match requires a colon terminator, so 'database' (data+base) is untouched."""
+    assert N.neutralize_output(word)[0] == word
+
+
+@pytest.mark.parametrize("link", ["[r](report.md)", "![l](logo.png)", "[p](page.html)",
+                                  "version [a](v1.2)", "[a](notes.txt)"])
+def test_relative_links_not_mangled(link):
+    """Finding #6: a scheme-less markdown target with no path is a filename/relative link — leave it."""
+    assert N.neutralize_output(link)[0] == link
+
+
+def test_schemeless_host_with_path_is_defanged():
+    """A scheme-less target WITH a path is an auto-linkable host — defang it."""
+    clean, _ = N.neutralize_output("[c2](evil-c2.example/path)")
+    assert "evil-c2.example/path" not in clean and "evil-c2[.]example" in clean
+
+
+@pytest.mark.parametrize("benign", ["| --- | --- |", "---", ":---:", "latency\t-5 ms",
+                                    "-3 dB drop", "| Time | Event | Source |"])
+def test_markdown_separators_and_measurements_not_quoted(benign):
+    """Finding #8: markdown separators and negative measurements are inert — the delimiter-split must not
+    quote them as formulas."""
+    assert N.neutralize_output(benign)[0] == benign
+
+
+@pytest.mark.parametrize("dde", ["-2+3+cmd|'x'!A0", "host\t+cmd|'/C calc'!A0", "| u | =cmd|calc |"])
+def test_dde_with_pipe_still_caught(dde):
+    """The tab-only field split keeps a DDE's own `|`, so a numeric- or +/-lead DDE is still neutralized."""
+    clean, _ = N.neutralize_output(dde)
+    assert "'=" in clean or "'+" in clean or "'-" in clean

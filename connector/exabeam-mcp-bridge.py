@@ -107,18 +107,16 @@ WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
 _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags"}
 
 
-def _hygiene_note(hy):
-    """A compact, agent-visible annotation of what the canonicalizer removed/flagged, so the hygiene
-    record REACHES the agent instead of being discarded. Kept-but-flagged invisibles (which stay in the
-    value) and silently-stripped characters both become an explicit warning appended to the read text."""
-    bits = []
-    if hy.removed:
+def _log_hygiene(hy):
+    """Log the hygiene record OUT-OF-BAND (stderr), never in-band. An earlier revision appended a
+    `⚠ [socxen hygiene] …` line onto the read text, but that (a) was forgeable — attacker telemetry can
+    carry the same marker, (b) re-embedded raw invisibles into the annotation, and (c) corrupted
+    structured (JSON) read payloads. The protection now lives in `clean` itself: canonicalize() strips
+    confirmed-obfuscation invisibles from the value, so nothing needs to be surfaced in-band."""
+    if hy.removed or hy.flagged:
         cps = ", ".join(dict.fromkeys(r["cp"] for r in hy.removed))
-        bits.append(f"{len(hy.removed)} hidden character(s) removed [{cps}]")
-    if hy.flagged:
-        toks = "; ".join(f["token"] for f in hy.flagged[:3])
-        bits.append(f"{len(hy.flagged)} obfuscated-ASCII token(s) flagged: {toks}")
-    return "\n\n⚠ [socxen hygiene] " + "; ".join(bits) if bits else ""
+        cls = ", ".join(dict.fromkeys(f["class"] for f in hy.flagged))
+        sys.stderr.write(f"bridge: hygiene — removed [{cps}] flagged [{cls}]\n")
 
 
 def _block_text(block):
@@ -144,15 +142,17 @@ def _rewrite_block(block, kind, clean):
 
 
 def _canon_content(content):
-    """READ-side (#2): strip the invisible smuggling layer from tool results AND surface the hygiene
-    record to the agent. Covers text and embedded-resource blocks. FAIL-OPEN — read availability wins."""
+    """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
+    invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
+    never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins."""
     out = []
     for block in content:
         try:
             text, kind = _block_text(block)
             if text is not None:
                 clean, hy = canonicalize(text)
-                block = _rewrite_block(block, kind, clean + _hygiene_note(hy))
+                _log_hygiene(hy)
+                block = _rewrite_block(block, kind, clean)
         except Exception as e:  # noqa: BLE001 — availability over canonicalization
             sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
         out.append(block)

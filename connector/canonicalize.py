@@ -7,8 +7,8 @@ r"""Input telemetry canonicalizer — pure, deterministic core.
 Design: security/design/input-canonicalizer.md. Given untrusted text read from a SIEM, this:
   1. **strips** the invisible Unicode "smuggling" layer,
   2. **NFC-normalizes**, and
-  3. **flags** (never rewrites) obfuscated-ASCII tokens (a kept invisible/blank spliced into an ASCII
-     word),
+  3. **flags — and neutralizes —** confirmed obfuscation (a kept invisible/blank spliced into an ASCII
+     word, or a variation-selector covert channel): the offending invisibles are stripped from the value,
 returning `(clean_text, Hygiene)`.
 
 The strip set uses the `regex` module's Unicode properties rather than a hand-list:
@@ -46,14 +46,17 @@ __all__ = ["canonicalize", "Hygiene", "is_strippable"]
 # NOTE: \p{Cf} is REQUIRED and SEPARATE from \p{DI} — DI does NOT include invisible format controls
 # U+0600-0605/06DD/08E2 (Arabic), U+070F (Syriac), U+FFF9-FFFB (interlinear), Kaithi/Egyptian format.
 # \p{Cf} u \p{DI} together are the complete invisible/format set; properties keep it zero-maintenance.
-# U+2028 LINE / U+2029 PARAGRAPH SEPARATOR are category Zl/Zp \u2014 NOT in Cf/DI/Cc/Cs \u2014 so they are added
-# explicitly: they are invisible line breaks an LLM tokenizes as logical newlines, letting an attacker
-# smuggle a "new instruction" out of a single quoted field (the invisible cousins of the kept \n\r\t).
 _STRIP_RE = regex.compile(
-    r"[[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cc}\p{Cs}\u2028\u2029]"
+    r"[[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cc}\p{Cs}]"
     r"--[\t\n\r\u200c\u200d\u200e\u200f\u061c\uFE00-\uFE0F]]",
     flags=regex.VERSION1,
 )
+
+# U+2028 LINE / U+2029 PARAGRAPH SEPARATOR (Zl/Zp \u2014 not in Cf/DI/Cc/Cs) are invisible line breaks an LLM
+# tokenizes as logical newlines, letting an attacker smuggle a "new instruction" out of a single quoted
+# field. We NORMALIZE them to a visible "\n" rather than DELETE them: deleting fuses the tokens on either
+# side (corrupting values / pivots), and \n\r\t are already kept \u2014 this makes the hidden break visible.
+_LINE_SEP_RE = regex.compile(r"[\u2028\u2029]")
 
 _FIELD_CAP = 80  # bound the (visible-only) token echoed in a flag
 
@@ -61,6 +64,16 @@ _FIELD_CAP = 80  # bound the (visible-only) token echoed in a flag
 # (the carve-outs kept for legit Persian/Indic/emoji, plus U+2800 BRAILLE BLANK which is visually blank
 # but not in Cf/DI). See the obfuscated-ASCII flag below.
 _KEEP_INVIS = {0x200C, 0x200D, 0x200E, 0x200F, 0x061C, 0x2800} | set(range(0xFE00, 0xFE10))
+# Joiners/marks that legitimately sit BETWEEN characters — they don't count as "base" characters when
+# deciding whether a token carries more variation selectors than it has bases to attach to.
+_JOINERS = frozenset({0x200C, 0x200D, 0x200E, 0x200F, 0x061C})
+
+
+def _escape(tok):
+    """Render a (potentially invisible-bearing) flagged token as printable \\uXXXX escapes, so a hygiene
+    record / log line never carries raw invisible bytes back into text the agent or a human reads."""
+    out = "".join(c if (c.isprintable() and ord(c) not in _KEEP_INVIS) else f"\\u{ord(c):04X}" for c in tok)
+    return out[:_FIELD_CAP]
 
 
 def is_strippable(ch):
@@ -79,11 +92,20 @@ class Hygiene:
 
 
 def canonicalize(text):
-    """Strip invisibles → NFC → flag obfuscated-ASCII. Pure and deterministic. See design §2–§11."""
+    """Strip invisibles → NFC → flag+neutralize confirmed obfuscation. Pure, deterministic. See design §2–§11."""
     if not text:
         return text, Hygiene(counts={"stripped": 0, "flagged": 0})
 
     hy = Hygiene()
+
+    # ---- normalize invisible line/paragraph separators to a VISIBLE newline. Deleting them (like the
+    #      strip set) would FUSE the tokens on either side and corrupt the value; \n\r\t are already kept,
+    #      and U+2028/2029 are their invisible cousins — make the hidden break visible instead. ----
+    def _sep(m):
+        ch = m.group()
+        hy.removed.append({"cp": f"U+{ord(ch):04X}", "name": unicodedata.name(ch, "") + " → newline"})
+        return "\n"
+    text = _LINE_SEP_RE.sub(_sep, text)
 
     # ---- strip: the complete Cf ∪ DI ∪ Cc ∪ Cs set (regex), recording each removed code point ----
     def _record(m):
@@ -95,27 +117,32 @@ def canonicalize(text):
     # ---- normalize LAST: NFC is canonical-equivalent, so visible values are preserved (pivot-safe) ----
     clean = unicodedata.normalize("NFC", stripped)
 
-    # ---- flag obfuscated-ASCII: an ASCII word with a KEPT invisible/blank char spliced in — a keyword-
-    # splitting smuggle (a ZWJ inside "ignore", a Braille-blank in an ASCII token). Legit Persian/Indic/
-    # emoji have real non-ASCII LETTERS around the char, so removing the kept invisibles/blanks leaves a
-    # still-non-ASCII token and does NOT flag. Closes the carve-out + U+2800 channels.
-    # (Homoglyph / mixed-script detection is intentionally NOT here — it's advisory, FP-prone on legit
-    # localized filenames/hostnames, and needs UTS #39 restriction-level logic; a deliberate later
-    # feature, not part of this smuggling-layer core.)
-    for m in regex.finditer(r"\S+", clean):
+    # ---- flag AND neutralize confirmed obfuscation riding the KEPT carve-out invisibles:
+    #  (a) obfuscated-ASCII — an ASCII word with a spliced kept invisible/blank (ZWJ in "ignore", Braille
+    #      blank). Legit Persian/Indic/emoji have non-ASCII LETTERS, so removing the kept invisibles leaves
+    #      a still-non-ASCII token and does NOT flag.
+    #  (b) variation-selector smuggle — more FE00-FE0F selectors than base chars to attach to (a legit
+    #      emoji uses <=1 per base; joiners aren't bases, so `FE0F ZWJ FE0F` interleaving can't evade it).
+    #  A flagged token is confirmed obfuscation (not legit script), so we STRIP the offending invisibles
+    #  from `clean` (protection in the VALUE, not a spoofable annotation) and record the token ESCAPED.
+    #  (Homoglyph / mixed-script detection is intentionally NOT here — advisory, FP-prone; a later feature.)
+    def _flag(m):
         tok = m.group()
-        if tok.isascii():
-            continue
-        bare = "".join(c for c in tok if ord(c) not in _KEEP_INVIS)
-        if bare != tok and bare.isascii() and any(c.isalnum() for c in bare):
-            hy.flagged.append({"class": "obfuscated-ascii", "token": tok[:_FIELD_CAP]})
+        out = tok
+        if not tok.isascii():
+            bare = "".join(c for c in tok if ord(c) not in _KEEP_INVIS)
+            if bare != tok and bare.isascii() and any(c.isalnum() for c in bare):
+                hy.flagged.append({"class": "obfuscated-ascii", "token": _escape(tok)})
+                out = bare
+        vs = sum(1 for c in out if 0xFE00 <= ord(c) <= 0xFE0F)
+        if vs:
+            bases = sum(1 for c in out if not (0xFE00 <= ord(c) <= 0xFE0F) and ord(c) not in _JOINERS)
+            if vs > bases:
+                hy.flagged.append({"class": "variation-selector-run", "token": _escape(tok)})
+                out = "".join(c for c in out if not (0xFE00 <= ord(c) <= 0xFE0F))
+        return out
+    clean = regex.sub(r"\S+", _flag, clean)
 
-    # Flag a covert channel of ≥2 CONSECUTIVE variation selectors. U+FE00–FE0F are KEPT (carve-out) for
-    # legit emoji presentation, but a legit emoji uses at most ONE; a consecutive run encodes smuggled
-    # bytes (the "smuggle data through an emoji" technique). Kept-not-stripped, so surface it as a flag —
-    # the bridge renders the hygiene record to the agent.
-    for m in regex.finditer(r"[\uFE00-\uFE0F]{2,}", clean):
-        hy.flagged.append({"class": "variation-selector-run", "token": m.group()[:_FIELD_CAP]})
 
     hy.counts = {"stripped": len(hy.removed), "flagged": len(hy.flagged)}
     return clean, hy
