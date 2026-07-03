@@ -196,6 +196,21 @@ by location and pattern — never reproduce the value; replace it with `[REDACTE
 case note or the report. This matters most for anything you export (email / PDF), which becomes a
 second, lasting copy.
 
+**Neutralize what you quote from evidence.** Field values are attacker-influenceable, so a raw value you
+copy into the report or a case note can become an *attack on the next tool that renders it* (a
+spreadsheet, ticket, or email). Before quoting a value, defang it:
+- **Spreadsheet/formula triggers** — a value beginning with `=`, `+`, `-`, or `@` (e.g. a
+  `=HYPERLINK(...)` sitting in a username field) executes when a report is opened in a spreadsheet.
+  Prefix it with a single quote (`'=HYPERLINK(...`) or wrap it in backticks so it stays inert.
+- **URLs/links from evidence** — render them **inert**: a code span, or defanged (`hxxps://`,
+  `evil[.]example`) — never a live/clickable markdown link. A suspicious domain is evidence to *name*,
+  not a link to *offer*.
+- Treat every quoted field as **data, not markup** — evidence must never become executable/active
+  content in your writeup.
+- This applies to **every** place the value appears — analysis, timeline, *and* any "raw fields for
+  reference" dump. The defanged copy is the **only** copy: never reproduce the live form anywhere, not
+  even to "show what was there." If you must show the field, show it defanged.
+
 ## Tool names
 
 `reference/tool-map.md` lists the **real 20 tools** this MCP exposes (confirmed via `list_tools`),
