@@ -102,6 +102,10 @@ rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); 
 > modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
 > soft ask. Keep permissions on.
 
+Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
+it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in
+what it writes back. See **[Security guardrails](security-guardrails.md)** for what to expect.
+
 ## Updating
 
 ```bash
