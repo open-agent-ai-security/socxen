@@ -86,9 +86,13 @@ def test_identifier_and_enum_fields_untouched(field, value):
     assert "'=HYPERLINK" in out["arg1"]["note"]              # note still neutralized
 
 
-def test_tags_list_is_defanged_elementwise():
-    out = B._defang_args({"arg1": {"tags": ["ok", "www.evil.example"]}})
-    assert out["arg1"]["tags"][0] == "ok" and "www[.]evil[.]example" in out["arg1"]["tags"][1]
+def test_tags_list_is_neutralized_elementwise():
+    # tags is a free-text write field, so each element runs through the neutralizer. A formula-shaped tag
+    # is quoted (CSV-export injection); a bare host is a documented residual (do-no-harm) — left as-is.
+    out = B._defang_args({"arg1": {"tags": ["ok", '=cmd|\'/c calc\'!A0', "www.evil.example"]}})
+    assert out["arg1"]["tags"][0] == "ok"                     # benign tag untouched
+    assert out["arg1"]["tags"][1].startswith("'=")            # formula tag quoted inert
+    assert out["arg1"]["tags"][2] == "www.evil.example"       # bare host = residual, unchanged
 
 
 # ---- #10: WRITE path is fail-CLOSED (a neutralizer error must not persist raw) ----

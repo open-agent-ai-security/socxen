@@ -1,69 +1,36 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""Output-side active-content neutralizer — the a10 (export / formula injection) fix.
+"""Output-side active-content neutralizer -- the a10 (export / formula injection) fix.
 
 Applied to content socxen WRITES back through the bridge (case notes, alert/case updates) so a payload
-planted in telemetry can't fire when that persisted artifact is later exported to a spreadsheet / ticket /
-email. It DEFANGS visible values — which, UNLIKE the input canonicalizer, is safe here: these are
-human-read output artifacts, not search-pivot values (defanging IOCs in a writeup is SOC-standard).
+planted in telemetry cannot fire when that persisted artifact is later exported. Scope is deliberately
+narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-content forms:
 
-  neutralize_output(text) -> (clean_text, notes)     # notes: list of {"type", "original"} that changed
+  1. FORMULA cells (=HYPERLINK(...), @SUM(...), =cmd|'..'!A0): quote-prefixed inert, and any URL on the
+     formula's line is defanged. Stops CSV / formula injection on spreadsheet export.
+  2. MARKDOWN LINKS [text](target): the target is defanged (host -> [.], scheme -> hxxp, javascript: ->
+     [:]). Stops a clickable phishing link. EVERY markdown link is mutated -- the accepted compromise,
+     since a deterministic pass cannot tell a legit link from a malicious one.
 
-Neutralizations:
-  1. **Active URLs** -> inert (`http`->`hxxp`, host dots -> `[.]`), incl. scheme-less markdown link
-     targets (renderers linkify them) so a phishing link isn't clickable or reconstructable.
-  2. **Dangerous schemes** (`javascript:`/`vbscript:`/`data:`/`file:`) -> `[:]`, so they don't execute
-     or load when a note is exported into an HTML ticket / email.
-  3. **Spreadsheet-formula cells** -> prefixed with `'` so Excel/Sheets treats them as text, not a formula
-     (CSV/DDE injection). A formula-lead char (`=`/`@`, or `+`/`-` unless a number or `"- "` bullet) is
-     neutralized at the start of *any* delimiter-bounded field — line start, a tab-separated field
-     (paste-into-Excel), or a markdown-table cell — not only the first column.
+  neutralize_output(text) -> (clean_text, notes)     # notes: list of {"type","original"} that changed
 
-Scope ("control what we control"): the sinks socxen owns — the case-note / alert-update WRITE tools,
-gated on their (free-text) arguments at the bridge. The chat report (LLM free-text) has no code gate and
-is covered by the SKILL.md defang rule (best-effort); what a human does to an artifact after it leaves
-socxen is out of scope — but what socxen PERSISTS is already clean, so an export of it is safe.
-
-Known residuals (deliberately narrowed, not silent): (1) a **bare host in prose** with no scheme and no
-markdown-link syntax (`beacon to evil.example/x`) is NOT defanged — defanging every `word.word/word` in
-free text over-mangles legit references; scheme/`www.`/markdown-link forms ARE defanged. (2) A scheme
-NAME split internally by whitespace/entities (`java\tscript:`) is not caught (matching it would false-fire
-on prose). (3) Comma/semicolon CSV cells are not quoted (prose is comma-dense). These need the payload in
-a specific unusual shape; the common export-injection forms are covered.
+DOCUMENTED RESIDUAL (out of scope, by decision): a BARE URL typed in prose (not a markdown link, not on a
+formula line) is left UNTOUCHED -- defanging every URL would mangle the legit reference links analysts
+write in notes (do harm). A bare phishing domain in prose is best-effort (SKILL prompt), not deterministic.
 """
 import re
 
 __all__ = ["neutralize_output"]
 
-# Active URL with an explicit scheme or leading www.
+_DDE_SIGNAL_RE = re.compile(r"[(|!]")                               # what makes a formula-lead cell EXECUTE
+_QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')            # a quoted field value: "=HYPERLINK(...)"
+_MD_CELL_RE = re.compile(r"(\|[ \t]*)([^|\n]*)")                    # a markdown-table cell
+_MD_LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)\s]+)(\))")            # a markdown link: [text](target)
 _URL_RE = re.compile(r"(?P<scheme>(?:https?|ftps?)://|www\.)(?P<rest>[^\s<>\"'\)\]}]+)", re.IGNORECASE)
-# Non-navigational schemes that execute / load when a note is rendered as HTML (ticket / email). The
-# colon may be HTML-entity or whitespace encoded (`javascript&#58;`, `javascript&#09;:`) — an HTML sink
-# decodes it — so allow an optional run of entities/whitespace before a literal-or-entity colon. The
-# trailing colon-terminator is REQUIRED, so a plain word like "database" (data + "base") does not match.
 _DANGER_SCHEME_RE = re.compile(
     r"(?i)(?<![a-z0-9])(javascript|vbscript|data|file)(?:\s|&#?\w+;)*(?::|&#0*58;|&#x0*3a;|&colon;)")
-# A markdown link target: [text](TARGET). Renderers linkify TARGET even with no scheme -> defang its host.
-_MD_TARGET_RE = re.compile(r"(?<=\]\()([^)\s]+)")
-# A scheme-less host[.tld]/path. Only defanged (inside a link target) when it has a PATH or `//` — a bare
-# dotted filename / relative link (`report.md`, `logo.png`, `v1.2`) has no path and is left alone.
 _HOST_RE = re.compile(r"^(//)?([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)
-# Function-call / DDE syntax — what makes a formula-lead cell actually EXECUTE (`=HYPERLINK(x)`,
-# `@SUM(...)`, `-cmd|'…'!A0`). Required, so prose that merely opens with =/@/+/- (`=baseline drift`,
-# `@channel`, `-verbose`, `-5 ms`, a `---` separator) is left alone.
-_DDE_SIGNAL_RE = re.compile(r"[(|!]")
-# A quoted field value opening with a formula-active char (e.g.  username: "=HYPERLINK(...)").
-_QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')
-# A markdown-table cell: `|` + optional padding + content up to the next `|` (a raw `|` can't appear in a
-# cell without breaking the table). Used to quote a formula lead inside a table cell. Paste-into-Excel
-# (TAB-delimited) is handled by splitting fields on TAB only, so a DDE's own `|` stays in its field.
-# (Comma/semicolon CSV is intentionally NOT handled: free prose is comma-dense — it would over-quote.)
-_MD_CELL_RE = re.compile(r"(\|[ \t]*)([^|\n]*)")
-
-
-def _defang_dots(host):
-    return host.replace(".", "[.]")
 
 
 def _defang_url(m):
@@ -72,94 +39,93 @@ def _defang_url(m):
     scheme = re.sub(r"(?i)http", "hxxp", scheme)
     scheme = re.sub(r"(?i)ftp", "fxp", scheme)
     scheme = re.sub(r"(?i)www\.", "www[.]", scheme)
-    return scheme + _defang_dots(host) + tail
+    return scheme + host.replace(".", "[.]") + tail
+
+
+def _defang(s):
+    """Defang dangerous schemes + scheme/www URLs in a string. Applied ONLY to markdown-link targets and
+    formula-carrying lines -- never to bare prose (the documented residual)."""
+    s = _DANGER_SCHEME_RE.sub(lambda m: m.group(1) + "[:]", s)
+    return _URL_RE.sub(_defang_url, s)
 
 
 def _defang_target(t):
-    """Defang a scheme-less markdown link target that looks like a live host WITH A PATH (`host.tld/…`) —
-    which renderers linkify. A bare dotted filename / relative link (`report.md`, `logo.png`, `v1.2`) has
-    no path and is left ALONE. Already-schemed/defanged targets don't match `_HOST_RE`."""
+    """Defang a markdown-link target: a scheme URL / dangerous scheme, or a scheme-less dotted host (which
+    a renderer linkifies). A relative path / anchor with no dotted host is left alone."""
+    d = _defang(t)
+    if d != t:
+        return d
     m = _HOST_RE.match(t)
-    if not m:
-        return t
-    slashes, host, tail = m.groups()
-    if not (slashes or tail.startswith("/")):        # no path and no `//` -> a filename/relative link, not a host
-        return t
-    return (slashes or "") + _defang_dots(host) + tail
+    if m:
+        slashes, host, tail = m.groups()
+        return (slashes or "") + host.replace(".", "[.]") + tail
+    return t
 
 
 def _is_formula(cell):
-    """True if a spreadsheet would EXECUTE this cell. A cell is a formula only if it opens with a
-    formula-lead char (`=` `@` `+` `-`) AND carries function-call / DDE syntax (`(` `|` `!`) — so
-    `=HYPERLINK(x)`, `@SUM(...)`, `=cmd|'…'!A0`, `+HYPERLINK(x)` are caught, while prose that merely
-    starts with one of those chars (`=baseline drift`, `@channel`, `-verbose`, `-5 ms`, `---`, a number,
-    a `"- "` bullet) is inert and left ALONE."""
+    """True if a spreadsheet would EXECUTE this cell: opens with =/@/+/- AND carries function/DDE syntax
+    (( | !). Prose that merely opens with one of those chars (=baseline, @channel, -5 ms, ---, a number,
+    a "- " bullet) is left ALONE."""
     s = cell.strip()
     return len(s) >= 2 and s[0] in "=@+-" and bool(_DDE_SIGNAL_RE.search(s))
-
-
-def _quote(lead, cell, notes):
-    notes.append({"type": "formula", "original": cell.strip()[:60]})
-    return f"{lead}'{cell.lstrip()}"
 
 
 def _neutralize_formulas(text, notes):
     out = []
     for line in text.splitlines(keepends=True):
         core, nl = (line[:-1], line[-1:]) if line.endswith("\n") else (line, "")
+        found = False
 
-        # (1) markdown-table cells: quote a formula lead right after a `|`. Cell content has no `|` (a raw
-        #     pipe would break the table), so this can't swallow a DDE's own `|`.
-        if "|" in core:
+        if "|" in core:                                     # markdown-table cells
             def _md(m):
+                nonlocal found
                 pad, cell = m.group(1), m.group(2)
-                return f"{pad}{_quote('', cell, notes)}" if _is_formula(cell) else m.group(0)
+                if not _is_formula(cell):
+                    return m.group(0)
+                found = True
+                notes.append({"type": "formula", "original": cell.strip()[:60]})
+                return pad + "'" + cell.lstrip()
             core = _MD_CELL_RE.sub(_md, core)
 
-        # (2) line start + tab-separated fields (paste-into-Excel). Split on TAB ONLY — a field KEEPS its
-        #     `|`, so a DDE payload (`+cmd|'x'!A0`) is detected whole, not cut at the pipe.
-        fields = core.split("\t")
+        fields = core.split("\t")                           # line start + tab-separated fields
         for i, field in enumerate(fields):
             stripped = field.lstrip()
             if _is_formula(stripped):
-                fields[i] = _quote(field[: len(field) - len(stripped)], field, notes)
+                found = True
+                notes.append({"type": "formula", "original": stripped[:60]})
+                fields[i] = field[: len(field) - len(stripped)] + "'" + stripped
         core = "\t".join(fields)
 
-        # (3) quoted field values (username: "=HYPERLINK(...)")
-        def _q(m):
+        def _q(m):                                          # quoted field values
+            nonlocal found
             val = m.group(2)
             if not _is_formula(val):
                 return m.group(0)
+            found = True
             notes.append({"type": "formula", "original": val[:60]})
-            return f'"{m.group(1)}\'{val}'
+            return '"' + m.group(1) + "'" + val
         core = _QUOTED_FORMULA_RE.sub(_q, core)
+
+        if found:                                           # this line carries a formula -> defang its URL(s)
+            core = _defang(core)
         out.append(core + nl)
     return "".join(out)
 
 
 def neutralize_output(text):
-    """Neutralize active content in text socxen is about to WRITE. Pure and deterministic."""
+    """Quote-prefix executable formulas (+ defang URLs on those lines) and defang markdown-link targets.
+    Bare URLs in prose are out of scope (documented residual). Pure and deterministic."""
     if not text:
         return text, []
     notes = []
 
-    def _url(m):
-        notes.append({"type": "url", "original": m.group()})
-        return _defang_url(m)
-    text = _URL_RE.sub(_url, text)
-
-    def _sch(m):
-        notes.append({"type": "scheme", "original": m.group()})
-        return m.group(1) + "[:]"
-    text = _DANGER_SCHEME_RE.sub(_sch, text)
-
-    def _mdt(m):
-        t = m.group(0)
-        d = _defang_target(t)
-        if d != t:
-            notes.append({"type": "url", "original": t})
-        return d
-    text = _MD_TARGET_RE.sub(_mdt, text)
+    def _link(m):
+        target = m.group(2)
+        d = _defang_target(target)
+        if d != target:
+            notes.append({"type": "link", "original": target[:60]})
+        return m.group(1) + d + m.group(3)
+    text = _MD_LINK_RE.sub(_link, text)
 
     text = _neutralize_formulas(text, notes)
     return text, notes

@@ -34,15 +34,30 @@ def test_a10_payload_is_neutralized():
     assert notes, "no neutralization notes recorded"
 
 
-# ---- URL defang ----
+# ---- MARKDOWN-LINK targets are defanged (every link -- the accepted compromise) ----
 @pytest.mark.parametrize("raw,gone,present", [
-    ("see https://evil.example/x?c=1", "evil.example/x", "hxxps://evil[.]example/x"),
     ("[click](https://sso-reset.evil.example)", "sso-reset.evil.example", "hxxps://sso-reset[.]evil[.]example"),
-    ("visit www.phish.example now", "www.phish.example", "www[.]phish[.]example"),
+    ("[c2](evil-c2.example/beacon)", "evil-c2.example/beacon", "evil-c2[.]example/beacon"),
+    ("[x](javascript:alert(1))", "javascript:", "[:]"),
+    ("[x](javascript&#58;alert(1))", "javascript:", "[:]"),        # entity-encoded colon
+    ("[runbook](https://docs.exabeam.com)", "docs.exabeam.com", "docs[.]exabeam[.]com"),  # legit link also mutated
 ])
-def test_urls_defanged(raw, gone, present):
+def test_markdown_link_targets_defanged(raw, gone, present):
     clean, _ = N.neutralize_output(raw)
-    assert gone not in clean and present in clean
+    assert gone not in clean.lower() and present in clean
+
+
+# ---- DO NO HARM: a BARE URL / scheme in prose (no link, no formula) is a documented residual: untouched ----
+@pytest.mark.parametrize("prose", [
+    "See https://docs.exabeam.com/runbook for the procedure.",
+    "console at https://portal.corp.local/dashboard",
+    "visit www.exabeam.com now",
+    "the IOC api.evil-c2.example/beacon was seen",
+    "open file:///etc/hosts to check",
+    "run vbscript:msgbox(1) manually",
+])
+def test_bare_urls_in_prose_untouched(prose):
+    assert N.neutralize_output(prose)[0] == prose
 
 
 # ---- formula cells neutralized (line-lead and quoted) ----
@@ -100,12 +115,13 @@ def test_formula_neutralized_past_first_column(raw):
 
 @pytest.mark.parametrize("raw,gone", [
     ("[x](javascript:alert(document.cookie))", "javascript:"),
-    ("open file:///etc/passwd", "file:"),
+    ("[o](file:///etc/passwd)", "file:"),
     ("[r](data:text/html;base64,PHN2Zz4=)", "data:"),
-    ("run vbscript:msgbox(1)", "vbscript:"),
+    ("[v](vbscript:msgbox(1))", "vbscript:"),
 ])
-def test_dangerous_schemes_defanged(raw, gone):
-    """Finding #2 (High): non-navigational schemes must be rendered inert (`[:]`)."""
+def test_dangerous_schemes_in_links_defanged(raw, gone):
+    """Finding #2 (High): a non-navigational scheme USED AS A LINK TARGET is rendered inert (`[:]`).
+    (Bare in prose it is a documented residual -- see test_bare_urls_in_prose_untouched.)"""
     clean, _ = N.neutralize_output(raw)
     assert gone not in clean and "[:]" in clean, f"dangerous scheme survived: {clean!r}"
 
@@ -149,11 +165,11 @@ def test_hardening_is_idempotent(raw):
     "[x](javascript&#58;alert(1))",       # entity-encoded colon
     "[x](javascript&#09;:alert(1))",      # entity-tab before colon
     "[x](JavaScript:alert(1))",           # case
-    "load vbscript&#58;msgbox(1)",
+    "[v](vbscript&#58;msgbox(1))",        # entity-encoded colon, in a link
 ])
-def test_scheme_entity_bypass_defanged(raw):
+def test_scheme_entity_bypass_in_links_defanged(raw):
     """Finding #5: the dangerous-scheme colon may be entity/whitespace encoded — an HTML sink decodes it.
-    The scheme must still be neutralized."""
+    Inside a link target the scheme must still be neutralized."""
     clean, _ = N.neutralize_output(raw)
     assert "[:]" in clean and "javascript:" not in clean.lower() and "vbscript:" not in clean.lower()
 
@@ -164,11 +180,20 @@ def test_scheme_name_inside_a_word_not_mangled(word):
     assert N.neutralize_output(word)[0] == word
 
 
-@pytest.mark.parametrize("link", ["[r](report.md)", "![l](logo.png)", "[p](page.html)",
-                                  "version [a](v1.2)", "[a](notes.txt)"])
-def test_relative_links_not_mangled(link):
-    """Finding #6: a scheme-less markdown target with no path is a filename/relative link — leave it."""
-    assert N.neutralize_output(link)[0] == link
+@pytest.mark.parametrize("prose", ["see report.md", "attached logo.png", "shipped v1.2.3", "notes.txt saved"])
+def test_bare_filenames_in_prose_not_mangled(prose):
+    """DO NO HARM: a dotted filename / version typed in PROSE (not a link target) is left alone."""
+    assert N.neutralize_output(prose)[0] == prose
+
+
+@pytest.mark.parametrize("link,present", [
+    ("[r](report.md)", "report[.]md"), ("![l](logo.png)", "logo[.]png"),
+    ("[p](page.html)", "page[.]html"), ("[a](notes.txt)", "notes[.]txt"),
+])
+def test_relative_markdown_links_are_defanged(link, present):
+    """Accepted compromise (a10 re-scope): a deterministic pass can't tell a legit relative link from a
+    disguised phishing target, so EVERY markdown-link target is defanged -- including benign ones."""
+    assert present in N.neutralize_output(link)[0]
 
 
 def test_schemeless_host_with_path_is_defanged():
