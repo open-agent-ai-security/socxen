@@ -101,32 +101,83 @@ from neutralize_output import neutralize_output
 
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes"}
+# Free-text write fields a payload can ride in — the ONLY fields we neutralize. IDs / enums / state
+# fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
+# a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
+_DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags"}
+
+
+def _hygiene_note(hy):
+    """A compact, agent-visible annotation of what the canonicalizer removed/flagged, so the hygiene
+    record REACHES the agent instead of being discarded. Kept-but-flagged invisibles (which stay in the
+    value) and silently-stripped characters both become an explicit warning appended to the read text."""
+    bits = []
+    if hy.removed:
+        cps = ", ".join(dict.fromkeys(r["cp"] for r in hy.removed))
+        bits.append(f"{len(hy.removed)} hidden character(s) removed [{cps}]")
+    if hy.flagged:
+        toks = "; ".join(f["token"] for f in hy.flagged[:3])
+        bits.append(f"{len(hy.flagged)} obfuscated-ASCII token(s) flagged: {toks}")
+    return "\n\n⚠ [socxen hygiene] " + "; ".join(bits) if bits else ""
+
+
+def _block_text(block):
+    """Text of a content block regardless of shape: TextContent(`.text`) or EmbeddedResource
+    (`.resource.text`). Returns (text, kind); (None, None) for a block that carries no text."""
+    t = getattr(block, "text", None)
+    if isinstance(t, str):
+        return t, "text"
+    rt = getattr(getattr(block, "resource", None), "text", None)
+    if isinstance(rt, str):
+        return rt, "resource"
+    return None, None
+
+
+def _rewrite_block(block, kind, clean):
+    copy = getattr(block, "model_copy", None)
+    if not callable(copy):
+        return block
+    if kind == "text":
+        return copy(update={"text": clean})
+    rcopy = getattr(block.resource, "model_copy", None)          # kind == "resource"
+    return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
 
 
 def _canon_content(content):
+    """READ-side (#2): strip the invisible smuggling layer from tool results AND surface the hygiene
+    record to the agent. Covers text and embedded-resource blocks. FAIL-OPEN — read availability wins."""
     out = []
     for block in content:
         try:
-            if getattr(block, "type", None) == "text" and isinstance(getattr(block, "text", None), str):
-                clean, _ = canonicalize(block.text)
-                copy = getattr(block, "model_copy", None)
-                block = copy(update={"text": clean}) if callable(copy) else block
+            text, kind = _block_text(block)
+            if text is not None:
+                clean, hy = canonicalize(text)
+                block = _rewrite_block(block, kind, clean + _hygiene_note(hy))
         except Exception as e:  # noqa: BLE001 — availability over canonicalization
             sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
         out.append(block)
     return out
 
 
+def _defang_value(v):
+    if isinstance(v, str):
+        return neutralize_output(v)[0]
+    if isinstance(v, list):
+        return [_defang_value(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _defang_value(x) for k, x in v.items()}
+    return v
+
+
 def _defang_args(obj):
-    try:
-        if isinstance(obj, str):
-            return neutralize_output(obj)[0]
-        if isinstance(obj, dict):
-            return {k: _defang_args(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [_defang_args(v) for v in obj]
-    except Exception as e:  # noqa: BLE001 — availability over neutralization
-        sys.stderr.write(f"bridge: neutralize_output passthrough after error: {e!r}\n")
+    """WRITE-side (a10): neutralize active content in FREE-TEXT write fields only, recursing to reach
+    nested fields (e.g. `arg1.note`). FAIL-CLOSED — a neutralizer error is NOT swallowed; it propagates
+    so the bridge refuses the write rather than persist a raw payload."""
+    if isinstance(obj, dict):
+        return {k: (_defang_value(v) if k.lower() in _DEFANG_FIELDS else _defang_args(v))
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_defang_args(v) for v in obj]
     return obj
 
 
@@ -138,9 +189,9 @@ async def list_tools():
 @server.call_tool()
 async def call_tool(name, arguments):
     if name in WRITE_TOOLS and arguments:
-        arguments = _defang_args(arguments)                                   # output-side (a10)
+        arguments = _defang_args(arguments)                          # output-side (a10) — fail-closed
     content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
-    return _canon_content(content)                                            # input-side (#2)
+    return _canon_content(content)                                   # input-side (#2) — fail-open
 
 
 async def _check():
