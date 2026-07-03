@@ -13,6 +13,9 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
 ## Prerequisites
 
 - **Claude Code** (the `claude` CLI) — tool use and multi-step instruction following.
+- **A supported model.** socxen is validated on **Claude Sonnet 4.6 and up** (Opus). Sonnet is the
+  *floor* — our pre-release red-team gates on the weakest supported model, so if it holds there it holds
+  on stronger ones. Smaller models (e.g. Haiku) are **not supported** for this skill.
 - **An Exabeam New-Scale API key + secret** (OAuth client-credentials), from the New-Scale platform
   (role-gated; the MCP inherits the key's access level). You wire it up in *Connect the Exabeam MCP*
   below — the skill uses read tools to gather evidence and case/alert tools to act.
