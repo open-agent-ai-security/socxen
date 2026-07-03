@@ -22,9 +22,12 @@ The single `regex` runtime dep is declared in this module's PEP-723 header for s
 WIRING TODO: when the bridge imports this module, add `regex` to the bridge's own PEP-723 header (its
 `uv run` env doesn't read this file's) and regenerate the AI BOM.
 
-Pivot-safety invariant (§2): a value with no invisible smuggling code points returns `NFC(value)` with an
-empty hygiene record — nothing legitimate (Cyrillic/Persian/emoji *visible* content) is mutated, so
-downstream exact-match search still works.
+Pivot-safety (§2): a value with no invisible smuggling code points returns `NFC(value)` with an empty
+hygiene record — visible Cyrillic/Persian/emoji content is preserved. CAVEAT (review #8, OPEN design
+question): NFC is not identity on all code points — it recomposes NFD-stored values (macOS filenames)
+and folds canonical singletons (U+212A KELVIN → ASCII "K"), so an exact-match pivot on a backend that
+stored the raw form can miss. Whether to canonicalize search-pivot values at all — vs. only display/
+reasoning text, preserving a raw copy for pivots — is a deferred design decision, not settled here.
 
 Scope: STRIP + NFC + FLAG only. The richer forensic record (per-offset escaped-raw reconstruction, byte
 offsets, severity) is deferred to the bridge-wiring phase (gated: OQ-4/6/8) — intentionally not built here.
@@ -43,8 +46,11 @@ __all__ = ["canonicalize", "Hygiene", "is_strippable"]
 # NOTE: \p{Cf} is REQUIRED and SEPARATE from \p{DI} — DI does NOT include invisible format controls
 # U+0600-0605/06DD/08E2 (Arabic), U+070F (Syriac), U+FFF9-FFFB (interlinear), Kaithi/Egyptian format.
 # \p{Cf} u \p{DI} together are the complete invisible/format set; properties keep it zero-maintenance.
+# U+2028 LINE / U+2029 PARAGRAPH SEPARATOR are category Zl/Zp \u2014 NOT in Cf/DI/Cc/Cs \u2014 so they are added
+# explicitly: they are invisible line breaks an LLM tokenizes as logical newlines, letting an attacker
+# smuggle a "new instruction" out of a single quoted field (the invisible cousins of the kept \n\r\t).
 _STRIP_RE = regex.compile(
-    r"[[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cc}\p{Cs}]"
+    r"[[\p{Cf}\p{Default_Ignorable_Code_Point}\p{Cc}\p{Cs}\u2028\u2029]"
     r"--[\t\n\r\u200c\u200d\u200e\u200f\u061c\uFE00-\uFE0F]]",
     flags=regex.VERSION1,
 )
@@ -103,6 +109,13 @@ def canonicalize(text):
         bare = "".join(c for c in tok if ord(c) not in _KEEP_INVIS)
         if bare != tok and bare.isascii() and any(c.isalnum() for c in bare):
             hy.flagged.append({"class": "obfuscated-ascii", "token": tok[:_FIELD_CAP]})
+
+    # Flag a covert channel of ≥2 CONSECUTIVE variation selectors. U+FE00–FE0F are KEPT (carve-out) for
+    # legit emoji presentation, but a legit emoji uses at most ONE; a consecutive run encodes smuggled
+    # bytes (the "smuggle data through an emoji" technique). Kept-not-stripped, so surface it as a flag —
+    # the bridge renders the hygiene record to the agent.
+    for m in regex.finditer(r"[\uFE00-\uFE0F]{2,}", clean):
+        hy.flagged.append({"class": "variation-selector-run", "token": m.group()[:_FIELD_CAP]})
 
     hy.counts = {"stripped": len(hy.removed), "flagged": len(hy.flagged)}
     return clean, hy
