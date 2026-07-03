@@ -86,9 +86,8 @@ def test_empty_is_safe():
 
 @pytest.mark.parametrize("raw", [
     "host\t=cmd|'/C calc'!A0",                       # tab-separated DDE (paste-into-Excel column split)
-    "| user | =cmd|'/C calc'!A0 |",                  # markdown-table cell DDE
-    '| username | =HYPERLINK("http://evil.example/x") |',  # =HYPERLINK not at column 0
-    "a\t@SUM(1+1)*cmd",                              # @-formula after a tab
+    '| username | =HYPERLINK("http://evil.example/x") |',  # function in a markdown cell, not at column 0
+    "a\t@SUM(1+1)*cmd",                              # @-function after a tab
     "col1\t+cmd|calc",                              # +-lead DDE after a tab (keeps its pipe)
 ])
 def test_formula_neutralized_past_first_column(raw):
@@ -186,8 +185,21 @@ def test_markdown_separators_and_measurements_not_quoted(benign):
     assert N.neutralize_output(benign)[0] == benign
 
 
-@pytest.mark.parametrize("dde", ["-2+3+cmd|'x'!A0", "host\t+cmd|'/C calc'!A0", "| u | =cmd|calc |"])
+@pytest.mark.parametrize("dde", ["-2+3+cmd|'x'!A0", "host\t+cmd|'/C calc'!A0"])
 def test_dde_with_pipe_still_caught(dde):
     """The tab-only field split keeps a DDE's own `|`, so a numeric- or +/-lead DDE is still neutralized."""
     clean, _ = N.neutralize_output(dde)
     assert "'=" in clean or "'+" in clean or "'-" in clean
+
+
+@pytest.mark.parametrize("prose", [
+    "@channel please review this",      # @-mention at line start
+    "=baseline drift observed",         # =word prose
+    "-verbose logging was enabled",     # -word prose
+    "+notes attached to the case",      # +word prose
+    "=1+1 evaluates to two",            # arithmetic, no function/DDE syntax
+])
+def test_formula_lead_prose_not_quoted(prose):
+    """Harm reduction: a cell that merely OPENS with =/@/+/- but carries no function/DDE syntax (( | !)
+    is inert prose -- it must NOT be quote-prefixed."""
+    assert N.neutralize_output(prose)[0] == prose

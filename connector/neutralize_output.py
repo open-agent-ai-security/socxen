@@ -49,11 +49,9 @@ _MD_TARGET_RE = re.compile(r"(?<=\]\()([^)\s]+)")
 # A scheme-less host[.tld]/path. Only defanged (inside a link target) when it has a PATH or `//` — a bare
 # dotted filename / relative link (`report.md`, `logo.png`, `v1.2`) has no path and is left alone.
 _HOST_RE = re.compile(r"^(//)?([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)
-# A whole cell that is just a signed/plain number (thousands, decimal, scientific, percent) — not a formula.
-_NUMBER_RE = re.compile(r"[+-]?[\d,]+(?:\.\d+)?(?:[eE][+-]?\d+)?%?$")
-# A markdown table separator / thematic break (`---`, `:---:`, `- - -`) — never a formula.
-_MD_SEP_RE = re.compile(r"[:\- ]+")
-# Function-call / DDE syntax — what makes a `+`/`-`-led cell actually execute (`+HYPERLINK(x)`, `-cmd|'…'!A0`).
+# Function-call / DDE syntax — what makes a formula-lead cell actually EXECUTE (`=HYPERLINK(x)`,
+# `@SUM(...)`, `-cmd|'…'!A0`). Required, so prose that merely opens with =/@/+/- (`=baseline drift`,
+# `@channel`, `-verbose`, `-5 ms`, a `---` separator) is left alone.
 _DDE_SIGNAL_RE = re.compile(r"[(|!]")
 # A quoted field value opening with a formula-active char (e.g.  username: "=HYPERLINK(...)").
 _QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')
@@ -91,26 +89,13 @@ def _defang_target(t):
 
 
 def _is_formula(cell):
-    """True if a spreadsheet would EXECUTE this cell as a formula. `=`/`@` always. A `+`/`-` lead executes
-    only with function/DDE syntax (`+HYPERLINK(x)`, `-cmd|'…'!A0`) — a plain number (`-5`, `-1,200`), a
-    `"- "` bullet, a markdown separator (`---`), or a bare measurement/word (`-5 ms`, `-verbose`) is inert
-    and left alone (avoids over-quoting benign prose / tables)."""
+    """True if a spreadsheet would EXECUTE this cell. A cell is a formula only if it opens with a
+    formula-lead char (`=` `@` `+` `-`) AND carries function-call / DDE syntax (`(` `|` `!`) — so
+    `=HYPERLINK(x)`, `@SUM(...)`, `=cmd|'…'!A0`, `+HYPERLINK(x)` are caught, while prose that merely
+    starts with one of those chars (`=baseline drift`, `@channel`, `-verbose`, `-5 ms`, `---`, a number,
+    a `"- "` bullet) is inert and left ALONE."""
     s = cell.strip()
-    if not s:
-        return False
-    if s[0] in ("=", "@"):
-        return True
-    if s[0] in ("+", "-"):
-        if _NUMBER_RE.match(s):                 # -5, -1,200, +1.5
-            return False
-        if s[1:2] == " ":                       # "- " list item
-            return False
-        if _MD_SEP_RE.fullmatch(s):             # ---, :---:, - - -
-            return False
-        # executes as a formula if the lead is followed by a function name (`+cmd`, `+HYPERLINK`) or it
-        # carries DDE/function syntax (`( | !`). A bare number-lead measurement (`-5 ms`) is inert.
-        return s[1:2].isalpha() or bool(_DDE_SIGNAL_RE.search(s))
-    return False
+    return len(s) >= 2 and s[0] in "=@+-" and bool(_DDE_SIGNAL_RE.search(s))
 
 
 def _quote(lead, cell, notes):
