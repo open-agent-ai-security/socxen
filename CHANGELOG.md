@@ -8,7 +8,7 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [0.6.0] — Unreleased
+## [0.6.0] — 2026-07-04
 
 The first release to ship socxen's **deterministic security controls** and its **audit trail** — the
 shipped **v0.5.0 had neither**. This is a feature release, not a patch, which is why the minor version
