@@ -7,7 +7,7 @@
 **An agentic SOC analyst, as a Claude Code skill.**
 
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.5.0-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.6.0-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -17,60 +17,36 @@ false-positive verdict, and acts. No server, no database, no approval queue: the
 is the human-in-the-loop, and the consequential action (dismiss/close) is held back by **two locks** —
 Claude Code permission rules *and* the skill asking you first — never left to the model alone.
 
-## Install (Claude Code plugin marketplace)
+## Highlights
 
-From your terminal:
+- ⚡ **One-command install** from the Claude Code plugin marketplace — the Exabeam connection is *bundled*
+  and auto-registers (no `claude mcp add`, no expiring tokens to babysit).
+- 🔍 **End-to-end investigation** on the real Exabeam read surface — events, alerts/cases, threat
+  timelines, rule details, MITRE coverage, context tables — with a disciplined verdict bar.
+- 🔒 **Safety-first by design** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
+  you switch on during setup; containment is *recommended* to a human, never executed.
+- 🧾 **High-performance audit logging, on by default** — a structured, bounded, privacy-preserving record
+  of every action and every time a guardrail fired. ~16 µs/event, non-blocking, local.
+- 🛡️ **Untrusted-telemetry guardrails, always on** — strips hidden-character smuggling from what it reads,
+  de-activates dangerous content (formulas, clickable links) in what it writes.
+
+## Quick start
 
 ```bash
 claude plugin marketplace add open-agent-ai-security/socxen
 claude plugin install socxen@socxen
-claude plugin list      # confirm: socxen@socxen, enabled
 ```
 
-Or run `./install.sh` (idempotent — does both and prints next steps). Full guide:
-[docs/installation.md](docs/installation.md). The skill registers as `soc-investigate`.
+Two one-time steps remain — **connect Exabeam** (drop your API key in `~/.exabeam-mcp.env`) and **turn on
+the governance safety gate**. The setup guide does the lifting:
 
-That installs the skill. Two one-time steps remain below — **connect Exabeam** and (recommended)
-**governance** — after which you ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
+### → [Full setup: docs/installation.md](docs/installation.md)
 
-## Add your Exabeam credentials (one time)
+> ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
+> dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
+> Do not point socxen at alerts you care about until it's on. The setup guide walks you through it.
 
-socxen **bundles** the Exabeam connection — installing the plugin **auto-registers** it (no
-`claude mcp add`, no clone, no expiring tokens to manage). The one thing it can't do for you is supply
-your secret, so create `~/.exabeam-mcp.env`:
-
-```bash
-cat > ~/.exabeam-mcp.env <<'EOF'
-EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
-EXABEAM_API_KEY=your-key
-EXABEAM_API_SECRET=your-secret
-EOF
-chmod 600 ~/.exabeam-mcp.env
-```
-
-(Get a key + secret from the New-Scale platform → Settings → API Keys; role-gated. The bundled bridge
-runs via [`uv`](https://docs.astral.sh/uv/getting-started/installation/) and refreshes the OAuth token
-for you.) Restart Claude Code, and you're set.
-
-## Governance (strongly recommended — this is the safety gate)
-
-Do this before you point socxen at anything you care about. Merge the `permissions` block from
-`skills/soc-investigate/settings.snippet.json` into your `.claude/settings.json`:
-
-- **allow** the read + escalation tools (investigate and open/escalate cases freely),
-- **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong AI verdict does harm),
-- **`deny`** the 17 containment tools outright (defense-in-depth).
-
-Merging it makes the dismiss/close approval a **hard, Claude-Code-enforced gate**: Claude Code prompts
-you before those actions run and **won't execute them without your "yes,"** and hard-blocks containment
-deterministically. **Until you merge it there is no permission-layer gate** — only the skill's own
-in-prompt ask, which is a softer backstop. The rules match the **bundled** MCP's tool names
-(`mcp__plugin_socxen_exabeam__…`); on the advanced manual `claude mcp add exabeam` path, switch the
-prefixes to `mcp__exabeam__…`.
-
-> ⚠️ **Don't run with `--dangerously-skip-permissions`** (or bypass / auto-accept modes). They turn the
-> hard gate *off* — every permission prompt, including dismiss/close — leaving only the skill's soft ask
-> between the model and a suppressed alert. Keep permissions **on**.
+Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 
 ## What it does
 
@@ -81,11 +57,14 @@ prefixes to `mcp__exabeam__…`.
 - **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
-See `skills/soc-investigate/SKILL.md` for the methodology and `reference/` for the tool map, the
-**search cookbook** (EQL grammar + copy-paste query recipes), the **enrichment playbook** (context
-tables that tip FP/TP), triage vocabulary, report template, the containment list, and
-**`reference/examples/`** (worked end-to-end investigations + eval fixtures). Regression tests live in
-`evals/`.
+## Documentation
+
+| Guide | What's in it |
+|---|---|
+| **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
+| **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
+| **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
+| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in `evals/`. |
 
 ## Layout
 
@@ -93,8 +72,9 @@ tables that tip FP/TP), triage vocabulary, report template, the containment list
 .claude-plugin/          marketplace.json + plugin.json (marketplace install)
 .mcp.json                bundled Exabeam MCP — auto-registers on install
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
-connector/               exabeam-mcp-bridge.py (the bridge — auto token refresh)
-install.sh               convenience installer · docs/installation.md  full guide
+connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
+docs/                    installation · security-guardrails · logging
+install.sh               convenience installer (idempotent)
 ```
 
 ## Status

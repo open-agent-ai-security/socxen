@@ -21,7 +21,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Deterministic tests (invariants + bridge static + evals)
-        run: uv run --with pytest --with jsonschema pytest -q tests/
+        # observra + typing_extensions are installed so the audit-log tests (real emit, privacy
+        # invariant, rotation bounds) actually RUN here instead of importorskip-ping — otherwise a
+        # rotation/emit regression would be invisible in CI.
+        run: uv run --with pytest --with jsonschema --with observra --with typing_extensions pytest -q tests/
 
       - name: Eval regression harness (recorded runs, no creds)
         # Grades the committed golden run against its fixture — schema, deterministic

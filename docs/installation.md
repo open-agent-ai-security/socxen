@@ -83,7 +83,12 @@ claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp \
 The bundled server registers as `exabeam`; the governance rules match its plugin-namespaced tools
 (`mcp__plugin_socxen_exabeam__…` — see Governance below).
 
-## Governance (strongly recommended) — turn on the safety gate
+## Governance — turn on the safety gate (do not skip this)
+
+> 🛑 **This is the most important step on the page. Install the permissions pack before you point socxen
+> at anything real.** It is the *only* hard, harness-enforced lock on dismiss/close. Skip it and a wrong
+> AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it as
+> mandatory, not "recommended."
 
 This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
 `skills/soc-investigate/settings.snippet.json` into your `~/.claude/settings.json`:
@@ -105,6 +110,18 @@ rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); 
 Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in
 what it writes back. See **[Security guardrails](security-guardrails.md)** for what to expect.
+
+## Audit logging (on by default)
+
+socxen keeps a **structured audit log out of the box** — a machine-parseable record of every tool call,
+the gated action taken (which alert/case, to what disposition), and when the guardrails fired. It needs
+**no setup**: it writes newline-delimited JSON to a local, rotating file at **`~/.socxen/telemetry.jsonl`**
+(bounded to ~60 MB), with no network egress.
+
+When you're ready to do more with it, you can point it elsewhere or turn it off — route events to
+Exabeam, an OpenTelemetry collector, or a webhook, tune the rotation size, or disable it entirely with
+`SOCXEN_OBSERVRA=off`. See **[Logging](logging.md)** for exactly what is (and isn't) recorded, where to
+find and read the file, and every control knob.
 
 ## Updating
 

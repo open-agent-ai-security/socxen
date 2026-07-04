@@ -15,7 +15,7 @@ a **safety measure** — so a bomb someone planted in an alert can't go off in y
 To do that, socxen runs two automatic checks on every Exabeam call. They're always on and need no
 configuration.
 
-This is a safety net, not a replacement for judgment. Your **[governance permission gate](installation.md#governance-strongly-recommended--turn-on-the-safety-gate)**
+This is a safety net, not a replacement for judgment. Your **[governance permission gate](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)**
 and your own review before you act remain the primary controls.
 
 ## 1. Screening what socxen reads (hidden-character smuggling)

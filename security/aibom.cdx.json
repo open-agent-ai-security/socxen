@@ -1,14 +1,14 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:e3dd80de-63f6-512b-9ca1-9166db6c5f23",
+  "serialNumber": "urn:uuid:04f0c18a-7bea-51af-b4d1-05b1d782bfea",
   "version": 1,
   "metadata": {
     "component": {
-      "bom-ref": "socxen@0.5.0",
+      "bom-ref": "socxen@0.6.0",
       "type": "application",
       "name": "socxen",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
       "licenses": [
         {
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-07-03T19:36:28Z"
+    "timestamp": "2026-07-04T16:12:24Z"
   },
   "components": [
     {
@@ -203,6 +203,22 @@
       "version": "unspecified",
       "purl": "pkg:pypi/certifi",
       "description": "Connector dependency (certifi), resolved by uv at runtime (PEP 723)."
+    },
+    {
+      "bom-ref": "pkg:pypi/observra",
+      "type": "library",
+      "name": "observra",
+      "version": ">=1.0.6,<2",
+      "purl": "pkg:pypi/observra",
+      "description": "Connector dependency (observra>=1.0.6,<2), resolved by uv at runtime (PEP 723)."
+    },
+    {
+      "bom-ref": "pkg:pypi/typing_extensions",
+      "type": "library",
+      "name": "typing_extensions",
+      "version": "unspecified",
+      "purl": "pkg:pypi/typing_extensions",
+      "description": "Connector dependency (typing_extensions), resolved by uv at runtime (PEP 723)."
     }
   ],
   "services": [
@@ -247,7 +263,7 @@
   ],
   "dependencies": [
     {
-      "ref": "socxen@0.5.0",
+      "ref": "socxen@0.6.0",
       "dependsOn": [
         "model:anthropic-claude",
         "artifact:soc-investigate-methodology",
@@ -260,7 +276,9 @@
       "dependsOn": [
         "pkg:pypi/mcp",
         "pkg:pypi/httpx",
-        "pkg:pypi/certifi"
+        "pkg:pypi/certifi",
+        "pkg:pypi/observra",
+        "pkg:pypi/typing_extensions"
       ]
     },
     {
