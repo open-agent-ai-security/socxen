@@ -1,0 +1,276 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+
+  Source of truth for the runtime-guardrail architecture figure (the bridge's input/output hooks)
+  embedded in ../security-guardrails.md. Edit this file, then regenerate the PNGs — see the
+  README.md in this directory. Self-contained; the ?theme URL hash lets the renderer stamp light/dark.
+-->
+<title>socxen guardrail bridge</title>
+<script>
+  document.documentElement.setAttribute("data-theme", (location.hash.replace("#", "") || "light"));
+</script>
+<style>
+  :root {
+    --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
+    --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
+    --accent: #0f9c95; --spotlight: #5b5bd6;
+    --closed: #cf3d47; --open: #a9761a; --pass: #2f8f4e;
+    --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
+    --closed-soft: #cf3d4714; --open-soft: #a9761a16;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 9px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
+      --ink: #e0eaed; --ink-dim: #93a7af; --ink-faint: #61777f;
+      --accent: #3ccfc7; --spotlight: #9090f2;
+      --closed: #f0616b; --open: #e0a94a; --pass: #56ba71;
+      --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
+      --closed-soft: #f0616b1c; --open-soft: #e0a94a18;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
+    --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
+    --accent: #0f9c95; --spotlight: #5b5bd6;
+    --closed: #cf3d47; --open: #a9761a; --pass: #2f8f4e;
+    --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
+    --closed-soft: #cf3d4714; --open-soft: #a9761a16;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
+    --ink: #e0eaed; --ink-dim: #93a7af; --ink-faint: #61777f;
+    --accent: #3ccfc7; --spotlight: #9090f2;
+    --closed: #f0616b; --open: #e0a94a; --pass: #56ba71;
+    --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
+    --closed-soft: #f0616b1c; --open-soft: #e0a94a18;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 40px 26px 48px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1 { font-size: clamp(27px, 4.4vw, 38px); line-height: 1.05; margin: 0 0 14px; font-weight: 680; letter-spacing: -0.02em; text-wrap: balance; }
+  h1 .mono { font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 0.6em; }
+  .lede { max-width: 74ch; color: var(--ink-dim); font-size: 16px; margin: 0 0 24px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .keyrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+  .key { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); background: var(--panel); border: 1px solid var(--line); padding: 5px 10px; border-radius: 100px; }
+  .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .swatch.dash { border: 1px dashed var(--ink-faint); background: transparent; }
+
+  /* ---- main flow ---- */
+  .flow {
+    display: grid;
+    grid-template-columns: minmax(168px, 0.95fr) 118px minmax(320px, 1.7fr) 118px minmax(168px, 0.95fr);
+    align-items: stretch; gap: 0;
+  }
+  .col { border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px 17px; display: flex; flex-direction: column; }
+  .col .role { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 5px; }
+  .col .nm { font-weight: 660; font-size: 16px; letter-spacing: -0.01em; line-height: 1.2; }
+  .col .nm .path { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--ink-dim); display: block; margin-top: 3px; }
+  .col .sub { font-size: 12.5px; color: var(--ink-dim); margin-top: 8px; }
+
+  .col.agent { border-top: 3px solid var(--spotlight); }
+  .col.agent .role { color: var(--spotlight); }
+  .col.remote { border-style: dashed; background: transparent; }
+  .col.bridge { border: 1.5px solid var(--accent); border-top: 3px solid var(--accent); background: linear-gradient(180deg, var(--accent-soft), transparent 46%), var(--panel); padding-bottom: 15px; }
+  .col.bridge .role { color: var(--accent); }
+  .col.bridge .brhead { padding-bottom: 12px; margin-bottom: 13px; border-bottom: 1px solid var(--line); }
+
+  /* hook lanes inside the bridge */
+  .lane { border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); padding: 11px 13px; }
+  .lane + .lane { margin-top: 10px; }
+  .lane.out { border-left: 3px solid var(--closed); }
+  .lane.in  { border-left: 3px solid var(--open); }
+  .lane .dir { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .lane.out .dir { color: var(--closed); }
+  .lane.in  .dir { color: var(--open); }
+  .lane .hk { font-family: var(--mono); font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .badge { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 5px; font-weight: 600; margin-left: 8px; vertical-align: middle; }
+  .badge.closed { color: var(--closed); background: var(--closed-soft); border: 1px solid color-mix(in srgb, var(--closed) 40%, var(--line)); }
+  .badge.open { color: var(--open); background: var(--open-soft); border: 1px solid color-mix(in srgb, var(--open) 42%, var(--line)); }
+  .lane .ld { font-size: 12px; color: var(--ink-dim); margin-top: 6px; }
+  .lane .ld code { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+
+  /* connector gaps: two stacked directional arrows */
+  .gap { display: flex; flex-direction: column; justify-content: center; gap: 26px; padding: 0 6px; }
+  .arow { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .arow .lbl { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); text-align: center; line-height: 1.25; }
+  .arow .wire { display: flex; align-items: center; width: 100%; color: var(--accent); }
+  .arow .wire .line { flex: 1; height: 1.5px; background: currentColor; }
+  .arow.right .wire::after { content: ""; border: 5px solid transparent; border-left-color: currentColor; }
+  .arow.left .wire::before { content: ""; border: 5px solid transparent; border-right-color: currentColor; }
+  .arow.right { color: var(--closed); }
+  .arow.left  { color: var(--open); }
+  .arow.right .wire, .arow.left .wire { color: inherit; }
+  .arow.neutral { color: var(--ink-faint); }
+
+  /* ---- observra tap ---- */
+  .tap { display: flex; flex-direction: column; align-items: center; margin-top: 4px; }
+  .tap .stem { width: 1.5px; height: 26px; background: var(--line); }
+  .tap .stem.head { position: relative; }
+  .tap .down { border: 6px solid transparent; border-top-color: var(--accent); margin-top: -1px; }
+  .tap .taplbl { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin: 5px 0; }
+  .observra {
+    border: 1.5px solid var(--accent); border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--accent-soft), transparent 60%), var(--panel);
+    padding: 15px 18px; max-width: 780px; width: 100%;
+    display: flex; gap: 18px; align-items: center;
+  }
+  .observra .body { flex: 1; }
+  .observra .role { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .observra .nm { font-weight: 660; font-size: 15.5px; }
+  .observra .nm .path { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--ink-dim); }
+  .observra .od { font-size: 12.5px; color: var(--ink-dim); margin-top: 6px; }
+  .observra .od b { color: var(--ink); font-weight: 600; }
+  .logchip {
+    flex: none; font-family: var(--mono); font-size: 12px; color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); background: var(--accent-soft);
+    border-radius: 8px; padding: 10px 13px; text-align: center; line-height: 1.4;
+  }
+  .logchip small { display: block; color: var(--ink-faint); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* ---- rails ---- */
+  .rails { margin-top: 34px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+  .rail { border: 1px solid var(--line); border-radius: var(--radius); padding: 13px 15px; background: var(--panel); }
+  .rail .rt { font-weight: 640; font-size: 13.5px; margin-bottom: 3px; display: flex; align-items: center; gap: 7px; }
+  .rail .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .rail .rd { font-size: 12.5px; color: var(--ink-dim); }
+  .rail .rd code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+
+  footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--ink-faint); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  footer b { color: var(--ink-dim); font-weight: 500; }
+
+  @media (max-width: 780px) {
+    .flow { grid-template-columns: 1fr; }
+    .gap { flex-direction: row; padding: 10px 0; }
+    .rails { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">connector · runtime safety</p>
+  <h1>The socxen guardrail bridge <span class="mono">exabeam-mcp-bridge.py</span></h1>
+  <p class="lede">
+    Your log data is untrusted input — an attacker can plant a payload in an alert knowing an agent will
+    read it. So socxen never talks to Exabeam directly. Claude Code talks to a <strong>local bridge MCP</strong>
+    that proxies every call to the real Exabeam MCP — and because it sits in the path of <em>every</em>
+    call, it's the one place to <strong>hook input and output</strong> for safety.
+  </p>
+
+  <div class="keyrow">
+    <span class="key"><span class="swatch" style="background:var(--spotlight)"></span>the agent</span>
+    <span class="key"><span class="swatch" style="background:var(--accent)"></span>socxen's own code</span>
+    <span class="key"><span class="swatch" style="background:var(--closed)"></span>write path · fails closed</span>
+    <span class="key"><span class="swatch" style="background:var(--open)"></span>read path · fails open</span>
+    <span class="key"><span class="swatch dash"></span>Exabeam platform</span>
+  </div>
+
+  <div class="flow">
+    <!-- agent -->
+    <div class="col agent">
+      <div class="role">★ the analyst</div>
+      <div class="nm">soc-investigate agent<span class="path">Claude Code + skill</span></div>
+      <div class="sub">Issues read &amp; write tool calls over stdio.</div>
+    </div>
+
+    <!-- agent <-> bridge -->
+    <div class="gap">
+      <div class="arow right">
+        <span class="lbl">write<br>tool args</span>
+        <span class="wire"><span class="line"></span></span>
+      </div>
+      <div class="arow left">
+        <span class="lbl">read<br>clean text</span>
+        <span class="wire"><span class="line"></span></span>
+      </div>
+    </div>
+
+    <!-- bridge -->
+    <div class="col bridge">
+      <div class="brhead">
+        <div class="role">socxen connector · local stdio MCP</div>
+        <div class="nm">The guardrail bridge<span class="path">connector/exabeam-mcp-bridge.py</span></div>
+        <div class="sub">Proxies every call &amp; auto-refreshes OAuth. The two deterministic guardrails live in <code style="font-family:var(--mono);font-size:11.5px">call_tool()</code>:</div>
+      </div>
+
+      <div class="lane out">
+        <div class="dir">▶ on write · tool arguments <span class="badge closed">FAIL-CLOSED</span></div>
+        <div class="hk">neutralize_output.py</div>
+        <div class="ld">Defangs formulas (<code>=HYPERLINK(…)</code>) &amp; phishing links in free-text fields only — note, description, tags. IDs &amp; enums untouched. On error the write is <b style="color:var(--closed)">refused</b>, never persisted raw.</div>
+      </div>
+
+      <div class="lane in">
+        <div class="dir">◀ on read · tool results <span class="badge open">FAIL-OPEN</span></div>
+        <div class="hk">canonicalize.py</div>
+        <div class="ld">Strips invisible smuggling (zero-width, bidi, tag chars) &amp; normalizes hidden line breaks before the agent reasons. Legit text left alone. On error it <b style="color:var(--open)">passes through</b> — reads never break.</div>
+      </div>
+    </div>
+
+    <!-- bridge <-> remote -->
+    <div class="gap">
+      <div class="arow right">
+        <span class="lbl">forward<br>Bearer token</span>
+        <span class="wire"><span class="line"></span></span>
+      </div>
+      <div class="arow left">
+        <span class="lbl">raw<br>results</span>
+        <span class="wire"><span class="line"></span></span>
+      </div>
+    </div>
+
+    <!-- remote -->
+    <div class="col remote">
+      <div class="role">exabeam platform · not socxen code</div>
+      <div class="nm">Exabeam New-Scale MCP<span class="path">remote · HTTP + OAuth</span></div>
+      <div class="sub">The real MCP → New-Scale alerts, cases &amp; events.</div>
+    </div>
+  </div>
+
+  <!-- observra tap -->
+  <div class="tap">
+    <div class="stem"></div>
+    <div class="taplbl">every call, out of band</div>
+    <div class="stem"></div>
+    <div class="down"></div>
+  </div>
+  <div class="tap">
+    <div class="observra">
+      <div class="body">
+        <div class="role">audit trail · on by default</div>
+        <div class="nm">observra logging <span class="path">connector/observra_logging.py</span></div>
+        <div class="od">Records the tool, duration, the <b>gated decision</b> (which alert/case → what disposition), and <b>when each guardrail fired</b>. Metadata &amp; safe IDs/enums only — <b>never</b> note text, evidence, or the neutralized payload. Fail-open; local, rotating.</div>
+      </div>
+      <div class="logchip"><small>default sink</small>~/.socxen/<br>telemetry.jsonl</div>
+    </div>
+  </div>
+
+  <div class="rails">
+    <div class="rail">
+      <div class="rt"><span class="dot" style="background:var(--closed)"></span>Writes fail closed</div>
+      <div class="rd">Refusing a write is safe — the finding isn't lost, just not persisted with a live payload. So a neutralizer error <em>stops</em> the write rather than storing raw content.</div>
+    </div>
+    <div class="rail">
+      <div class="rt"><span class="dot" style="background:var(--open)"></span>Reads fail open</div>
+      <div class="rd">Breaking an investigation is the bigger harm. A canonicalizer bug must never blind the analyst, so on error the read passes through untouched and the fault is logged.</div>
+    </div>
+    <div class="rail">
+      <div class="rt"><span class="dot" style="background:var(--accent)"></span>Narrow by design</div>
+      <div class="rd">Only free-text write fields are defanged; IDs, enums &amp; state are left exact so a formula-shaped identifier can't corrupt a write. "Do no harm; stop the obvious."</div>
+    </div>
+  </div>
+
+  <footer>
+    <span><b>bridge</b> connector/exabeam-mcp-bridge.py</span>
+    <span><b>input hook</b> canonicalize.py</span>
+    <span><b>output hook</b> neutralize_output.py</span>
+    <span><b>audit</b> observra_logging.py</span>
+    <span><b>guide</b> docs/security-guardrails.md</span>
+  </footer>
+</div>
