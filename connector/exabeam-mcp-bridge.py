@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi"]
+# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "observra>=1.0", "typing_extensions"]
 # ///
 """Exabeam MCP bridge.
 
@@ -98,6 +98,7 @@ server = Server("exabeam")
 # Both are FAIL-OPEN: a guardrail bug must never break an investigation.
 from canonicalize import canonicalize
 from neutralize_output import neutralize_output
+import observra_logging as telemetry   # optional, fail-open agent telemetry (SOCXEN_OBSERVRA=...)
 
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes"}
@@ -105,6 +106,13 @@ WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
 _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags"}
+
+# Safe (non-free-text) fields of a gated write to record in the audit log: identifiers, state and
+# disposition enums. These are the deterministic decision record — WHAT the agent did, on WHICH object,
+# to WHAT disposition. They are explicitly NOT free text (never PII / evidence), so logging them cannot
+# leak a planted payload. `assignee` is deliberately excluded (operator identity is captured out of band).
+_AUDIT_FIELDS = {"alertid", "caseid", "alertstatus", "casestatus", "stage",
+                 "priority", "severity", "queue", "disposition", "usecases"}
 
 
 def _log_hygiene(hy):
@@ -138,10 +146,11 @@ def _rewrite_block(block, kind, clean):
     return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
 
 
-def _canon_content(content):
+def _canon_content(content, removed=None):
     """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
     invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
-    never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins."""
+    never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins.
+    `removed` is an optional accumulator for telemetry (default None — behavior is unchanged)."""
     out = []
     for block in content:
         try:
@@ -149,6 +158,8 @@ def _canon_content(content):
             if text is not None:
                 clean, hy = canonicalize(text)
                 _log_hygiene(hy)
+                if removed is not None and hy.removed:
+                    removed.extend(hy.removed)
                 block = _rewrite_block(block, kind, clean)
         except Exception as e:  # noqa: BLE001 — availability over canonicalization
             sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
@@ -156,26 +167,52 @@ def _canon_content(content):
     return out
 
 
-def _defang_value(v):
+def _defang_value(v, notes=None):
+    """Neutralize a free-text value; when `notes` is provided, accumulate the neutralizer's change
+    records into it (for telemetry only — the security behavior is identical whether or not it is)."""
     if isinstance(v, str):
-        return neutralize_output(v)[0]
+        clean, ns = neutralize_output(v)
+        if notes is not None:
+            notes.extend(ns)
+        return clean
     if isinstance(v, list):
-        return [_defang_value(x) for x in v]
+        return [_defang_value(x, notes) for x in v]
     if isinstance(v, dict):
-        return {k: _defang_value(x) for k, x in v.items()}
+        return {k: _defang_value(x, notes) for k, x in v.items()}
     return v
 
 
-def _defang_args(obj):
+def _defang_args(obj, notes=None):
     """WRITE-side (a10): neutralize active content in FREE-TEXT write fields only, recursing to reach
     nested fields (e.g. `arg1.note`). FAIL-CLOSED — a neutralizer error is NOT swallowed; it propagates
-    so the bridge refuses the write rather than persist a raw payload."""
+    so the bridge refuses the write rather than persist a raw payload. `notes` is an optional telemetry
+    accumulator (default None — byte-identical to the un-instrumented path)."""
     if isinstance(obj, dict):
-        return {k: (_defang_value(v) if k.lower() in _DEFANG_FIELDS else _defang_args(v))
+        return {k: (_defang_value(v, notes) if k.lower() in _DEFANG_FIELDS else _defang_args(v, notes))
                 for k, v in obj.items()}
     if isinstance(obj, list):
-        return [_defang_args(v) for v in obj]
+        return [_defang_args(v, notes) for v in obj]
     return obj
+
+
+def _audit_fields(obj, into=None):
+    """Collect the SAFE identifier/enum fields of a write (see `_AUDIT_FIELDS`) from anywhere in the
+    (possibly nested) arguments — the decision record for the audit log. Scalars and lists of scalars
+    only; free text and nested objects are never captured. First occurrence of a key wins."""
+    into = {} if into is None else into
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k.lower() in _AUDIT_FIELDS and isinstance(v, (str, int, float, bool)):
+                into.setdefault(k, v[:80] if isinstance(v, str) else v)
+            elif (k.lower() in _AUDIT_FIELDS and isinstance(v, list)
+                  and all(isinstance(x, (str, int, float, bool)) for x in v)):
+                into.setdefault(k, v[:10])
+            else:
+                _audit_fields(v, into)
+    elif isinstance(obj, list):
+        for v in obj:
+            _audit_fields(v, into)
+    return into
 
 
 @server.list_tools()
@@ -185,10 +222,22 @@ async def list_tools():
 
 @server.call_tool()
 async def call_tool(name, arguments):
-    if name in WRITE_TOOLS and arguments:
-        arguments = _defang_args(arguments)                          # output-side (a10) — fail-closed
-    content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
-    return _canon_content(content)                                   # input-side (#2) — fail-open
+    t0 = time.perf_counter()
+    telemetry.tool_start(name)
+    defang_notes, hygiene_removed = [], []                           # telemetry accumulators (best-effort)
+    is_write = name in WRITE_TOOLS and bool(arguments)
+    try:
+        if is_write:
+            arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
+        content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
+        content = _canon_content(content, hygiene_removed)           # input-side (#2) — fail-open
+    except Exception as e:
+        telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e)
+        raise
+    telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
+                       defang_notes=defang_notes, hygiene_removed=hygiene_removed,
+                       action_fields=_audit_fields(arguments) if is_write else None)  # decision record
+    return content
 
 
 async def _check():
@@ -197,6 +246,7 @@ async def _check():
 
 
 async def _serve():
+    telemetry.session_start()   # best-effort; a no-op unless SOCXEN_OBSERVRA names a backend
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
 
