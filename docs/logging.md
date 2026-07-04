@@ -87,6 +87,11 @@ bridge's own creds), `otel` / `otel_log` (OpenTelemetry), `webhook`. These make 
 is the default. On first enable, the bridge prints one line to stderr naming the destination and how to
 turn it off — disclosed, not silent.
 
+> **Enabling a network backend is an egress decision you own.** The default (`jsonl`) never leaves the
+> host. `exabeam`/`otel`/`webhook` send events off-box — action *metadata* and safe IDs only, never
+> case-note text, evidence, or payloads (the same privacy rules apply) — but you are choosing to route
+> telemetry to that destination. Point them only at systems you control.
+
 ## Finding and reading your log
 
 By default it's at **`~/.socxen/telemetry.jsonl`** (rotated backups are `telemetry.jsonl.1` … `.5`). It's

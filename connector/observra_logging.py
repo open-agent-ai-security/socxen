@@ -81,6 +81,7 @@ def _configure():
     try:
         import observra
         from observra.core import context
+        from observra.core.events import create_event
 
         kwargs = {}
         if backend == "jsonl":
@@ -92,14 +93,22 @@ def _configure():
         context.initialize_trace()
 
         if backend == "jsonl":
-            # observra's initialize() forwards only `path` to the jsonl backend, so set the rotation
-            # bounds on the constructed instance (it reads these per write). Keeps the audit log bounded.
+            # observra's initialize() forwards only `path` to the jsonl backend (observra#84), so set the
+            # rotation bounds on the constructed instance (it reads these per write). Values are clamped so
+            # a stray 0/negative can't turn rotation into per-event thrashing.
             storage = getattr(getattr(observra, "_worker", None), "_storage", None)
             if storage is not None:
-                storage.max_bytes = _int_env("SOCXEN_OBSERVRA_MAX_BYTES", 10_485_760)   # rotate at 10 MB
-                storage.backup_count = _int_env("SOCXEN_OBSERVRA_BACKUPS", 5)            # keep 5 backups
+                storage.max_bytes = max(4096, _int_env("SOCXEN_OBSERVRA_MAX_BYTES", 10_485_760))  # >=4 KB
+                storage.backup_count = max(1, _int_env("SOCXEN_OBSERVRA_BACKUPS", 5))
+            else:
+                # Reach-in failed (observra internals changed): observra's own default (10 MB x 5) still
+                # bounds the file, so the audit log stays bounded — just note it isn't operator-tunable.
+                sys.stderr.write("bridge: observra storage internals not found; "
+                                 "using its default rotation bounds (not tunable this run)\n")
 
         _state["observra"] = observra
+        _state["create_event"] = create_event           # bind once, off the per-event hot path
+        _state["queue"] = observra._queue_proxy          # the pipeline's swappable sink (survives re-init)
         _state["on"] = True
         atexit.register(_shutdown)
         # Disclosed, not silent: one line so an operator can see logging is on and how to turn it off.
@@ -121,10 +130,9 @@ def _emit(event_type, **data):
     if not enabled():
         return
     try:
-        from observra.core.events import create_event
-
-        ev = create_event(event_type, framework=FRAMEWORK, agent_name=AGENT, skill_name=SKILL, **data)
-        _state["observra"]._queue_proxy.put_nowait(ev)   # the pipeline's swappable sink (survives re-init)
+        ev = _state["create_event"](event_type, framework=FRAMEWORK, agent_name=AGENT,
+                                    skill_name=SKILL, **data)
+        _state["queue"].put_nowait(ev)
     except Exception as e:  # noqa: BLE001 -- a broken emit must never touch the investigation
         _disable(f"emit: {type(e).__name__}")
 

@@ -143,3 +143,25 @@ def test_non_text_block_passes_through():
 def test_write_tools_cover_all_mutating_tools():
     assert B.WRITE_TOOLS == {"exabeam_update_alert", "exabeam_update_case",
                              "exabeam_create_case", "exabeam_create_case_notes"}
+
+
+# ---- telemetry tail must never break a completed call (code-review PR #39, finding #2) ----
+def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
+    """The remote write has already committed by the time the telemetry tail runs. If anything there
+    raises (e.g. _audit_fields on pathological args), it must be swallowed and the successful content
+    returned — otherwise the agent thinks a committed dismiss/close failed and may double-act."""
+    import asyncio
+
+    async def fake_remote(op):
+        class R:
+            content = [Blk(text="committed")]
+        return R()
+
+    monkeypatch.setattr(B, "remote", fake_remote)
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)                 # force the tail to run
+    def boom(*a, **k):
+        raise RecursionError("pathological arguments")
+    monkeypatch.setattr(B, "_audit_fields", boom)
+
+    out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "1"}}))
+    assert out[0].text == "committed"       # the committed write's content survives the tail blowing up

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "observra>=1.0", "typing_extensions"]
+# dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "observra>=1.0.6,<2", "typing_extensions"]
 # ///
 """Exabeam MCP bridge.
 
@@ -234,9 +234,16 @@ async def call_tool(name, arguments):
     except Exception as e:
         telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e)
         raise
-    telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
-                       defang_notes=defang_notes, hygiene_removed=hygiene_removed,
-                       action_fields=_audit_fields(arguments) if is_write else None)  # decision record
+    # Telemetry tail — FULLY GUARDED. The remote call has already committed; nothing here (not even
+    # _audit_fields on pathological arguments) may raise into the return path and discard a successful
+    # write. Also skipped entirely when logging is off, so a disabled log costs nothing here.
+    try:
+        if telemetry.enabled():
+            telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
+                               defang_notes=defang_notes, hygiene_removed=hygiene_removed,
+                               action_fields=_audit_fields(arguments) if is_write else None)
+    except Exception as e:  # noqa: BLE001 — telemetry must never break a completed call
+        sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
     return content
 
 
