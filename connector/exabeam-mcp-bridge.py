@@ -98,7 +98,12 @@ server = Server("exabeam")
 # Both are FAIL-OPEN: a guardrail bug must never break an investigation.
 from canonicalize import canonicalize
 from neutralize_output import neutralize_output
-import observra_logging as telemetry   # optional, fail-open agent telemetry (SOCXEN_OBSERVRA=...)
+# On-by-default, fail-open agent audit logging (SOCXEN_OBSERVRA=off to disable). observra is a hard
+# dependency BY DESIGN (see the PEP-723 header): an autonomous agent that takes gated actions must keep an
+# audit trail, so logging ships on out of the box — which requires the lib to be resolvable at launch.
+# This is a requirement, not an optional add-on. The shim itself stays fail-open at runtime, so a
+# telemetry fault never affects an investigation.
+import observra_logging as telemetry
 
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes"}
