@@ -143,3 +143,35 @@ def test_non_text_block_passes_through():
 def test_write_tools_cover_all_mutating_tools():
     assert B.WRITE_TOOLS == {"exabeam_update_alert", "exabeam_update_case",
                              "exabeam_create_case", "exabeam_create_case_notes"}
+
+
+# ---- telemetry tail must never break a completed call (code-review PR #39, finding #2) ----
+def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
+    """The remote write has already committed by the time the telemetry tail runs. If anything there
+    raises (e.g. _audit_fields on pathological args), it must be swallowed and the successful content
+    returned — otherwise the agent thinks a committed dismiss/close failed and may double-act."""
+    import asyncio
+
+    async def fake_remote(op):
+        class R:
+            content = [Blk(text="committed")]
+        return R()
+
+    monkeypatch.setattr(B, "remote", fake_remote)
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)                 # force the tail to run
+    def boom(*a, **k):
+        raise RecursionError("pathological arguments")
+    monkeypatch.setattr(B, "_audit_fields", boom)
+
+    out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "1"}}))
+    assert out[0].text == "committed"       # the committed write's content survives the tail blowing up
+
+
+# ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
+def test_audit_fields_cap_long_strings_inside_list_values():
+    """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,
+    so it can't land verbatim in the log and undermine the bounded / metadata-only guarantee."""
+    long = "x" * 500
+    out = B._audit_fields({"arg1": {"useCases": [long, "ok"], "alertId": "y" * 500}})
+    assert out["alertId"] == "y" * 80                       # scalar capped
+    assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped
