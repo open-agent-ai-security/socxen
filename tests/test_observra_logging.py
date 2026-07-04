@@ -162,3 +162,31 @@ def test_jsonl_rotation_is_bounded(monkeypatch, tmp_path):
     rotated = list(tmp_path.glob("telemetry.jsonl.*"))
     assert rotated, "expected at least one rotated backup file under the tiny size cap"
     assert len(rotated) <= 3, f"backup_count not honored: {sorted(p.name for p in rotated)}"
+
+
+def test_single_emit_failure_does_not_disable_the_whole_trail(monkeypatch, tmp_path):
+    """A transient per-event emit fault (queue burst, one bad value) must drop THAT event only — never
+    switch off the mandatory audit log for the rest of the session (code-review PR #39, round 2, #1)."""
+    pytest.importorskip("observra")
+    out = tmp_path / "telemetry.jsonl"
+    t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(out)})
+    assert t.enabled() is True
+
+    real_q = t._state["queue"]
+    calls = {"n": 0}
+
+    class FlakyQueue:                       # raises on the first put, delegates after
+        def put_nowait(self, item):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("transient queue-full")
+            real_q.put_nowait(item)
+
+    t._state["queue"] = FlakyQueue()
+    t.tool_start("exabeam_search_alerts")   # this emit fails...
+    assert t.enabled() is True              # ...but logging is NOT disabled
+    t.tool_end("exabeam_search_alerts", 5.0)  # a later emit still lands
+    t._state["observra"]._worker._shutdown()
+
+    events = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    assert any(e["event_type"] == "tool_end" for e in events), "later event lost — trail was disabled"

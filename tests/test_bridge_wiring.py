@@ -165,3 +165,13 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
 
     out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "1"}}))
     assert out[0].text == "committed"       # the committed write's content survives the tail blowing up
+
+
+# ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
+def test_audit_fields_cap_long_strings_inside_list_values():
+    """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,
+    so it can't land verbatim in the log and undermine the bounded / metadata-only guarantee."""
+    long = "x" * 500
+    out = B._audit_fields({"arg1": {"useCases": [long, "ok"], "alertId": "y" * 500}})
+    assert out["alertId"] == "y" * 80                       # scalar capped
+    assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped

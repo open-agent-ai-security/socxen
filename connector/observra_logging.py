@@ -86,6 +86,12 @@ def _configure():
         kwargs = {}
         if backend == "jsonl":
             path = os.path.expanduser(os.environ.get("SOCXEN_OBSERVRA_PATH", _DEFAULT_PATH))
+            if path.startswith("~"):
+                # HOME/USERPROFILE unset (some daemon/container contexts) -> expanduser was a no-op. Don't
+                # create a literal "~" directory under CWD; fall back to the temp dir and say where.
+                import tempfile
+                path = os.path.join(tempfile.gettempdir(), "socxen-telemetry.jsonl")
+                sys.stderr.write(f"bridge: HOME not set; audit log -> {path}\n")
             os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
             kwargs["path"] = path
         observra.initialize(backend=backend, **kwargs)   # ValueError on an unknown backend -> fail-open
@@ -134,7 +140,10 @@ def _emit(event_type, **data):
                                     skill_name=SKILL, **data)
         _state["queue"].put_nowait(ev)
     except Exception as e:  # noqa: BLE001 -- a broken emit must never touch the investigation
-        _disable(f"emit: {type(e).__name__}")
+        # DROP this one event; do NOT disable the whole trail. A transient per-event fault (a burst that
+        # fills the queue, one unserializable value) must not silently switch off a mandatory audit log
+        # for the rest of the session. Only a configuration-level failure (in _configure) disables.
+        sys.stderr.write(f"bridge: telemetry event dropped ({type(e).__name__})\n")
 
 
 # ---- public recording API (all no-ops when disabled; none ever raise) ------------------------------

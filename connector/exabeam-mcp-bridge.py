@@ -211,7 +211,9 @@ def _audit_fields(obj, into=None):
                 into.setdefault(k, v[:80] if isinstance(v, str) else v)
             elif (k.lower() in _AUDIT_FIELDS and isinstance(v, list)
                   and all(isinstance(x, (str, int, float, bool)) for x in v)):
-                into.setdefault(k, v[:10])
+                # cap list length AND each string item, same 80-char bound as scalars, so a long value
+                # smuggled into a list field can't land verbatim in the log (keeps it bounded/metadata-only)
+                into.setdefault(k, [x[:80] if isinstance(x, str) else x for x in v[:10]])
             else:
                 _audit_fields(v, into)
     elif isinstance(obj, list):
@@ -228,8 +230,13 @@ async def list_tools():
 @server.call_tool()
 async def call_tool(name, arguments):
     t0 = time.perf_counter()
-    telemetry.tool_start(name)
-    defang_notes, hygiene_removed = [], []                           # telemetry accumulators (best-effort)
+    log_on = telemetry.enabled()                                     # decide once; when off, do zero extra work
+    if log_on:
+        telemetry.tool_start(name)
+    # Accumulators only when logging is on. When off they stay None -> the guardrail helpers take their
+    # byte-identical, un-instrumented path (no allocation, no per-value extend).
+    defang_notes = [] if log_on else None
+    hygiene_removed = [] if log_on else None
     is_write = name in WRITE_TOOLS and bool(arguments)
     try:
         if is_write:
@@ -237,13 +244,13 @@ async def call_tool(name, arguments):
         content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
         content = _canon_content(content, hygiene_removed)           # input-side (#2) — fail-open
     except Exception as e:
-        telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e)
+        if log_on:
+            telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e)
         raise
     # Telemetry tail — FULLY GUARDED. The remote call has already committed; nothing here (not even
-    # _audit_fields on pathological arguments) may raise into the return path and discard a successful
-    # write. Also skipped entirely when logging is off, so a disabled log costs nothing here.
+    # _audit_fields on pathological arguments) may raise into the return path and discard a successful write.
     try:
-        if telemetry.enabled():
+        if log_on:
             telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
                                defang_notes=defang_notes, hygiene_removed=hygiene_removed,
                                action_fields=_audit_fields(arguments) if is_write else None)
