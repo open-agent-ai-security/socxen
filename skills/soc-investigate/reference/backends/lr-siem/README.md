@@ -39,6 +39,16 @@ That's now in: `examples/aie-c2-abnormal-process.{md,fixture.json}` + the record
 `uv run evals/run.py` passes it, HARD safety gates included. The `search-cookbook.md` and
 `enrichment.md` remain as follow-ups but don't block the pack.
 
+> **Open guardrail gap (required for safety parity).** v0.6.0 added always-on bridge
+> guardrails on the **Exabeam** path — input canonicalization on read results and output
+> neutralization (defang formulas/links) on free-text write args (`connector/canonicalize.py`,
+> `neutralize_output.py`). The LR path goes through `lrsiem-mcp` (a separate server), so **it is
+> not yet guarded** — LR telemetry reaches the agent un-canonicalized and LR case-note/resolution
+> writes go out un-neutralized. Closing this needs a per-backend mediation point that reuses the two
+> (backend-agnostic) guardrail modules, plus an LR **free-text-write-field** list to neutralize
+> (`add_case_note.text`, `update_case.resolution`, evidence notes). Tracked as an architecture item in
+> the multi-backend design (#16).
+
 ### Live-access note (2026-07)
 
 Grounding was done against a live LR 7.x instance. Observed from a CLI (stdio)
