@@ -18,23 +18,40 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
 EVALS = ROOT / "evals"
-FIXTURE_DIR = ROOT / "skills" / "soc-investigate" / "reference" / "examples"
+# Fixtures live under reference/ — the core examples dir and each backend's examples dir.
+FIXTURE_ROOT = ROOT / "skills" / "soc-investigate" / "reference"
 RUNS_DIR = EVALS / "runs"
 SCHEMA = json.loads((EVALS / "schema.json").read_text())
-PERMS = json.loads((ROOT / "skills/soc-investigate/settings.snippet.json").read_text())["permissions"]
 
-FIXTURES = sorted(FIXTURE_DIR.glob("*.fixture.json"))
+# Per-backend governance snippet + the close/dismiss tools its fixtures must forbid.
+BACKENDS = {
+    "new-scale": {
+        "snippet": ROOT / "skills/soc-investigate/settings.snippet.json",
+        "close_tools": ("exabeam_update_alert", "exabeam_update_case"),
+    },
+    "lr-siem": {
+        "snippet": ROOT / "skills/soc-investigate/reference/backends/lr-siem/governance.snippet.json",
+        "close_tools": ("update_alarm_status", "update_case_status"),
+    },
+}
+
+FIXTURES = sorted(FIXTURE_ROOT.rglob("*.fixture.json"))
 
 
-def _governed_tools():
-    """The Exabeam tool surface the skill is actually permitted to call = plugin-namespaced
-    allow + ask, server-stripped."""
-    plug = [t for t in (PERMS["allow"] + PERMS["ask"]) if t.startswith("mcp__plugin_")]
+def _backend(fx):
+    return fx.get("backend", "new-scale")
+
+
+def _governed_tools(backend):
+    """The tool surface the skill is permitted to call for a backend = plugin-namespaced
+    allow + ask in that backend's governance snippet, server-stripped."""
+    perms = json.loads(BACKENDS[backend]["snippet"].read_text())["permissions"]
+    plug = [t for t in (perms["allow"] + perms["ask"]) if t.startswith("mcp__plugin_")]
     return {t.split("__")[-1] for t in plug}
 
 
 def test_at_least_one_fixture_exists():
-    assert FIXTURES, "no *.fixture.json found under reference/examples/"
+    assert FIXTURES, "no *.fixture.json found under reference/ (core or backends)"
 
 
 def test_schema_is_itself_valid():
@@ -53,7 +70,7 @@ def test_fixture_names_only_governed_tools(fx_path):
     """Tool names in must_not.tools / action.tools must be tools the skill can actually
     call — otherwise the fixture is asserting against a phantom."""
     fx = json.loads(fx_path.read_text())
-    gov = _governed_tools()
+    gov = _governed_tools(_backend(fx))
     exp = fx["expected"]
     named = list(exp.get("must_not", {}).get("tools", [])) \
         + list((exp.get("action") or {}).get("tools", []))
@@ -63,11 +80,11 @@ def test_fixture_names_only_governed_tools(fx_path):
 
 @pytest.mark.parametrize("fx_path", FIXTURES, ids=lambda p: p.name.replace(".fixture.json", ""))
 def test_fixture_forbids_the_close_tools(fx_path):
-    """Sanity on the safety contract itself: every fixture's must_not must forbid the
-    dismiss/close writes (a fixture that permits them isn't testing the gate)."""
+    """Sanity on the safety contract itself: every fixture's must_not must forbid its
+    backend's dismiss/close writes (a fixture that permits them isn't testing the gate)."""
     fx = json.loads(fx_path.read_text())
     forbidden = {t.split("__")[-1] for t in fx["expected"].get("must_not", {}).get("tools", [])}
-    for close_tool in ("exabeam_update_alert", "exabeam_update_case"):
+    for close_tool in BACKENDS[_backend(fx)]["close_tools"]:
         assert close_tool in forbidden, f"{fx_path.name} must_not.tools should forbid {close_tool}"
 
 
