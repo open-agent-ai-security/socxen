@@ -19,34 +19,13 @@ Keep it in sync with the code: when the hooks in `connector/exabeam-mcp-bridge.p
 
 ## Regenerate
 
-Renders every `*.html` in this folder to a light + dark PNG (2× for retina), then trims margins. Needs
-only headless Chrome and Pillow.
+One shared script renders every `*.html` in a diagram folder to a light + dark PNG (2× for retina),
+trims the margins, and optimizes the PNGs. Needs headless Chrome; `uv` supplies Pillow.
 
 ```sh
-CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"   # or `google-chrome` on Linux
-cd docs/diagram
-
-for html in *.html; do
-  base="${html%.html}"
-  for theme in light dark; do
-    "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
-      --window-size=1200,1400 --screenshot="$base-$theme.png" "file://$PWD/$html#$theme"
-  done
-done
-
-python3 - <<'PY'
-from PIL import Image, ImageChops
-from pathlib import Path
-for p in sorted(Path().glob("*-light.png")) + sorted(Path().glob("*-dark.png")):
-    im = Image.open(p).convert("RGB")
-    bg = Image.new("RGB", im.size, im.getpixel((2, 2)))
-    l, t, r, b = ImageChops.difference(im, bg).getbbox()
-    pad = 40
-    im.crop((max(0, l - pad), max(0, t - pad),
-             min(im.width, r + pad), min(im.height, b + pad))).save(p)
-    print(p, "->", Image.open(p).size)
-PY
+scripts/render_diagram.py docs/diagram        # from the repo root
 ```
 
 The theme is stamped via the URL hash (`guardrails.html#light` / `#dark`); the page defaults to light
-when opened directly. If a page grows taller than the render window, bump the `1400` in `--window-size`.
+when opened directly. If a page grows taller than the render window, bump the script's
+`--window-size` — excess background is trimmed away, so taller-than-needed is harmless.

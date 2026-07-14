@@ -4,7 +4,7 @@
 
   Source of truth for the red-team harness architecture figure embedded in METHODOLOGY.md.
   Edit this file, then regenerate the PNGs — see diagram/README.md. Self-contained (no external
-  assets); the ?theme via URL hash lets the renderer stamp light/dark deterministically.
+  assets); a #light / #dark URL hash lets the renderer stamp the theme deterministically.
 -->
 <title>socxen red-team harness</title>
 <script>
@@ -12,34 +12,18 @@
   document.documentElement.setAttribute("data-theme", (location.hash.replace("#", "") || "light"));
 </script>
 <style>
+  /* The inline script above always stamps data-theme (default light), so exactly two palettes exist:
+     the :root base (light) and the [data-theme="dark"] override. */
   :root {
     --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
     --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
     --accent: #0f9c95; --spotlight: #5b5bd6;
     --deny: #cf3d47; --pass: #2f8f4e; --caution: #a9761a;
     --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
-    --deny-soft: #cf3d4714; --pass-soft: #2f8f4e14; --caution-soft: #a9761a16;
+    --deny-soft: #cf3d4714; --pass-soft: #2f8f4e14;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --radius: 9px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
-      --ink: #e0eaed; --ink-dim: #93a7af; --ink-faint: #61777f;
-      --accent: #3ccfc7; --spotlight: #9090f2;
-      --deny: #f0616b; --pass: #56ba71; --caution: #e0a94a;
-      --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
-      --deny-soft: #f0616b1c; --pass-soft: #56ba711a; --caution-soft: #e0a94a18;
-    }
-  }
-  :root[data-theme="light"] {
-    --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
-    --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
-    --accent: #0f9c95; --spotlight: #5b5bd6;
-    --deny: #cf3d47; --pass: #2f8f4e; --caution: #a9761a;
-    --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
-    --deny-soft: #cf3d4714; --pass-soft: #2f8f4e14; --caution-soft: #a9761a16;
   }
   :root[data-theme="dark"] {
     --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
@@ -47,7 +31,7 @@
     --accent: #3ccfc7; --spotlight: #9090f2;
     --deny: #f0616b; --pass: #56ba71; --caution: #e0a94a;
     --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
-    --deny-soft: #f0616b1c; --pass-soft: #56ba711a; --caution-soft: #e0a94a18;
+    --deny-soft: #f0616b1c; --pass-soft: #56ba711a;
   }
 
   * { box-sizing: border-box; }
@@ -195,7 +179,7 @@
   @media (max-width: 620px) {
     .lenses, .verdicts, .railgrid { grid-template-columns: 1fr; }
   }
-  @media (prefers-reduced-motion: no-preference) {
+  @media (prefers-reduced-motion: reduce) {
     .node, .lens, .verd, .rail { transition: none; }
   }
 </style>
@@ -247,8 +231,8 @@
     <div class="range">
       <span class="range-tag">The range — one trial · read-only dry-run · neutral cwd</span>
 
-      <div class="node ctl">
-        <div class="role">driver · harness boundary</div>
+      <div class="node gate">
+        <div class="role">driver · policy boundary</div>
         <div class="name">claude&nbsp;-p <span class="path">poisoned payload, paste-mode</span></div>
         <div class="desc">Spawns the agent as a headless <span style="font-family:var(--mono);font-size:12.5px">claude</span> subprocess loaded from the working tree (<span style="font-family:var(--mono);font-size:12.5px">--plugin-dir</span>) — so the run tests what's about to ship. The <b>tool policy is enforced here</b>, not trusted to the agent:</div>
         <div class="chips">

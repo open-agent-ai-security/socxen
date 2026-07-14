@@ -4,47 +4,31 @@
 
   Source of truth for the runtime-guardrail architecture figure (the bridge's input/output hooks)
   embedded in ../security-guardrails.md. Edit this file, then regenerate the PNGs — see the
-  README.md in this directory. Self-contained; the ?theme URL hash lets the renderer stamp light/dark.
+  README.md in this directory. Self-contained; a #light / #dark URL hash lets the renderer stamp the theme.
 -->
 <title>socxen guardrail bridge</title>
 <script>
   document.documentElement.setAttribute("data-theme", (location.hash.replace("#", "") || "light"));
 </script>
 <style>
+  /* The inline script above always stamps data-theme (default light), so exactly two palettes exist:
+     the :root base (light) and the [data-theme="dark"] override. */
   :root {
     --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
     --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
     --accent: #0f9c95; --spotlight: #5b5bd6;
-    --closed: #cf3d47; --open: #a9761a; --pass: #2f8f4e;
+    --closed: #cf3d47; --open: #a9761a;
     --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
     --closed-soft: #cf3d4714; --open-soft: #a9761a16;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --radius: 9px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
-      --ink: #e0eaed; --ink-dim: #93a7af; --ink-faint: #61777f;
-      --accent: #3ccfc7; --spotlight: #9090f2;
-      --closed: #f0616b; --open: #e0a94a; --pass: #56ba71;
-      --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
-      --closed-soft: #f0616b1c; --open-soft: #e0a94a18;
-    }
-  }
-  :root[data-theme="light"] {
-    --bg: #eef2f3; --panel: #ffffff; --panel-2: #f4f7f8; --line: #d5dee2;
-    --ink: #16232a; --ink-dim: #4a5c64; --ink-faint: #7f9098;
-    --accent: #0f9c95; --spotlight: #5b5bd6;
-    --closed: #cf3d47; --open: #a9761a; --pass: #2f8f4e;
-    --accent-soft: #0f9c9518; --spotlight-soft: #5b5bd614;
-    --closed-soft: #cf3d4714; --open-soft: #a9761a16;
-  }
   :root[data-theme="dark"] {
     --bg: #0c1316; --panel: #121c21; --panel-2: #16232a; --line: #253840;
     --ink: #e0eaed; --ink-dim: #93a7af; --ink-faint: #61777f;
     --accent: #3ccfc7; --spotlight: #9090f2;
-    --closed: #f0616b; --open: #e0a94a; --pass: #56ba71;
+    --closed: #f0616b; --open: #e0a94a;
     --accent-soft: #3ccfc71c; --spotlight-soft: #9090f21c;
     --closed-soft: #f0616b1c; --open-soft: #e0a94a18;
   }
@@ -109,12 +93,10 @@
   .arow.right { color: var(--closed); }
   .arow.left  { color: var(--open); }
   .arow.right .wire, .arow.left .wire { color: inherit; }
-  .arow.neutral { color: var(--ink-faint); }
 
   /* ---- observra tap ---- */
   .tap { display: flex; flex-direction: column; align-items: center; margin-top: 4px; }
   .tap .stem { width: 1.5px; height: 26px; background: var(--line); }
-  .tap .stem.head { position: relative; }
   .tap .down { border: 6px solid transparent; border-top-color: var(--accent); margin-top: -1px; }
   .tap .taplbl { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin: 5px 0; }
   .observra {
@@ -203,7 +185,7 @@
       <div class="lane out">
         <div class="dir">▶ on write · tool arguments <span class="badge closed">FAIL-CLOSED</span></div>
         <div class="hk">neutralize_output.py</div>
-        <div class="ld">Defangs formulas (<code>=HYPERLINK(…)</code>) &amp; phishing links in free-text fields only — note, description, tags. IDs &amp; enums untouched. On error the write is <b style="color:var(--closed)">refused</b>, never persisted raw.</div>
+        <div class="ld">Defangs formulas (<code>=HYPERLINK(…)</code>) &amp; phishing links in free-text fields only — note, alertDescription, alertName, supportingReason, closedReason, tags. IDs &amp; enums untouched. On error the write is <b style="color:var(--closed)">refused</b>, never persisted raw.</div>
       </div>
 
       <div class="lane in">
