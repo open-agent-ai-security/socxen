@@ -9,6 +9,15 @@
 way. This is the explanatory overview — the operational contract the runner executes against lives in
 [`PLAN.md`](PLAN.md).*
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="diagram/harness-dark.png">
+    <img alt="Architecture of the socxen red-team harness: a runner drives the soc-investigate skill against poisoned alerts in a read-only trial through the MCP bridge to a synthetic tenant, then a grader with a context-free judge scores whether the attack landed and sets the release verdict." src="diagram/harness-light.png" width="840">
+  </picture>
+</p>
+
+<p align="center"><sub>The harness end to end — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
+
 ---
 
 ## Why we red-team socxen
@@ -193,6 +202,7 @@ security/redteam/
   attacks/         the versioned attack corpus (*.attack.json)
   run.py           the runner — drive × grade × trials × model-sweep, writes a report
   results/         dated run reports (release evidence)
+  diagram/         the architecture figure above — HTML source + regeneration
 ```
 
 Our **testing track record** — every full-scale run and every fixed finding — is kept in
