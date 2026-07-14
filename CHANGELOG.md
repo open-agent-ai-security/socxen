@@ -8,6 +8,18 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.1] — 2026-07-14
+
+Docs and install-experience release — the plugin payload (skill, connector, guardrails, permission
+pack) is unchanged from 0.6.0.
+
+### Added
+- **Architecture figures.** Two self-contained diagrams with light/dark PNGs: the runtime **guardrail
+  bridge** (input canonicalizer / output neutralizer / observra tap) in `docs/security-guardrails.md`,
+  and the **red-team harness** (runner → agent under test → grader → release verdict) atop
+  `security/redteam/METHODOLOGY.md`. One shared renderer, `scripts/render_diagram.py`. (#41)
+- **Installer.** `install.sh` gained a connectivity preflight and skip flags. (#25)
+
 ## [0.6.0] — 2026-07-04
 
 The first release to ship socxen's **deterministic security controls** and its **audit trail** — the

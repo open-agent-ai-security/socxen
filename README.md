@@ -7,7 +7,7 @@
 **An agentic SOC analyst, as a Claude Code skill.**
 
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.6.0-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.6.1-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
