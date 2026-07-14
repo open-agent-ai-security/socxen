@@ -15,6 +15,15 @@ a **safety measure** — so a bomb someone planted in an alert can't go off in y
 To do that, socxen runs two automatic checks on every Exabeam call. They're always on and need no
 configuration.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
+    <img alt="socxen guardrail bridge: Claude Code talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
+  </picture>
+</p>
+
+<p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
+
 This is a safety net, not a replacement for judgment. Your **[governance permission gate](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)**
 and your own review before you act remain the primary controls.
 
