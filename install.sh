@@ -7,6 +7,7 @@
 #   ./install.sh                     install at user scope, then check connectivity
 #   ./install.sh --checks-only       run diagnostics only (no install/changes)
 #   ./install.sh --skip-connectivity install but skip the live MCP check
+#   ./install.sh --skip-update       keep an existing install as-is (e.g. offline re-runs)
 #   ./install.sh -y                  non-interactive (assume yes)
 #   ./install.sh --no-color          plain output
 #   ./install.sh -h | --help
@@ -24,12 +25,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE="$SCRIPT_DIR/connector/exabeam-mcp-bridge.py"
 
 # ---- flags ----
-ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; USE_COLOR=1
+ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; SKIP_UPDATE=0; USE_COLOR=1
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
     --checks-only) CHECKS_ONLY=1 ;;
     --skip-connectivity) SKIP_CONN=1 ;;
+    --skip-update) SKIP_UPDATE=1 ;;
     --no-color) USE_COLOR=0 ;;
     -h|--help) awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "unknown option: $arg (try --help)" >&2; exit 2 ;;
@@ -87,6 +89,13 @@ else
   warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
 fi
 
+# python3 (used to read installed-plugin state and verify the governance gate)
+if command -v python3 >/dev/null 2>&1; then
+  ok "python3 present"
+else
+  warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
+fi
+
 # credentials file
 CREDS_OK=0
 if [ -f "$ENV_FILE" ]; then
@@ -105,26 +114,34 @@ else
   warn "No credentials yet — create $ENV_FILE (see the Next steps below)"
 fi
 
-# Version of ${PLUGIN}@${MARKETPLACE_NAME} installed at ${SCOPE}, empty if absent. JSON + exact
-# id/scope match: `claude plugin list | grep` would match substrings, other scopes, and can die
-# of SIGPIPE under pipefail when grep -q exits early on a long plugin list.
+# Version of ${PLUGIN}@${MARKETPLACE_NAME} installed at scope $1 (any scope if omitted); prints
+# empty if absent. Returns 1 when the state CANNOT be determined (no python3, an older claude CLI
+# without 'plugin list --json') — callers must treat that as unknown, not as absent, or a present
+# plugin would be "installed" over (a 0-exit no-op) and silently left stale. JSON + exact id/scope
+# match: grepping `claude plugin list` would match substrings, other scopes, and can die of
+# SIGPIPE under pipefail when grep -q exits early.
 installed_version() {
-  claude plugin list --json 2>/dev/null | python3 -c '
+  local json
+  json="$(claude plugin list --json 2>/dev/null)" || return 1
+  printf '%s' "$json" | python3 -c '
 import json, sys
-spec, scope = sys.argv[1], sys.argv[2]
+spec = sys.argv[1]
+scope = sys.argv[2] if len(sys.argv) > 2 else None
 try:
     plugins = json.load(sys.stdin)
 except Exception:
-    sys.exit(0)
+    sys.exit(1)
 print(next((p.get("version", "") for p in plugins
-            if p.get("id") == spec and p.get("scope") == scope), ""))
-' "${PLUGIN}@${MARKETPLACE_NAME}" "${SCOPE}" 2>/dev/null || true
+            if p.get("id") == spec and (scope is None or p.get("scope") == scope)), ""))
+' "${PLUGIN}@${MARKETPLACE_NAME}" ${1:+"$1"} 2>/dev/null || return 1
 }
 
 # ---- install (unless --checks-only) ----
 if [ "$CHECKS_ONLY" = 0 ]; then
   head2 "Install"
-  if claude plugin marketplace list 2>/dev/null | grep -qiE "(^|[^a-z])${MARKETPLACE_NAME}([^a-z]|$)|${MARKETPLACE_REPO}"; then
+  # capture-then-grep (not a live pipeline): grep -q exiting early + pipefail can SIGPIPE the CLI
+  mkts="$(claude plugin marketplace list 2>/dev/null || true)"
+  if grep -qiE "(^|[^a-z])${MARKETPLACE_NAME}([^a-z]|$)|${MARKETPLACE_REPO}" <<<"$mkts"; then
     step "Marketplace '${MARKETPLACE_NAME}' present — updating"
     claude plugin marketplace update "${MARKETPLACE_NAME}" >/dev/null 2>&1 && ok "Marketplace updated" || warn "Marketplace update reported an issue"
   else
@@ -135,38 +152,83 @@ if [ "$CHECKS_ONLY" = 0 ]; then
   # scope, and `claude plugin update` requires the full name@marketplace spec plus --scope (bare
   # name is rejected; scope defaults to user) — so pick the verb by what's installed at ${SCOPE},
   # and report the outcome by comparing versions, not by parsing the CLI's message wording.
-  before="$(installed_version)"
-  if [ -n "$before" ]; then
-    step "Plugin present at ${SCOPE} scope (${before}) — updating ${PLUGIN}@${MARKETPLACE_NAME}"
-    if claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
-      after="$(installed_version)"
-      if [ -n "$after" ] && [ "$after" != "$before" ]; then
-        ok "Plugin updated ${before} → ${after} — restart Claude Code to apply"
+  # PLUGIN_OUTCOME feeds the presence line below: a version string / "installed" / "updated" on
+  # success, empty on failure.
+  PLUGIN_OUTCOME=""
+  if before="$(installed_version "${SCOPE}")"; then
+    if [ -n "$before" ]; then
+      if [ "$SKIP_UPDATE" = 1 ]; then
+        skip "Update skipped (--skip-update) — plugin stays at ${before}"
+        PLUGIN_OUTCOME="$before"
       else
-        ok "Plugin already at the latest version (${before})"
+        step "Plugin present at ${SCOPE} scope (${before}) — updating ${PLUGIN}@${MARKETPLACE_NAME}"
+        if claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+          after="$(installed_version "${SCOPE}")" || after=""
+          if [ -n "$after" ] && [ "$after" != "$before" ]; then
+            ok "Plugin updated ${before} → ${after} — restart Claude Code to apply"
+            PLUGIN_OUTCOME="$after"
+          elif [ "$after" = "$before" ]; then
+            ok "Plugin already at the latest version (${before})"
+            PLUGIN_OUTCOME="$before"
+          else
+            # update succeeded but the re-read failed — assume it applied; never report
+            # "already at the latest version" for an update we couldn't verify.
+            ok "Plugin update completed — restart Claude Code to apply"
+            PLUGIN_OUTCOME="updated"
+          fi
+        else
+          # A real failure the operator must see (exit 1) — the plugin keeps working at the old
+          # version meanwhile. For deliberate offline re-runs, --skip-update avoids the attempt.
+          fail "Plugin update failed (still at ${before}) — run 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME}' to see the error, or use --skip-update"
+          PLUGIN_OUTCOME="$before"
+        fi
       fi
     else
-      # The installed plugin still works; a failed update check (offline, GitHub blip) shouldn't
-      # turn an idempotent re-run into a hard failure.
-      warn "Could not check for updates — plugin stays at ${before}; try 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME}' later"
+      step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
+      if claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+        ok "Plugin installed (scope: ${SCOPE})"
+        PLUGIN_OUTCOME="installed"
+      else
+        fail "Plugin install failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+      fi
     fi
   else
-    step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
-    if claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+    # Installed state unknown (no python3 / older CLI without --json). Update-then-install keeps
+    # an existing install fresh and a missing one installed without knowing which case this is:
+    # update fails when absent (then install runs); install alone would 0-exit-no-op when present.
+    warn "Cannot read installed-plugin state (needs python3 and a claude CLI with 'plugin list --json')"
+    step "Trying update, then install — ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
+    if [ "$SKIP_UPDATE" = 0 ] && claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+      ok "Plugin updated to the latest version — restart Claude Code to apply"
+      PLUGIN_OUTCOME="updated"
+    elif claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
       ok "Plugin installed (scope: ${SCOPE})"
+      PLUGIN_OUTCOME="installed"
     else
-      fail "Plugin install failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+      fail "Plugin install/update failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
     fi
   fi
 else
   head2 "Install"; skip "skipped (--checks-only)"
 fi
 
-# plugin presence (info)
-if [ -n "$(installed_version)" ]; then
+# plugin presence (info). Checks-only queries live (any scope — an install at another scope is
+# still a working install); otherwise the install block above already knows the outcome, so don't
+# spend another CLI round-trip re-deriving it.
+if [ "$CHECKS_ONLY" = 1 ]; then
+  if anyv="$(installed_version)"; then
+    if [ -n "$anyv" ]; then
+      ok "Plugin registered with Claude Code (${anyv})"
+    else
+      skip "Plugin not installed (run without --checks-only)"
+    fi
+  else
+    skip "Plugin state unknown — needs python3 and a claude CLI with 'plugin list --json'"
+  fi
+elif [ -n "$PLUGIN_OUTCOME" ]; then
   ok "Plugin registered with Claude Code"
 else
-  [ "$CHECKS_ONLY" = 1 ] && skip "Plugin not installed (run without --checks-only)" || warn "Plugin not visible in 'claude plugin list' — restart Claude Code"
+  warn "Plugin not registered — see the install failure above"
 fi
 
 # ---- connectivity ----
