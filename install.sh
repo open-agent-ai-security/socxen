@@ -115,13 +115,30 @@ if [ "$CHECKS_ONLY" = 0 ]; then
     step "Adding marketplace ${MARKETPLACE_REPO}"
     claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null 2>&1 && ok "Marketplace added" || fail "Marketplace add failed"
   fi
-  step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
-  if claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
-    ok "Plugin installed"
-  elif claude plugin update "${PLUGIN}" >/dev/null 2>&1; then
-    ok "Plugin already present — updated"
+  # `claude plugin install` exits 0 without updating when the plugin is already installed, and
+  # `claude plugin update` requires the full name@marketplace spec (the bare name is rejected) —
+  # so pick the verb by presence, and surface the version transition rather than a blanket "installed".
+  if claude plugin list 2>/dev/null | grep -qi "${PLUGIN}@${MARKETPLACE_NAME}"; then
+    step "Plugin present — updating ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
+    if out="$(claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" 2>&1)"; then
+      # `|| true`: no match means "already current", and under set -e a failing grep in a
+      # command substitution would otherwise kill the script here.
+      verdelta="$(printf '%s' "$out" | grep -oE 'updated from [0-9]+(\.[0-9]+)* to [0-9]+(\.[0-9]+)*' | head -1 || true)"
+      if [ -n "$verdelta" ]; then
+        ok "Plugin ${verdelta} — restart Claude Code to apply"
+      else
+        ok "Plugin already at the latest version"
+      fi
+    else
+      fail "Plugin update failed — run 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+    fi
   else
-    fail "Plugin install/update failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+    step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
+    if claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+      ok "Plugin installed"
+    else
+      fail "Plugin install failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+    fi
   fi
 else
   head2 "Install"; skip "skipped (--checks-only)"
