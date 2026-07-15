@@ -105,6 +105,22 @@ else
   warn "No credentials yet — create $ENV_FILE (see the Next steps below)"
 fi
 
+# Version of ${PLUGIN}@${MARKETPLACE_NAME} installed at ${SCOPE}, empty if absent. JSON + exact
+# id/scope match: `claude plugin list | grep` would match substrings, other scopes, and can die
+# of SIGPIPE under pipefail when grep -q exits early on a long plugin list.
+installed_version() {
+  claude plugin list --json 2>/dev/null | python3 -c '
+import json, sys
+spec, scope = sys.argv[1], sys.argv[2]
+try:
+    plugins = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+print(next((p.get("version", "") for p in plugins
+            if p.get("id") == spec and p.get("scope") == scope), ""))
+' "${PLUGIN}@${MARKETPLACE_NAME}" "${SCOPE}" 2>/dev/null || true
+}
+
 # ---- install (unless --checks-only) ----
 if [ "$CHECKS_ONLY" = 0 ]; then
   head2 "Install"
@@ -115,27 +131,29 @@ if [ "$CHECKS_ONLY" = 0 ]; then
     step "Adding marketplace ${MARKETPLACE_REPO}"
     claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null 2>&1 && ok "Marketplace added" || fail "Marketplace add failed"
   fi
-  # `claude plugin install` exits 0 without updating when the plugin is already installed, and
-  # `claude plugin update` requires the full name@marketplace spec (the bare name is rejected) —
-  # so pick the verb by presence, and surface the version transition rather than a blanket "installed".
-  if claude plugin list 2>/dev/null | grep -qi "${PLUGIN}@${MARKETPLACE_NAME}"; then
-    step "Plugin present — updating ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
-    if out="$(claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" 2>&1)"; then
-      # `|| true`: no match means "already current", and under set -e a failing grep in a
-      # command substitution would otherwise kill the script here.
-      verdelta="$(printf '%s' "$out" | grep -oE 'updated from [0-9]+(\.[0-9]+)* to [0-9]+(\.[0-9]+)*' | head -1 || true)"
-      if [ -n "$verdelta" ]; then
-        ok "Plugin ${verdelta} — restart Claude Code to apply"
+  # `claude plugin install` exits 0 without updating when the plugin is already installed at this
+  # scope, and `claude plugin update` requires the full name@marketplace spec plus --scope (bare
+  # name is rejected; scope defaults to user) — so pick the verb by what's installed at ${SCOPE},
+  # and report the outcome by comparing versions, not by parsing the CLI's message wording.
+  before="$(installed_version)"
+  if [ -n "$before" ]; then
+    step "Plugin present at ${SCOPE} scope (${before}) — updating ${PLUGIN}@${MARKETPLACE_NAME}"
+    if claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
+      after="$(installed_version)"
+      if [ -n "$after" ] && [ "$after" != "$before" ]; then
+        ok "Plugin updated ${before} → ${after} — restart Claude Code to apply"
       else
-        ok "Plugin already at the latest version"
+        ok "Plugin already at the latest version (${before})"
       fi
     else
-      fail "Plugin update failed — run 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+      # The installed plugin still works; a failed update check (offline, GitHub blip) shouldn't
+      # turn an idempotent re-run into a hard failure.
+      warn "Could not check for updates — plugin stays at ${before}; try 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME}' later"
     fi
   else
     step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
     if claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; then
-      ok "Plugin installed"
+      ok "Plugin installed (scope: ${SCOPE})"
     else
       fail "Plugin install failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
     fi
@@ -145,7 +163,7 @@ else
 fi
 
 # plugin presence (info)
-if claude plugin list 2>/dev/null | grep -qi "${PLUGIN}"; then
+if [ -n "$(installed_version)" ]; then
   ok "Plugin registered with Claude Code"
 else
   [ "$CHECKS_ONLY" = 1 ] && skip "Plugin not installed (run without --checks-only)" || warn "Plugin not visible in 'claude plugin list' — restart Claude Code"
