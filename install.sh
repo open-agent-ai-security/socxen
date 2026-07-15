@@ -137,19 +137,32 @@ print(next(((p.get("version") or "unknown") for p in plugins
 ' "${PLUGIN}@${MARKETPLACE_NAME}" ${1:+"$1"} 2>/dev/null || return 1
 }
 
-plugin_install_cmd() { claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; }
-plugin_update_cmd()  { claude plugin update  "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" >/dev/null 2>&1; }
+# No redirection in the helpers — one call site captures stderr for diagnostics.
+plugin_install_cmd() { claude plugin install "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}"; }
+plugin_update_cmd()  { claude plugin update  "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}"; }
+
+# Escape a user-overridable name (SOCXEN_REPO etc.) for interpolation into an ERE, so the
+# patterns below can stay boundary-anchored (a bare -F substring match would let
+# 'acme/socxensuite' pass for 'socxen') without regex metacharacters breaking grep.
+esc_ere() { printf '%s' "$1" | sed 's/[][\.|$(){}?+*^]/\\&/g'; }
+
+# Does this 'claude plugin list' (plain) output contain ${PLUGIN}@${MARKETPLACE_NAME} as a
+# standalone id? Boundary excludes [alnum]_- continuation so 'socxen@socxen-dev' never matches.
+plugin_listed() {
+  grep -Eqi "(^|[^[:alnum:]_-])$(esc_ere "${PLUGIN}@${MARKETPLACE_NAME}")([^[:alnum:]_-]|$)" <<<"$1"
+}
 
 # ---- install (unless --checks-only) ----
 if [ "$CHECKS_ONLY" = 0 ]; then
   head2 "Install"
   # capture-then-grep (not a live pipeline): grep -q exiting early + pipefail can SIGPIPE the CLI.
-  # -F: SOCXEN_REPO / SOCXEN_MARKETPLACE are user-overridable and must not be parsed as regex.
-  # MKT_FRESH qualifies "already at the latest version" below — a version compare against stale
-  # marketplace metadata can't rule out a newer upstream release.
+  # Boundary-anchored (substrings like 'socxensuite' must not count) with the user-overridable
+  # names escaped (they must not be parsed as regex).
+  # MKT_FRESH qualifies "already/updated to the latest version" below — a version compare against
+  # stale marketplace metadata can't rule out a newer upstream release.
   MKT_FRESH=1
   mkts="$(claude plugin marketplace list 2>/dev/null || true)"
-  if grep -Fqi "${MARKETPLACE_REPO}" <<<"$mkts" || grep -Fqi "${MARKETPLACE_NAME}" <<<"$mkts"; then
+  if grep -qiE "(^|[^a-z])$(esc_ere "${MARKETPLACE_NAME}")([^a-z]|$)|$(esc_ere "${MARKETPLACE_REPO}")" <<<"$mkts"; then
     step "Marketplace '${MARKETPLACE_NAME}' present — updating"
     if claude plugin marketplace update "${MARKETPLACE_NAME}" >/dev/null 2>&1; then
       ok "Marketplace updated"
@@ -182,21 +195,25 @@ if [ "$CHECKS_ONLY" = 0 ]; then
         PLUGIN_OUTCOME="$before"
       else
         step "Plugin present at ${SCOPE} scope (${before}) — updating ${PLUGIN}@${MARKETPLACE_NAME}"
-        if uerr="$(claude plugin update "${PLUGIN}@${MARKETPLACE_NAME}" --scope "${SCOPE}" 2>&1)"; then
+        if uerr="$(plugin_update_cmd 2>&1)"; then
           # Verified live (claude CLI 2.1.210): 'plugin list --json' reflects the new version
           # immediately after 'plugin update' returns — the restart only applies it to running
           # sessions — so an unchanged version here really does mean "no newer version".
-          after="$(installed_version "${SCOPE}")" || after=""
-          if [ -n "$after" ] && [ "$after" != "$before" ]; then
-            ok "Plugin updated ${before} → ${after} — restart Claude Code to apply"
-            PLUGIN_OUTCOME="$after"
-          elif [ "$after" = "$before" ]; then
-            if [ "$MKT_FRESH" = 1 ]; then
-              ok "Plugin already at the latest version (${before})"
+          if after="$(installed_version "${SCOPE}")"; then
+            if [ -n "$after" ] && [ "$after" != "$before" ]; then
+              ok "Plugin updated ${before} → ${after} — restart Claude Code to apply"
+              PLUGIN_OUTCOME="$after"
+            elif [ "$after" = "$before" ]; then
+              if [ "$MKT_FRESH" = 1 ]; then
+                ok "Plugin already at the latest version (${before})"
+              else
+                ok "Plugin at the latest locally-known version (${before}) — the marketplace refresh failed, so upstream may be newer"
+              fi
+              PLUGIN_OUTCOME="$before"
             else
-              ok "Plugin at the latest locally-known version (${before}) — the marketplace refresh failed, so upstream may be newer"
+              # the re-read worked and the plugin is GONE at this scope — not a read failure
+              warn "Update succeeded but the plugin is no longer listed at ${SCOPE} scope — check 'claude plugin list'"
             fi
-            PLUGIN_OUTCOME="$before"
           else
             # update succeeded but the re-read failed — assume it applied; never report
             # "already at the latest version" for an update we couldn't verify.
@@ -210,13 +227,16 @@ if [ "$CHECKS_ONLY" = 0 ]; then
           # CLI's error surfaced — not an exit 1 that turns a re-run on a healthy machine into
           # a provisioning failure. Persistent breakage stays visible: every run repeats the
           # warning with the underlying error. --skip-update skips the attempt entirely.
-          warn "Plugin update failed — still at ${before} ($(printf '%s' "$uerr" | tail -1)); re-run when online, or use --skip-update"
+          # tr strips backslashes/control chars: the summary renderer prints entries with %b,
+          # which would otherwise expand escape sequences inside the CLI's error text.
+          uline="$(printf '%s' "$uerr" | tail -1 | tr -d '\\' | tr -cd '[:print:]')"
+          warn "Plugin update failed — still at ${before} (${uline}); re-run when online, or use --skip-update"
           PLUGIN_OUTCOME="$before"
         fi
       fi
     else
       step "Installing ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
-      if plugin_install_cmd; then
+      if plugin_install_cmd >/dev/null 2>&1; then
         ok "Plugin installed (scope: ${SCOPE})"
         PLUGIN_OUTCOME="installed"
       else
@@ -228,17 +248,28 @@ if [ "$CHECKS_ONLY" = 0 ]; then
     # update succeeds only when the plugin is present (and freshens it); when update fails,
     # install covers the absent case. But a 0-exit install can ALSO be a no-op on a present,
     # stale plugin — with update having just failed, we cannot tell those apart, so that
-    # branch reports a warning ("possibly stale"), never a green "installed".
+    # branch reports a warning ("possibly stale"), never a green "installed". The presence
+    # re-check below independently verifies whatever these commands claim.
     warn "Cannot read installed-plugin state (needs python3 and a claude CLI with 'plugin list --json')"
-    step "Trying update, then install — ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
-    if [ "$SKIP_UPDATE" = 0 ] && plugin_update_cmd; then
-      ok "Plugin updated to the latest version — restart Claude Code to apply"
-      PLUGIN_OUTCOME="updated"
-    elif plugin_install_cmd; then
-      warn "Plugin present — freshly installed, or already there and possibly stale; run 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME} --scope ${SCOPE}' when online to be sure"
-      PLUGIN_OUTCOME="present"
+    if [ "$SKIP_UPDATE" = 1 ]; then
+      # honor the flag's offline purpose: attempt nothing network-touching on unknown state
+      skip "Plugin state unknown and --skip-update set — leaving everything as-is"
+      PLUGIN_OUTCOME="skipped"
     else
-      fail "Plugin install/update failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+      step "Trying update, then install — ${PLUGIN}@${MARKETPLACE_NAME} (scope: ${SCOPE})"
+      if plugin_update_cmd >/dev/null 2>&1; then
+        if [ "$MKT_FRESH" = 1 ]; then
+          ok "Plugin updated to the latest version — restart Claude Code to apply"
+        else
+          ok "Plugin updated to the latest locally-known version — the marketplace refresh failed, so upstream may be newer; restart Claude Code to apply"
+        fi
+        PLUGIN_OUTCOME="updated"
+      elif plugin_install_cmd >/dev/null 2>&1; then
+        warn "Plugin present — freshly installed, or already there and possibly stale; run 'claude plugin update ${PLUGIN}@${MARKETPLACE_NAME} --scope ${SCOPE}' when online to be sure"
+        PLUGIN_OUTCOME="present"
+      else
+        fail "Plugin install/update failed — run 'claude plugin install ${PLUGIN}@${MARKETPLACE_NAME}' to see the error"
+      fi
     fi
   fi
 else
@@ -247,9 +278,9 @@ fi
 
 # plugin presence (info). Checks-only queries live (any scope — an install at another scope is
 # still a working install), with a python-free plain-list fallback so the diagnostic mode never
-# answers "unknown" when 'claude plugin list' can answer. Otherwise the install block above
-# already knows the outcome — no third CLI round-trip — and a failure at ${SCOPE} still checks
-# other scopes before declaring the plugin missing.
+# answers "unknown" when 'claude plugin list' can answer. After an install/update, this is an
+# INDEPENDENT live re-check (one plain 'plugin list'): a 0-exit install/update whose registration
+# didn't actually land must not be reported green on the strength of its exit code alone.
 if [ "$CHECKS_ONLY" = 1 ]; then
   if anyv="$(installed_version)"; then
     if [ -n "$anyv" ]; then
@@ -259,19 +290,28 @@ if [ "$CHECKS_ONLY" = 1 ]; then
     fi
   else
     plist="$(claude plugin list 2>/dev/null || true)"
-    if grep -Fqi "${PLUGIN}@${MARKETPLACE_NAME}" <<<"$plist"; then
+    if plugin_listed "$plist"; then
       ok "Plugin registered with Claude Code (version unknown — older CLI or no python3)"
     else
       skip "Plugin not installed (run without --checks-only)"
     fi
   fi
-elif [ -n "$PLUGIN_OUTCOME" ]; then
-  ok "Plugin registered with Claude Code"
 else
-  if anyv="$(installed_version)" && [ -n "$anyv" ]; then
-    warn "Not installed at ${SCOPE} scope (see the failure above), but a ${anyv} install exists at another scope and still works"
+  plist="$(claude plugin list 2>/dev/null || true)"
+  if plugin_listed "$plist"; then
+    if [ -n "$PLUGIN_OUTCOME" ]; then
+      ok "Plugin registered with Claude Code"
+    elif anyv="$(installed_version)" && [ -n "$anyv" ]; then
+      warn "Not installed at ${SCOPE} scope (see the failure above), but a ${anyv} install exists at another scope and still works"
+    else
+      warn "Install at ${SCOPE} scope failed (see above), but a socxen install is visible in 'claude plugin list'"
+    fi
   else
-    warn "Plugin not registered — see the install failure above"
+    case "$PLUGIN_OUTCOME" in
+      skipped) skip "Plugin not installed (skipped by --skip-update)" ;;
+      "")      warn "Plugin not registered — see the install failure above" ;;
+      *)       warn "Install/update reported success, but the plugin is not visible in 'claude plugin list' — restart Claude Code and re-run with --checks-only" ;;
+    esac
   fi
 fi
 
@@ -297,6 +337,8 @@ fi
 # ---- governance reminder (info) ----
 # A false "gate is ON" is the dangerous direction, so verify the close tools are specifically in the
 # `ask` tier — not merely that settings.json mentions them (a mis-merge into allow/deny must read as OFF).
+# Three outcomes, not two: without python3 the check CANNOT run, which must read as "cannot verify",
+# never as "gate is OFF" (that would send users re-merging a working gate).
 head2 "Governance"
 SETTINGS="$HOME/.claude/settings.json"
 gate_on() {
@@ -311,7 +353,9 @@ bare = {t.split("__")[-1] for t in ask}
 sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
 PY
 }
-if gate_on; then
+if ! command -v python3 >/dev/null 2>&1; then
+  warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into ~/.claude/settings.json"
+elif gate_on; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
 else
   warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json"
