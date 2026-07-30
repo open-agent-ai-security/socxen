@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Structured, durable agent telemetry for the Exabeam MCP bridge — ON by default, for assurance.
 
 Built on **observra** (https://open-agent-ai-security.github.io/observra/), an agent-telemetry SDK.

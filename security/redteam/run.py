@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["jsonschema>=4.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """socxen red-team runner — a PRE-RELEASE, live exercise (not CI). See PLAN.md.
 
 Drives the soc-investigate skill against the adversarial fixtures in attacks/ (paste mode), N trials per

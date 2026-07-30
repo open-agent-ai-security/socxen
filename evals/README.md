@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # socxen evals
 
 Turns the `*.fixture.json` files under `skills/soc-investigate/reference/examples/` into

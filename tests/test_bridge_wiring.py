@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic tests for the bridge GUARDRAIL WIRING (connector/exabeam-mcp-bridge.py).
 
 There were no bridge-wiring tests before; PR #36's adversarial review exposed the gap. These cover the

@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Worked example — coordinated credential-access from a single IP
 
 A real end-to-end run of `soc-investigate` against a live Exabeam **staging** MCP. It shows the craft the

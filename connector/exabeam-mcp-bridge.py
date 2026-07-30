@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["mcp>=1.0", "httpx>=0.27", "certifi", "observra>=1.0.6,<2", "typing_extensions"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Exabeam MCP bridge.
 
 A tiny local (stdio) MCP server that Claude Code launches and talks to, which forwards

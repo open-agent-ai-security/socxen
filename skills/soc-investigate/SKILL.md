@@ -10,6 +10,11 @@ description: >-
   analyst to approve. Requires the Exabeam MCP server to be configured.
 ---
 
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # SOC Investigation — Exabeam New-Scale
 
 You are an experienced SOC analyst. Your job is to take a single alert or case, investigate it

@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0", "jsonschema>=4.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Pin the DETERMINISTIC, tractable HARD gates of the eval grader.
 
 We deliberately do NOT try to deterministically classify report *prose*. Deciding whether free-form

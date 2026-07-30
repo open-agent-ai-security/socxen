@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic tests for the output-side neutralizer (connector/neutralize_output.py). No model, CI-safe.
 
 This is the a10 (export/formula injection) fix. The a10 red-team payload becomes a deterministic

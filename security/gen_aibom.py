@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Generate socxen's AI Bill of Materials (CycloneDX 1.6) from the repo's own sources.
 
 socxen is an AI *agent/application*, not a model: a Claude Code skill (prompt + methodology) plus a
@@ -53,6 +55,17 @@ def _pep723(pyfile):
 def _split_dep(spec):
     m = re.match(r"([A-Za-z0-9_.\-]+)\s*(.*)", spec)
     return m.group(1), (m.group(2).strip() or None)
+
+# SPDX ids for the connector's PyPI deps, verified against PyPI/upstream 2026-07-30.
+# A dep added to the bridge without an entry here ships with no license claim rather
+# than a guessed one.
+DEP_LICENSES = {
+    "mcp": "MIT",
+    "httpx": "BSD-3-Clause",
+    "certifi": "MPL-2.0",
+    "observra": "Apache-2.0",
+    "typing_extensions": "PSF-2.0",
+}
 
 
 # ---------- build the BOM ----------
@@ -142,14 +155,17 @@ def build_bom(timestamp):
 
     for spec in deps:
         dep_name, constraint = _split_dep(spec)
-        components.append({
+        comp = {
             "bom-ref": f"pkg:pypi/{dep_name}",
             "type": "library",
             "name": dep_name,
             "version": constraint or "unspecified",
             "purl": f"pkg:pypi/{dep_name}",
             "description": f"Connector dependency ({spec}), resolved by uv at runtime (PEP 723).",
-        })
+        }
+        if dep_name in DEP_LICENSES:
+            comp["licenses"] = [{"license": {"id": DEP_LICENSES[dep_name]}}]
+        components.append(comp)
 
     service = {
         "bom-ref": f"service:{mcp_server}-mcp",

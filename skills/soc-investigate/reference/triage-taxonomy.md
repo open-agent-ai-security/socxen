@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Triage taxonomy
 
 The three terminal outcomes (ported from Nova's `triage_outcomes.py`). Use these exact words for the
