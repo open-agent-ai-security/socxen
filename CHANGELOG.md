@@ -8,6 +8,19 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.2] — 2026-07-30
+
+Installer fix release — the plugin payload (skill, connector, guardrails, permission pack) is
+unchanged from 0.6.0.
+
+### Fixed
+- **Installer re-runs now actually update.** `claude plugin install` is a silent no-op when the
+  plugin is already installed, so re-running `install.sh` left existing installs stale while
+  reporting success. The installer now detects an existing install and runs `claude plugin update`
+  (with the full `name@marketplace` spec and explicit `--scope`), reports the real version
+  transition, and never reports green when the installed state is unverified. Adds `--skip-update`
+  to opt out. (#43)
+
 ## [0.6.1] — 2026-07-14
 
 Docs and install-experience release — the plugin payload (skill, connector, guardrails, permission
