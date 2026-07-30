@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Output-side active-content neutralizer -- the a10 (export / formula injection) fix.
 
 Applied to content socxen WRITES back through the bridge (case notes, alert/case updates) so a payload

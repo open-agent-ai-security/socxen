@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 #
 # socxen installer — adds the marketplace, installs the soc-investigate skill into
 # Claude Code, and runs a connectivity preflight. Idempotent; safe to re-run.

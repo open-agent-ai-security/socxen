@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0", "jsonschema>=4.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic lint of the red-team attack corpus (the CI-safe slice of the red-team plan).
 
 The red-team *execution* is a live, pre-release exercise (needs the model + MCP; see

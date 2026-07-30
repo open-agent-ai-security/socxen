@@ -7,9 +7,15 @@
 **An agentic SOC analyst, as a Claude Code skill.**
 
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.6.2-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.6.3-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![status](https://img.shields.io/badge/status-pre--release-orange)](CHANGELOG.md)
+
+> ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
+> provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
+> for production SOC operations or point it at alerts whose disposition matters without a human
+> reviewing every action.
 
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
@@ -79,10 +85,11 @@ install.sh               convenience installer (idempotent)
 
 ## Status
 
-Early (v0.5.x) — validated end-to-end against a live Exabeam staging MCP
+Pre-release, for evaluation — validated end-to-end against a live Exabeam staging MCP
 (install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
-playbook, a worked investigation, and a regression harness (`evals/`). Run `claude plugin list` for your
-installed version. Sharing with testers; feedback welcome.
+playbook, a worked investigation, and a regression harness (`evals/`). The version badge above and
+`CHANGELOG.md` track the current release; run `claude plugin list` for your installed version.
+Sharing with testers; feedback welcome.
 
 ## License
 

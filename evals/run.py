@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["jsonschema>=4.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """socxen eval harness — grade soc-investigate runs against fixtures.
 
 Two layers:

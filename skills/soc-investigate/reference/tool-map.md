@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Exabeam MCP — real tool surface
 
 The 20 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact

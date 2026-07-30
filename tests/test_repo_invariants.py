@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic, no-inference invariant tests for the socxen plugin.
 
 The skill's safety model lives in structured, cross-referenced files — the plugin
@@ -232,6 +234,25 @@ def test_skill_frontmatter_is_valid():
     desc = " ".join(line.strip() for line in desc_m.group(1).splitlines()).strip()
     assert desc, "frontmatter description is empty"
     assert len(desc) <= 1024, f"description is {len(desc)} chars (>1024 cap)"
+
+
+def test_source_files_carry_spdx_headers():
+    """Every source/doc file (.py/.sh/.md) must open with the Apache-2.0 copyright + SPDX
+    header, so license coverage can't regress as files are added. security/redteam/results/
+    (committed run records, generated) is exempt."""
+    SKIP_DIRS = {".git", ".claude", "local", "__pycache__", ".pytest_cache", "node_modules"}
+    missing = []
+    for pattern in ("*.py", "*.sh", "*.md"):
+        for p in ROOT.rglob(pattern):
+            rel = p.relative_to(ROOT)
+            if SKIP_DIRS & set(rel.parts):
+                continue
+            if rel.parts[:3] == ("security", "redteam", "results"):
+                continue
+            head = "\n".join(p.read_text().splitlines()[:15])
+            if "SPDX-License-Identifier: Apache-2.0" not in head:
+                missing.append(str(rel))
+    assert not missing, "files missing the SPDX header:\n" + "\n".join(sorted(missing))
 
 
 if __name__ == "__main__":

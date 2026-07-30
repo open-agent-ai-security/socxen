@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0", "observra", "typing_extensions"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic tests for the structured agent-telemetry shim (connector/observra_logging.py).
 
 Four things matter and all are tested without a network:

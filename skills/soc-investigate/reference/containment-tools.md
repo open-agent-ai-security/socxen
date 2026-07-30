@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Containment-class actions — recommend only (defense-in-depth deny-list)
 
 > **The Exabeam MCP does not expose any of these.** Per the official MCP docs, the server's surface is

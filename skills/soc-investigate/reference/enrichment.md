@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Enrichment playbook — context tables that tip FP vs TP
 
 Baselining with `search_events` tells you *what happened*. Context tables tell you *who/what it happened

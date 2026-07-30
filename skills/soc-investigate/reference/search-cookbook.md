@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Search cookbook — `exabeam_search_events`
 
 `search_events` is the evidence workhorse, and it is only as good as the query you hand it. This file

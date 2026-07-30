@@ -1,4 +1,9 @@
 <!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
+<!--
   Thanks for sending a PR to socxen.
 
   Base branch: target `dev`, not `main`. `main` is the live install channel and

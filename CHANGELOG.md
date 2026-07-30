@@ -8,6 +8,27 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.3] — 2026-07-30
+
+Public-readiness release — docs, repo hygiene, and metadata from the go-public review. The plugin
+payload behavior is unchanged from 0.6.0 (payload files gained only license-header comments).
+
+### Added
+- **Pre-release notice** front and center in the README: evaluation purposes only, expect breaking
+  changes. (#45)
+- **Issue templates** for a public tester audience: a bug-report form (versions, governance-gate
+  state, redact-your-tenant-data reminder) and routing of security reports to private advisories
+  per `SECURITY.md`. (#47)
+- **SPDX/copyright headers on all source** (30 files: connector, skill corpus, tests, evals,
+  installer, scripts) plus a repo invariant so coverage can't regress. (#48)
+- **CODEOWNERS** — maintainers auto-requested on every PR. (#48)
+
+### Fixed
+- **CONTRIBUTING test command** now matches CI's dependency set; the old form failed at collection
+  on missing `jsonschema`. (#47)
+- **README status line** no longer pins a stale version. (#47)
+- **AI BOM** declares verified SPDX license ids for the connector's dependencies. (#48)
+
 ## [0.6.2] — 2026-07-30
 
 Installer fix release — the plugin payload (skill, connector, guardrails, permission pack) is

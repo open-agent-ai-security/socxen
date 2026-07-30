@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Worked examples & eval fixtures
 
 Real, end-to-end `soc-investigate` runs against a live Exabeam MCP — kept here as (a) **teaching
