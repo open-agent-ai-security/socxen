@@ -10,6 +10,12 @@
 [![version](https://img.shields.io/badge/version-v0.6.2-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![status](https://img.shields.io/badge/status-pre--release-orange)](CHANGELOG.md)
+
+> ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
+> provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
+> for production SOC operations or point it at alerts whose disposition matters without a human
+> reviewing every action.
 
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
