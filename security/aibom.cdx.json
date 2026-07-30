@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-07-30T20:30:51Z"
+    "timestamp": "2026-07-30T20:43:17Z"
   },
   "components": [
     {
@@ -186,7 +186,14 @@
       "name": "mcp",
       "version": ">=1.0",
       "purl": "pkg:pypi/mcp",
-      "description": "Connector dependency (mcp>=1.0), resolved by uv at runtime (PEP 723)."
+      "description": "Connector dependency (mcp>=1.0), resolved by uv at runtime (PEP 723).",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/httpx",
@@ -194,7 +201,14 @@
       "name": "httpx",
       "version": ">=0.27",
       "purl": "pkg:pypi/httpx",
-      "description": "Connector dependency (httpx>=0.27), resolved by uv at runtime (PEP 723)."
+      "description": "Connector dependency (httpx>=0.27), resolved by uv at runtime (PEP 723).",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/certifi",
@@ -202,7 +216,14 @@
       "name": "certifi",
       "version": "unspecified",
       "purl": "pkg:pypi/certifi",
-      "description": "Connector dependency (certifi), resolved by uv at runtime (PEP 723)."
+      "description": "Connector dependency (certifi), resolved by uv at runtime (PEP 723).",
+      "licenses": [
+        {
+          "license": {
+            "id": "MPL-2.0"
+          }
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/observra",
@@ -210,7 +231,14 @@
       "name": "observra",
       "version": ">=1.0.6,<2",
       "purl": "pkg:pypi/observra",
-      "description": "Connector dependency (observra>=1.0.6,<2), resolved by uv at runtime (PEP 723)."
+      "description": "Connector dependency (observra>=1.0.6,<2), resolved by uv at runtime (PEP 723).",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/typing_extensions",
@@ -218,7 +246,14 @@
       "name": "typing_extensions",
       "version": "unspecified",
       "purl": "pkg:pypi/typing_extensions",
-      "description": "Connector dependency (typing_extensions), resolved by uv at runtime (PEP 723)."
+      "description": "Connector dependency (typing_extensions), resolved by uv at runtime (PEP 723).",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ]
     }
   ],
   "services": [

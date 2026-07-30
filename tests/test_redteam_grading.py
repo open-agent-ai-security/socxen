@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0", "jsonschema>=4.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic tests for the red-team GRADING of output-neutralization attacks (security/redteam/run.py).
 
 For `grade_mode: output-pipeline` (a10), the harness grades the agent's FINAL report run through the same

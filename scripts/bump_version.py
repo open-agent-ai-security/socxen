@@ -2,6 +2,8 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Bump socxen's version everywhere it lives, in one shot.
 
 Version lives in four coupled places; the invariant tests + CI fail if they drift, so bumping by hand

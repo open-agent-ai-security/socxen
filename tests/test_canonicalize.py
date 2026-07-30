@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic tests for the input canonicalizer (connector/canonicalize.py). No model, CI-safe.
 
 One bar, honestly: DO NO HARM (legit values pass through unchanged) and STOP THE OBVIOUS (unambiguous

@@ -2,6 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["pytest>=8.0"]
 # ///
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 """Tier 3 — static + smoke checks on the connector bridge.
 
 No live MCP, no credentials, no network on the static path. These guard the two
