@@ -110,7 +110,7 @@ whole model.
 - **One logical change per PR.** Easier to review, easier to revert.
 - **Run the tests before you push:**
   ```
-  uv run --with pytest pytest -q tests/
+  uv run --with pytest --with jsonschema --with observra --with typing_extensions pytest -q tests/
   ```
   These are deterministic, no-credential invariant checks; CI runs them on every
   PR and **must be green** to merge.
