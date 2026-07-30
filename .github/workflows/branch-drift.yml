@@ -1,0 +1,32 @@
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Asserts the branch invariant: `main` is always an ancestor of `dev`.
+# Catches a missed post-release fast-forward of dev, or a release that was
+# squash-merged instead of merge-committed, the day it happens — before the
+# histories drift far enough to make reconciliation painful.
+# (Adopted from praxen, where exactly that squash froze the merge-base for
+# two releases before anyone noticed.)
+name: Branch drift
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  main-is-ancestor-of-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: main must be an ancestor of dev
+        run: |
+          git fetch origin main dev
+          if git merge-base --is-ancestor origin/main origin/dev; then
+            echo "OK: origin/main is an ancestor of origin/dev"
+          else
+            echo "::error::origin/main is NOT an ancestor of origin/dev — a release was squash-merged, or the post-release fast-forward of dev was missed. See CONTRIBUTING.md § Branching for the repair recipe."
+            exit 1
+          fi
