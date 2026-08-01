@@ -43,6 +43,12 @@ claude plugin marketplace add open-agent-ai-security/socxen
 claude plugin install socxen@socxen
 ```
 
+Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks:
+
+```bash
+git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./install.sh
+```
+
 Two one-time steps remain — **connect Exabeam** (drop your API key in `~/.exabeam-mcp.env`) and **turn on
 the governance safety gate**. The setup guide does the lifting:
 
