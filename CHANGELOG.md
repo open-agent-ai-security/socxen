@@ -8,6 +8,21 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.4] — 2026-07-31
+
+Release-machinery hardening, cut as the repo went public. The plugin payload behavior is unchanged
+from 0.6.0.
+
+### Added
+- **Branch-drift check** — a daily scheduled workflow asserts the governance invariant that `main`
+  is always an ancestor of `dev`, catching a missed post-release fast-forward or an accidental
+  squash promotion the day it happens. (#52)
+- **Release and rollback playbook** in `CONTRIBUTING.md`: cutting a release, rolling one back with
+  forward reverts (never force-push), and repairing already-diverged histories. (#52)
+- **Post-release install smoke** — `scripts/release/plugin-smoke.sh` exercises a clean install of
+  the current release and an upgrade from the prior one in throwaway `CLAUDE_CONFIG_DIR`s, never
+  touching the maintainer's live install. (#52)
+
 ## [0.6.3] — 2026-07-30
 
 Public-readiness release — docs, repo hygiene, and metadata from the go-public review. The plugin
