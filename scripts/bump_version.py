@@ -10,7 +10,6 @@ Version lives in four coupled places; the invariant tests + CI fail if they drif
 is error-prone. This edits all of them and regenerates the AI BOM:
 
   - `.claude-plugin/plugin.json`               → `version`
-  - `.claude-plugin/marketplace.json`          → the *plugin entry* version (NOT `metadata.version`)
   - `README.md`                                → the `version-vX.Y.Z` pill
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
 
@@ -29,7 +28,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / ".claude-plugin/plugin.json"
-MARKET = ROOT / ".claude-plugin/marketplace.json"
 README = ROOT / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
 
@@ -63,10 +61,6 @@ def main(argv):
         (PLUGIN, _sub_once(PLUGIN.read_text(),
                            r'("version"\s*:\s*")' + re.escape(old) + r'(")',
                            r"\g<1>" + new + r"\g<2>", "plugin.json version")),
-        # the FIRST "version" after "plugins" is the plugin entry; metadata.version (before it) is left alone
-        (MARKET, _sub_once(MARKET.read_text(),
-                           r'("plugins"[\s\S]*?"version"\s*:\s*")' + re.escape(old) + r'(")',
-                           r"\g<1>" + new + r"\g<2>", "marketplace plugin-entry version")),
         (README, _sub_once(README.read_text(),
                            r"(badge/version-v)" + re.escape(old) + r"(-)",
                            r"\g<1>" + new + r"\g<2>", "README version pill")),

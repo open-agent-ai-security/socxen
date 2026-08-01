@@ -81,7 +81,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 ## Layout
 
 ```
-.claude-plugin/          marketplace.json + plugin.json (marketplace install)
+.claude-plugin/          plugin.json (plugin manifest — installs via open-agent-ai-security/plugins)
 .mcp.json                bundled Exabeam MCP — auto-registers on install
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)

@@ -177,11 +177,11 @@ release channel**: whatever lands there reaches new installers immediately.
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
-  `.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`,
-  and the `version-vX.Y.Z` pill in `README.md`, then regenerates the AI BOM, and
-  verifies they all agree. (If you edit by hand instead, all four must match or CI
-  fails — an invariant test guards the pill↔plugin link, and `gen_aibom.py --check`
-  guards the BOM against any version / connector-dep / MCP / governance drift.)
+  `.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `README.md`, then
+  regenerates the AI BOM, and verifies they all agree. (If you edit by hand
+  instead, all three must match or CI fails — an invariant test guards the
+  pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any
+  version / connector-dep / MCP / governance drift.)
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.
