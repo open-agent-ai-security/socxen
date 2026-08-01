@@ -136,8 +136,8 @@ release channel**: whatever lands there reaches new installers immediately.
 **Cutting a release**
 
 1. Land all changes on `dev`. Run `python3 scripts/bump_version.py X.Y.Z` (bumps
-   `plugin.json`, the marketplace entry, the README pill, and regenerates the AI
-   BOM), date the `CHANGELOG.md` entry by hand, commit to `dev`.
+   `plugin.json`, the README pill, and regenerates the AI BOM), date the
+   `CHANGELOG.md` entry by hand, commit to `dev`.
 2. Open the release PR `dev → main`; promote with a **merge commit** (never
    squash), then fast-forward `dev` back up (see Branching above). `main` is
    branch-protected: the merge needs the `Repo invariants (no inference)` and

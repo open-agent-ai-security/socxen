@@ -8,6 +8,32 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.6] — 2026-07-31
+
+Installer-correctness release. Post-review fixes to 0.6.5, cut as a new version because a
+plugin update is only delivered when the version moves — 0.6.5 users would not otherwise
+receive them.
+
+### Fixed
+- **`install.sh` no longer misclassifies a correct URL-added marketplace.** The community
+  marketplace added via a git URL (`…add https://github.com/open-agent-ai-security/plugins`)
+  rendered as an `other` source and the installer's failure advice would have removed the user's
+  working marketplace. Presence detection now prefers `claude plugin marketplace list --json`
+  (resolving the recorded source to `github.com/<repo>` — parsed, so the slug, https and scp
+  forms all match while a lookalike host does not), keeping the pretty-print parse only as an
+  older-CLI fallback.
+- **The installer no longer advises removing a marketplace.** When a marketplace with our name
+  points somewhere else, it is now re-pointed in place with `marketplace add` (lossless —
+  installed plugins keep working) instead of failing with advice to `marketplace remove`, which
+  would have uninstalled the user's praxen.
+- **`plugin-smoke.sh` upgrade leg survives pre-cutover prior refs.** Crossing the #58 cutover
+  boundary (prior ref tracks `marketplace.json`, target doesn't) aborted the version-flip
+  checkout over the fabricated manifest; the flip now uses `checkout -f` and immediately
+  re-fabricates.
+- Doc/comment truthfulness: CONTRIBUTING release steps and the `bump_version.py` docstring no
+  longer reference the retired marketplace edit target; an `install.sh` comment example updated
+  to the current plugin id.
+
 ## [0.6.5] — 2026-07-31
 
 **Distribution switchover.** socxen now installs exclusively from the Open Agent AI Security
@@ -25,7 +51,7 @@ claude plugin install socxen@open-agent-ai-security
   no deprecation window (no external install base existed). The `socxen@socxen` install key is
   retired; an invariant test asserts no in-repo marketplace reappears (it would resurrect the dead
   key or collide with the community marketplace's registered name). Existing installs migrate with
-  the four-command recipe in `docs/installation.md`. (#58)
+  the migration recipe in `docs/installation.md`. (#58)
 
 ### Changed
 - **Install docs and installer** target the community marketplace throughout (README,
