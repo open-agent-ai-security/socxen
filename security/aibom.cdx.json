@@ -35,8 +35,8 @@
         },
         {
           "type": "distribution",
-          "url": "https://github.com/open-agent-ai-security/socxen",
-          "comment": "Claude Code plugin marketplace: socxen@socxen"
+          "url": "https://github.com/open-agent-ai-security/plugins",
+          "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"
         }
       ],
       "properties": [
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-01T02:11:01Z"
+    "timestamp": "2026-08-01T03:00:17Z"
   },
   "components": [
     {

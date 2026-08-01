@@ -81,8 +81,9 @@ By making a contribution to this project, I certify that:
 Branch from and target **`dev`**, not `main`.
 
 `main` is the **live install channel**: a fresh
-`claude plugin marketplace add open-agent-ai-security/socxen && claude plugin install socxen@socxen`
-pulls `main` at HEAD, so anything merged to `main` reaches installers immediately.
+`claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security`
+pulls `main` at HEAD (the community marketplace pins this repo's `main` branch), so
+anything merged to `main` reaches installers immediately.
 `main` therefore receives only deliberate, re-verified releases — everyday work
 lands on `dev` first.
 
@@ -176,11 +177,11 @@ release channel**: whatever lands there reaches new installers immediately.
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
-  `.claude-plugin/plugin.json`, the plugin entry in `.claude-plugin/marketplace.json`,
-  and the `version-vX.Y.Z` pill in `README.md`, then regenerates the AI BOM, and
-  verifies they all agree. (If you edit by hand instead, all four must match or CI
-  fails — an invariant test guards the pill↔plugin link, and `gen_aibom.py --check`
-  guards the BOM against any version / connector-dep / MCP / governance drift.)
+  `.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `README.md`, then
+  regenerates the AI BOM, and verifies they all agree. (If you edit by hand
+  instead, all three must match or CI fails — an invariant test guards the
+  pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any
+  version / connector-dep / MCP / governance drift.)
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.

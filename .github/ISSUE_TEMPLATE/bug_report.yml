@@ -31,7 +31,7 @@ body:
       description: >-
         Paste the socxen line from `claude plugin list`, plus `claude --version` and your OS.
       placeholder: |
-        socxen@socxen Version: 0.6.2 Scope: user
+        socxen@open-agent-ai-security Version: 0.6.4 Scope: user
         claude 2.1.220
         macOS 15.5
     validations:
