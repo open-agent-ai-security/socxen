@@ -29,22 +29,46 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
 Install from the plugin marketplace. From your terminal:
 
 ```bash
-claude plugin marketplace add open-agent-ai-security/socxen
-claude plugin install socxen@socxen
-claude plugin list      # confirm: socxen@socxen, enabled
+claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install socxen@open-agent-ai-security
+claude plugin list      # confirm: socxen@open-agent-ai-security, enabled
 ```
 
-> The marketplace registers under the name `socxen` (from `.claude-plugin/marketplace.json`), so the
-> install target is `socxen@socxen` — the part after `@` is the marketplace name, not the repo owner.
-> This name is deliberately distinct from praxen's marketplace (`open-agent-ai-security`), so you can
-> have both org marketplaces added at the same time with no conflict.
+> socxen is published through the community marketplace
+> ([open-agent-ai-security/plugins](https://github.com/open-agent-ai-security/plugins)), which
+> registers under the name `open-agent-ai-security` — so the install target is
+> `socxen@open-agent-ai-security` (the part after `@` is the marketplace name). The same
+> marketplace serves every community plugin (praxen is `praxen@open-agent-ai-security`); one
+> `marketplace add` covers them all.
+
+**Upgrading from the pre-marketplace install (`socxen@socxen`)?** The plugin was briefly
+distributed from a marketplace hosted in this repo. Migrate with:
+
+```bash
+claude plugin uninstall socxen@socxen
+claude plugin marketplace remove socxen
+claude plugin marketplace add open-agent-ai-security/plugins   # skip only if already added from …/plugins
+claude plugin install socxen@open-agent-ai-security
+```
+
+> If a marketplace named `open-agent-ai-security` already exists but was added from the **old
+> praxen repo path** (`open-agent-ai-security/praxen`), remove that one too and re-add from
+> `open-agent-ai-security/plugins` — removing it uninstalls the plugins that came from it, so
+> reinstall those afterwards (`claude plugin install praxen@open-agent-ai-security`).
 
 The skill registers as `soc-investigate`. The in-session equivalents — `/plugin marketplace add …`,
 `/plugin install …`, `/plugin list` — do the same thing; if you install from within a session, run
 `/reload-plugins` (or restart) to activate the skill. Prefer the terminal `claude plugin …` form when
 scripting — it's argument-driven and runs the same way on every interface.
 
-Or run the bundled convenience script after cloning: `./install.sh` (idempotent).
+Or use the guided installer — it wraps the same commands with preflight checks (CLI, `uv`,
+credentials), a live MCP connectivity test, and a governance-gate check. Idempotent; safe to re-run
+(re-running also picks up updates):
+
+```bash
+git clone https://github.com/open-agent-ai-security/socxen.git
+cd socxen && ./install.sh
+```
 
 ## Credentials (the only manual step)
 
@@ -126,8 +150,8 @@ find and read the file, and every control knob.
 ## Updating
 
 ```bash
-claude plugin marketplace update socxen     # refresh the catalog
-claude plugin update socxen@socxen          # install the latest
+claude plugin marketplace update open-agent-ai-security     # refresh the catalog
+claude plugin update socxen@open-agent-ai-security          # install the latest
 ```
 
 Both steps matter: without the first, `plugin update` only sees your local (possibly stale) catalog
@@ -136,14 +160,14 @@ cache. Restart or `/reload-plugins` to apply.
 ### Auto-update / fleet config (Claude Code)
 
 Auto-update is per-marketplace and off by default for third-party marketplaces. Enable it
-interactively: `/plugin` → **Marketplaces** → `socxen` → **enable auto-update**. Or fleet-wide in
-managed `settings.json`:
+interactively: `/plugin` → **Marketplaces** → `open-agent-ai-security` → **enable auto-update**.
+Or fleet-wide in managed `settings.json`:
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "socxen": {
-      "source": { "source": "github", "repo": "open-agent-ai-security/socxen" },
+    "open-agent-ai-security": {
+      "source": { "source": "github", "repo": "open-agent-ai-security/plugins" },
       "autoUpdate": true
     }
   }
@@ -160,8 +184,10 @@ socxen is just a skill folder in the repo — any capable coding agent can fetch
 ## Uninstalling
 
 ```bash
-claude plugin uninstall socxen@socxen
-claude plugin marketplace remove socxen
+claude plugin uninstall socxen@open-agent-ai-security
+claude plugin marketplace remove open-agent-ai-security   # optional — see note
 ```
 
-The marketplace is removed by its registered name (`socxen`, from `.claude-plugin/marketplace.json`).
+The marketplace is removed by its registered name (`open-agent-ai-security`). Skip that step if
+you use other community plugins from it (e.g. praxen) — removing a marketplace also uninstalls
+every plugin that was installed from it.

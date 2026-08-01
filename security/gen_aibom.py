@@ -10,7 +10,7 @@ small MCP connector, running on a hosted foundation model (Claude) and calling t
 MCP. Model-card AI-BOM tools (which ingest a Hugging Face model id) can't describe that, so we assemble
 a CycloneDX AI-BOM directly from what socxen actually ships:
 
-  - the root component (this plugin) from .claude-plugin/plugin.json + marketplace.json,
+  - the root component (this plugin) from .claude-plugin/plugin.json,
   - the foundation model (Claude) as an external machine-learning-model component,
   - the system prompt / methodology (SKILL.md + reference corpus) as a `data` component,
   - the connector's Python dependencies (PEP 723) as `library` components,
@@ -59,6 +59,13 @@ def _split_dep(spec):
 # SPDX ids for the connector's PyPI deps, verified against PyPI/upstream 2026-07-30.
 # A dep added to the bridge without an entry here ships with no license claim rather
 # than a guessed one.
+# socxen is published via the community marketplace (open-agent-ai-security/plugins);
+# the supplier is pinned here since the in-repo marketplace.json (the previous
+# source of owner metadata) was retired in the #58 hard cutover.
+SUPPLIER = {"name": "Open Agent AI Security",
+            "url": ["https://github.com/open-agent-ai-security"]}
+MARKETPLACE_REPO_URL = "https://github.com/open-agent-ai-security/plugins"
+
 DEP_LICENSES = {
     "mcp": "MIT",
     "httpx": "BSD-3-Clause",
@@ -72,7 +79,6 @@ DEP_LICENSES = {
 
 def build_bom(timestamp):
     plugin = _json(".claude-plugin/plugin.json")
-    market = _json(".claude-plugin/marketplace.json")
     mcp = _json(".mcp.json")
     perms = _json("skills/soc-investigate/settings.snippet.json")["permissions"]
     deps, requires_python = _pep723("connector/exabeam-mcp-bridge.py")
@@ -92,12 +98,12 @@ def build_bom(timestamp):
         "version": version,
         "description": plugin["description"],
         "licenses": lic,
-        "supplier": {"name": market["owner"]["name"], "url": [market["owner"]["url"]]},
+        "supplier": SUPPLIER,
         "publisher": plugin["author"]["name"],
         "externalReferences": [
             {"type": "vcs", "url": repo},
             {"type": "website", "url": plugin["homepage"]},
-            {"type": "distribution", "url": repo, "comment": "Claude Code plugin marketplace: socxen@socxen"},
+            {"type": "distribution", "url": MARKETPLACE_REPO_URL, "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"},
         ],
         "properties": [
             {"name": "ai:systemType", "value": "agent"},
@@ -193,7 +199,7 @@ def build_bom(timestamp):
 
     metadata = {
         "component": root,
-        "supplier": {"name": market["owner"]["name"], "url": [market["owner"]["url"]]},
+        "supplier": SUPPLIER,
         "authors": [{"name": plugin["author"]["name"]}],
         "properties": [
             {"name": "ai:foundationModel", "value": "Claude (Anthropic), external hosted API"},

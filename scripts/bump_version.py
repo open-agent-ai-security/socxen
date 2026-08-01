@@ -10,7 +10,6 @@ Version lives in four coupled places; the invariant tests + CI fail if they drif
 is error-prone. This edits all of them and regenerates the AI BOM:
 
   - `.claude-plugin/plugin.json`               → `version`
-  - `.claude-plugin/marketplace.json`          → the *plugin entry* version (NOT `metadata.version`)
   - `README.md`                                → the `version-vX.Y.Z` pill
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
 
@@ -29,7 +28,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / ".claude-plugin/plugin.json"
-MARKET = ROOT / ".claude-plugin/marketplace.json"
 README = ROOT / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
 
@@ -63,10 +61,6 @@ def main(argv):
         (PLUGIN, _sub_once(PLUGIN.read_text(),
                            r'("version"\s*:\s*")' + re.escape(old) + r'(")',
                            r"\g<1>" + new + r"\g<2>", "plugin.json version")),
-        # the FIRST "version" after "plugins" is the plugin entry; metadata.version (before it) is left alone
-        (MARKET, _sub_once(MARKET.read_text(),
-                           r'("plugins"[\s\S]*?"version"\s*:\s*")' + re.escape(old) + r'(")',
-                           r"\g<1>" + new + r"\g<2>", "marketplace plugin-entry version")),
         (README, _sub_once(README.read_text(),
                            r"(badge/version-v)" + re.escape(old) + r"(-)",
                            r"\g<1>" + new + r"\g<2>", "README version pill")),
@@ -87,18 +81,15 @@ def main(argv):
     else:
         print("  note: security/gen_aibom.py not present — skipped AI BOM regen", file=sys.stderr)
 
-    # verify consistency (what the invariant tests enforce), and that metadata.version was NOT touched
-    market = json.loads(MARKET.read_text())
+    # verify consistency (what the invariant tests enforce)
     got = {
         "plugin.json": json.loads(PLUGIN.read_text())["version"],
-        "marketplace plugin entry": market["plugins"][0]["version"],
         "README pill": (re.search(r"badge/version-v([0-9][0-9A-Za-z.\-]*)-", README.read_text()) or [None, None])[1],
     }
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ plugin.json / marketplace entry / README pill all at {new} "
-          f"(marketplace metadata.version left at {market['metadata']['version']})")
+    print(f"\n✓ plugin.json / README pill both at {new}")
     print("  AI BOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0

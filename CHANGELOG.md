@@ -8,6 +8,40 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.5] — 2026-07-31
+
+**Distribution switchover.** socxen now installs exclusively from the Open Agent AI Security
+**community marketplace**, [`open-agent-ai-security/plugins`](https://github.com/open-agent-ai-security/plugins)
+— one `marketplace add` for every community plugin, socxen's entry pinned to this repo's `main` over
+anonymous HTTPS. The plugin payload behavior is unchanged from 0.6.0.
+
+```bash
+claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install socxen@open-agent-ai-security
+```
+
+### Removed
+- **The repo-hosted `socxen` marketplace** (`.claude-plugin/marketplace.json`) — a **hard cutover**,
+  no deprecation window (no external install base existed). The `socxen@socxen` install key is
+  retired; an invariant test asserts no in-repo marketplace reappears (it would resurrect the dead
+  key or collide with the community marketplace's registered name). Existing installs migrate with
+  the four-command recipe in `docs/installation.md`. (#58)
+
+### Changed
+- **Install docs and installer** target the community marketplace throughout (README,
+  `docs/installation.md` incl. fleet config, CONTRIBUTING, SECURITY, bug-report template). (#58)
+- **`install.sh`** judges marketplace presence on the name+source *pair* parsed from
+  `claude plugin marketplace list` — the previous whole-output substring match false-detected the
+  community marketplace on exactly the machines carrying a legacy repo-hosted one; a same-named
+  marketplace pointing elsewhere now fails with explicit migration guidance. (#58)
+- **Release machinery decoupled from the deleted manifest** — `bump_version.py` drops its
+  marketplace edit target; `gen_aibom.py` pins the supplier and points its distribution reference
+  at the marketplace repo; `plugin-smoke.sh`'s clean leg installs from the real community
+  marketplace over the network. (#58)
+- **Sister-repo alignment with praxen** — promoted under the same model (release by merge commit,
+  `dev` fast-forwarded back up), and **`main` becomes the repo's default branch**, so the public
+  repo page shows released state and the org's two plugins share one contribution path.
+
 ## [0.6.4] — 2026-07-31
 
 Release-machinery hardening, cut as the repo went public. The plugin payload behavior is unchanged

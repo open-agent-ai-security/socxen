@@ -30,7 +30,6 @@ SKILL_NAME = "soc-investigate"
 def _load(path):
     return json.loads((ROOT / path).read_text())
 
-MARKETPLACE = _load(".claude-plugin/marketplace.json")
 PLUGIN = _load(".claude-plugin/plugin.json")
 MCP = _load(".mcp.json")
 SETTINGS = _load("skills/soc-investigate/settings.snippet.json")
@@ -148,17 +147,6 @@ def test_write_tools_are_exactly_the_arg1_family():
         assert verb in TOOL_MAP_MD, f"{verb} not documented in tool-map.md"
 
 
-# --- #5: version sync across the two manifests ---
-
-def test_plugin_version_matches_marketplace_entry():
-    """plugin.json.version must equal the marketplace's plugin entry version.
-    NOTE: marketplace.json ALSO has metadata.version (the catalog's own version) —
-    that one is intentionally independent and is not compared here."""
-    entry = MARKETPLACE["plugins"][0]
-    assert PLUGIN["version"] == entry["version"], (
-        f"version drift: plugin.json={PLUGIN['version']} vs "
-        f"marketplace plugin entry={entry['version']}")
-
 def test_readme_version_badge_matches_plugin():
     """The README's static version pill must track plugin.json so it can't go stale."""
     readme = (ROOT / "README.md").read_text()
@@ -171,14 +159,17 @@ def test_readme_version_badge_matches_plugin():
 
 # --- #6: marketplace identity (the name-collision guard) ---
 
-def test_marketplace_identity_prevents_collision():
-    """The marketplace `name` is the unique key `claude plugin marketplace add` uses;
-    a duplicate name silently REPLACES another marketplace (this overwrote praxen once).
-    Lock the identity so that class of bug can't reappear."""
-    assert MARKETPLACE["name"] == "socxen"
-    entry = MARKETPLACE["plugins"][0]
-    assert entry["name"] == "socxen"
-    assert entry["source"] == "./"
+def test_no_in_repo_marketplace():
+    """socxen is published via the community marketplace
+    (open-agent-ai-security/plugins, marketplace name 'open-agent-ai-security');
+    the repo-hosted 'socxen' marketplace was retired in a hard cutover (#58).
+    Reintroducing a marketplace.json here would either resurrect the dead
+    socxen@socxen install path or collide with the community marketplace's
+    name (a duplicate name silently REPLACES another marketplace — this
+    overwrote praxen once). The plugin manifest itself must stay."""
+    assert not (ROOT / ".claude-plugin/marketplace.json").exists(), (
+        "unexpected .claude-plugin/marketplace.json — socxen installs via "
+        "open-agent-ai-security/plugins; see docs/installation.md")
     assert PLUGIN["name"] == "socxen"
 
 

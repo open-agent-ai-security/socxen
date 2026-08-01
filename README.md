@@ -7,7 +7,7 @@
 **An agentic SOC analyst, as a Claude Code skill.**
 
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.6.4-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.6.5-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![status](https://img.shields.io/badge/status-pre--release-orange)](CHANGELOG.md)
@@ -39,8 +39,14 @@ Claude Code permission rules *and* the skill asking you first — never left to 
 ## Quick start
 
 ```bash
-claude plugin marketplace add open-agent-ai-security/socxen
-claude plugin install socxen@socxen
+claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install socxen@open-agent-ai-security
+```
+
+Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks:
+
+```bash
+git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./install.sh
 ```
 
 Two one-time steps remain — **connect Exabeam** (drop your API key in `~/.exabeam-mcp.env`) and **turn on
@@ -75,7 +81,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 ## Layout
 
 ```
-.claude-plugin/          marketplace.json + plugin.json (marketplace install)
+.claude-plugin/          plugin.json (plugin manifest — installs via open-agent-ai-security/plugins)
 .mcp.json                bundled Exabeam MCP — auto-registers on install
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
