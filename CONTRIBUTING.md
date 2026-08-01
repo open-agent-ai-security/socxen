@@ -100,10 +100,58 @@ plus the unreleased work, never a divergent history.
   git fetch origin && git checkout dev && git merge --ff-only origin/main && git push origin dev
   ```
 
-We deliberately keep the release machinery light for now: **no tag-driven release
-automation, no scheduled branch-drift check, no `dependabot`** — those arrive when
-socxen has a real tagged-release cadence. Until then the two rules above are the
-whole model.
+A scheduled CI check (`.github/workflows/branch-drift.yml`) asserts the invariant
+daily and fails the day the histories diverge — catching a missed fast-forward or
+an accidental squash promotion before it accumulates.
+
+### If the histories have already diverged
+
+Don't squash-paper-over it — reconcile so the invariant holds again. Rebuild on a
+**temporary branch** off `origin/main` (never `reset --hard` `dev` in place, or
+you lose the commit hashes you still need):
+
+```
+git checkout -b dev-rebuild origin/main
+git cherry-pick --signoff <the unreleased commits>   # the new work only
+git diff origin/dev dev-rebuild                       # MUST be empty (byte-identical)
+git push --force-with-lease origin dev-rebuild:dev
+```
+
+We deliberately keep the rest of the release machinery light for now: **no
+tag-driven release automation, no `dependabot`** — those arrive when socxen has a
+real tagged-release cadence. Until then the rules above are the whole model.
+
+## Releasing and rolling back
+
+*(Maintainers.)* socxen cuts releases as `dev → main` merge commits — no tags, no
+release artifacts. Because fresh installs pull `main@HEAD`, **`main` is the live
+release channel**: whatever lands there reaches new installers immediately.
+
+**Cutting a release**
+
+1. Land all changes on `dev`. Run `python3 scripts/bump_version.py X.Y.Z` (bumps
+   `plugin.json`, the marketplace entry, the README pill, and regenerates the AI
+   BOM), date the `CHANGELOG.md` entry by hand, commit to `dev`.
+2. Open the release PR `dev → main`; promote with a **merge commit** (never
+   squash), then fast-forward `dev` back up (see Branching above).
+3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh`.
+   It exercises both real Claude Code journeys in throwaway scratch
+   `$CLAUDE_CONFIG_DIR`s — a **clean install** of the new release and an
+   **upgrade** from the prior release — and asserts the resulting version,
+   never touching your live install. It is deliberately *not* in CI: the
+   `claude` CLI doesn't run in GitHub Actions, so this stays a maintainer-run
+   check.
+
+**Rolling back a bad release**
+
+1. **Stop the bleed first.** Revert the offending change on `main` with a *new
+   forward commit* (`git revert`), then fast-forward `dev`. Installs track
+   `main@HEAD`, so the revert reaches new installers as soon as it lands.
+2. **Cut a patch release** with the real fix when ready, via the normal flow.
+3. **Never force-push `main` or `dev`** to "undo" a release — rewriting history
+   breaks every clone and the `main`-ancestor-of-`dev` invariant. Forward revert
+   plus a patch release is the only safe path.
+4. Record the incident and the fix in `CHANGELOG.md`.
 
 ## Making a change
 
