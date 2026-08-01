@@ -8,9 +8,11 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.6.6] — 2026-07-31
 
-Post-release review fixes from the 0.6.5 Fable-class adversarial review (PR #58 comment).
+Installer-correctness release. Post-review fixes to 0.6.5, cut as a new version because a
+plugin update is only delivered when the version moves — 0.6.5 users would not otherwise
+receive them.
 
 ### Fixed
 - **`install.sh` no longer misclassifies a correct URL-added marketplace.** The community
