@@ -89,6 +89,9 @@ lands on `dev` first.
 When you open a PR, GitHub pre-selects the base as the repository default; confirm
 it's **`dev`** unless you are specifically cutting a release.
 
+No write access? **Fork** socxen, branch from `dev` in your fork, and open the PR
+against `dev` here — fork PRs run the same CI and DCO checks.
+
 The invariant we hold: **`main` is always an ancestor of `dev`** — `dev` is `main`
 plus the unreleased work, never a divergent history.
 
@@ -119,7 +122,8 @@ git push --force-with-lease origin dev-rebuild:dev
 ```
 
 We deliberately keep the rest of the release machinery light for now: **no
-tag-driven release automation, no `dependabot`** — those arrive when socxen has a
+tag-driven release automation, and no automated dependency-update PRs**
+(Dependabot *alerts* are on; update PRs are not) — those arrive when socxen has a
 real tagged-release cadence. Until then the rules above are the whole model.
 
 ## Releasing and rolling back
@@ -134,7 +138,9 @@ release channel**: whatever lands there reaches new installers immediately.
    `plugin.json`, the marketplace entry, the README pill, and regenerates the AI
    BOM), date the `CHANGELOG.md` entry by hand, commit to `dev`.
 2. Open the release PR `dev → main`; promote with a **merge commit** (never
-   squash), then fast-forward `dev` back up (see Branching above).
+   squash), then fast-forward `dev` back up (see Branching above). `main` is
+   branch-protected: the merge needs the `Repo invariants (no inference)` and
+   `signoff` checks green and every review conversation resolved.
 3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh`.
    It exercises both real Claude Code journeys in throwaway scratch
    `$CLAUDE_CONFIG_DIR`s — a **clean install** of the new release and an
