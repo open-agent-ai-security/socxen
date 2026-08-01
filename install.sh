@@ -157,14 +157,22 @@ plugin_listed() {
 # ---- install (unless --checks-only) ----
 if [ "$CHECKS_ONLY" = 0 ]; then
   head2 "Install"
-  # capture-then-grep (not a live pipeline): grep -q exiting early + pipefail can SIGPIPE the CLI.
-  # Boundary-anchored (substrings like 'socxensuite' must not count) with the user-overridable
-  # names escaped (they must not be parsed as regex).
+  # capture-then-parse (not a live pipeline): an early-exiting consumer + pipefail can SIGPIPE
+  # the CLI. Presence must be judged on the NAME+SOURCE pair, not a substring of the whole
+  # listing: every legacy repo-hosted marketplace's Source line contains
+  # 'open-agent-ai-security', and a marketplace with OUR name but a different source (the old
+  # praxen repo-hosted one) must trigger migration, not a silent update of the wrong catalog.
+  # In `claude plugin marketplace list` output, name lines carry no ':' ("❯ <name>") while
+  # detail lines do ("Source: GitHub (owner/repo)") — that, not the marker glyph, is the parse.
   # MKT_FRESH qualifies "already/updated to the latest version" below — a version compare against
   # stale marketplace metadata can't rule out a newer upstream release.
   MKT_FRESH=1
   mkts="$(claude plugin marketplace list 2>/dev/null || true)"
-  if grep -qiE "(^|[^a-z])$(esc_ere "${MARKETPLACE_NAME}")([^a-z]|$)|$(esc_ere "${MARKETPLACE_REPO}")" <<<"$mkts"; then
+  mkt_state="$(awk -v name="${MARKETPLACE_NAME}" -v repo="${MARKETPLACE_REPO}" '
+    !/:/ && NF { cur = $NF; next }
+    /Source:/ && cur == name { print (index($0, "(" repo ")") ? "ours" : "other"); exit }
+  ' <<<"$mkts")"
+  if [ "$mkt_state" = "ours" ]; then
     step "Marketplace '${MARKETPLACE_NAME}' present — updating"
     if claude plugin marketplace update "${MARKETPLACE_NAME}" >/dev/null 2>&1; then
       ok "Marketplace updated"
@@ -172,6 +180,9 @@ if [ "$CHECKS_ONLY" = 0 ]; then
       warn "Marketplace update reported an issue — plugin versions may lag upstream"
       MKT_FRESH=0
     fi
+  elif [ "$mkt_state" = "other" ]; then
+    fail "A marketplace named '${MARKETPLACE_NAME}' exists but points at a different source — likely the old praxen repo-hosted one. Migrate first: 'claude plugin marketplace remove ${MARKETPLACE_NAME}' (note: this uninstalls the plugins that came from it), re-run this installer, then reinstall those plugins from the community marketplace."
+    MKT_FRESH=0
   else
     step "Adding marketplace ${MARKETPLACE_REPO}"
     if claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null 2>&1; then

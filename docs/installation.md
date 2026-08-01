@@ -47,9 +47,14 @@ distributed from a marketplace hosted in this repo. Migrate with:
 ```bash
 claude plugin uninstall socxen@socxen
 claude plugin marketplace remove socxen
-claude plugin marketplace add open-agent-ai-security/plugins   # skip if already added
+claude plugin marketplace add open-agent-ai-security/plugins   # skip only if already added from …/plugins
 claude plugin install socxen@open-agent-ai-security
 ```
+
+> If a marketplace named `open-agent-ai-security` already exists but was added from the **old
+> praxen repo path** (`open-agent-ai-security/praxen`), remove that one too and re-add from
+> `open-agent-ai-security/plugins` — removing it uninstalls the plugins that came from it, so
+> reinstall those afterwards (`claude plugin install praxen@open-agent-ai-security`).
 
 The skill registers as `soc-investigate`. The in-session equivalents — `/plugin marketplace add …`,
 `/plugin install …`, `/plugin list` — do the same thing; if you install from within a session, run
@@ -155,14 +160,14 @@ cache. Restart or `/reload-plugins` to apply.
 ### Auto-update / fleet config (Claude Code)
 
 Auto-update is per-marketplace and off by default for third-party marketplaces. Enable it
-interactively: `/plugin` → **Marketplaces** → `socxen` → **enable auto-update**. Or fleet-wide in
-managed `settings.json`:
+interactively: `/plugin` → **Marketplaces** → `open-agent-ai-security` → **enable auto-update**.
+Or fleet-wide in managed `settings.json`:
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "socxen": {
-      "source": { "source": "github", "repo": "open-agent-ai-security/socxen" },
+    "open-agent-ai-security": {
+      "source": { "source": "github", "repo": "open-agent-ai-security/plugins" },
       "autoUpdate": true
     }
   }
