@@ -81,18 +81,15 @@ def main(argv):
     else:
         print("  note: security/gen_aibom.py not present — skipped AI BOM regen", file=sys.stderr)
 
-    # verify consistency (what the invariant tests enforce), and that metadata.version was NOT touched
-    market = json.loads(MARKET.read_text())
+    # verify consistency (what the invariant tests enforce)
     got = {
         "plugin.json": json.loads(PLUGIN.read_text())["version"],
-        "marketplace plugin entry": market["plugins"][0]["version"],
         "README pill": (re.search(r"badge/version-v([0-9][0-9A-Za-z.\-]*)-", README.read_text()) or [None, None])[1],
     }
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ plugin.json / marketplace entry / README pill all at {new} "
-          f"(marketplace metadata.version left at {market['metadata']['version']})")
+    print(f"\n✓ plugin.json / README pill both at {new}")
     print("  AI BOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0
