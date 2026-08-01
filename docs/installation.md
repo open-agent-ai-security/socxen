@@ -45,16 +45,20 @@ claude plugin list      # confirm: socxen@open-agent-ai-security, enabled
 distributed from a marketplace hosted in this repo. Migrate with:
 
 ```bash
-claude plugin uninstall socxen@socxen
-claude plugin marketplace remove socxen
-claude plugin marketplace add open-agent-ai-security/plugins   # skip only if already added from …/plugins
+claude plugin marketplace remove socxen                        # also uninstalls socxen@socxen
+claude plugin marketplace add open-agent-ai-security/plugins   # re-points in place if already present
 claude plugin install socxen@open-agent-ai-security
 ```
 
-> If a marketplace named `open-agent-ai-security` already exists but was added from the **old
-> praxen repo path** (`open-agent-ai-security/praxen`), remove that one too and re-add from
-> `open-agent-ai-security/plugins` — removing it uninstalls the plugins that came from it, so
-> reinstall those afterwards (`claude plugin install praxen@open-agent-ai-security`).
+> **Remove the old marketplace first — don't just add the new one.** The two marketplaces have
+> *different* names (`socxen` vs `open-agent-ai-security`), so adding the new one leaves the old
+> one in place and you end up with **two enabled copies of socxen** — the current release and the
+> retired one — both registering the `soc-investigate` skill. Removing a marketplace uninstalls
+> the plugins that came from it, which is what you want here, so a separate
+> `claude plugin uninstall socxen@socxen` is unnecessary.
+>
+> Already have a marketplace named `open-agent-ai-security` from praxen? Leave it — the add above
+> re-points it to the catalog in place, without disturbing your installed praxen.
 
 The skill registers as `soc-investigate`. The in-session equivalents — `/plugin marketplace add …`,
 `/plugin install …`, `/plugin list` — do the same thing; if you install from within a session, run
