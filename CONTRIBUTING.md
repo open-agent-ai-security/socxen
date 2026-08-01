@@ -34,9 +34,10 @@ Git adds it for you with `-s`:
 git commit -s -m "Your commit message"
 ```
 
-The name and email must be a real identity. Sign-off is **required**; we don't
-gate it in CI yet, so a maintainer may ask you to amend an unsigned commit before
-merge.
+The name and email must be a real identity. Sign-off is **required**, and CI
+enforces it: the `DCO` workflow checks every commit in your PR and tells you
+exactly which commits to amend if one is missing. (Exabeam-internal commits are
+exempt from the CI gate but follow the same convention.)
 
 <details><summary>Full DCO text</summary>
 
