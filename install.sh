@@ -149,7 +149,7 @@ plugin_update_cmd()  { claude plugin update  "${PLUGIN}@${MARKETPLACE_NAME}" --s
 esc_ere() { printf '%s' "$1" | sed 's/[][\.|$(){}?+*^]/\\&/g'; }
 
 # Does this 'claude plugin list' (plain) output contain ${PLUGIN}@${MARKETPLACE_NAME} as a
-# standalone id? Boundary excludes [alnum]_- continuation so 'socxen@socxen-dev' never matches.
+# standalone id? Boundary excludes [alnum]_- continuation so 'socxen@open-agent-ai-security-dev' never matches.
 plugin_listed() {
   grep -Eqi "(^|[^[:alnum:]_-])$(esc_ere "${PLUGIN}@${MARKETPLACE_NAME}")([^[:alnum:]_-]|$)" <<<"$1"
 }
@@ -157,21 +157,45 @@ plugin_listed() {
 # ---- install (unless --checks-only) ----
 if [ "$CHECKS_ONLY" = 0 ]; then
   head2 "Install"
-  # capture-then-parse (not a live pipeline): an early-exiting consumer + pipefail can SIGPIPE
-  # the CLI. Presence must be judged on the NAME+SOURCE pair, not a substring of the whole
-  # listing: every legacy repo-hosted marketplace's Source line contains
-  # 'open-agent-ai-security', and a marketplace with OUR name but a different source (the old
-  # praxen repo-hosted one) must trigger migration, not a silent update of the wrong catalog.
-  # In `claude plugin marketplace list` output, name lines carry no ':' ("❯ <name>") while
-  # detail lines do ("Source: GitHub (owner/repo)") — that, not the marker glyph, is the parse.
+  # Presence must be judged on the NAME+SOURCE pair, not a substring of the whole listing:
+  # every legacy repo-hosted marketplace's source contains 'open-agent-ai-security', and a
+  # marketplace with OUR name but a different source (the old praxen repo-hosted one) must
+  # trigger migration, not a silent update of the wrong catalog. Prefer the structured
+  # `--json` listing (same rationale as the plugin_listed --json path below); the pretty-print
+  # awk scrape survives only as the older-CLI fallback. Either way the same repo counts as
+  # "ours" in every form the CLI records it: `{source: github, repo: owner/repo}` from a slug
+  # add, or a git/url source whose URL embeds the slug (e.g. a `.git`-suffixed https add).
   # MKT_FRESH qualifies "already/updated to the latest version" below — a version compare against
   # stale marketplace metadata can't rule out a newer upstream release.
   MKT_FRESH=1
-  mkts="$(claude plugin marketplace list 2>/dev/null || true)"
-  mkt_state="$(awk -v name="${MARKETPLACE_NAME}" -v repo="${MARKETPLACE_REPO}" '
-    !/:/ && NF { cur = $NF; next }
-    /Source:/ && cur == name { print (index($0, "(" repo ")") ? "ours" : "other"); exit }
-  ' <<<"$mkts")"
+  mkt_state="$(claude plugin marketplace list --json 2>/dev/null | python3 -c '
+import json, sys
+name, repo = sys.argv[1], sys.argv[2]
+try:
+    mkts = json.load(sys.stdin)
+except Exception:
+    sys.exit(3)  # no/invalid --json (older CLI) -> caller falls back to the text parse
+for m in (mkts if isinstance(mkts, list) else []):
+    if m.get("name") != name:
+        continue
+    src = str(m.get("source") or "")
+    tgt = str(m.get("repo") or m.get("url") or "")
+    ours = (src == "github" and tgt == repo) or (
+        src in ("git", "url") and tgt.rstrip("/").removesuffix(".git").endswith("github.com/" + repo))
+    print("ours" if ours else "other")
+    break
+' "${MARKETPLACE_NAME}" "${MARKETPLACE_REPO}" )" || {
+    # capture-then-parse (not a live pipeline): an early-exiting consumer + pipefail can
+    # SIGPIPE the CLI. Name lines carry no ':' ("❯ <name>") while detail lines do
+    # ("Source: GitHub (owner/repo)" / "Source: Git (https://github.com/owner/repo.git)") —
+    # that, not the marker glyph, is the parse; the bare-slug substring match accepts every
+    # source form of the right repo.
+    mkts="$(claude plugin marketplace list 2>/dev/null || true)"
+    mkt_state="$(awk -v name="${MARKETPLACE_NAME}" -v repo="${MARKETPLACE_REPO}" '
+      !/:/ && NF { cur = $NF; next }
+      /Source:/ && cur == name { print (index($0, repo) ? "ours" : "other"); exit }
+    ' <<<"$mkts")"
+  }
   if [ "$mkt_state" = "ours" ]; then
     step "Marketplace '${MARKETPLACE_NAME}' present — updating"
     if claude plugin marketplace update "${MARKETPLACE_NAME}" >/dev/null 2>&1; then

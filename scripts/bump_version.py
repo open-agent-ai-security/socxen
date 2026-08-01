@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Bump socxen's version everywhere it lives, in one shot.
 
-Version lives in four coupled places; the invariant tests + CI fail if they drift, so bumping by hand
+Version lives in three coupled places; the invariant tests + CI fail if they drift, so bumping by hand
 is error-prone. This edits all of them and regenerates the AI BOM:
 
   - `.claude-plugin/plugin.json`               → `version`

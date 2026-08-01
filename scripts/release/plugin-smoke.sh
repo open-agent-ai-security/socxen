@@ -86,8 +86,11 @@ fi
 # Write a minimal marketplace manifest into a worktree so it can be added as a
 # local marketplace under the community marketplace's name. Needed for the
 # upgrade leg (rewindable source) and for worktrees at refs after the in-repo
-# marketplace.json was retired (#58). Untracked, so a later `git checkout
-# --detach` in the worktree leaves it in place.
+# marketplace.json was retired (#58). Re-fabricated after every checkout: when
+# a checkout crosses the cutover boundary (prior ref tracks the path, target
+# ref doesn't), git wants to delete the tracked copy and refuses over our
+# untracked one — hence `checkout -f` at the version flip, which discards
+# whatever is in the way before we immediately re-assert our manifest.
 fabricate_marketplace() {  # fabricate_marketplace <worktree>
   mkdir -p "$1/.claude-plugin"
   python3 - "$1" <<'PY'
@@ -113,8 +116,8 @@ fabricate_marketplace "${WT_UPGRADE}"
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin marketplace add "${WT_UPGRADE}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin install "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "prior install" "${CFG2}" "${PRIOR_VER}"
-git -C "${WT_UPGRADE}" checkout --detach --quiet "${CURRENT_SHA}"   # marketplace dir now serves the new release
-fabricate_marketplace "${WT_UPGRADE}"                               # re-assert ours over whatever the ref carries
+git -C "${WT_UPGRADE}" checkout -f --detach --quiet "${CURRENT_SHA}"   # marketplace dir now serves the new release (-f: see fabricate_marketplace)
+fabricate_marketplace "${WT_UPGRADE}"                                  # re-assert ours over whatever the ref carries
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin marketplace update "${MARKETPLACE}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin update "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "upgrade" "${CFG2}" "${CURRENT_VER}"
