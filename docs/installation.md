@@ -44,7 +44,14 @@ The skill registers as `soc-investigate`. The in-session equivalents — `/plugi
 `/reload-plugins` (or restart) to activate the skill. Prefer the terminal `claude plugin …` form when
 scripting — it's argument-driven and runs the same way on every interface.
 
-Or run the bundled convenience script after cloning: `./install.sh` (idempotent).
+Or use the guided installer — it wraps the same commands with preflight checks (CLI, `uv`,
+credentials), a live MCP connectivity test, and a governance-gate check. Idempotent; safe to re-run
+(re-running also picks up updates):
+
+```bash
+git clone https://github.com/open-agent-ai-security/socxen.git
+cd socxen && ./install.sh
+```
 
 ## Credentials (the only manual step)
 
