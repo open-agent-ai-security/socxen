@@ -160,40 +160,70 @@ if [ "$CHECKS_ONLY" = 0 ]; then
   # Presence must be judged on the NAME+SOURCE pair, not a substring of the whole listing:
   # every legacy repo-hosted marketplace's source contains 'open-agent-ai-security', and a
   # marketplace with OUR name but a different source (the old praxen repo-hosted one) must
-  # trigger migration, not a silent update of the wrong catalog. Prefer the structured
+  # be re-pointed, not silently updated as if it were the right catalog. Prefer the structured
   # `--json` listing (same rationale as the plugin_listed --json path below); the pretty-print
-  # awk scrape survives only as the older-CLI fallback. Either way the same repo counts as
-  # "ours" in every form the CLI records it: `{source: github, repo: owner/repo}` from a slug
-  # add, or a git/url source whose URL embeds the slug (e.g. a `.git`-suffixed https add).
+  # awk scrape survives only as the older-CLI fallback. "ours" means the recorded source
+  # RESOLVES to github.com/<repo> — parsed, not string-matched, so that neither the scp form
+  # (`git@github.com:owner/repo.git`, colon not slash) nor a lookalike host
+  # (`https://evil.example/x/github.com/owner/repo.git`) is misjudged.
   # MKT_FRESH qualifies "already/updated to the latest version" below — a version compare against
   # stale marketplace metadata can't rule out a newer upstream release.
   MKT_FRESH=1
+  # Live pipeline is safe here (unlike the text path below): json.load() drains stdin to EOF
+  # before this can exit, so the CLI is never SIGPIPEd. Exit 3 on any shape we don't recognise
+  # -> the `||` fallback runs; "cannot determine" must never render as "absent".
   mkt_state="$(claude plugin marketplace list --json 2>/dev/null | python3 -c '
-import json, sys
+import json, re, sys
+from urllib.parse import urlsplit
 name, repo = sys.argv[1], sys.argv[2]
 try:
     mkts = json.load(sys.stdin)
 except Exception:
     sys.exit(3)  # no/invalid --json (older CLI) -> caller falls back to the text parse
-for m in (mkts if isinstance(mkts, list) else []):
-    if m.get("name") != name:
+if not isinstance(mkts, list):
+    sys.exit(3)  # unrecognised shape -> unknown, not absent
+
+def resolves_to(target):
+    """True when target is a github.com URL/slug for exactly <repo>."""
+    t = str(target or "").strip()
+    if not t:
+        return False
+    m = re.match(r"^(?:[^@/]+@)?([^/:]+):(?!//)(.+)$", t)   # scp-like: [user@]host:path
+    if m:
+        host, path = m.group(1), m.group(2)
+    elif "://" in t:
+        u = urlsplit(t)
+        host, path = u.netloc.rsplit("@", 1)[-1], u.path     # drop any userinfo
+    else:
+        host, path = "github.com", t                          # bare owner/repo slug
+    host = host.split(":")[0].lower()                         # drop any port
+    path = path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    return host == "github.com" and path == repo
+
+for m in mkts:
+    if not isinstance(m, dict) or m.get("name") != name:
         continue
     src = str(m.get("source") or "")
-    tgt = str(m.get("repo") or m.get("url") or "")
-    ours = (src == "github" and tgt == repo) or (
-        src in ("git", "url") and tgt.rstrip("/").removesuffix(".git").endswith("github.com/" + repo))
-    print("ours" if ours else "other")
+    target = m.get("repo") if src == "github" else (m.get("url") or m.get("repo"))
+    print("ours" if resolves_to(target) else "other")
     break
-' "${MARKETPLACE_NAME}" "${MARKETPLACE_REPO}" )" || {
+' "${MARKETPLACE_NAME}" "${MARKETPLACE_REPO}" 2>/dev/null )" || {
     # capture-then-parse (not a live pipeline): an early-exiting consumer + pipefail can
     # SIGPIPE the CLI. Name lines carry no ':' ("❯ <name>") while detail lines do
     # ("Source: GitHub (owner/repo)" / "Source: Git (https://github.com/owner/repo.git)") —
-    # that, not the marker glyph, is the parse; the bare-slug substring match accepts every
-    # source form of the right repo.
+    # that, not the marker glyph, is the parse. The source must match to END of line in one of
+    # the three known forms, so a lookalike host embedding our slug doesn't read as ours.
     mkts="$(claude plugin marketplace list 2>/dev/null || true)"
-    mkt_state="$(awk -v name="${MARKETPLACE_NAME}" -v repo="${MARKETPLACE_REPO}" '
+    mkt_state="$(awk -v name="${MARKETPLACE_NAME}" -v repo="$(esc_ere "${MARKETPLACE_REPO}")" '
       !/:/ && NF { cur = $NF; next }
-      /Source:/ && cur == name { print (index($0, repo) ? "ours" : "other"); exit }
+      /Source:/ && cur == name {
+        ok = ($0 ~ "\\(" repo "\\)[[:space:]]*$") \
+          || ($0 ~ "\\(https://github\\.com/" repo "(\\.git)?/?\\)[[:space:]]*$") \
+          || ($0 ~ "\\(git@github\\.com:" repo "(\\.git)?\\)[[:space:]]*$")
+        print (ok ? "ours" : "other"); exit
+      }
     ' <<<"$mkts")"
   }
   if [ "$mkt_state" = "ours" ]; then
@@ -205,8 +235,16 @@ for m in (mkts if isinstance(mkts, list) else []):
       MKT_FRESH=0
     fi
   elif [ "$mkt_state" = "other" ]; then
-    fail "A marketplace named '${MARKETPLACE_NAME}' exists but points at a different source — likely the old praxen repo-hosted one. Migrate first: 'claude plugin marketplace remove ${MARKETPLACE_NAME}' (note: this uninstalls the plugins that came from it), re-run this installer, then reinstall those plugins from the community marketplace."
-    MKT_FRESH=0
+    # Re-point in place. `marketplace add` under an existing name replaces its source
+    # losslessly — installed plugins keep working — so never advise `marketplace remove`
+    # here: that WOULD uninstall them (e.g. a praxen install from the legacy path).
+    step "Marketplace '${MARKETPLACE_NAME}' points elsewhere — re-pointing to ${MARKETPLACE_REPO}"
+    if claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null 2>&1; then
+      ok "Marketplace re-pointed to ${MARKETPLACE_REPO} (existing plugins unaffected)"
+    else
+      fail "Could not re-point marketplace '${MARKETPLACE_NAME}' — run 'claude plugin marketplace add ${MARKETPLACE_REPO}' to see the error"
+      MKT_FRESH=0
+    fi
   else
     step "Adding marketplace ${MARKETPLACE_REPO}"
     if claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null 2>&1; then
