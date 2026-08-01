@@ -97,7 +97,7 @@ def build_bom(timestamp):
         "externalReferences": [
             {"type": "vcs", "url": repo},
             {"type": "website", "url": plugin["homepage"]},
-            {"type": "distribution", "url": repo, "comment": "Claude Code plugin marketplace: socxen@socxen"},
+            {"type": "distribution", "url": repo, "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security (via open-agent-ai-security/plugins)"},
         ],
         "properties": [
             {"name": "ai:systemType", "value": "agent"},

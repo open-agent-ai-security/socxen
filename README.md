@@ -39,8 +39,8 @@ Claude Code permission rules *and* the skill asking you first — never left to 
 ## Quick start
 
 ```bash
-claude plugin marketplace add open-agent-ai-security/socxen
-claude plugin install socxen@socxen
+claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install socxen@open-agent-ai-security
 ```
 
 Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks:

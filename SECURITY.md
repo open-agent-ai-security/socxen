@@ -74,5 +74,5 @@ a report — a synthetic repro against a test tenant is preferred.
 ## Supported versions
 
 socxen is pre-`1.0`; security fixes ship in the **latest** release. Upgrade to the
-newest version (`claude plugin update socxen@socxen`) before reporting. There is no
+newest version (`claude plugin update socxen@open-agent-ai-security`) before reporting. There is no
 back-port or LTS branch while pre-`1.0`.

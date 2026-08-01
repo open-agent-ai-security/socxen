@@ -81,8 +81,9 @@ By making a contribution to this project, I certify that:
 Branch from and target **`dev`**, not `main`.
 
 `main` is the **live install channel**: a fresh
-`claude plugin marketplace add open-agent-ai-security/socxen && claude plugin install socxen@socxen`
-pulls `main` at HEAD, so anything merged to `main` reaches installers immediately.
+`claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security`
+pulls `main` at HEAD (the community marketplace pins this repo's `main` branch), so
+anything merged to `main` reaches installers immediately.
 `main` therefore receives only deliberate, re-verified releases — everyday work
 lands on `dev` first.
 

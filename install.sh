@@ -18,8 +18,8 @@
 #   SOCXEN_SCOPE=user|project   SOCXEN_REPO   SOCXEN_MARKETPLACE   SOCXEN_PLUGIN
 set -euo pipefail
 
-MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/socxen}"
-MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-socxen}"
+MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/plugins}"
+MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-open-agent-ai-security}"
 PLUGIN="${SOCXEN_PLUGIN:-socxen}"
 SCOPE="${SOCXEN_SCOPE:-user}"
 ENV_FILE="${EXABEAM_ENV_FILE:-$HOME/.exabeam-mcp.env}"
