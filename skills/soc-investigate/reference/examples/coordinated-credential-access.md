@@ -43,7 +43,7 @@ But `exabeam_threat_summary` (Exabeam's own explainer) named the thread that tie
 
 > *Multiple users … abnormal password retrievals from CyberArk PAM, first-time logins to Cisco Network
 > Security and Microsoft 365, and abnormal network activity — all originating from a single external IP
-> (**43.100.36.57**) … suggesting a coordinated attack.*
+> (**198.51.100.57**) … suggesting a coordinated attack.*
 
 That single-IP claim is the hypothesis worth testing. If true, this isn't 820 unrelated noisy alerts —
 it's **one actor exercising many identities.**
@@ -56,7 +56,7 @@ AND NOT safe_value = null`). Two pivots settled it.
 
 **Pivot 1 — the IP (`exabeam_search_events`):**
 ```jsonc
-{"arg0": {"filter": "src_ip:\"43.100.36.57\"",
+{"arg0": {"filter": "src_ip:\"198.51.100.57\"",
   "fields": ["time","user","activity_type","product","src_ip","dest_host"],
   "orderBy": ["time DESC"], "startTime": "2026-06-01T00:00:00Z", "endTime": "2026-06-04T00:00:00Z", "limit": 20}}
 ```
@@ -78,7 +78,7 @@ coordinated push, not 800 coincidences.
   "orderBy": ["time DESC"], "startTime": "2026-06-01T00:00:00Z", "endTime": "2026-06-04T00:00:00Z", "limit": 20}}
 ```
 `totalRows` = 4 — the exact "abnormal (4)" the detector claimed — and **every checkout is from CyberArk
-PAM, sourced from `43.100.36.57`.** A broader `user:"paul.thomas17954"` pull shows the same IP driving an
+PAM, sourced from `198.51.100.57`.** A broader `user:"paul.thomas17954"` pull shows the same IP driving an
 `http-session` (Symantec Web Security) and `process-create` events on internal hosts. The IP is present at
 every stage of this user's activity.
 
@@ -86,16 +86,16 @@ every stage of this user's activity.
 
 | Time (UTC, 2026-06-02) | Event | Source |
 |---|---|---|
-| 17:03 | 4× CyberArk `password-checkout`, user paul.thomas17954, from 43.100.36.57 | search_events / detection `30b3e42b…` |
+| 17:03 | 4× CyberArk `password-checkout`, user paul.thomas17954, from 198.51.100.57 | search_events / detection `30b3e42b…` |
 | 17:03–18:31 | "First password retrieval from safe USER6403" across dozens of users | threat_timeline |
-| 17:39 | `vpn-login` (F5) + `endpoint-login` (Windows) for many users, all from 43.100.36.57 | search_events (Pivot 1) |
-| ~17:39 | `http-session` to Symantec Web Security for paul.thomas17954 from 43.100.36.57 | search_events (Pivot 2) |
+| 17:39 | `vpn-login` (F5) + `endpoint-login` (Windows) for many users, all from 198.51.100.57 | search_events (Pivot 1) |
+| ~17:39 | `http-session` to Symantec Web Security for paul.thomas17954 from 198.51.100.57 | search_events (Pivot 2) |
 
 ~1h34m, one IP, credential retrieval → login → web/endpoint activity across many identities.
 
 ## Assessment
 
-**Malicious hypothesis:** a single external host (43.100.36.57) is using or harvesting credentials to
+**Malicious hypothesis:** a single external host (198.51.100.57) is using or harvesting credentials to
 authenticate as many users — PAM vault checkouts, first-time logins to Cisco NS / M365, endpoint logins —
 a coordinated credential-access + lateral-movement campaign.
 *Supported by:* the same IP across VPN, endpoint, PAM, and web events for unrelated users; PAM checkouts
@@ -106,7 +106,7 @@ tied to the IP; the explainer's malicious-site note.
 this IP. *Contradicted by:* the activity mix (interactive VPN + endpoint logins + PAM retrievals across
 many human users) doesn't match a service automation, and no positive benign owner was found.
 
-**Deciding evidence:** the single IP `43.100.36.57` appearing as `src_ip` for password-checkouts **and**
+**Deciding evidence:** the single IP `198.51.100.57` appearing as `src_ip` for password-checkouts **and**
 endpoint/VPN logins across many distinct users — positive malicious correlation, not an aggregation
 artifact.
 
@@ -124,7 +124,7 @@ Taxonomy outcome: **raised**.
 - **Taken (in the run):** `exabeam_create_case` to escalate; `exabeam_create_case_notes` with this
   writeup and the two pivots. *(No `update_alert`/`update_case` close — this is the opposite of a close.)*
 - **Recommended containment (analyst approves in EDR/IAM — not an Exabeam-MCP capability):**
-  - **Block `43.100.36.57`** at the VPN/edge/firewall.
+  - **Block `198.51.100.57`** at the VPN/edge/firewall.
   - **Disable / force-reauth** the accounts seen authenticating from it; prioritize any with PAM checkouts.
   - **Rotate every credential retrieved** from the affected CyberArk safes (esp. safe `USER6403`) — assume
     exposed.

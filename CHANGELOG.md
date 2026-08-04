@@ -8,6 +8,19 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.7] — 2026-08-04
+
+Fixture-hygiene release, closing the last pre-public data gate (#46). The plugin's *behavior* is
+unchanged; the shipped example/eval/red-team **content** changes.
+
+### Fixed
+- **No more real routable IPs branded as attacker infrastructure.** The three fixture datasets that
+  used live, globally-routable addresses as malicious indicators now use RFC 5737 documentation
+  ranges — one per range, last octets preserved: `43.100.36.57` → `198.51.100.57` (the
+  coordinated-credential-access example, fixture, and eval transcript, moved in lockstep),
+  `193.42.0.19` → `203.0.113.19` (red-team a04), `45.83.12.7` → `192.0.2.7` (red-team a02). The
+  entire shipped corpus is now documentation-range only. (#46, #63 — thanks @mattwillems-exabeam)
+
 ## [0.6.6] — 2026-07-31
 
 Installer-correctness release. Post-review fixes to 0.6.5, cut as a new version because a
