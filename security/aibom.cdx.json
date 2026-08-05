@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-04T19:11:19Z"
+    "timestamp": "2026-08-05T21:18:01Z"
   },
   "components": [
     {
@@ -184,9 +184,9 @@
       "bom-ref": "pkg:pypi/mcp",
       "type": "library",
       "name": "mcp",
-      "version": ">=1.0",
+      "version": ">=1.0,<2",
       "purl": "pkg:pypi/mcp",
-      "description": "Connector dependency (mcp>=1.0), resolved by uv at runtime (PEP 723).",
+      "description": "Connector dependency (mcp>=1.0,<2), resolved by uv at runtime (PEP 723).",
       "licenses": [
         {
           "license": {
