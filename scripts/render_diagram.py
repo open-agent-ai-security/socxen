@@ -14,7 +14,7 @@ blank or failed render can never clobber a checked-in figure. Optimization uses 
 (lossless) or pngquant (near-lossless) when one is on PATH, else Pillow's optimizer.
 
 Usage:
-    scripts/render_diagram.py docs/diagram security/redteam/diagram
+    scripts/render_diagram.py plugin/docs/diagram security/redteam/diagram
     CHROME=/path/to/chrome scripts/render_diagram.py --window-size 1200x3200 docs/diagram
 """
 import argparse

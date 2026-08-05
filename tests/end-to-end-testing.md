@@ -13,7 +13,7 @@ The one fact that trips everyone up:
 
 > **The live Exabeam MCP runs from the _installed plugin cache_, not your working tree.** It's a
 > long-lived stdio bridge process started at session launch from
-> `~/.claude/plugins/cache/socxen/socxen/<version>/connector/`. Editing `connector/` in your repo changes
+> `~/.claude/plugins/cache/socxen/socxen/<version>/connector/`. Editing `plugin/connector/` in your repo changes
 > **nothing** about the process that's already running.
 
 So a real end-to-end test has two non-negotiables:
@@ -21,7 +21,7 @@ So a real end-to-end test has two non-negotiables:
 1. **Test through the _skill_, not the MCP.** Invoke `socxen:soc-investigate` on a real alert and let it
    run its loop. Hand-driving the `exabeam_*` tools yourself tests plumbing but skips the actual product —
    the reasoning and the governance gate, which is the part most likely to regress.
-2. **If you touched `connector/` (bridge, guardrails, logging), you must restart Claude Code** so the MCP
+2. **If you touched `plugin/connector/` (bridge, guardrails, logging), you must restart Claude Code** so the MCP
    restarts on your code. There is no hot-reload for a running stdio MCP.
 
 ## Procedure
@@ -33,7 +33,7 @@ write/dismiss/close on staging), and `uv` installed.
 Just invoke the skill on a real staging alert in your current session and verify the verdict + governance.
 The already-running MCP is fine.
 
-### B. You changed `connector/` — stage, boot-check, restart
+### B. You changed `plugin/connector/` — stage, boot-check, restart
 
 1. **Know what's actually live.** The installed version can lag the repo. Check before you trust it:
    ```bash
@@ -45,7 +45,7 @@ The already-running MCP is fine.
 2. **Stage your working-tree connector into the cache** (back up first so you can restore):
    ```bash
    cp "$CACHE/exabeam-mcp-bridge.py" "$CACHE/exabeam-mcp-bridge.py.bak"
-   cp connector/*.py "$CACHE/"
+   cp plugin/connector/*.py "$CACHE/"
    ```
 
 3. **Boot-check before you throw away your session.** This resolves the bridge's PEP-723 deps

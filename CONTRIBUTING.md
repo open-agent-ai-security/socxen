@@ -13,7 +13,7 @@ conventions below exist specifically to keep that gate real.
 
 ## License
 
-socxen is licensed under the [Apache License, Version 2.0](LICENSE). By
+socxen is licensed under the [Apache License, Version 2.0](plugin/LICENSE). By
 contributing, you agree that your contributions are licensed under the same terms.
 
 ## Developer Certificate of Origin (DCO)
@@ -193,13 +193,13 @@ release channel**: whatever lands there reaches new installers immediately.
   These are deterministic, no-credential invariant checks; CI runs them on every
   PR and **must be green** to merge.
 - **Governance-sensitive changes get extra scrutiny.** If you touch
-  `skills/soc-investigate/settings.snippet.json`, `reference/containment-tools.md`,
+  `plugin/skills/soc-investigate/settings.snippet.json`, `reference/containment-tools.md`,
   `reference/tool-map.md`, or the Governance section of `SKILL.md`, keep the
   permission tiers and the containment deny-list in sync — the invariant tests
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
-  `.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `README.md`, then
+  `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand
   instead, all three must match or CI fails — an invariant test guards the
   pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any

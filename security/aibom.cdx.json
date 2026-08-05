@@ -157,7 +157,7 @@
       "bom-ref": "component:exabeam-mcp-bridge",
       "type": "application",
       "name": "exabeam-mcp-bridge",
-      "description": "Bundled local stdio MCP connector (connector/exabeam-mcp-bridge.py). Forwards to the remote Exabeam New-Scale MCP and auto-refreshes the OAuth token. Read-through; handles the API key/secret.",
+      "description": "Bundled local stdio MCP connector (plugin/connector/exabeam-mcp-bridge.py). Forwards to the remote Exabeam New-Scale MCP and auto-refreshes the OAuth token. Read-through; handles the API key/secret.",
       "licenses": [
         {
           "license": {
@@ -260,7 +260,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 20 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via .mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 20 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,

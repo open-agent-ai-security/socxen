@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-BRIDGE = ROOT / "connector" / "exabeam-mcp-bridge.py"
+BRIDGE = ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py"
 SRC = BRIDGE.read_text()
 
 
@@ -76,7 +76,7 @@ def test_setup_message_references_existing_paths():
     for ref in re.findall(r"connector/[A-Za-z0-9_./-]+", SRC):
         # only check things that look like a file (have an extension)
         if "." in Path(ref).name:
-            assert (ROOT / ref).exists(), f"bridge references a missing path: {ref}"
+            assert (ROOT / "plugin" / ref).exists(), f"bridge references a missing path: {ref}"
 
 
 # ---------- smoke (opt-in; skips cleanly if the env can't run it) ----------

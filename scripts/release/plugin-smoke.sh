@@ -44,7 +44,7 @@ trap cleanup EXIT
 
 version_at() {  # version_at <dir>
   python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
-    "$1/.claude-plugin/plugin.json"
+    "$1/plugin/.claude-plugin/plugin.json"
 }
 
 installed_version() {  # installed_version <config-dir>
@@ -68,7 +68,7 @@ assert_version() {  # assert_version <leg> <config-dir> <expected>
 
 git -C "${REPO_ROOT}" fetch origin --quiet
 CURRENT_SHA="$(git -C "${REPO_ROOT}" rev-parse origin/main)"
-LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --format=%H origin/main -- .claude-plugin/plugin.json)"
+LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --follow --format=%H origin/main -- plugin/.claude-plugin/plugin.json)"
 PRIOR_REF="${1:-${LAST_BUMP}^}"
 PRIOR_SHA="$(git -C "${REPO_ROOT}" rev-parse "${PRIOR_REF}")"
 
@@ -98,7 +98,7 @@ import json, sys
 json.dump({"name": "open-agent-ai-security",
            "owner": {"name": "Open Agent AI Security",
                      "url": "https://github.com/open-agent-ai-security"},
-           "plugins": [{"name": "socxen", "source": "./"}]},
+           "plugins": [{"name": "socxen", "source": "./plugin"}]},
           open(sys.argv[1] + "/.claude-plugin/marketplace.json", "w"))
 PY
 }
