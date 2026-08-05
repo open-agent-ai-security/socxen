@@ -8,6 +8,17 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.8] — 2026-08-05
+
+Urgent connector fix — fresh installs were broken by an upstream release.
+
+### Fixed
+- **Bridge crashed at import on every fresh install.** `mcp` 2.0.0 on PyPI removed
+  `streamablehttp_client`, and the bridge's PEP 723 dependency bound was open-ended (`mcp>=1.0`),
+  so any *newly resolved* uv environment picked 2.0.0 and the Exabeam bridge died at import.
+  Existing installs were shielded by uv's environment cache. Now pinned `mcp>=1.0,<2` (AI BOM
+  records the bound); migrating to the mcp 2.0 API is tracked in #67. (#67, #68)
+
 ## [0.6.7] — 2026-08-04
 
 Fixture-hygiene release, closing the last pre-public data gate (#46). The plugin's *behavior* is
