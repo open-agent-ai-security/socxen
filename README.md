@@ -11,7 +11,6 @@
 [![version](https://img.shields.io/badge/version-v0.6.8-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![status](https://img.shields.io/badge/status-pre--release-orange)](CHANGELOG.md)
 
 > ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
 > provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
