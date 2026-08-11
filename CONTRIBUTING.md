@@ -34,7 +34,10 @@ Git adds it for you with `-s`:
 git commit -s -m "Your commit message"
 ```
 
-The name and email must be a real identity. Sign-off is **required**, and CI
+The name and email must be a known identity — your real name, or an established
+identity you're known by in the community (a long-standing handle counts),
+reachable at the address you sign with. Anonymous or throwaway identities aren't
+accepted. Sign-off is **required**, and CI
 enforces it: the `DCO` workflow checks every commit in your PR and tells you
 exactly which commits to amend if one is missing. (Exabeam-internal commits are
 exempt from the CI gate but follow the same convention.)
