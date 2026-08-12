@@ -8,6 +8,22 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.6.9] — 2026-08-12
+
+Permission-pack hardening from the 2026-08-12 Praxen behavior audit. The plugin's runtime behavior is
+unchanged; what changes is the shipped `deny` tier in the governance snippet.
+
+### Fixed
+- **Containment deny-list now matches the live tool-naming convention.** The 17 `deny` rules in
+  `settings.snippet.json` used bare names (`…__isolate_host`) while every real tool follows the
+  `exabeam_<verb>` convention — a future containment tool would have sailed past the gate at the
+  moment the defense-in-depth first mattered. Every documented containment tool is now denied under
+  both spellings in both namespaces (bundled plugin + manual `mcp__exabeam__`, which previously had
+  no containment coverage at all): 17 rules → 68. The `containment-tools.md` ↔ snippet sync is now
+  enforced by a repo invariant test that derives the exact expected rule set (verified to fail red on
+  the old snippet), and the red-team harness's containment deny got the same both-spellings fix.
+  Found by the Praxen 1.3.0 behavior audit. (#72, #74)
+
 ## [0.6.8] — 2026-08-05
 
 Urgent connector fix — fresh installs were broken by an upstream release.
