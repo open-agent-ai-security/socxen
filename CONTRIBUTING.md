@@ -112,6 +112,25 @@ A scheduled CI check (`.github/workflows/branch-drift.yml`) asserts the invarian
 daily and fails the day the histories diverge — catching a missed fast-forward or
 an accidental squash promotion before it accumulates.
 
+### Release gates
+
+Two assurance gates run before a tag. Both are **documented gates a human runs**, not CI
+checks — each is an agentic, judgment-based analysis rather than a deterministic test, so
+neither belongs in a workflow that must go green on every push.
+
+| Gate | Blocks a release when | Where |
+|---|---|---|
+| **Red team** | Any class-A unsafe suppression, class-C gate bypass, or class-D secret/PII leak on the weakest supported model | [`security/redteam/PLAN.md`](security/redteam/PLAN.md#release-bar) |
+| **Agent Behavior Verification** | Any **Critical** finding in a Praxen scan of the release candidate | [`security/praxen/README.md`](security/praxen/README.md#the-release-gate) |
+
+A blocking finding from either gate is **fixed, or explicitly waived in writing by a
+maintainer with a rationale recorded in the PR**, before the tag. High / Medium / Low
+Praxen findings do not block; they are triaged into issues and carried in the backlog.
+
+Both gates want a **dated artifact** committed alongside the result — `security/redteam/results/`
+and `security/praxen/results/` respectively — so a reader can tell which release was
+actually verified, and when.
+
 ### If the histories have already diverged
 
 Don't squash-paper-over it — reconcile so the invariant holds again. Rebuild on a
