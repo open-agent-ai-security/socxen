@@ -239,7 +239,7 @@ def test_skill_frontmatter_is_valid():
 def test_source_files_carry_spdx_headers():
     """Every source/doc file (.py/.sh/.md) must open with the Apache-2.0 copyright + SPDX
     header, so license coverage can't regress as files are added. security/redteam/results/
-    (committed run records, generated) is exempt."""
+    and security/praxen/results/ (committed run records, generated) are exempt."""
     SKIP_DIRS = {".git", ".claude", "local", "__pycache__", ".pytest_cache", "node_modules"}
     missing = []
     for pattern in ("*.py", "*.sh", "*.md"):
@@ -247,7 +247,8 @@ def test_source_files_carry_spdx_headers():
             rel = p.relative_to(ROOT)
             if SKIP_DIRS & set(rel.parts):
                 continue
-            if rel.parts[:3] == ("security", "redteam", "results"):
+            if rel.parts[:3] in {("security", "redteam", "results"),
+                                 ("security", "praxen", "results")}:
                 continue
             head = "\n".join(p.read_text().splitlines()[:15])
             if "SPDX-License-Identifier: Apache-2.0" not in head:

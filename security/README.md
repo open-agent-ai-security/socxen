@@ -7,13 +7,19 @@
 
 Supply-chain and assurance artifacts for socxen. This directory is the home for the
 things a security-conscious adopter asks for — a bill of materials, our
-**red-team** program, and (over time) an SBOM and behavior-assurance reports.
+**red-team** program, **agent-behavior verification** reports, and (over time) an SBOM.
 
 > **socxen is red-teamed before every release.** It's an agentic SOC analyst that reads
 > attacker-influenceable telemetry and takes gated actions, so we adversarially test whether
 > an attacker who controls the data can make it suppress a real threat, bypass the human
 > gate, or leak. **→ [How we red-team socxen](redteam/METHODOLOGY.md)** ·
 > [test history](redteam/HISTORY.md)
+
+> **socxen is behavior-verified against a declared policy.** We publish a **Worker Remit** —
+> what socxen is authorized to do — and check the shipped code against every rule in it with
+> [Praxen](https://github.com/open-agent-ai-security/praxen). **A release does not ship with an
+> open Critical finding.** **→ [Agent Behavior Verification](praxen/README.md)** ·
+> [the remit](praxen/WORKER_REMIT.md) · [latest report](praxen/results/)
 
 ## Contents
 
@@ -25,9 +31,11 @@ things a security-conscious adopter asks for — a bill of materials, our
 | `redteam/METHODOLOGY.md` | **Red-team methodology** — what we test and why (the doc to point people at). |
 | `redteam/HISTORY.md` | **Test history** — when full-scale runs happened, results, and the fixed-findings ledger. |
 | `redteam/` | The rest of the exercise: `PLAN.md` (operational plan), `attacks/` (corpus), `run.py` (live runner), `results/` (dated reports). |
+| `praxen/README.md` | **Agent Behavior Verification** — the release gate, current posture, and how to reproduce a scan. |
+| `praxen/WORKER_REMIT.md` | **The Worker Remit** — the declared policy every scan judges the implementation against. |
+| `praxen/` | `SCAN_INSTRUCTIONS.md` (scan scope) and `results/` (dated reports, machine-readable findings, and independent audit records). |
 
-Planned neighbors (not yet here): an **SBOM** (dependency bill of materials) and
-**Praxen** agent-behavior reports.
+Planned neighbors (not yet here): an **SBOM** (dependency bill of materials).
 
 ## The AI BOM
 
