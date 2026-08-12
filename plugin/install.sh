@@ -8,9 +8,10 @@
 # Usage:
 #   ./install.sh                     install at user scope, then check connectivity
 #   ./install.sh --checks-only       run diagnostics only (no install/changes)
+#   ./install.sh --merge-permissions merge the governance gate into ~/.claude/settings.json
 #   ./install.sh --skip-connectivity install but skip the live MCP check
 #   ./install.sh --skip-update       keep an existing install as-is (e.g. offline re-runs)
-#   ./install.sh -y                  non-interactive (assume yes)
+#   ./install.sh -y                  non-interactive (assume yes; never merges on its own)
 #   ./install.sh --no-color          plain output
 #   ./install.sh -h | --help
 #
@@ -27,11 +28,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE="$SCRIPT_DIR/connector/exabeam-mcp-bridge.py"
 
 # ---- flags ----
-ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; SKIP_UPDATE=0; USE_COLOR=1
+ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; SKIP_UPDATE=0; USE_COLOR=1; MERGE_PERMS=0
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
     --checks-only) CHECKS_ONLY=1 ;;
+    --merge-permissions) MERGE_PERMS=1 ;;
     --skip-connectivity) SKIP_CONN=1 ;;
     --skip-update) SKIP_UPDATE=1 ;;
     --no-color) USE_COLOR=0 ;;
@@ -409,13 +411,15 @@ else
   fi
 fi
 
-# ---- governance reminder (info) ----
+# ---- governance ----
 # A false "gate is ON" is the dangerous direction, so verify the close tools are specifically in the
 # `ask` tier — not merely that settings.json mentions them (a mis-merge into allow/deny must read as OFF).
 # Three outcomes, not two: without python3 the check CANNOT run, which must read as "cannot verify",
 # never as "gate is OFF" (that would send users re-merging a working gate).
 head2 "Governance"
 SETTINGS="$HOME/.claude/settings.json"
+SNIPPET="$SCRIPT_DIR/skills/soc-investigate/settings.snippet.json"
+MERGER="$SCRIPT_DIR/skills/soc-investigate/merge_permissions.py"
 gate_on() {
   [ -f "$SETTINGS" ] || return 1
   python3 - "$SETTINGS" <<'PY' 2>/dev/null
@@ -428,12 +432,86 @@ bare = {t.split("__")[-1] for t in ask}
 sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
 PY
 }
-if ! command -v python3 >/dev/null 2>&1; then
+
+# Why the merge can't run, or "" when it can. The snippet and the merger ship beside each other in
+# the skill directory, so normally they are both present or both absent (marketplace-only installs
+# have neither — install.sh is a clone-path tool) — but report which one is missing so a partial
+# checkout doesn't masquerade as an unsupported install path.
+merge_blocker() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    printf 'python3 not found'
+  elif [ ! -f "$SNIPPET" ]; then
+    printf 'settings.snippet.json not found (run from a cloned repo)'
+  elif [ ! -f "$MERGER" ]; then
+    printf 'merge_permissions.py not found (run from a cloned repo)'
+  fi
+}
+
+# Run the merger and report. Mirrors its four exit codes; every path that ends with the gate not ON
+# is reported as such. Verification is the pre-existing gate_on() re-read, NOT the merger's own exit
+# code: the same "a 0-exit doesn't prove it landed" discipline the install block uses above.
+run_merge() {
+  local out rc
+  out="$(python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" 2>&1)" && rc=0 || rc=$?
+  case "$rc" in
+    0|10)
+      if ! gate_on; then
+        # merger reported success but the gate still doesn't read ON — never call that green
+        fail "Merge reported success but the gate still reads OFF — inspect $SETTINGS"
+      elif [ "$rc" = 10 ]; then
+        ok "Governance gate ON — permissions were already merged, nothing to change"
+      else
+        ok "Governance gate ON — merged into ~/.claude/settings.json; restart Claude Code to apply"
+      fi
+      ;;
+    20) fail "Governance merge stopped — a rule already sits in a different tier (nothing was written)" ;;
+    *)  fail "Governance merge failed — nothing was written; merge $SNIPPET into $SETTINGS by hand" ;;
+  esac
+  [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/     /' || true
+}
+
+# --checks-only promises "no install/changes" — that promise outranks a merge request.
+if [ "$CHECKS_ONLY" = 1 ] && [ "$MERGE_PERMS" = 1 ]; then
+  skip "--merge-permissions ignored under --checks-only (diagnostics change nothing) — re-run without it"
+  MERGE_PERMS=0
+fi
+
+BLOCKER="$(merge_blocker)"
+if ! command -v python3 >/dev/null 2>&1; then GATE_STATE=unknown
+elif gate_on; then GATE_STATE=on
+else GATE_STATE=off
+fi
+
+if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
+  # Same "cannot do it ≠ pretend it's done" discipline as the gate check: say why, give the manual path.
+  warn "Cannot merge permissions ($BLOCKER) — merge the permissions block from settings.snippet.json into $SETTINGS by hand"
+elif [ "$MERGE_PERMS" = 1 ]; then
+  # Explicitly requested: the flag IS the consent, so no second confirmation. The merger is additive,
+  # backs up first, and refuses on tier conflicts, so re-running is safe even when the gate reads ON
+  # (a hand-merge of just the two ask lines leaves the 17-entry containment deny list missing).
+  step "Merging governance permissions into $SETTINGS"
+  run_merge
+elif [ "$GATE_STATE" = unknown ]; then
   warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into ~/.claude/settings.json"
-elif gate_on; then
+elif [ "$GATE_STATE" = on ]; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
+elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
+  # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
+  # "assume yes" answers the installer's own questions, it does not authorise writing to the
+  # operator's settings.json. Installation alone must never change that file (#70 non-goal).
+  warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json (or re-run with --merge-permissions)"
 else
-  warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json"
+  # Gate is OFF, we're interactive, and we can do something about it — offer, showing exactly what
+  # would change first. Declining leaves the original warning, unchanged from previous releases.
+  printf '\n   %sThe dismiss/close hard-gate is OFF.%s I can merge it for you — additive only,\n' "$YLW" "$RST"
+  printf '   nothing of yours removed or reordered, and %s is backed up first:\n\n' "$SETTINGS"
+  python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" --dry-run 2>&1 | sed 's/^/     /' || true
+  printf '\n   Merge it now? [y/N] '
+  read -r reply || reply=""
+  case "$reply" in
+    [yY]|[yY][eE][sS]) run_merge ;;
+    *) warn "Governance not merged (declined) — the dismiss/close hard-gate stays OFF until you merge settings.snippet.json" ;;
+  esac
 fi
 
 # ---- summary ----
@@ -452,6 +530,7 @@ ${BOLD}   Next steps${RST}
         EXABEAM_API_SECRET=<your secret>
    2. Merge the ${BOLD}permissions${RST} block from
       skills/soc-investigate/settings.snippet.json into ~/.claude/settings.json
+      — or let the installer do it: ${CYAN}./install.sh --merge-permissions${RST}
       ${YLW}⚠ don't run with --dangerously-skip-permissions (it disables the gate).${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT

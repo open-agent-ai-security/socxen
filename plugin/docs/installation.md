@@ -131,6 +131,34 @@ and will not execute it without your approval, and deterministically hard-blocks
 rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); for the advanced manual
 `claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
 
+### Let the installer merge it for you
+
+From a clone, `install.sh` can perform the merge instead of you hand-editing JSON:
+
+```bash
+./install.sh --merge-permissions        # merge, then verify the gate reads ON
+```
+
+It is **opt-in and never silent**. Installing without the flag still only *warns* that the gate is
+off — and `-y` does not stand in for consent here, because installation alone must never rewrite your
+settings. Run interactively without the flag and, if the gate is off, the installer shows you exactly
+which rules it would add and asks a plain `y/N` first.
+
+What it guarantees:
+
+- **Backs up first** — a timestamped copy of `settings.json` beside the original, before any write.
+- **Additive only** — your existing rules are never removed, reordered, or retiered; ours are appended.
+- **Stops on a tier conflict** — if one of these tools already sits in a *different* tier than the
+  snippet specifies, that's your decision (or a mis-merge worth a look), so it writes **nothing** and
+  tells you which entries to resolve.
+- **Idempotent** — re-running is safe; already-merged rules are left alone. Worth re-running even when
+  the gate reads ON: a hand-merge of just the two `ask` lines leaves the containment `deny` list missing.
+- **Fails honestly** — no `python3`, or a snippet it can't find, means "cannot merge, here's the manual
+  path," never a false green. A failed write is restored from the backup.
+
+The merge itself is `skills/soc-investigate/merge_permissions.py`, which you can also run directly —
+add `--dry-run` to see the exact changes without writing anything.
+
 > ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
 > modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
 > soft ask. Keep permissions on.
