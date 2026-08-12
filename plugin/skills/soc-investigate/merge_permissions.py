@@ -27,7 +27,7 @@ Design rules, all of them load-bearing:
 
 Note that a merge can be a no-op for the `ask` tier and still have real work to do:
 an operator who hand-copied only the two dismiss/close lines has a gate that reads ON
-while the 17-entry containment `deny` list is missing. So "gate is on" is not a reason
+while the entire containment `deny` list is missing. So "gate is on" is not a reason
 to skip the merge — only "every snippet entry is already in its tier" is.
 
 Exit codes (install.sh branches on these; deliberately not 0/1 so an unhandled

@@ -497,7 +497,7 @@ if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
 elif [ "$MERGE_PERMS" = 1 ]; then
   # Explicitly requested: the flag IS the consent, so no second confirmation. The merger is additive,
   # backs up first, and refuses on tier conflicts, so re-running is safe even when the gate reads ON
-  # (a hand-merge of just the two ask lines leaves the 17-entry containment deny list missing).
+  # (a hand-merge of just the two ask lines leaves the whole containment deny list missing).
   step "Merging governance permissions into $SETTINGS"
   run_merge
 elif [ "$GATE_STATE" = unknown ]; then
