@@ -1,14 +1,14 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:29db7123-9488-53b1-86e7-9d63c8eb5b1e",
+  "serialNumber": "urn:uuid:9b9dce42-f70e-55c5-a069-020d6da5a715",
   "version": 1,
   "metadata": {
     "component": {
-      "bom-ref": "socxen@0.6.8",
+      "bom-ref": "socxen@0.6.9",
       "type": "application",
       "name": "socxen",
-      "version": "0.6.8",
+      "version": "0.6.9",
       "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
       "licenses": [
         {
@@ -84,7 +84,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 4 ask / 17 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 18 allow / 4 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-05T21:24:53Z"
+    "timestamp": "2026-08-12T22:32:39Z"
   },
   "components": [
     {
@@ -298,7 +298,7 @@
   ],
   "dependencies": [
     {
-      "ref": "socxen@0.6.8",
+      "ref": "socxen@0.6.9",
       "dependsOn": [
         "model:anthropic-claude",
         "artifact:soc-investigate-methodology",
