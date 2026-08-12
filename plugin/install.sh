@@ -17,6 +17,7 @@
 #
 # Env (all overridable):
 #   SOCXEN_SCOPE=user|project   SOCXEN_REPO   SOCXEN_MARKETPLACE   SOCXEN_PLUGIN
+#   SOCXEN_SETTINGS_FILE        the settings.json the governance gate is checked/merged in
 set -euo pipefail
 
 MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/plugins}"
@@ -417,7 +418,15 @@ fi
 # Three outcomes, not two: without python3 the check CANNOT run, which must read as "cannot verify",
 # never as "gate is OFF" (that would send users re-merging a working gate).
 head2 "Governance"
-SETTINGS="$HOME/.claude/settings.json"
+# Check and merge the settings file Claude Code will actually READ. Hardcoding
+# ~/.claude/settings.json was survivable while this block only reported the gate's state (it could
+# read a file the running Claude Code ignores, and mis-report ON — the dangerous direction); once we
+# can WRITE it, the same assumption would merge the gate into a file that never takes effect, i.e.
+# a green "gate ON" protecting nothing. CLAUDE_CONFIG_DIR relocates Claude's config dir (the release
+# smoke script isolates whole installs with it), and SOCXEN_SETTINGS_FILE is the explicit override —
+# same escape hatch EXABEAM_ENV_FILE gives the credentials path, and what lets an automated test
+# exercise the merge without writing the operator's real settings.
+SETTINGS="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
 SNIPPET="$SCRIPT_DIR/skills/soc-investigate/settings.snippet.json"
 MERGER="$SCRIPT_DIR/skills/soc-investigate/merge_permissions.py"
 gate_on() {
@@ -461,7 +470,7 @@ run_merge() {
       elif [ "$rc" = 10 ]; then
         ok "Governance gate ON — permissions were already merged, nothing to change"
       else
-        ok "Governance gate ON — merged into ~/.claude/settings.json; restart Claude Code to apply"
+        ok "Governance gate ON — merged into $SETTINGS; restart Claude Code to apply"
       fi
       ;;
     20) fail "Governance merge stopped — a rule already sits in a different tier (nothing was written)" ;;
@@ -492,7 +501,7 @@ elif [ "$MERGE_PERMS" = 1 ]; then
   step "Merging governance permissions into $SETTINGS"
   run_merge
 elif [ "$GATE_STATE" = unknown ]; then
-  warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into ~/.claude/settings.json"
+  warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into $SETTINGS"
 elif [ "$GATE_STATE" = on ]; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
 elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
@@ -529,7 +538,7 @@ ${BOLD}   Next steps${RST}
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
    2. Merge the ${BOLD}permissions${RST} block from
-      skills/soc-investigate/settings.snippet.json into ~/.claude/settings.json
+      skills/soc-investigate/settings.snippet.json into ${SETTINGS}
       — or let the installer do it: ${CYAN}./install.sh --merge-permissions${RST}
       ${YLW}⚠ don't run with --dangerously-skip-permissions (it disables the gate).${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}

@@ -159,6 +159,11 @@ What it guarantees:
 The merge itself is `skills/soc-investigate/merge_permissions.py`, which you can also run directly —
 add `--dry-run` to see the exact changes without writing anything.
 
+**Which settings file?** The one Claude Code will actually read: `SOCXEN_SETTINGS_FILE` if you set it,
+otherwise `$CLAUDE_CONFIG_DIR/settings.json` if your config dir is relocated, otherwise
+`~/.claude/settings.json`. Every message names the resolved path, so you can always see which file was
+checked or written.
+
 > ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
 > modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
 > soft ask. Keep permissions on.

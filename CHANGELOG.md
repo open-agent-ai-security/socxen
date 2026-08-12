@@ -10,6 +10,15 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+### Fixed
+- **The governance check now looks at the settings file Claude Code actually reads.** `install.sh`
+  hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
+  from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
+  effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
+  would merge the gate into a file that never takes effect. The path now resolves as
+  `SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` → `~/.claude/settings.json`, and every
+  message names the resolved path instead of a hardcoded one. (#70)
+
 ### Added
 - **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
   warn about it.** The gate has always been opt-in on every install path: `install.sh` verified the
