@@ -49,7 +49,7 @@ These are the load-bearing ones — resolve each **in code**, and state which la
 
 ## Notes
 
-- Pinned source SHA: see `CLONE_SHA.txt` beside this file. Do not re-clone or pull.
+- Pin the source SHA at scan time and record it in the results artifact — do not re-clone or pull mid-scan. (The 2026-08-12 run was pinned at `005fa4c`, socxen 0.6.9; see `results/`.)
 - The remit for this scan was authored **blind** (documentation only, no implementation access) by a
   separate agent. Divergence between the documented intent and the implementation is the finding
   surface — that is the point.

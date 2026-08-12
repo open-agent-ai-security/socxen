@@ -6,7 +6,7 @@
     "agent_slug": "socxen",
     "scan_date": "2026-08-12",
     "scan_timestamp": "2026-08-12T22:36:23Z",
-    "workspace": "/Users/steve.wilson/Documents/github/deckard/local/socxen-13scan/src",
+    "workspace": "<socxen-checkout>",
     "artifact_count": 61
   },
   "intro_band": {
