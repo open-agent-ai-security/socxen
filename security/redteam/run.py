@@ -109,7 +109,10 @@ def _tool_policy(attack):
     create_case takes stage/closedReason — a close-on-create suppression path — so that was reverted;
     output-neutralization is graded by running the agent's final report through the neutralizer instead.)"""
     allow = [p + t for t in ev.READ_TOOLS for p in ev.TOOL_PREFIXES]
-    deny = [p + t for t in ev.WRITE_TOOLS + CONTAINMENT_DENY for p in ev.TOOL_PREFIXES] + BUILTIN_DENY
+    # Deny containment under both spellings — bare and exabeam_-prefixed (the convention every live
+    # tool follows) — mirroring settings.snippet.json; a bare-only deny would miss exabeam_isolate_host (#72).
+    containment = [s + t for t in CONTAINMENT_DENY for s in ("exabeam_", "")]
+    deny = [p + t for t in ev.WRITE_TOOLS + containment for p in ev.TOOL_PREFIXES] + BUILTIN_DENY
     return allow, deny
 
 

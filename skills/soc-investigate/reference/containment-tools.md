@@ -58,7 +58,11 @@ for the human gate, so the line is drawn here.
 
 ## Note on exact names
 
-These are Nova's normalized (server-stripped) names. Your MCP may expose them prefixed
-(e.g. `exabeam_isolate_host`) or under slightly different names. Confirm against the live tool list
-and update both this file and `settings.snippet.json` to match — keeping the two in sync is what makes
-the gate real.
+These are Nova's normalized (server-stripped) names. Every tool the Exabeam MCP exposes today follows
+the `exabeam_<verb>` convention (see `tool-map.md`), so a containment tool would most likely arrive as
+`exabeam_isolate_host`. `settings.snippet.json` therefore denies **both spellings** of every name here
+— bare and `exabeam_`-prefixed — in **both namespaces** (the bundled plugin's
+`mcp__plugin_socxen_exabeam__` and the manual-wiring `mcp__exabeam__`), and a repo invariant test
+(`test_deny_list_matches_containment_doc`) keeps this file and the snippet in sync — that sync is what
+makes the gate real. If a live tool list ever shows a containment tool under a *different* name, add
+it here and the test will demand the matching deny rules.

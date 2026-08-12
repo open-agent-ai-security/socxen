@@ -95,11 +95,13 @@ def test_safe_writes_stay_allowed():
         assert not tier_has(ASK, verb), f"{verb} should not be gated behind `ask`"
 
 def test_no_containment_tool_is_allowed_or_asked():
-    """Containment lives only in `deny`. It must never appear in allow/ask."""
+    """Containment lives only in `deny`. It must never appear in allow/ask —
+    under either spelling (bare or exabeam_-prefixed)."""
     containment = _containment_doc_tools()
-    for verb in containment:
-        assert not tier_has(ALLOW, verb), f"containment tool {verb} must not be in `allow`"
-        assert not tier_has(ASK, verb), f"containment tool {verb} must not be in `ask`"
+    for name in containment:
+        for verb in (name, f"exabeam_{name}"):
+            assert not tier_has(ALLOW, verb), f"containment tool {verb} must not be in `allow`"
+            assert not tier_has(ASK, verb), f"containment tool {verb} must not be in `ask`"
 
 
 # --- #3: containment deny-list <-> containment-tools.md sync ---
@@ -110,14 +112,21 @@ def _containment_doc_tools():
 def test_deny_list_matches_containment_doc():
     """containment-tools.md says: 'keeping the two in sync is what makes the gate real,'
     and warns that *silent removals* from the deny-list are the failure mode. Enforce it:
-    the `deny` tier (server-stripped) must equal the documented containment set exactly."""
-    deny_stripped = {bare(t) for t in DENY}
+    every documented containment tool must be denied under BOTH spellings — bare and
+    exabeam_-prefixed (the convention every real tool follows, see tool-map.md) — in BOTH
+    namespaces (bundled plugin and manual `claude mcp add`), and `deny` must contain
+    nothing else. Encodes shipped bug #72: bare-only, plugin-namespace-only rules that an
+    exabeam_-prefixed containment tool would have sailed past."""
     doc_tools = _containment_doc_tools()
     assert doc_tools, "no containment tools parsed from containment-tools.md"
-    missing_from_deny = doc_tools - deny_stripped
-    extra_in_deny = deny_stripped - doc_tools
-    assert not missing_from_deny, f"documented containment tools absent from `deny`: {missing_from_deny}"
-    assert not extra_in_deny, f"`deny` tools not documented in containment-tools.md: {extra_in_deny}"
+    server = list(MCP["mcpServers"].keys())[0]
+    namespaces = (f"mcp__plugin_{PLUGIN['name']}_{server}__", f"mcp__{server}__")
+    expected = {f"{ns}{spelling}{name}"
+                for name in doc_tools for ns in namespaces for spelling in ("exabeam_", "")}
+    missing = expected - set(DENY)
+    extra = set(DENY) - expected
+    assert not missing, f"deny rules absent for documented containment tools: {sorted(missing)}"
+    assert not extra, f"`deny` rules not derived from containment-tools.md: {sorted(extra)}"
 
 
 # --- supporting Tier-1 invariants ---
