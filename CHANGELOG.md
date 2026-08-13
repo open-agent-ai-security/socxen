@@ -8,6 +8,26 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [Unreleased]
+
+No change to the shipped plugin — `plugin/` is byte-identical to 0.7.0. These are repo-side fixes that
+will ride the next version bump.
+
+### Fixed
+- **`bump_version.py`'s duplicate-match guard can now actually fire.** `re.subn` was called with
+  `count=1`, which caps the *reported* substitution count at 1, so the `n != 1` check could only ever
+  catch zero matches. A version string appearing twice in a file would have had the first occurrence
+  bumped and the second silently left stale, with the bumper reporting success. Removing the cap is
+  safe because every edit is computed before any file is written. Adds the script's first tests.
+  (#65, #85)
+
+### Changed
+- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
+  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
+  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
+  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
+  remain the authoritative record of what was found. (#94)
+
 ## [0.7.0] — 2026-08-13
 
 The plugin's shipped surface changes shape: only the payload under `plugin/` is distributed now, and
