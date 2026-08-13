@@ -12,8 +12,6 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-> ### It works your alert queue. You keep the verdict.
-
 > ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
 > provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
 > for production SOC operations or point it at alerts whose disposition matters without a human
@@ -25,62 +23,38 @@ false-positive verdict, and acts. No server, no database, no approval queue: the
 is the human-in-the-loop, and the consequential action (dismiss/close) is held back by **two locks** —
 Claude Code permission rules *and* the skill asking you first — never left to the model alone.
 
-## Highlights
+## What it does
 
-- 🔍 **End-to-end investigation** on the real Exabeam read surface — events, alerts/cases, threat
-  timelines, rule details, MITRE coverage, context tables — with a disciplined verdict bar: a
-  false-positive close requires a *positive* benign explanation, never merely "I found nothing."
-- 🔒 **Safety-first by design** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
-  you switch on during setup; containment is *recommended* to a human, never executed.
-- 🛡️ **Untrusted-telemetry guardrails, always on** — log data is attacker-influenced by construction, so
-  socxen treats it that way: it strips hidden-character smuggling from what it reads, and de-activates
-  dangerous content (formulas, clickable links) in what it writes back.
-- 🧾 **High-performance audit logging, on by default** — a structured, bounded, privacy-preserving record
-  of every action and every time a guardrail fired. ~16 µs/event, non-blocking, local.
-- ⚡ **One-command install** from the Claude Code plugin marketplace — the Exabeam connection is *bundled*
-  and auto-registers (no `claude mcp add`, no expiring tokens to babysit).
+- 🔍 **Investigates** on the real Exabeam read surface — `search_events` (data-lake logs),
+  `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
+- ⚖️ **Decides** against a disciplined bar — a false-positive close requires a *positive* benign
+  explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
+- ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
+  **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
+- 🔒 **Stops where it should** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
+  you switch on during setup; containment is never executed.
+- 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
+  hidden-character smuggling from what it reads and de-activates dangerous content (formulas, clickable
+  links) in what it writes back.
+- 🧾 **Logs what it did** — a structured, bounded, privacy-preserving audit record of every action and
+  every time a guardrail fired, on by default. ~16 µs/event, non-blocking, local.
 
-## Quick start
+## Setup
 
-```bash
-claude plugin marketplace add open-agent-ai-security/plugins
-claude plugin install socxen@open-agent-ai-security
-```
-
-Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks.
-It can also **turn the gate on for you** (opt-in, backed up first — see below):
-
-```bash
-git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./plugin/install.sh
-```
-
-Two one-time steps remain — **connect Exabeam** (drop your API key in `~/.exabeam-mcp.env`) and **turn on
-the governance safety gate**. The setup guide does the lifting:
+With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
+`~/.exabeam-mcp.env`) and **turn on the governance safety gate**. The setup guide does the lifting:
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
 > ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
 > dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-> Do not point socxen at alerts you care about until it's on. Merge it by hand (the setup guide walks
-> you through it) or let the installer do it:
->
-> ```bash
-> ./plugin/install.sh --merge-permissions
-> ```
->
-> Nothing merges by default and `-y` does not authorise it — the flag is the consent. The merge is
-> additive-only, backs your settings file up first, and refuses if a rule already sits in a different tier.
+> Do not point socxen at alerts you care about until it's on. The
+> **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you
+> through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
+> default and `-y` does not authorise it — the flag is the consent. The merge is additive-only, backs
+> your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
-
-## What it does
-
-- **Investigates** with the real Exabeam read surface — `search_events` (data-lake logs),
-  `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
-- **Decides** with a disciplined bar: a false-positive close requires a *positive* benign explanation;
-  when in doubt, it escalates rather than silently suppressing a real threat.
-- **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
-  **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
 ## Documentation
 
