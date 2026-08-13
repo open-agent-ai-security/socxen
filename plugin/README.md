@@ -12,6 +12,8 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
+> ### It works your alert queue. You keep the verdict.
+
 > ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
 > provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
 > for production SOC operations or point it at alerts whose disposition matters without a human
@@ -117,6 +119,12 @@ Pre-release, for evaluation — validated end-to-end against a live Exabeam stag
 playbook, and a worked investigation. The version badge above and the
 [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
 release; run `claude plugin list` for your installed version. Sharing with testers; feedback welcome.
+
+## Project sponsor
+
+socxen is sponsored by [Exabeam](https://www.exabeam.com/). Exabeam contributed the initial code and
+continues to provide ongoing support and contributions to the project as part of its commitment to
+security in an increasingly agentic world.
 
 ## License
 

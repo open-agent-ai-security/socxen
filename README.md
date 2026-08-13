@@ -4,27 +4,35 @@
 -->
 
 # socxen
-
-**An agentic SOC analyst for Exabeam New-Scale — built so the actions that matter stop at a
-human.** A Claude Code plugin that investigates alerts and cases end to end: gathers evidence,
-pivots across users, hosts and IPs, weighs competing hypotheses, and reaches a verdict.
+**agentic SOC analyst for Exabeam New-Scale**
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](plugin/LICENSE)
 
+> ### It works your alert queue. You keep the verdict.
+
+A Claude Code plugin that takes an Exabeam New-Scale alert or case from first look to written verdict.
+Point it at one and it runs the investigation: pulls the underlying events, pivots on the entities it
+finds, baselines what is normal for them, tests a benign explanation against a malicious one, and
+writes up its reasoning with the evidence behind it. Then it acts — opens or updates a case, writes
+notes, escalates.
+
+**Dismissing an alert or closing a case is held back by two locks**: a Claude Code permission rule that
+stops the call at the harness, and the skill asking you first. Containment is *recommended* for a human
+to perform in EDR or IAM; the plugin never executes it. No server, no database, no approval queue — the
+analyst at the terminal is the human-in-the-loop.
+
 > ⚠️ **Pre-release software — for evaluation only.** socxen is under active development. Expect
 > breaking changes between versions, and do not rely on it for production SOC operations or point it
 > at alerts whose disposition matters without a human reviewing every action.
 
-Point it at an alert or case and it runs the investigation: pulls the underlying events, pivots on the
-entities it finds, baselines what is normal for them, tests a benign explanation against a malicious
-one, and writes up a verdict with its evidence. Then it acts — opens or updates a case, writes notes,
-escalates. **Dismissing an alert or closing a case is held back by two locks**: a Claude Code
-permission rule that stops the call at the harness, and the skill asking you first. Containment is
-*recommended* for a human to perform in EDR or IAM; the plugin never executes it.
+---
 
-No server, no database, no approval queue. The analyst at the terminal is the human-in-the-loop.
+**👀 See what it produces** — a worked investigation, from alert to verdict:
+[coordinated credential access](plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md).
+
+---
 
 ## Install
 
@@ -79,6 +87,16 @@ The distributable plugin lives in **[`plugin/`](plugin/)** — that subdirectory
 installed on a user's machine (via a `git-subdir` marketplace source). Everything else at the repo
 root is build-time only and never ships: `tests/` and [`evals/`](evals/) (harnesses),
 [`security/`](security/) (the release gates), `scripts/` and `.github/` (release tooling and CI).
+
+---
+
+## Project sponsor
+
+socxen is sponsored by [Exabeam](https://www.exabeam.com/). Exabeam contributed the initial code and
+continues to provide ongoing support and contributions to the project as part of its commitment to
+security in an increasingly agentic world.
+
+---
 
 ## License
 
