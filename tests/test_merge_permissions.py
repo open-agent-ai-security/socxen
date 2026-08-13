@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL_DIR = ROOT / "skills" / "soc-investigate"
+SKILL_DIR = ROOT / "plugin" / "skills" / "soc-investigate"
 SNIPPET = SKILL_DIR / "settings.snippet.json"
 
 
