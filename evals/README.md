@@ -5,7 +5,7 @@
 
 # socxen evals
 
-Turns the `*.fixture.json` files under `skills/soc-investigate/reference/examples/` into
+Turns the `*.fixture.json` files under `plugin/skills/soc-investigate/reference/examples/` into
 **runnable regression tests** for the `soc-investigate` skill. A fixture says what a correct run must
 conclude (verdict, taxonomy outcome, deciding pivot, cited evidence, MITRE) and — critically — what it
 **must not** do (dismiss/close a real threat, invent evidence, claim it ran containment). The harness
@@ -84,7 +84,7 @@ Tool names are matched by **suffix**, so any MCP prefix (`mcp__plugin_socxen_exa
 
 ## Adding a fixture
 
-1. Write `skills/soc-investigate/reference/examples/<id>.fixture.json` (validated against
+1. Write `plugin/skills/soc-investigate/reference/examples/<id>.fixture.json` (validated against
    `evals/schema.json` — see the existing one and `examples/README.md`).
 2. Generate a run: `uv run evals/run.py --live <id>` (writes `evals/runs/<id>.json`), or hand-author
    the transcript for a known investigation.

@@ -71,7 +71,7 @@ credentials), a live MCP connectivity test, and a governance-gate check. Idempot
 
 ```bash
 git clone https://github.com/open-agent-ai-security/socxen.git
-cd socxen && ./install.sh
+cd socxen && ./plugin/install.sh
 ```
 
 ## Credentials (the only manual step)

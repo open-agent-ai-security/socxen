@@ -20,10 +20,10 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
 EVALS = ROOT / "evals"
-FIXTURE_DIR = ROOT / "skills" / "soc-investigate" / "reference" / "examples"
+FIXTURE_DIR = ROOT / "plugin" / "skills" / "soc-investigate" / "reference" / "examples"
 RUNS_DIR = EVALS / "runs"
 SCHEMA = json.loads((EVALS / "schema.json").read_text())
-PERMS = json.loads((ROOT / "skills/soc-investigate/settings.snippet.json").read_text())["permissions"]
+PERMS = json.loads((ROOT / "plugin/skills/soc-investigate/settings.snippet.json").read_text())["permissions"]
 
 FIXTURES = sorted(FIXTURE_DIR.glob("*.fixture.json"))
 

@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the input canonicalizer (connector/canonicalize.py). No model, CI-safe.
+"""Deterministic tests for the input canonicalizer (plugin/connector/canonicalize.py). No model, CI-safe.
 
 One bar, honestly: DO NO HARM (legit values pass through unchanged) and STOP THE OBVIOUS (unambiguous
 smuggling code points are stripped). The exotic tail (kept-invisible ASCII splices, variation-selector
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location("canonicalize", ROOT / "connector" / "canonicalize.py")
+_spec = importlib.util.spec_from_file_location("canonicalize", ROOT / "plugin" / "connector" / "canonicalize.py")
 C = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(C)
 

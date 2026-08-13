@@ -14,15 +14,15 @@ document describes how to report one privately, what is in scope, and what to ex
 **In scope** — vulnerabilities in socxen itself:
 
 - The `soc-investigate` skill — the methodology, governance rules, and reference
-  material in `skills/soc-investigate/` (`SKILL.md`, `reference/`).
+  material in `plugin/skills/soc-investigate/` (`SKILL.md`, `reference/`).
 - The **governance surface**: `settings.snippet.json` (the permission tiers) and
   `reference/containment-tools.md` (the deny-list) — anything that could silently
   un-gate a dismiss/close or a containment-class tool.
-- The connector bridge `connector/exabeam-mcp-bridge.py` — especially OAuth
+- The connector bridge `plugin/connector/exabeam-mcp-bridge.py` — especially OAuth
   token/secret handling and the stdio forwarding path.
 - The eval harness `evals/` and its HARD safety gates.
-- The plugin manifests (`.claude-plugin/*.json`), the bundled `.mcp.json`, and
-  `install.sh`.
+- The plugin manifests (`plugin/.claude-plugin/*.json`), the bundled `plugin/.mcp.json`, and
+  `plugin/install.sh`.
 
 Examples of in-scope issues: a prompt-injection carried in ingested alert/event
 data that flips a verdict or **bypasses the human dismiss/close gate**; a flaw that

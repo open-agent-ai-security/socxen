@@ -23,7 +23,7 @@ One shared script renders every `*.html` in a diagram folder to a light + dark P
 trims the margins, and optimizes the PNGs. Needs headless Chrome; `uv` supplies Pillow.
 
 ```sh
-scripts/render_diagram.py docs/diagram        # from the repo root
+scripts/render_diagram.py plugin/docs/diagram        # from the repo root
 ```
 
 The theme is stamped via the URL hash (`guardrails.html#light` / `#dark`); the page defaults to light

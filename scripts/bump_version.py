@@ -9,8 +9,8 @@
 Version lives in three coupled places; the invariant tests + CI fail if they drift, so bumping by hand
 is error-prone. This edits all of them and regenerates the AI BOM:
 
-  - `.claude-plugin/plugin.json`               → `version`
-  - `README.md`                                → the `version-vX.Y.Z` pill
+  - `plugin/.claude-plugin/plugin.json`               → `version`
+  - `plugin/README.md`                                → the `version-vX.Y.Z` pill
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
 
 Then it verifies all agree — the same consistency `tests/test_repo_invariants.py` enforces — so CI
@@ -27,8 +27,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PLUGIN = ROOT / ".claude-plugin/plugin.json"
-README = ROOT / "README.md"
+PLUGIN = ROOT / "plugin/.claude-plugin/plugin.json"
+README = ROOT / "plugin" / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")

@@ -42,9 +42,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Read a worktree's plugin version, from whichever layout that ref carries. The PRIOR ref is
+# routinely pre-#29 — on the first run after this restructure promotes, prior IS the last
+# root-layout release — and hardcoding the plugin/ path made that a FileNotFoundError that killed
+# the whole smoke run under set -e. Probe, don't assume. A genuinely missing manifest must still be
+# a hard error (python raises, set -e stops us), never an empty version: that would sail through the
+# current-vs-prior equality check below and silently smoke-test nothing.
 version_at() {  # version_at <dir>
-  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
-    "$1/.claude-plugin/plugin.json"
+  local manifest="$1/plugin/.claude-plugin/plugin.json"
+  if [ ! -f "$manifest" ]; then manifest="$1/.claude-plugin/plugin.json"; fi
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$manifest"
 }
 
 installed_version() {  # installed_version <config-dir>
@@ -68,7 +75,7 @@ assert_version() {  # assert_version <leg> <config-dir> <expected>
 
 git -C "${REPO_ROOT}" fetch origin --quiet
 CURRENT_SHA="$(git -C "${REPO_ROOT}" rev-parse origin/main)"
-LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --format=%H origin/main -- .claude-plugin/plugin.json)"
+LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --follow --format=%H origin/main -- plugin/.claude-plugin/plugin.json)"
 PRIOR_REF="${1:-${LAST_BUMP}^}"
 PRIOR_SHA="$(git -C "${REPO_ROOT}" rev-parse "${PRIOR_REF}")"
 
@@ -92,13 +99,18 @@ fi
 # untracked one — hence `checkout -f` at the version flip, which discards
 # whatever is in the way before we immediately re-assert our manifest.
 fabricate_marketplace() {  # fabricate_marketplace <worktree>
+  # Point at the subdirectory THIS ref actually ships from: post-#29 refs serve ./plugin, older
+  # ones serve the worktree root. Resolved per call, not once — the upgrade leg fabricates twice
+  # against the same worktree, straddling the checkout that crosses the restructure boundary.
+  local src="./"
+  if [ -d "$1/plugin" ]; then src="./plugin"; fi
   mkdir -p "$1/.claude-plugin"
-  python3 - "$1" <<'PY'
+  python3 - "$1" "$src" <<'PY'
 import json, sys
 json.dump({"name": "open-agent-ai-security",
            "owner": {"name": "Open Agent AI Security",
                      "url": "https://github.com/open-agent-ai-security"},
-           "plugins": [{"name": "socxen", "source": "./"}]},
+           "plugins": [{"name": "socxen", "source": sys.argv[2]}]},
           open(sys.argv[1] + "/.claude-plugin/marketplace.json", "w"))
 PY
 }

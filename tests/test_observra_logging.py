@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the structured agent-telemetry shim (connector/observra_logging.py).
+"""Deterministic tests for the structured agent-telemetry shim (plugin/connector/observra_logging.py).
 
 Four things matter and all are tested without a network:
   * DEFAULT ON — logging runs unless explicitly SOCXEN_OBSERVRA=off. A production agent keeps an audit trail.
@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "connector"))
+sys.path.insert(0, str(ROOT / "plugin" / "connector"))
 
 
 def _fresh(monkeypatch, env):
@@ -37,7 +37,7 @@ def _fresh(monkeypatch, env):
     for key, val in env.items():
         monkeypatch.setenv(key, val)
     spec = importlib.util.spec_from_file_location(
-        f"obslog_{abs(hash(frozenset(env.items())))}", ROOT / "connector" / "observra_logging.py")
+        f"obslog_{abs(hash(frozenset(env.items())))}", ROOT / "plugin" / "connector" / "observra_logging.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

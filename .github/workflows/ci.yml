@@ -33,7 +33,7 @@ jobs:
         run: uv run evals/run.py
 
       - name: Byte-compile the connector bridge
-        run: python -m py_compile connector/exabeam-mcp-bridge.py
+        run: python -m py_compile plugin/connector/exabeam-mcp-bridge.py
 
       - name: AI BOM is current with the sources
         # Fails if security/aibom.cdx.json drifts from plugin.json / .mcp.json /

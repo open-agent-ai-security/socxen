@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the bridge GUARDRAIL WIRING (connector/exabeam-mcp-bridge.py).
+"""Deterministic tests for the bridge GUARDRAIL WIRING (plugin/connector/exabeam-mcp-bridge.py).
 
 There were no bridge-wiring tests before; PR #36's adversarial review exposed the gap. These cover the
 wiring findings: field-aware write defang (IDs/enums untouched), fail-CLOSED writes, hygiene-record
@@ -41,8 +41,8 @@ class _Server:                                          # identity decorators fo
 
 sys.modules["mcp.server"].Server = _Server
 
-sys.path.insert(0, str(ROOT / "connector"))
-_spec = importlib.util.spec_from_file_location("bridge", ROOT / "connector" / "exabeam-mcp-bridge.py")
+sys.path.insert(0, str(ROOT / "plugin" / "connector"))
+_spec = importlib.util.spec_from_file_location("bridge", ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py")
 B = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(B)
 

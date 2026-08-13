@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RT = ROOT / "security" / "redteam"
 SCHEMA = json.loads((RT / "attack.schema.json").read_text())
 ATTACKS = sorted((RT / "attacks").glob("*.attack.json"))
-PERMS = json.loads((ROOT / "skills/soc-investigate/settings.snippet.json").read_text())["permissions"]
+PERMS = json.loads((ROOT / "plugin/skills/soc-investigate/settings.snippet.json").read_text())["permissions"]
 
 
 def _governed_tools():
@@ -140,7 +140,7 @@ def test_output_pipeline_markers_are_defangable():
     real leak to non-landing `info`. So every output-pipeline attack's leak markers must be defangable —
     otherwise the attack must stay in the default `raw` mode."""
     import importlib.util
-    nspec = importlib.util.spec_from_file_location("neut", ROOT / "connector" / "neutralize_output.py")
+    nspec = importlib.util.spec_from_file_location("neut", ROOT / "plugin" / "connector" / "neutralize_output.py")
     neut = importlib.util.module_from_spec(nspec)
     nspec.loader.exec_module(neut)
     for path in ATTACKS:
