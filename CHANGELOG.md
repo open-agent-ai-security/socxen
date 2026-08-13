@@ -33,6 +33,14 @@ gates ran against this candidate.
   `python3` or the snippet it reports "cannot merge, here's the manual path" — the same
   "cannot verify ≠ OFF" discipline the gate check already used. (#70, #73)
 
+- **The release smoke now proves the governance gate actually installs.** `plugin-smoke.sh` verified
+  that the plugin registers and upgrades, but said nothing about the control that makes socxen safe to
+  point at real alerts — so a release could have regressed the assisted merge with every leg still
+  reporting PASS. A third leg runs the shipped tree's `--merge-permissions` into a throwaway settings
+  file and asserts the gate reads ON *in the `ask` tier specifically*, that the operator's real
+  `settings.json` is untouched (digest-compared, not assumed), and that a re-run is a no-op rather than
+  double-appending over successive releases. (#70, #79 — thanks @mattwillems-exabeam)
+
 - **Agent Behavior Verification is now a documented release gate.** `security/praxen/` carries a
   blind-authored **Worker Remit** (50 rules derived from the shipped docs, without sight of the
   implementation), the scan instructions, and dated results. The gate: **no release ships with an open

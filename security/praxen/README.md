@@ -53,6 +53,13 @@ platform, that is the class of defect that must not reach a tag.
 RAISE categories: Limit Your Domain 2 · Balance Your Knowledge Base 3 · Implement Zero
 Trust 2 · Manage Your Supply Chain 2 · Build an AI Red Team 3 · Monitor Continuously 3.
 
+**This scan is the gate artifact for the 0.7.0 release.** It ran against the `dev` tip as it stood
+(`005fa4c`) — the head of the line 0.7.0 was cut from, not a stale release tag. Every *behavioural*
+change merged between that scan and the release is either a remediation of one of its own findings —
+001 → #73, 007 → #78, 009 → #81 — or the path-only `plugin/` restructure (#66); #77 is the scan's own
+artifacts. The gate's rule (no open Critical) is satisfied, and the delta since scanning does not
+introduce unscanned behaviour that the scan would have judged.
+
 The two 3s that carry weight: **Build an AI Red Team** is credited on the strength of the
 program in [`../redteam/`](../redteam/METHODOLOGY.md) — the a10 find → fix → retest →
 regression-fixture arc in [`HISTORY.md`](../redteam/HISTORY.md) is cited as a complete
