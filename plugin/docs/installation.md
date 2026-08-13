@@ -71,7 +71,7 @@ credentials), a live MCP connectivity test, and a governance-gate check. Idempot
 
 ```bash
 git clone https://github.com/open-agent-ai-security/socxen.git
-cd socxen && ./install.sh
+cd socxen && ./plugin/install.sh
 ```
 
 ## Credentials (the only manual step)
@@ -119,7 +119,9 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > mandatory, not "recommended."
 
 This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
-`skills/soc-investigate/settings.snippet.json` into your `~/.claude/settings.json`:
+`skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
+`plugin/skills/soc-investigate/settings.snippet.json` from a clone — into the settings file Claude Code
+reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
 
 - **allow** the read + escalation tools,
 - **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
@@ -130,6 +132,45 @@ and will not execute it without your approval, and deterministically hard-blocks
 **Until it's merged there is no permission-layer gate** — only the skill's in-prompt ask (softer). The
 rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); for the advanced manual
 `claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
+
+### Let the installer merge it for you
+
+From a clone, `plugin/install.sh` can perform the merge instead of you hand-editing JSON:
+
+```bash
+./plugin/install.sh --merge-permissions   # merge, then verify the gate reads ON
+```
+
+`--checks-only` outranks it: diagnostics promise to change nothing, so the two together skip the merge
+and say so.
+
+It is **opt-in and never silent**. Installing without the flag still only *warns* that the gate is
+off — and `-y` does not stand in for consent here, because installation alone must never rewrite your
+settings. Run interactively without the flag and, if the gate is off, the installer shows you exactly
+which rules it would add and asks a plain `y/N` first.
+
+What it guarantees:
+
+- **Backs up first** — a timestamped copy of `settings.json` beside the original, before any write.
+- **Additive only** — your existing rules are never removed, reordered, or retiered; ours are appended.
+- **Stops on a tier conflict** — if one of these tools already sits in a *different* tier than the
+  snippet specifies, that's your decision (or a mis-merge worth a look), so it writes **nothing** and
+  tells you which entries to resolve.
+- **Idempotent** — re-running is safe; already-merged rules are left alone. Worth re-running even when
+  the gate reads ON: a hand-merge of just the two `ask` lines leaves the containment `deny` list missing.
+- **Fails honestly** — no `python3`, or a snippet it can't find, means "cannot merge, here's the manual
+  path," never a false green. A failed write is restored from the backup.
+
+The merge itself is `skills/soc-investigate/merge_permissions.py` (`plugin/skills/…` from a clone),
+which you can also run directly —
+add `--dry-run` to see the exact changes without writing anything.
+
+### Which settings file?
+
+The one Claude Code will actually read: `SOCXEN_SETTINGS_FILE` if you set it,
+otherwise `$CLAUDE_CONFIG_DIR/settings.json` if your config dir is relocated, otherwise
+`~/.claude/settings.json`. Every message names the resolved path, so you can always see which file was
+checked or written.
 
 > ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
 > modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's

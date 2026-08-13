@@ -35,9 +35,9 @@ Not in this folder, but part of the docs picture:
   template, containment list, and worked end-to-end examples: [`skills/soc-investigate/reference/`](../skills/soc-investigate/reference/).
 - **Governance snippet** — the permission block you merge during setup:
   [`skills/soc-investigate/settings.snippet.json`](../skills/soc-investigate/settings.snippet.json).
-- **Regression harness** — [`evals/`](../evals/).
-- **End-to-end testing of real connector code** (maintainers) — [`tests/end-to-end-testing.md`](../tests/end-to-end-testing.md):
+- **Regression harness** — [`evals/`](../../evals/).
+- **End-to-end testing of real connector code** (maintainers) — [`tests/end-to-end-testing.md`](../../tests/end-to-end-testing.md):
   how to test through the *skill* against a live tenant, and why a connector change needs a Claude Code restart.
-- **Version history** — [`CHANGELOG.md`](../CHANGELOG.md).
-- **Contributing / security policy** — [`CONTRIBUTING.md`](../CONTRIBUTING.md),
-  [`SECURITY.md`](../SECURITY.md).
+- **Version history** — [`CHANGELOG.md`](../../CHANGELOG.md).
+- **Contributing / security policy** — [`CONTRIBUTING.md`](../../CONTRIBUTING.md),
+  [`SECURITY.md`](../../SECURITY.md).

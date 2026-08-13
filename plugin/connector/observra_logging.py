@@ -20,13 +20,17 @@ DEFAULT ON. A good agent keeps an audit trail. Logging runs unless you explicitl
 
 Not an exact framework fit, by design: observra's `create_plugin()` hooks a supported *framework* (ADK,
 Claude SDK, LangChain, ...). Our "agent" is Claude Code driving a skill over an MCP bridge — there is no
-such framework object. But observra already ships CIM support for `framework="mcp"` / `"claude_code"` and
-MCP/skill/tool event types, so this is a small **custom adapter**: it emits observra `TelemetryEvent`s
-through the public `create_event()` and the pipeline's queue.
+such framework object. Since observra 1.1 that's a first-class case: this shim emits through the public
+`observra.emit()` (framework-agnostic instrumentation), and rotation bounds pass straight through
+`initialize()` to the jsonl backend. The one remaining private touch is the exit drain
+(`_worker._shutdown()`) — a public `shutdown()` is requested upstream (observra#117). Requires
+observra >= 1.1 (the bridge's PEP 723 header pins `observra>=1.1,<2`).
 
 DESIGN RULES:
-  * FAIL-OPEN, ALWAYS. Telemetry is best-effort. Any error (observra missing, backend misconfigured, an
-    emit failure) disables logging and is swallowed. Logging must NEVER break or slow an investigation.
+  * FAIL-OPEN, ALWAYS. Telemetry is best-effort and must NEVER break or slow an investigation. A
+    CONFIGURATION error (observra missing, backend misconfigured) disables logging and is swallowed; a
+    single failed emit drops only THAT event and leaves the trail on — a transient fault must not switch
+    off a mandatory audit log for the rest of the session.
   * PRIVACY BY CONSTRUCTION. We log *metadata* about the agent's actions — tool names, durations, gated-
     action IDs/enums (alertId, alertStatus, disposition, ...), guardrail counts, stripped code-point
     classes — never the free-text field values / notes / payloads the guardrails neutralize. The audit
@@ -83,7 +87,6 @@ def _configure():
     try:
         import observra
         from observra.core import context
-        from observra.core.events import create_event
 
         kwargs = {}
         if backend == "jsonl":
@@ -96,27 +99,28 @@ def _configure():
                 sys.stderr.write(f"bridge: HOME not set; audit log -> {path}\n")
             os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
             kwargs["path"] = path
+            # initialize() forwards kwargs to the backend constructor (observra >= 1.1), so the rotation
+            # bounds ride along. Clamped so a stray 0/negative can't turn rotation into per-event thrashing.
+            kwargs["max_bytes"] = max(4096, _int_env("SOCXEN_OBSERVRA_MAX_BYTES", 10_485_760))  # >=4 KB
+            kwargs["backup_count"] = max(1, _int_env("SOCXEN_OBSERVRA_BACKUPS", 5))
         observra.initialize(backend=backend, **kwargs)   # ValueError on an unknown backend -> fail-open
-        context.initialize_session()                     # a stable session/trace for this bridge process
+        observra.initialize_session()                    # a stable session/trace for this bridge process
         context.initialize_trace()
 
-        if backend == "jsonl":
-            # observra's initialize() forwards only `path` to the jsonl backend (observra#84), so set the
-            # rotation bounds on the constructed instance (it reads these per write). Values are clamped so
-            # a stray 0/negative can't turn rotation into per-event thrashing.
-            storage = getattr(getattr(observra, "_worker", None), "_storage", None)
-            if storage is not None:
-                storage.max_bytes = max(4096, _int_env("SOCXEN_OBSERVRA_MAX_BYTES", 10_485_760))  # >=4 KB
-                storage.backup_count = max(1, _int_env("SOCXEN_OBSERVRA_BACKUPS", 5))
-            else:
-                # Reach-in failed (observra internals changed): observra's own default (10 MB x 5) still
-                # bounds the file, so the audit log stays bounded — just note it isn't operator-tunable.
-                sys.stderr.write("bridge: observra storage internals not found; "
-                                 "using its default rotation bounds (not tunable this run)\n")
+        # observra.emit() swallows its own failures into the `observra` logger. That must not be a silent
+        # sink for a mandatory audit trail: route its warnings to stderr (once), same channel as our own
+        # disclosures, so a dropped event is visible to the operator.
+        import logging
+        obs_logger = logging.getLogger("observra")
+        if not any(getattr(h, "_socxen", False) for h in obs_logger.handlers):
+            handler = logging.StreamHandler(sys.stderr)
+            handler.setLevel(logging.WARNING)
+            handler.setFormatter(logging.Formatter("bridge: observra %(levelname)s - %(message)s"))
+            handler._socxen = True
+            obs_logger.addHandler(handler)
 
         _state["observra"] = observra
-        _state["create_event"] = create_event           # bind once, off the per-event hot path
-        _state["queue"] = observra._queue_proxy          # the pipeline's swappable sink (survives re-init)
+        _state["emit"] = observra.emit                  # public since 1.1; bound once, off the hot path
         _state["on"] = True
         atexit.register(_shutdown)
         # Disclosed, not silent: one line so an operator can see logging is on and how to turn it off.
@@ -138,13 +142,16 @@ def _emit(event_type, **data):
     if not enabled():
         return
     try:
-        ev = _state["create_event"](event_type, framework=FRAMEWORK, agent_name=AGENT,
-                                    skill_name=SKILL, **data)
-        _state["queue"].put_nowait(ev)
+        tool = data.pop("tool_name", None)
+        _state["emit"](event_type, tool_name=tool, framework=FRAMEWORK, agent_name=AGENT,
+                       skill_name=SKILL, **data)
     except Exception as e:  # noqa: BLE001 -- a broken emit must never touch the investigation
-        # DROP this one event; do NOT disable the whole trail. A transient per-event fault (a burst that
-        # fills the queue, one unserializable value) must not silently switch off a mandatory audit log
-        # for the rest of the session. Only a configuration-level failure (in _configure) disables.
+        # DROP this one event; do NOT disable the whole trail. A transient per-event fault (one
+        # unserializable value, observra internals changed) must not silently switch off a mandatory
+        # audit log for the rest of the session. Only a configuration-level failure (in _configure)
+        # disables. NOTE: observra swallows a QUEUE-full drop into a debug-level log + the
+        # observra_events_dropped_total counter, below the stderr handler _configure installs, so that
+        # particular drop is counted rather than announced.
         sys.stderr.write(f"bridge: telemetry event dropped ({type(e).__name__})\n")
 
 
@@ -192,7 +199,10 @@ def tool_error(tool, duration_ms, exc):
 
 
 def _shutdown():
-    """Best-effort flush of the background worker at process exit. Guarded — exit must never error."""
+    """Best-effort flush of the background worker at process exit. Guarded — exit must never error.
+    The last private reach-in this shim carries: observra has no public shutdown()/flush() yet, and the
+    tail of an audit trail (the gated write, session_end) is exactly what's still queued at exit.
+    Upstream RFE: observra#117."""
     try:
         if not _state.get("on"):
             return

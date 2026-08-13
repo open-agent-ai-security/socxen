@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the output-side neutralizer (connector/neutralize_output.py). No model, CI-safe.
+"""Deterministic tests for the output-side neutralizer (plugin/connector/neutralize_output.py). No model, CI-safe.
 
 This is the a10 (export/formula injection) fix. The a10 red-team payload becomes a deterministic
 regression guardrail here (PLAN.md: confirmed attacks become permanent fixtures).
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location("neutralize_output", ROOT / "connector" / "neutralize_output.py")
+_spec = importlib.util.spec_from_file_location("neutralize_output", ROOT / "plugin" / "connector" / "neutralize_output.py")
 N = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(N)
 

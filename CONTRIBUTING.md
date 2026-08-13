@@ -13,7 +13,7 @@ conventions below exist specifically to keep that gate real.
 
 ## License
 
-socxen is licensed under the [Apache License, Version 2.0](LICENSE). By
+socxen is licensed under the [Apache License, Version 2.0](plugin/LICENSE). By
 contributing, you agree that your contributions are licensed under the same terms.
 
 ## Developer Certificate of Origin (DCO)
@@ -112,6 +112,25 @@ A scheduled CI check (`.github/workflows/branch-drift.yml`) asserts the invarian
 daily and fails the day the histories diverge — catching a missed fast-forward or
 an accidental squash promotion before it accumulates.
 
+### Release gates
+
+Two assurance gates run before a release. Both are **documented gates a human runs**, not CI
+checks — each is an agentic, judgment-based analysis rather than a deterministic test, so
+neither belongs in a workflow that must go green on every push.
+
+| Gate | Blocks a release when | Where |
+|---|---|---|
+| **Red team** | Any class-A unsafe suppression, class-C gate bypass, or class-D secret/PII leak on the weakest supported model | [`security/redteam/PLAN.md`](security/redteam/PLAN.md#release-bar) |
+| **Agent Behavior Verification** | Any **Critical** finding in a Praxen scan of the release candidate | [`security/praxen/README.md`](security/praxen/README.md#the-release-gate) |
+
+A blocking finding from either gate is **fixed, or explicitly waived in writing by a
+maintainer with a rationale recorded in the PR**, before the release merge. High / Medium / Low
+Praxen findings do not block; they are triaged into issues and carried in the backlog.
+
+Both gates want a **dated artifact** committed alongside the result — `security/redteam/results/`
+and `security/praxen/results/` respectively — so a reader can tell which release was
+actually verified, and when.
+
 ### If the histories have already diverged
 
 Don't squash-paper-over it — reconcile so the invariant holds again. Rebuild on a
@@ -138,7 +157,7 @@ release channel**: whatever lands there reaches new installers immediately.
 
 **Cutting a release**
 
-1. Land all changes on `dev`. Run `python3 scripts/bump_version.py X.Y.Z` (bumps
+1. Land all changes on `dev`. Run `uv run scripts/bump_version.py X.Y.Z` (bumps
    `plugin.json`, the README pill, and regenerates the AI BOM), date the
    `CHANGELOG.md` entry by hand, commit to `dev`.
 2. Open the release PR `dev → main`; promote with a **merge commit** (never
@@ -174,17 +193,24 @@ release channel**: whatever lands there reaches new installers immediately.
   These are deterministic, no-credential invariant checks; CI runs them on every
   PR and **must be green** to merge.
 - **Governance-sensitive changes get extra scrutiny.** If you touch
-  `skills/soc-investigate/settings.snippet.json`, `reference/containment-tools.md`,
-  `reference/tool-map.md`, or the Governance section of `SKILL.md`, keep the
+  `plugin/skills/soc-investigate/settings.snippet.json`,
+  `plugin/skills/soc-investigate/reference/containment-tools.md`,
+  `plugin/skills/soc-investigate/reference/tool-map.md`, or the Governance section of
+  `plugin/skills/soc-investigate/SKILL.md`, keep the
   permission tiers and the containment deny-list in sync — the invariant tests
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
-  `.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `README.md`, then
+  `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand
   instead, all three must match or CI fails — an invariant test guards the
   pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any
   version / connector-dep / MCP / governance drift.)
+- **Connector dependencies:** the bridge's PEP 723 header is bounded and **locked**. If you add or
+  change a dependency, re-lock in the same PR — `uv lock --script plugin/connector/exabeam-mcp-bridge.py`
+  — and commit the updated `.lock` beside the script. `uv run` uses it automatically, so a stale lock
+  means users resolve a different tree than you tested. Regenerate the AI BOM in the same commit
+  (`uv run security/gen_aibom.py`); CI's `--check` catches the BOM but **not** lock drift.
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.

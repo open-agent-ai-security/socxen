@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-BRIDGE = ROOT / "connector" / "exabeam-mcp-bridge.py"
+BRIDGE = ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py"
 SRC = BRIDGE.read_text()
 
 
@@ -76,7 +76,7 @@ def test_setup_message_references_existing_paths():
     for ref in re.findall(r"connector/[A-Za-z0-9_./-]+", SRC):
         # only check things that look like a file (have an extension)
         if "." in Path(ref).name:
-            assert (ROOT / ref).exists(), f"bridge references a missing path: {ref}"
+            assert (ROOT / "plugin" / ref).exists(), f"bridge references a missing path: {ref}"
 
 
 # ---------- smoke (opt-in; skips cleanly if the env can't run it) ----------
@@ -104,8 +104,15 @@ def test_check_without_creds_exits_clean():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # Distinguish our expected failure from an environment/dep failure (then skip).
+    # Distinguish our expected failure from an environment/dep failure (then skip). A TRACEBACK is
+    # never an environment problem — it means the bridge itself crashed — and skipping on one is
+    # exactly how #67 hid: mcp 2.0.0 dropped streamablehttp_client, the bridge died at import, and
+    # this guard downgraded that to a skip on both maintainers' machines. The assertions below
+    # already reject tracebacks; they just never ran. Fail here, and let only genuine provisioning
+    # failures (uv can't build the env, no network) reach the skip.
     if proc.returncode != 0 and "missing credentials" not in proc.stderr.lower():
+        if "traceback" in proc.stderr.lower():
+            pytest.fail(f"bridge crashed instead of failing closed:\n{proc.stderr}")
         pytest.skip(f"bridge could not initialize (deps/env): {proc.stderr[:200]!r}")
 
     assert proc.returncode != 0, "no-creds --check must fail closed"

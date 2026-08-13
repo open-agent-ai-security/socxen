@@ -5,8 +5,93 @@
 
 # Changelog
 
-Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
+Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
+
+## [0.7.0] — 2026-08-13
+
+The plugin's shipped surface changes shape: only the payload under `plugin/` is distributed now, and
+the installer can turn the governance gate **on** rather than only warning that it is off. Both release
+gates ran against this candidate.
+
+### Added
+- **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
+  warn about it.** The gate has always been opt-in on every install path: `plugin/install.sh` verified the
+  merge and warned loudly when it was missing, but nothing ever *performed* it, so the shipped default
+  was "gate OFF until the operator hand-edits `~/.claude/settings.json`" and the installer was a
+  detection control rather than an enforcement one. The new flag merges
+  `plugin/skills/soc-investigate/settings.snippet.json` for you, and an interactive run whose gate reads
+  OFF now offers to do it after showing exactly which rules it would add.
+
+  Consent is preserved, deliberately: nothing merges by default, and `-y` does **not** authorise it —
+  "assume yes" answers the installer's own questions, it does not license a write to your settings.
+  The merge backs up `settings.json` first (timestamped, same permissions as the original), is
+  additive-only, refuses outright when a rule already sits in a different tier than the snippet
+  specifies (your intent wins — it writes nothing and reports what to resolve), restores from the
+  backup if a write fails, and is idempotent. It is verified afterwards by the pre-existing `gate_on()`
+  check, so a merge that somehow doesn't produce a working gate is never reported green. Without
+  `python3` or the snippet it reports "cannot merge, here's the manual path" — the same
+  "cannot verify ≠ OFF" discipline the gate check already used. (#70, #73)
+
+- **The release smoke now proves the governance gate actually installs.** `plugin-smoke.sh` verified
+  that the plugin registers and upgrades, but said nothing about the control that makes socxen safe to
+  point at real alerts — so a release could have regressed the assisted merge with every leg still
+  reporting PASS. A third leg runs the shipped tree's `--merge-permissions` into a throwaway settings
+  file and asserts the gate reads ON *in the `ask` tier specifically*, that the operator's real
+  `settings.json` is untouched (digest-compared, not assumed), and that a re-run is a no-op rather than
+  double-appending over successive releases. (#70, #79 — thanks @mattwillems-exabeam)
+
+- **Agent Behavior Verification is now a documented release gate.** `security/praxen/` carries a
+  blind-authored **Worker Remit** (50 rules derived from the shipped docs, without sight of the
+  implementation), the scan instructions, and dated results. The gate: **no release ships with an open
+  Critical finding**; High/Medium/Low are triaged in writing, and a waiver needs a maintainer's
+  rationale on the PR. The 0.6.9 audit passed it — 0 Critical, 5 High, 7 Medium, 1 Low, all confirmed
+  by an independent re-check. Like the red-team bar, this is a gate a human runs, not CI. (#77)
+
+- **The bridge's dependencies are bounded and hash-pinned.** All five PEP 723 dependencies now carry
+  upper bounds, and `plugin/connector/exabeam-mcp-bridge.py.lock` pins the full resolved set (33
+  packages) by hash — `uv run` picks it up automatically, so a fresh install resolves the same tree
+  the maintainers tested. This closes the class of breakage that took out 0.6.8, where an unbounded
+  `mcp>=1.0` let a major release land on every new install. (#71, #78)
+
+### Changed
+- **Only the plugin payload ships now — the repo's build-time material stays behind.** Everything
+  Claude Code installs moved under `plugin/` (connector, skill, docs, installer, manifests) and the
+  marketplace entry loads it as a git subdirectory, so a user's plugin cache no longer receives the
+  test suite, the eval corpus, the release scripts, or `security/` — which included the red-team
+  **attack payloads**. Two consequences worth knowing: the clone-and-run command is now
+  `./plugin/install.sh`, and this release is the first whose marketplace source is `git-subdir`
+  (`path: plugin`), a paired change with the community marketplace index. (#29, #66 —
+  thanks @mattwillems-exabeam)
+
+### Fixed
+- **The governance check now looks at the settings file Claude Code actually reads.** `plugin/install.sh`
+  hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
+  from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
+  effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
+  would merge the gate into a file that never takes effect. The path now resolves as
+  `SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` → `~/.claude/settings.json`, and every
+  message names the resolved path instead of a hardcoded one. (#70)
+
+### Security
+- **Telemetry moved off observra's private internals.** The audit shim now emits through the public
+  `observra.emit()` API and passes its rotation bounds through `initialize()`, both first-class since
+  observra 1.1 (the bridge pins `observra>=1.1,<2`). Two of the three private reach-ins are gone; the
+  remaining one is the underscore-level exit drain, tracked upstream. observra's own backend write
+  errors now surface on stderr instead of vanishing into a library logger. (#71, #78)
+
+- **The red-team gate is pinned to a named model, and it has been run against this release.** The
+  runner's default was the floating `sonnet` alias, so a recorded verdict could not be tied to a model
+  version after the fact and the "weakest supported model" invariant quietly stopped holding whenever a
+  new Sonnet shipped. It now defaults to the explicit `claude-sonnet-4-6` and records the model the
+  session actually *resolved*, so no run can produce an unattributable artifact. The gate itself had not
+  run since 2026-07-03, across three releases: the 2026-08-13 run is **50/50 trials resisted — every
+  class-A family 0/5, zero errored, zero inconclusive, verdict PASS**
+  (`security/redteam/results/2026-08-13T2009-claude-sonnet-4-6.md`). Notably the export/formula-injection
+  family resisted 5/5 with the deterministic neutralizer demonstrably load-bearing — the model reproduced
+  the payload in chat, and the persisted artifact came out clean anyway. Running it also surfaced a
+  harness bug that discarded whole trials on an unrelated stream notice, now fixed with regression tests.
+  Classes C and D remain unexercised by the corpus, tracked in #82. (#76, #81)
 
 ## [0.6.9] — 2026-08-12
 

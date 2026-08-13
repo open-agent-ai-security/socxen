@@ -42,9 +42,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Read a worktree's plugin version, from whichever layout that ref carries. The PRIOR ref is
+# routinely pre-#29 — on the first run after this restructure promotes, prior IS the last
+# root-layout release — and hardcoding the plugin/ path made that a FileNotFoundError that killed
+# the whole smoke run under set -e. Probe, don't assume. A genuinely missing manifest must still be
+# a hard error (python raises, set -e stops us), never an empty version: that would sail through the
+# current-vs-prior equality check below and silently smoke-test nothing.
 version_at() {  # version_at <dir>
-  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
-    "$1/.claude-plugin/plugin.json"
+  local manifest="$1/plugin/.claude-plugin/plugin.json"
+  if [ ! -f "$manifest" ]; then manifest="$1/.claude-plugin/plugin.json"; fi
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$manifest"
 }
 
 installed_version() {  # installed_version <config-dir>
@@ -68,7 +75,7 @@ assert_version() {  # assert_version <leg> <config-dir> <expected>
 
 git -C "${REPO_ROOT}" fetch origin --quiet
 CURRENT_SHA="$(git -C "${REPO_ROOT}" rev-parse origin/main)"
-LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --format=%H origin/main -- .claude-plugin/plugin.json)"
+LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --follow --format=%H origin/main -- plugin/.claude-plugin/plugin.json)"
 PRIOR_REF="${1:-${LAST_BUMP}^}"
 PRIOR_SHA="$(git -C "${REPO_ROOT}" rev-parse "${PRIOR_REF}")"
 
@@ -92,13 +99,18 @@ fi
 # untracked one — hence `checkout -f` at the version flip, which discards
 # whatever is in the way before we immediately re-assert our manifest.
 fabricate_marketplace() {  # fabricate_marketplace <worktree>
+  # Point at the subdirectory THIS ref actually ships from: post-#29 refs serve ./plugin, older
+  # ones serve the worktree root. Resolved per call, not once — the upgrade leg fabricates twice
+  # against the same worktree, straddling the checkout that crosses the restructure boundary.
+  local src="./"
+  if [ -d "$1/plugin" ]; then src="./plugin"; fi
   mkdir -p "$1/.claude-plugin"
-  python3 - "$1" <<'PY'
+  python3 - "$1" "$src" <<'PY'
 import json, sys
 json.dump({"name": "open-agent-ai-security",
            "owner": {"name": "Open Agent AI Security",
                      "url": "https://github.com/open-agent-ai-security"},
-           "plugins": [{"name": "socxen", "source": "./"}]},
+           "plugins": [{"name": "socxen", "source": sys.argv[2]}]},
           open(sys.argv[1] + "/.claude-plugin/marketplace.json", "w"))
 PY
 }
@@ -122,4 +134,65 @@ CLAUDE_CONFIG_DIR="${CFG2}" claude plugin marketplace update "${MARKETPLACE}" >/
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin update "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "upgrade" "${CFG2}" "${CURRENT_VER}"
 
-echo "smoke: PASS — clean ${CURRENT_VER}, upgrade ${PRIOR_VER} -> ${CURRENT_VER}"
+echo "leg 3: governance merge (--merge-permissions) into a throwaway settings.json"
+# The gate is the control that makes socxen safe to point at real alerts, and the installer can now
+# install it (#70) — so the release smoke has to prove the assisted path still works on the shipped
+# tree, not just that the plugin registers.
+#
+# SOCXEN_SETTINGS_FILE is what makes this safe to run at all: install.sh would otherwise write the
+# REAL ~/.claude/settings.json, and a release smoke that edits the maintainer's live governance
+# config on every run is worse than no smoke. The containment is asserted, not assumed — the real
+# file's digest is compared before and after, and a "PASS" that quietly rewrote it fails here.
+#
+# Deliberately NOT the version_at() probe pattern: falling back to a root install.sh would run a
+# PRE-#70 installer that has no --merge-permissions at all, so the leg would "pass" having tested
+# nothing. A release whose current ref predates the plugin/ layout can't run this leg, and must say
+# so plainly rather than surfacing a file-not-found as an installer regression.
+if [ ! -x "${WT_CURRENT}/plugin/install.sh" ]; then
+  echo "  FAIL: current release (origin/main) predates the plugin/ layout — leg 3 needs a main at >=0.7.0; run after the promotion" >&2
+  exit 1
+fi
+SMOKE_SETTINGS="${SCRATCH}/settings.json"
+CFG3="${SCRATCH}/config-governance"; mkdir -p "${CFG3}"
+REAL_SETTINGS="${HOME}/.claude/settings.json"
+digest() { [ -f "$1" ] && (shasum "$1" 2>/dev/null || md5 -q "$1") | awk '{print $1}' || echo "<absent>"; }
+REAL_BEFORE="$(digest "${REAL_SETTINGS}")"
+
+SOCXEN_SETTINGS_FILE="${SMOKE_SETTINGS}" CLAUDE_CONFIG_DIR="${CFG3}" \
+  "${WT_CURRENT}/plugin/install.sh" --skip-connectivity --skip-update --merge-permissions --no-color \
+  >"${SCRATCH}/governance.log" 2>&1 || { echo "  FAIL: governance leg — installer exited non-zero" >&2; tail -20 "${SCRATCH}/governance.log" >&2; exit 1; }
+
+# Gate ON = the dismiss/close pair sits specifically in `ask` — the same check install.sh's gate_on()
+# makes. Merely mentioning the tools anywhere in the file must not read as installed.
+if ! python3 - "${SMOKE_SETTINGS}" <<'PY'
+import json, sys
+try:
+    ask = json.load(open(sys.argv[1])).get("permissions", {}).get("ask", [])
+except Exception:
+    sys.exit(1)
+sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= {t.split("__")[-1] for t in ask} else 1)
+PY
+then
+  echo "  FAIL: governance merge — dismiss/close is not in the ask tier of ${SMOKE_SETTINGS}" >&2
+  tail -20 "${SCRATCH}/governance.log" >&2; exit 1
+fi
+echo "  ok: governance merge — gate reads ON in the throwaway settings"
+
+if [ "$(digest "${REAL_SETTINGS}")" != "${REAL_BEFORE}" ]; then
+  echo "  FAIL: the smoke modified your real ${REAL_SETTINGS} — SOCXEN_SETTINGS_FILE is not being honored" >&2
+  exit 1
+fi
+echo "  ok: real ~/.claude/settings.json untouched"
+
+# Re-run must be a no-op: the installer is documented idempotent, and an assisted merge that
+# double-appended on every release run would corrupt the operator's file over time.
+SOCXEN_SETTINGS_FILE="${SMOKE_SETTINGS}" CLAUDE_CONFIG_DIR="${CFG3}" \
+  "${WT_CURRENT}/plugin/install.sh" --skip-connectivity --skip-update --merge-permissions --no-color \
+  >"${SCRATCH}/governance2.log" 2>&1 || { echo "  FAIL: governance re-run exited non-zero" >&2; exit 1; }
+if ! grep -q "already merged" "${SCRATCH}/governance2.log"; then
+  echo "  FAIL: governance re-run was not a no-op — expected 'already merged'" >&2
+  tail -20 "${SCRATCH}/governance2.log" >&2; exit 1
+fi
+echo "  ok: governance merge is idempotent on re-run"
+
+echo "smoke: PASS — clean ${CURRENT_VER}, upgrade ${PRIOR_VER} -> ${CURRENT_VER}, governance gate installs"

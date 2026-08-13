@@ -1,6 +1,6 @@
 {
   "name": "socxen",
-  "version": "0.6.9",
+  "version": "0.7.0",
   "description": "socxen \u2014 agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action \u2014 with containment recommended for human approval and dismiss/close gated by permission rules.",
   "author": {
     "name": "Exabeam",

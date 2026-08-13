@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL_DIR = ROOT / "skills" / "soc-investigate"
+SKILL_DIR = ROOT / "plugin" / "skills" / "soc-investigate"
 SKILL_NAME = "soc-investigate"
 
 
@@ -30,9 +30,9 @@ SKILL_NAME = "soc-investigate"
 def _load(path):
     return json.loads((ROOT / path).read_text())
 
-PLUGIN = _load(".claude-plugin/plugin.json")
-MCP = _load(".mcp.json")
-SETTINGS = _load("skills/soc-investigate/settings.snippet.json")
+PLUGIN = _load("plugin/.claude-plugin/plugin.json")
+MCP = _load("plugin/.mcp.json")
+SETTINGS = _load("plugin/skills/soc-investigate/settings.snippet.json")
 PERMS = SETTINGS["permissions"]
 ALLOW, ASK, DENY = PERMS["allow"], PERMS["ask"], PERMS["deny"]
 
@@ -158,7 +158,7 @@ def test_write_tools_are_exactly_the_arg1_family():
 
 def test_readme_version_badge_matches_plugin():
     """The README's static version pill must track plugin.json so it can't go stale."""
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "plugin" / "README.md").read_text()
     m = re.search(r"img\.shields\.io/badge/(?:version|release)-v([0-9]+\.[0-9]+\.[0-9]+)-", readme)
     if not m:  # no version pill present — nothing to keep in sync
         pytest.skip("no version badge in README")
@@ -176,9 +176,9 @@ def test_no_in_repo_marketplace():
     socxen@socxen install path or collide with the community marketplace's
     name (a duplicate name silently REPLACES another marketplace — this
     overwrote praxen once). The plugin manifest itself must stay."""
-    assert not (ROOT / ".claude-plugin/marketplace.json").exists(), (
-        "unexpected .claude-plugin/marketplace.json — socxen installs via "
-        "open-agent-ai-security/plugins; see docs/installation.md")
+    assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (
+        "unexpected plugin/.claude-plugin/marketplace.json — socxen installs via "
+        "open-agent-ai-security/plugins; see plugin/docs/installation.md")
     assert PLUGIN["name"] == "socxen"
 
 
@@ -239,7 +239,7 @@ def test_skill_frontmatter_is_valid():
 def test_source_files_carry_spdx_headers():
     """Every source/doc file (.py/.sh/.md) must open with the Apache-2.0 copyright + SPDX
     header, so license coverage can't regress as files are added. security/redteam/results/
-    (committed run records, generated) is exempt."""
+    and security/praxen/results/ (committed run records, generated) are exempt."""
     SKIP_DIRS = {".git", ".claude", "local", "__pycache__", ".pytest_cache", "node_modules"}
     missing = []
     for pattern in ("*.py", "*.sh", "*.md"):
@@ -247,7 +247,8 @@ def test_source_files_carry_spdx_headers():
             rel = p.relative_to(ROOT)
             if SKIP_DIRS & set(rel.parts):
                 continue
-            if rel.parts[:3] == ("security", "redteam", "results"):
+            if rel.parts[:3] in {("security", "redteam", "results"),
+                                 ("security", "praxen", "results")}:
                 continue
             head = "\n".join(p.read_text().splitlines()[:15])
             if "SPDX-License-Identifier: Apache-2.0" not in head:

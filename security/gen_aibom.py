@@ -10,7 +10,7 @@ small MCP connector, running on a hosted foundation model (Claude) and calling t
 MCP. Model-card AI-BOM tools (which ingest a Hugging Face model id) can't describe that, so we assemble
 a CycloneDX AI-BOM directly from what socxen actually ships:
 
-  - the root component (this plugin) from .claude-plugin/plugin.json,
+  - the root component (this plugin) from plugin/.claude-plugin/plugin.json,
   - the foundation model (Claude) as an external machine-learning-model component,
   - the system prompt / methodology (SKILL.md + reference corpus) as a `data` component,
   - the connector's Python dependencies (PEP 723) as `library` components,
@@ -78,11 +78,11 @@ DEP_LICENSES = {
 # ---------- build the BOM ----------
 
 def build_bom(timestamp):
-    plugin = _json(".claude-plugin/plugin.json")
-    mcp = _json(".mcp.json")
-    perms = _json("skills/soc-investigate/settings.snippet.json")["permissions"]
-    deps, requires_python = _pep723("connector/exabeam-mcp-bridge.py")
-    toolmap = (ROOT / "skills/soc-investigate/reference/tool-map.md").read_text()
+    plugin = _json("plugin/.claude-plugin/plugin.json")
+    mcp = _json("plugin/.mcp.json")
+    perms = _json("plugin/skills/soc-investigate/settings.snippet.json")["permissions"]
+    deps, requires_python = _pep723("plugin/connector/exabeam-mcp-bridge.py")
+    toolmap = (ROOT / "plugin/skills/soc-investigate/reference/tool-map.md").read_text()
     tool_count = len(set(re.findall(r"\bexabeam_[a-z_]+", toolmap)))
     mcp_server = next(iter(mcp["mcpServers"]))  # "exabeam"
 
@@ -147,7 +147,7 @@ def build_bom(timestamp):
             "bom-ref": "component:exabeam-mcp-bridge",
             "type": "application",
             "name": "exabeam-mcp-bridge",
-            "description": ("Bundled local stdio MCP connector (connector/exabeam-mcp-bridge.py). Forwards "
+            "description": ("Bundled local stdio MCP connector (plugin/connector/exabeam-mcp-bridge.py). Forwards "
                             "to the remote Exabeam New-Scale MCP and auto-refreshes the OAuth token. "
                             "Read-through; handles the API key/secret."),
             "licenses": lic,
@@ -178,7 +178,7 @@ def build_bom(timestamp):
         "name": "Exabeam New-Scale MCP",
         "description": (f"External tool surface reached through the bundled connector: {tool_count} tools "
                         "(Threat Center, Search, detection rules, context tables) and NO containment "
-                        "capability. Registered via .mcp.json as a bundled MCP server."),
+                        "capability. Registered via plugin/.mcp.json as a bundled MCP server."),
         "endpoint": "https://api.<region>.exabeam.cloud/mcp",
         "authenticated": True,
         "x-trust-boundary": True,

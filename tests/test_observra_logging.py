@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the structured agent-telemetry shim (connector/observra_logging.py).
+"""Deterministic tests for the structured agent-telemetry shim (plugin/connector/observra_logging.py).
 
 Four things matter and all are tested without a network:
   * DEFAULT ON — logging runs unless explicitly SOCXEN_OBSERVRA=off. A production agent keeps an audit trail.
@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "connector"))
+sys.path.insert(0, str(ROOT / "plugin" / "connector"))
 
 
 def _fresh(monkeypatch, env):
@@ -37,7 +37,7 @@ def _fresh(monkeypatch, env):
     for key, val in env.items():
         monkeypatch.setenv(key, val)
     spec = importlib.util.spec_from_file_location(
-        f"obslog_{abs(hash(frozenset(env.items())))}", ROOT / "connector" / "observra_logging.py")
+        f"obslog_{abs(hash(frozenset(env.items())))}", ROOT / "plugin" / "connector" / "observra_logging.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -174,17 +174,16 @@ def test_single_emit_failure_does_not_disable_the_whole_trail(monkeypatch, tmp_p
     t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(out)})
     assert t.enabled() is True
 
-    real_q = t._state["queue"]
+    real_emit = t._state["emit"]
     calls = {"n": 0}
 
-    class FlakyQueue:                       # raises on the first put, delegates after
-        def put_nowait(self, item):
-            calls["n"] += 1
-            if calls["n"] == 1:
-                raise RuntimeError("transient queue-full")
-            real_q.put_nowait(item)
+    def flaky_emit(event_type, **kw):       # raises on the first call, delegates after
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient emit fault")
+        real_emit(event_type, **kw)
 
-    t._state["queue"] = FlakyQueue()
+    t._state["emit"] = flaky_emit
     t.tool_start("exabeam_search_alerts")   # this emit fails...
     assert t.enabled() is True              # ...but logging is NOT disabled
     t.tool_end("exabeam_search_alerts", 5.0)  # a later emit still lands

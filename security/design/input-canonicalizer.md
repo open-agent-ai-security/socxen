@@ -9,7 +9,7 @@
 
 ## What's built vs. deferred (authoritative — PR #32)
 
-The **shipped core** (`connector/canonicalize.py`, ~110 lines, one dependency: `regex`) is deliberately narrow:
+The **shipped core** (`plugin/connector/canonicalize.py`, ~110 lines, one dependency: `regex`) is deliberately narrow:
 
 - **Strip** the invisible/format layer — `regex` `\p{Cf} ∪ \p{Default_Ignorable_Code_Point} ∪ \p{Cc} ∪ \p{Cs}`,
   minus `\t\n\r` and the carve-out kept for legit text (ZWJ/ZWNJ, LRM/RLM/ALM, emoji variation selectors
