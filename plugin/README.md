@@ -103,19 +103,12 @@ install.sh               convenience installer (idempotent)
 
 ## How it's tested
 
-Claims about agent safety are worth what the testing behind them is worth, so the testing is public
-and every release is gated on it:
-
-- **[Red team](https://github.com/open-agent-ai-security/socxen/tree/main/security/redteam)** —
-  prompt-injection fixtures run against a live model and graded on whether the attack *landed*, not on
-  whether the model sounded cautious. The gate runs the **weakest supported model** as the conservative
-  floor; the 0.7.0 run resisted 50 of 50 trials across 10 attack families. Per-run results and the
-  known residuals are in
-  [`HISTORY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md).
-- **[Agent-behavior verification](https://github.com/open-agent-ai-security/socxen/tree/main/security/praxen)**
-  — an independent scan of the agent's own surface; no release ships with an open Critical finding.
-- **[Regression evals](https://github.com/open-agent-ai-security/socxen/tree/main/evals)** — worked
-  investigations replayed to catch methodology drift.
+Claims about agent safety are worth what the testing behind them is worth, so the testing is public and
+every release is gated on it: socxen is **red-teamed** with prompt-injection fixtures run against a live
+model — graded on whether the attack *landed*, not on whether the model sounded cautious — and
+**behavior-verified** against a declared policy, with no release shipping on an open Critical finding.
+Methodology, per-run results and the known residuals:
+**[security/](https://github.com/open-agent-ai-security/socxen/tree/main/security)**.
 
 ## Status
 
