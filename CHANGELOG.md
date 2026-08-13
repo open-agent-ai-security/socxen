@@ -8,6 +8,36 @@
 Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [Unreleased]
+
+### Fixed
+- **The governance check now looks at the settings file Claude Code actually reads.** `install.sh`
+  hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
+  from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
+  effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
+  would merge the gate into a file that never takes effect. The path now resolves as
+  `SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` → `~/.claude/settings.json`, and every
+  message names the resolved path instead of a hardcoded one. (#70)
+
+### Added
+- **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
+  warn about it.** The gate has always been opt-in on every install path: `install.sh` verified the
+  merge and warned loudly when it was missing, but nothing ever *performed* it, so the shipped default
+  was "gate OFF until the operator hand-edits `~/.claude/settings.json`" and the installer was a
+  detection control rather than an enforcement one. The new flag merges
+  `skills/soc-investigate/settings.snippet.json` for you, and an interactive run whose gate reads OFF
+  now offers to do it after showing exactly which rules it would add.
+
+  Consent is preserved, deliberately: nothing merges by default, and `-y` does **not** authorise it —
+  "assume yes" answers the installer's own questions, it does not license a write to your settings.
+  The merge backs up `settings.json` first (timestamped, same permissions as the original), is
+  additive-only, refuses outright when a rule already sits in a different tier than the snippet
+  specifies (your intent wins — it writes nothing and reports what to resolve), restores from the
+  backup if a write fails, and is idempotent. It is verified afterwards by the pre-existing `gate_on()`
+  check, so a merge that somehow doesn't produce a working gate is never reported green. Without
+  `python3` or the snippet it reports "cannot merge, here's the manual path" — the same
+  "cannot verify ≠ OFF" discipline the gate check already used. (#70)
+
 ## [0.6.9] — 2026-08-12
 
 Permission-pack hardening from the 2026-08-12 Praxen behavior audit. The plugin's runtime behavior is
@@ -23,6 +53,7 @@ unchanged; what changes is the shipped `deny` tier in the governance snippet.
   enforced by a repo invariant test that derives the exact expected rule set (verified to fail red on
   the old snippet), and the red-team harness's containment deny got the same both-spellings fix.
   Found by the Praxen 1.3.0 behavior audit. (#72, #74)
+
 
 ## [0.6.8] — 2026-08-05
 
