@@ -153,7 +153,12 @@ def _parse(stdout, attack_id, model):
         # trusting the requested name) means an alias can never produce an unattributable artifact (#76).
         if ev_.get("type") == "system" and ev_.get("subtype") == "init" and ev_.get("model"):
             resolved = ev_["model"]
-        blocks = (ev_.get("message", {}) or {}).get("content", []) or []
+        # Be defensive about event SHAPE, not just event type. The CLI's stream carries lines whose
+        # "message" is a plain STRING (error/notice events, e.g. an MCP server failing to reconnect) —
+        # calling .get() on those raised AttributeError, which the per-trial guard degraded to a whole
+        # ERRORED trial. A stray notice must cost us nothing; only real drive failures should.
+        msg = ev_.get("message")
+        blocks = (msg.get("content") if isinstance(msg, dict) else None) or []
         if isinstance(ev_.get("event"), dict):
             blocks = blocks or [ev_["event"].get("content_block", {})]
         for b in blocks if isinstance(blocks, list) else []:
