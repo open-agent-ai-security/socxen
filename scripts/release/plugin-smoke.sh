@@ -143,6 +143,15 @@ echo "leg 3: governance merge (--merge-permissions) into a throwaway settings.js
 # REAL ~/.claude/settings.json, and a release smoke that edits the maintainer's live governance
 # config on every run is worse than no smoke. The containment is asserted, not assumed — the real
 # file's digest is compared before and after, and a "PASS" that quietly rewrote it fails here.
+#
+# Deliberately NOT the version_at() probe pattern: falling back to a root install.sh would run a
+# PRE-#70 installer that has no --merge-permissions at all, so the leg would "pass" having tested
+# nothing. A release whose current ref predates the plugin/ layout can't run this leg, and must say
+# so plainly rather than surfacing a file-not-found as an installer regression.
+if [ ! -x "${WT_CURRENT}/plugin/install.sh" ]; then
+  echo "  FAIL: current release (origin/main) predates the plugin/ layout — leg 3 needs a main at >=0.7.0; run after the promotion" >&2
+  exit 1
+fi
 SMOKE_SETTINGS="${SCRATCH}/settings.json"
 CFG3="${SCRATCH}/config-governance"; mkdir -p "${CFG3}"
 REAL_SETTINGS="${HOME}/.claude/settings.json"
