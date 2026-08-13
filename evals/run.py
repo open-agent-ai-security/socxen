@@ -32,9 +32,17 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
 EVALS = ROOT / "evals"
-FIXTURE_DIR = ROOT / "skills" / "soc-investigate" / "reference" / "examples"
+# Fixtures live under reference/ — the core examples dir and each backend's examples dir.
+FIXTURE_ROOT = ROOT / "skills" / "soc-investigate" / "reference"
 RUNS_DIR = EVALS / "runs"
 SCHEMA = json.loads((EVALS / "schema.json").read_text())
+
+# The raw-event search tool(s) per backend — the pivot check confirms one was actually run.
+SEARCH_TOOLS_BY_BACKEND = {
+    "new-scale": ["exabeam_search_events"],
+    "lr-siem": ["search_logs", "search_logs_by_common_event", "search_logs_by_classification",
+                "search_aie_events_for_alarm"],
+}
 
 # Writes that a dry-run eval must never let the skill call. Bare (server-stripped) names;
 # matched against tool calls by suffix so any MCP prefix works.
@@ -125,13 +133,15 @@ def grade_deterministic(fx, run):
         add("mitre", SCORED, bool(overlap),
             f"expected any of {exp['mitre']}; matched {overlap or 'none'}")
 
-    # 3) primary pivot: value cited AND an events search was actually run
+    # 3) primary pivot: value cited AND a raw-event search was actually run (per backend)
     piv = exp.get("primary_pivot")
     if piv:
+        backend = fx.get("backend", "new-scale")
+        search_tools = SEARCH_TOOLS_BY_BACKEND.get(backend, SEARCH_TOOLS_BY_BACKEND["new-scale"])
         val_cited = norm(piv["value"]) in report_lc
-        searched = called(tool_calls, "exabeam_search_events")
+        searched = any(called(tool_calls, t) for t in search_tools)
         add("pivot", SCORED, val_cited and searched,
-            f"{piv['type']} {piv['value']}: cited={val_cited}, search_events called={searched}")
+            f"{piv['type']} {piv['value']}: cited={val_cited}, search-tool called={searched}")
 
     # 4) must_cite evidence (>=60% of phrases present)
     if exp.get("must_cite"):
@@ -252,7 +262,7 @@ def run_live(fx, model, max_turns):
 
 def load_fixtures(ids):
     out = []
-    for f in sorted(FIXTURE_DIR.glob("*.fixture.json")):
+    for f in sorted(FIXTURE_ROOT.rglob("*.fixture.json")):
         fx = json.loads(f.read_text())
         if ids and fx.get("id") not in ids:
             continue

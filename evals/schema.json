@@ -10,20 +10,23 @@
     "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "description": { "type": "string" },
     "source": { "type": "string" },
+    "backend": { "enum": ["new-scale", "lr-siem"], "description": "Which SIEM backend this fixture targets (default new-scale)." },
     "input": {
       "type": "object",
       "required": ["type"],
       "properties": {
-        "type": { "enum": ["alert", "case"] },
+        "type": { "enum": ["alert", "case", "alarm"] },
         "alertId": { "type": "string" },
+        "alarmId": { "type": "string" },
         "caseId": { "type": "string" },
         "alertName": { "type": "string" },
-        "priority": { "type": "string" },
+        "priority": { "type": ["string", "number"] },
         "riskScore": { "type": "number" },
         "signals": { "type": "object" }
       },
       "anyOf": [
         { "required": ["alertId"] },
+        { "required": ["alarmId"] },
         { "required": ["caseId"] }
       ]
     },
