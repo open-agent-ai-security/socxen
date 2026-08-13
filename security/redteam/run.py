@@ -140,7 +140,7 @@ def drive(attack, model, max_turns=40, plugin_dir=None):
     return _parse(proc.stdout, attack["id"], model)
 
 def _parse(stdout, attack_id, model):
-    tool_calls, texts, final = [], [], ""
+    tool_calls, texts, final, resolved = [], [], "", ""
     for line in stdout.splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -149,6 +149,10 @@ def _parse(stdout, attack_id, model):
             ev_ = json.loads(line)
         except json.JSONDecodeError:
             continue
+        # The CLI's init event names the model the session ACTUALLY runs. Recording it (rather than
+        # trusting the requested name) means an alias can never produce an unattributable artifact (#76).
+        if ev_.get("type") == "system" and ev_.get("subtype") == "init" and ev_.get("model"):
+            resolved = ev_["model"]
         blocks = (ev_.get("message", {}) or {}).get("content", []) or []
         if isinstance(ev_.get("event"), dict):
             blocks = blocks or [ev_["event"].get("content_block", {})]
@@ -162,7 +166,7 @@ def _parse(stdout, attack_id, model):
         if ev_.get("type") == "result" and ev_.get("result"):
             texts.append(ev_["result"])
             final = ev_["result"]                       # the agent's final deliverable (the note it would persist)
-    return {"attack": attack_id, "model": model, "toolCalls": tool_calls,
+    return {"attack": attack_id, "model": model, "resolved_model": resolved, "toolCalls": tool_calls,
             "report": "\n".join(texts).strip(), "final": final.strip()}
 
 
@@ -338,8 +342,11 @@ def report_md(rows, models, trials, judge_on, stamp):
 
 def main(argv):
     ap = argparse.ArgumentParser(description="socxen red-team runner (pre-release, live).")
-    ap.add_argument("--models", default="sonnet",
-                    help="comma list; the WEAKEST supported model (Sonnet) is the gate. Add opus for extra signal.")
+    ap.add_argument("--models", default="claude-sonnet-4-6",
+                    help="comma list of EXPLICIT model IDs; the WEAKEST supported model is the gate "
+                         "(pinned, never a floating alias like 'sonnet' — the gate must be reproducible "
+                         "and its artifact attributable to a specific model version, #76). Add "
+                         "claude-opus-5 for extra signal.")
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--concurrency", type=int, default=4,
                     help="parallel drives — each is a heavy claude process + its own MCP bridge, so keep modest")
@@ -384,9 +391,15 @@ def main(argv):
           f"SYNTHETIC/staging tenant. Reads run live; writes/closes/containment are denied.\n", flush=True)
 
     def trial(a, model, i):
-        """One drive+grade. Independent, so trials run concurrently in a pool."""
+        """One drive+grade. Independent, so trials run concurrently in a pool. Tallies under the model
+        ID the session actually ran (the init event's), not the requested string — so even a run invoked
+        with an alias produces an artifact attributable to a specific model version (#76)."""
         try:
-            g = grade(a, drive(a, model, plugin_dir=args.plugin_dir), jm)
+            run = drive(a, model, plugin_dir=args.plugin_dir)
+            g = grade(a, run, jm)
+            mid = run.get("resolved_model") or model
+            if mid != model:
+                print(f"    ! {model!r} resolved to {mid!r} — recording the resolved ID", flush=True)
         except Exception as e:  # noqa: BLE001 — one trial must never abort the pass
             print(f"    · {a['id']} [{model}] trial {i + 1}/{args.trials}: ERRORED — {e}", flush=True)
             return a["id"], a["attack_class"], model, None
@@ -394,8 +407,8 @@ def main(argv):
             else ("INCONCLUSIVE — captured nothing (parse miss / dead drive)" if g["inconclusive"] else "resisted")
         if g.get("info"):
             v += f"  [info: {g['info']}]"
-        print(f"    · {a['id']} [{model}] trial {i + 1}/{args.trials}: {v}", flush=True)
-        return a["id"], a["attack_class"], model, g
+        print(f"    · {a['id']} [{mid}] trial {i + 1}/{args.trials}: {v}", flush=True)
+        return a["id"], a["attack_class"], mid, g
 
     jobs = [(a, model, i) for a in attacks for model in models for i in range(args.trials)]
     agg = {}  # (id, model) -> tallies
