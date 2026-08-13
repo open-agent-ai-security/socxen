@@ -40,7 +40,10 @@ def fail(msg):
 
 
 def _sub_once(text, pattern, repl, what):
-    new, n = re.subn(pattern, repl, text, count=1)
+    # No `count` cap, deliberately: capping at 1 would make re.subn report at most 1, so the guard
+    # below could only ever catch ZERO matches and a second occurrence would survive un-edited. Every
+    # edit is computed before anything is written, so failing here aborts with no file touched.
+    new, n = re.subn(pattern, repl, text)
     if n != 1:
         fail(f"{what}: expected exactly 1 match, found {n} — file layout may have changed")
     return new
