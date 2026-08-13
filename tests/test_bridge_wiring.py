@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Deterministic tests for the bridge GUARDRAIL WIRING (connector/exabeam-mcp-bridge.py).
+"""Deterministic tests for the bridge GUARDRAIL WIRING (plugin/connector/exabeam-mcp-bridge.py).
 
 There were no bridge-wiring tests before; PR #36's adversarial review exposed the gap. These cover the
 wiring findings: field-aware write defang (IDs/enums untouched), fail-CLOSED writes, hygiene-record
