@@ -12,6 +12,8 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
+> ### It works your alert queue. You keep the verdict.
+
 > ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
 > provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
 > for production SOC operations or point it at alerts whose disposition matters without a human
@@ -25,16 +27,18 @@ Claude Code permission rules *and* the skill asking you first — never left to 
 
 ## Highlights
 
-- ⚡ **One-command install** from the Claude Code plugin marketplace — the Exabeam connection is *bundled*
-  and auto-registers (no `claude mcp add`, no expiring tokens to babysit).
 - 🔍 **End-to-end investigation** on the real Exabeam read surface — events, alerts/cases, threat
-  timelines, rule details, MITRE coverage, context tables — with a disciplined verdict bar.
+  timelines, rule details, MITRE coverage, context tables — with a disciplined verdict bar: a
+  false-positive close requires a *positive* benign explanation, never merely "I found nothing."
 - 🔒 **Safety-first by design** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
   you switch on during setup; containment is *recommended* to a human, never executed.
+- 🛡️ **Untrusted-telemetry guardrails, always on** — log data is attacker-influenced by construction, so
+  socxen treats it that way: it strips hidden-character smuggling from what it reads, and de-activates
+  dangerous content (formulas, clickable links) in what it writes back.
 - 🧾 **High-performance audit logging, on by default** — a structured, bounded, privacy-preserving record
   of every action and every time a guardrail fired. ~16 µs/event, non-blocking, local.
-- 🛡️ **Untrusted-telemetry guardrails, always on** — strips hidden-character smuggling from what it reads,
-  de-activates dangerous content (formulas, clickable links) in what it writes.
+- ⚡ **One-command install** from the Claude Code plugin marketplace — the Exabeam connection is *bundled*
+  and auto-registers (no `claude mcp add`, no expiring tokens to babysit).
 
 ## Quick start
 
@@ -85,6 +89,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 | **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
 | **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
 | **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
+| **[Architecture](https://github.com/open-agent-ai-security/socxen#how-its-built)** | how the layers fit together — methodology, capability, authority, guardrails, evidence — and why they're separate |
 | **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](https://github.com/open-agent-ai-security/socxen/tree/main/evals). |
 
 ## Layout
@@ -98,13 +103,28 @@ docs/                    installation · security-guardrails · logging
 install.sh               convenience installer (idempotent)
 ```
 
+## How it's tested
+
+Claims about agent safety are worth what the testing behind them is worth, so the testing is public and
+every release is gated on it: socxen is **red-teamed** with prompt-injection fixtures run against a live
+model — graded on whether the attack *landed*, not on whether the model sounded cautious — and
+**behavior-verified** against a declared policy, with no release shipping on an open Critical finding.
+Methodology, per-run results and the known residuals:
+**[security/](https://github.com/open-agent-ai-security/socxen/tree/main/security)**.
+
 ## Status
 
 Pre-release, for evaluation — validated end-to-end against a live Exabeam staging MCP
 (install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
-playbook, a worked investigation, and a regression harness (`evals/`). The version badge above and
-`CHANGELOG.md` track the current release; run `claude plugin list` for your installed version.
-Sharing with testers; feedback welcome.
+playbook, and a worked investigation. The version badge above and the
+[changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
+release; run `claude plugin list` for your installed version. Sharing with testers; feedback welcome.
+
+## Project sponsor
+
+socxen is sponsored by [Exabeam](https://www.exabeam.com/). Exabeam contributed the initial code and
+continues to provide ongoing support and contributions to the project as part of its commitment to
+security in an increasingly agentic world.
 
 ## License
 
