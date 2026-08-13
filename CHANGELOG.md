@@ -10,8 +10,32 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-No change to the shipped plugin — `plugin/` is byte-identical to 0.7.0. These are repo-side fixes that
-will ride the next version bump.
+Documentation and repo-side fixes awaiting the next version bump. The only change inside the shipped
+payload is `plugin/README.md`; no code, skill, connector or manifest changes.
+
+### Changed
+- **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
+  point but was written as a router to `plugin/README.md` — it offered copy-pasteable install commands
+  with **no pre-release warning and no governance-gate warning anywhere on the page**, so a reader
+  arriving from search could install and run with no hard dismiss/close gate, never having been told the
+  permission pack is mandatory. Both warnings are now on it, the gate warning adjacent to the install
+  commands. It also gains a five-layer architecture table (methodology / capability / authority /
+  guardrails / evidence) and a documentation index, while the detailed claims stay on the pages that
+  own them — `security/` for the release gates, `security-guardrails.md` for the threat model,
+  `SKILL.md` for the verdict bar.
+
+  Both READMEs now follow the org house style used by praxen and observra: a bold role descriptor under
+  the H1, a pull-quote hero, and a `## Project sponsor` block — the sponsorship was declared in
+  `plugin/NOTICE` but appeared in neither README. `plugin/README.md` stays the operator's guide, with
+  its highlights reordered so what it does leads and install trails, the guardrails entry naming the
+  threat before the mechanism, and its dangling bare `CHANGELOG.md` reference (that file does not ship
+  inside the plugin) replaced with an absolute link. (#96)
+
+- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
+  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
+  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
+  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
+  remain the authoritative record of what was found. (#94)
 
 ### Fixed
 - **`bump_version.py`'s duplicate-match guard can now actually fire.** `re.subn` was called with
@@ -20,13 +44,6 @@ will ride the next version bump.
   bumped and the second silently left stale, with the bumper reporting success. Removing the cap is
   safe because every edit is computed before any file is written. Adds the script's first tests.
   (#65, #85)
-
-### Changed
-- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
-  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
-  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
-  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
-  remain the authoritative record of what was found. (#94)
 
 ## [0.7.0] — 2026-08-13
 
