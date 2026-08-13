@@ -19,7 +19,8 @@ Events are written as newline-delimited JSON (one object per line) in the CIM-no
 **observra 1.1 or newer is required** (the bridge pins `observra>=1.1,<2`). socxen is not one of
 observra's built-in frameworks — the "agent" here is Claude Code driving a skill over an MCP bridge, so
 there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
-public `observra.emit()`, and the rotation bounds below pass straight through to the backend. On older
+public `observra.emit()`, and the rotation bounds below pass through to the backend (clamped to
+sane minimums). On older
 observra neither is available and logging disables itself.
 
 ## Exactly what is recorded
@@ -130,9 +131,11 @@ different responses:
   fault must not silently switch off a mandatory audit log for the rest of the session, so only a
   configuration-level failure disables. The drop is disclosed on stderr, never swallowed.
 
-observra's own warnings (a full queue, a backend write error) are routed to stderr too, prefixed
-`bridge: observra …`, so a dropped event is always visible to the operator rather than vanishing into a
-library logger. The security guardrails are independent and keep running throughout.
+observra's own **backend write errors** are routed to stderr too, prefixed `bridge: observra …`, so a
+failed write is visible rather than vanishing into a library logger. One gap worth knowing for an audit
+trail: if the internal queue fills, observra drops the oldest event and records it only in a counter
+(`observra_events_dropped_total`, readable via `observra.get_stats()`) at debug level — that drop is
+counted, not announced. The security guardrails are independent and keep running throughout.
 
 ## Turning it off
 

@@ -157,7 +157,7 @@ release channel**: whatever lands there reaches new installers immediately.
 
 **Cutting a release**
 
-1. Land all changes on `dev`. Run `python3 scripts/bump_version.py X.Y.Z` (bumps
+1. Land all changes on `dev`. Run `uv run scripts/bump_version.py X.Y.Z` (bumps
    `plugin.json`, the README pill, and regenerates the AI BOM), date the
    `CHANGELOG.md` entry by hand, commit to `dev`.
 2. Open the release PR `dev → main`; promote with a **merge commit** (never
@@ -200,7 +200,7 @@ release channel**: whatever lands there reaches new installers immediately.
   permission tiers and the containment deny-list in sync — the invariant tests
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
-- **Version bumps:** run **`python3 scripts/bump_version.py X.Y.Z`** — it updates
+- **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
   `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand
   instead, all three must match or CI fails — an invariant test guards the

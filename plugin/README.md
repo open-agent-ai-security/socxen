@@ -85,7 +85,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 | **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
 | **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
 | **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
-| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](../evals/). |
+| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](https://github.com/open-agent-ai-security/socxen/tree/main/evals). |
 
 ## Layout
 

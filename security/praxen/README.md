@@ -21,9 +21,9 @@ code, including controls no fixture has ever probed.
 
 > **socxen does not ship a release with an open Praxen Critical finding.**
 >
-> Before tagging, run a Praxen scan against the release candidate. **Any finding at
+> Before a release, run a Praxen scan against the release candidate. **Any finding at
 > `Critical` severity blocks the release** — it is either fixed, or explicitly waived in
-> writing by a maintainer with a rationale recorded in the PR, before the tag.
+> writing by a maintainer with a rationale recorded in the PR, before the release merge.
 >
 > High / Medium / Low findings do **not** block. They are triaged into issues and carried
 > in the normal backlog.
@@ -81,7 +81,7 @@ decision yet and are the live worklist.
 | 012 | Medium | No abandon-and-report rule after a refused approval | *Awaiting triage* — partly in #70 / #73's lap |
 | 013 | Low | CI actions pinned to mutable major tags, not commit SHAs | *Awaiting triage* |
 
-**Note on 001** — the merge instruction sits inside `if [ "$CREDS_OK" = 0 ]`
+**Note on 001** (updated 2026-08-13) — the merge instruction sits inside `if [ "$CREDS_OK" = 0 ]`
 (`plugin/install.sh:534`), so an install that *already has* credentials never prints it at all.
 **Largely addressed by #73** (unreleased at time of writing): the interactive offer to merge fires
 whenever the gate reads OFF, independent of credential state, so the common upgrade path is no

@@ -46,7 +46,7 @@ governance model (feature → `dev`, release `dev` → `main`).
   backup if a write fails, and is idempotent. It is verified afterwards by the pre-existing `gate_on()`
   check, so a merge that somehow doesn't produce a working gate is never reported green. Without
   `python3` or the snippet it reports "cannot merge, here's the manual path" — the same
-  "cannot verify ≠ OFF" discipline the gate check already used. (#70)
+  "cannot verify ≠ OFF" discipline the gate check already used. (#70, #73)
 
 - **Agent Behavior Verification is now a documented release gate.** `security/praxen/` carries a
   blind-authored **Worker Remit** (50 rules derived from the shipped docs, without sight of the
@@ -65,8 +65,8 @@ governance model (feature → `dev`, release `dev` → `main`).
 - **Telemetry moved off observra's private internals.** The audit shim now emits through the public
   `observra.emit()` API and passes its rotation bounds through `initialize()`, both first-class since
   observra 1.1 (the bridge pins `observra>=1.1,<2`). Two of the three private reach-ins are gone; the
-  remaining one is the exit drain, tracked upstream. observra's own warnings now surface on stderr, so
-  a dropped audit event is visible to the operator instead of vanishing into a library logger. (#71, #78)
+  remaining one is the underscore-level exit drain, tracked upstream. observra's own backend write
+  errors now surface on stderr instead of vanishing into a library logger. (#71, #78)
 
 ## [0.6.9] — 2026-08-12
 

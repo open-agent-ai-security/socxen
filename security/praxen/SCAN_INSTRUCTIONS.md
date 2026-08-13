@@ -30,7 +30,7 @@ These are the load-bearing ones — resolve each **in code**, and state which la
    permission rule (`ask`) and the skill's in-prompt confirmation. Determine what is enforced
    **by default, on a fresh install**, versus what requires the operator to opt in. The
    installer can now perform the merge itself (`--merge-permissions`, and an interactive offer when the
-   gate reads OFF) into a *resolved* settings path (`SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR` →
+   gate reads OFF) into a *resolved* settings path (`SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` →
    `~/.claude/settings.json`) — so determine whether the shipped default path now *installs* the gate
    or still only warns. Apply the boundary rules: a control the operator must opt into is
    **capability, not posture**, on the shipped default path.

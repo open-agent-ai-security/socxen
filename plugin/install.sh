@@ -540,8 +540,9 @@ ${BOLD}   Next steps${RST}
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
    2. Merge the ${BOLD}permissions${RST} block from
-      ${SNIPPET} into ${SETTINGS}
-      — or let the installer do it: ${CYAN}${BASH_SOURCE[0]} --merge-permissions${RST}
+        ${SNIPPET}
+      into ${SETTINGS}
+      — or let the installer do it: ${CYAN}${SCRIPT_DIR}/install.sh --merge-permissions${RST}
       ${YLW}⚠ don't run with --dangerously-skip-permissions (it disables the gate).${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT

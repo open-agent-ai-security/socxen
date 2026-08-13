@@ -119,8 +119,9 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > mandatory, not "recommended."
 
 This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
-`plugin/skills/soc-investigate/settings.snippet.json` into the settings file Claude Code reads
-(usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
+`skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
+`plugin/skills/soc-investigate/settings.snippet.json` from a clone — into the settings file Claude Code
+reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
 
 - **allow** the read + escalation tools,
 - **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
@@ -160,7 +161,8 @@ What it guarantees:
 - **Fails honestly** — no `python3`, or a snippet it can't find, means "cannot merge, here's the manual
   path," never a false green. A failed write is restored from the backup.
 
-The merge itself is `plugin/skills/soc-investigate/merge_permissions.py`, which you can also run directly —
+The merge itself is `skills/soc-investigate/merge_permissions.py` (`plugin/skills/…` from a clone),
+which you can also run directly —
 add `--dry-run` to see the exact changes without writing anything.
 
 ### Which settings file?
