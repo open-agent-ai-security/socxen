@@ -10,25 +10,6 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-### Changed
-- **Only the plugin payload ships now — the repo's build-time material stays behind.** Everything
-  Claude Code installs moved under `plugin/` (connector, skill, docs, installer, manifests) and the
-  marketplace entry loads it as a git subdirectory, so a user's plugin cache no longer receives the
-  test suite, the eval corpus, the release scripts, or `security/` — which included the red-team
-  **attack payloads**. Two consequences worth knowing: the clone-and-run command is now
-  `./plugin/install.sh`, and this release is the first whose marketplace source is `git-subdir`
-  (`path: plugin`), a paired change with the community marketplace index. (#29, #66 —
-  thanks @mattwillems-exabeam)
-
-### Fixed
-- **The governance check now looks at the settings file Claude Code actually reads.** `plugin/install.sh`
-  hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
-  from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
-  effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
-  would merge the gate into a file that never takes effect. The path now resolves as
-  `SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` → `~/.claude/settings.json`, and every
-  message names the resolved path instead of a hardcoded one. (#70)
-
 ### Added
 - **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
   warn about it.** The gate has always been opt-in on every install path: `plugin/install.sh` verified the
@@ -60,6 +41,25 @@ governance model (feature → `dev`, release `dev` → `main`).
   packages) by hash — `uv run` picks it up automatically, so a fresh install resolves the same tree
   the maintainers tested. This closes the class of breakage that took out 0.6.8, where an unbounded
   `mcp>=1.0` let a major release land on every new install. (#71, #78)
+
+### Changed
+- **Only the plugin payload ships now — the repo's build-time material stays behind.** Everything
+  Claude Code installs moved under `plugin/` (connector, skill, docs, installer, manifests) and the
+  marketplace entry loads it as a git subdirectory, so a user's plugin cache no longer receives the
+  test suite, the eval corpus, the release scripts, or `security/` — which included the red-team
+  **attack payloads**. Two consequences worth knowing: the clone-and-run command is now
+  `./plugin/install.sh`, and this release is the first whose marketplace source is `git-subdir`
+  (`path: plugin`), a paired change with the community marketplace index. (#29, #66 —
+  thanks @mattwillems-exabeam)
+
+### Fixed
+- **The governance check now looks at the settings file Claude Code actually reads.** `plugin/install.sh`
+  hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
+  from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
+  effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
+  would merge the gate into a file that never takes effect. The path now resolves as
+  `SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` → `~/.claude/settings.json`, and every
+  message names the resolved path instead of a hardcoded one. (#70)
 
 ### Security
 - **Telemetry moved off observra's private internals.** The audit shim now emits through the public
