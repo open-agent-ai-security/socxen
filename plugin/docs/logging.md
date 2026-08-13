@@ -16,6 +16,12 @@ It runs inside the local MCP bridge — the one place that sees every Exabeam ca
 [**observra**](https://open-agent-ai-security.github.io/observra/), an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.
 
+**observra 1.1 or newer is required** (the bridge pins `observra>=1.1,<2`). socxen is not one of
+observra's built-in frameworks — the "agent" here is Claude Code driving a skill over an MCP bridge, so
+there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
+public `observra.emit()`, and the rotation bounds below pass straight through to the backend. On older
+observra neither is available and logging disables itself.
+
 ## Exactly what is recorded
 
 **One event per tool call**, plus a session marker at each end:
@@ -115,9 +121,18 @@ Events from one investigation share a `session_id`, so you can reconstruct a run
 
 ## Fail-open
 
-Logging is best-effort and can never break or slow an investigation. If observra is unavailable, a backend
-is misconfigured, or an event fails to emit, telemetry **disables itself** (a one-line stderr note) and the
-bridge carries on exactly as if logging were off. The security guardrails are independent and keep running.
+Logging is best-effort and can never break or slow an investigation. Two different failures, two
+different responses:
+
+- **Configuration-level** — observra is unavailable or a backend is misconfigured. Telemetry
+  **disables itself** (a one-line stderr note) and the bridge carries on exactly as if logging were off.
+- **A single event failing to emit** — that one event is **dropped and the trail stays on**. A transient
+  fault must not silently switch off a mandatory audit log for the rest of the session, so only a
+  configuration-level failure disables. The drop is disclosed on stderr, never swallowed.
+
+observra's own warnings (a full queue, a backend write error) are routed to stderr too, prefixed
+`bridge: observra …`, so a dropped event is always visible to the operator rather than vanishing into a
+library logger. The security guardrails are independent and keep running throughout.
 
 ## Turning it off
 

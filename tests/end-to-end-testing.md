@@ -45,7 +45,7 @@ The already-running MCP is fine.
 2. **Stage your working-tree connector into the cache** (back up first so you can restore):
    ```bash
    cp "$CACHE/exabeam-mcp-bridge.py" "$CACHE/exabeam-mcp-bridge.py.bak"
-   cp plugin/connector/*.py "$CACHE/"
+   cp plugin/connector/*.py plugin/connector/*.lock "$CACHE/"   # the .lock too, or uv resolves a different tree
    ```
 
 3. **Boot-check before you throw away your session.** This resolves the bridge's PEP-723 deps

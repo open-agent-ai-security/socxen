@@ -15,14 +15,19 @@ document describes how to report one privately, what is in scope, and what to ex
 
 - The `soc-investigate` skill — the methodology, governance rules, and reference
   material in `plugin/skills/soc-investigate/` (`SKILL.md`, `reference/`).
-- The **governance surface**: `settings.snippet.json` (the permission tiers) and
-  `reference/containment-tools.md` (the deny-list) — anything that could silently
-  un-gate a dismiss/close or a containment-class tool.
+- The **governance surface**: `settings.snippet.json` (the permission tiers),
+  `reference/containment-tools.md` (the deny-list), and
+  `plugin/skills/soc-investigate/merge_permissions.py` (the only code that *writes* to your
+  settings file) — anything that could silently un-gate a dismiss/close or a containment-class
+  tool, or merge a gate that doesn't take effect.
 - The connector bridge `plugin/connector/exabeam-mcp-bridge.py` — especially OAuth
   token/secret handling and the stdio forwarding path.
 - The eval harness `evals/` and its HARD safety gates.
 - The plugin manifests (`plugin/.claude-plugin/*.json`), the bundled `plugin/.mcp.json`, and
   `plugin/install.sh`.
+- The connector's dependency pinning — the bounded PEP 723 header and the hash-pinned
+  `plugin/connector/exabeam-mcp-bridge.py.lock` (supply-chain integrity of what a fresh install
+  resolves).
 
 Examples of in-scope issues: a prompt-injection carried in ingested alert/event
 data that flips a verdict or **bypasses the human dismiss/close gate**; a flaw that

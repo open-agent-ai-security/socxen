@@ -114,7 +114,7 @@ an accidental squash promotion before it accumulates.
 
 ### Release gates
 
-Two assurance gates run before a tag. Both are **documented gates a human runs**, not CI
+Two assurance gates run before a release. Both are **documented gates a human runs**, not CI
 checks — each is an agentic, judgment-based analysis rather than a deterministic test, so
 neither belongs in a workflow that must go green on every push.
 
@@ -124,7 +124,7 @@ neither belongs in a workflow that must go green on every push.
 | **Agent Behavior Verification** | Any **Critical** finding in a Praxen scan of the release candidate | [`security/praxen/README.md`](security/praxen/README.md#the-release-gate) |
 
 A blocking finding from either gate is **fixed, or explicitly waived in writing by a
-maintainer with a rationale recorded in the PR**, before the tag. High / Medium / Low
+maintainer with a rationale recorded in the PR**, before the release merge. High / Medium / Low
 Praxen findings do not block; they are triaged into issues and carried in the backlog.
 
 Both gates want a **dated artifact** committed alongside the result — `security/redteam/results/`
@@ -193,17 +193,24 @@ release channel**: whatever lands there reaches new installers immediately.
   These are deterministic, no-credential invariant checks; CI runs them on every
   PR and **must be green** to merge.
 - **Governance-sensitive changes get extra scrutiny.** If you touch
-  `plugin/skills/soc-investigate/settings.snippet.json`, `reference/containment-tools.md`,
-  `reference/tool-map.md`, or the Governance section of `SKILL.md`, keep the
+  `plugin/skills/soc-investigate/settings.snippet.json`,
+  `plugin/skills/soc-investigate/reference/containment-tools.md`,
+  `plugin/skills/soc-investigate/reference/tool-map.md`, or the Governance section of
+  `plugin/skills/soc-investigate/SKILL.md`, keep the
   permission tiers and the containment deny-list in sync — the invariant tests
   enforce this (dismiss/close stays in `ask`, containment stays denied and matches
   the doc). Call out the governance impact in your PR description.
-- **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
+- **Version bumps:** run **`python3 scripts/bump_version.py X.Y.Z`** — it updates
   `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand
   instead, all three must match or CI fails — an invariant test guards the
   pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any
   version / connector-dep / MCP / governance drift.)
+- **Connector dependencies:** the bridge's PEP 723 header is bounded and **locked**. If you add or
+  change a dependency, re-lock in the same PR — `uv lock --script plugin/connector/exabeam-mcp-bridge.py`
+  — and commit the updated `.lock` beside the script. `uv run` uses it automatically, so a stale lock
+  means users resolve a different tree than you tested. Regenerate the AI BOM in the same commit
+  (`uv run security/gen_aibom.py`); CI's `--check` catches the BOM but **not** lock drift.
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.

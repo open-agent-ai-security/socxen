@@ -178,7 +178,7 @@ def test_no_in_repo_marketplace():
     overwrote praxen once). The plugin manifest itself must stay."""
     assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (
         "unexpected plugin/.claude-plugin/marketplace.json — socxen installs via "
-        "open-agent-ai-security/plugins; see docs/installation.md")
+        "open-agent-ai-security/plugins; see plugin/docs/installation.md")
     assert PLUGIN["name"] == "socxen"
 
 

@@ -5,13 +5,23 @@
 
 # Changelog
 
-Notable changes to socxen. Versions track `.claude-plugin/plugin.json`; releases follow the dev→main
+Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+### Changed
+- **Only the plugin payload ships now — the repo's build-time material stays behind.** Everything
+  Claude Code installs moved under `plugin/` (connector, skill, docs, installer, manifests) and the
+  marketplace entry loads it as a git subdirectory, so a user's plugin cache no longer receives the
+  test suite, the eval corpus, the release scripts, or `security/` — which included the red-team
+  **attack payloads**. Two consequences worth knowing: the clone-and-run command is now
+  `./plugin/install.sh`, and this release is the first whose marketplace source is `git-subdir`
+  (`path: plugin`), a paired change with the community marketplace index. (#29, #66 —
+  thanks @mattwillems-exabeam)
+
 ### Fixed
-- **The governance check now looks at the settings file Claude Code actually reads.** `install.sh`
+- **The governance check now looks at the settings file Claude Code actually reads.** `plugin/install.sh`
   hardcoded `~/.claude/settings.json`, so under a relocated config dir it reported the gate's state
   from a file the running Claude Code ignores — able to say "gate ON" about a gate that isn't in
   effect. Survivable while the block only *read*; not once it can *write*, where the same assumption
@@ -21,12 +31,12 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ### Added
 - **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
-  warn about it.** The gate has always been opt-in on every install path: `install.sh` verified the
+  warn about it.** The gate has always been opt-in on every install path: `plugin/install.sh` verified the
   merge and warned loudly when it was missing, but nothing ever *performed* it, so the shipped default
   was "gate OFF until the operator hand-edits `~/.claude/settings.json`" and the installer was a
   detection control rather than an enforcement one. The new flag merges
-  `skills/soc-investigate/settings.snippet.json` for you, and an interactive run whose gate reads OFF
-  now offers to do it after showing exactly which rules it would add.
+  `plugin/skills/soc-investigate/settings.snippet.json` for you, and an interactive run whose gate reads
+  OFF now offers to do it after showing exactly which rules it would add.
 
   Consent is preserved, deliberately: nothing merges by default, and `-y` does **not** authorise it —
   "assume yes" answers the installer's own questions, it does not license a write to your settings.
@@ -37,6 +47,26 @@ governance model (feature → `dev`, release `dev` → `main`).
   check, so a merge that somehow doesn't produce a working gate is never reported green. Without
   `python3` or the snippet it reports "cannot merge, here's the manual path" — the same
   "cannot verify ≠ OFF" discipline the gate check already used. (#70)
+
+- **Agent Behavior Verification is now a documented release gate.** `security/praxen/` carries a
+  blind-authored **Worker Remit** (50 rules derived from the shipped docs, without sight of the
+  implementation), the scan instructions, and dated results. The gate: **no release ships with an open
+  Critical finding**; High/Medium/Low are triaged in writing, and a waiver needs a maintainer's
+  rationale on the PR. The 0.6.9 audit passed it — 0 Critical, 5 High, 7 Medium, 1 Low, all confirmed
+  by an independent re-check. Like the red-team bar, this is a gate a human runs, not CI. (#77)
+
+- **The bridge's dependencies are bounded and hash-pinned.** All five PEP 723 dependencies now carry
+  upper bounds, and `plugin/connector/exabeam-mcp-bridge.py.lock` pins the full resolved set (33
+  packages) by hash — `uv run` picks it up automatically, so a fresh install resolves the same tree
+  the maintainers tested. This closes the class of breakage that took out 0.6.8, where an unbounded
+  `mcp>=1.0` let a major release land on every new install. (#71, #78)
+
+### Security
+- **Telemetry moved off observra's private internals.** The audit shim now emits through the public
+  `observra.emit()` API and passes its rotation bounds through `initialize()`, both first-class since
+  observra 1.1 (the bridge pins `observra>=1.1,<2`). Two of the three private reach-ins are gone; the
+  remaining one is the exit drain, tracked upstream. observra's own warnings now surface on stderr, so
+  a dropped audit event is visible to the operator instead of vanishing into a library logger. (#71, #78)
 
 ## [0.6.9] — 2026-08-12
 
@@ -53,7 +83,6 @@ unchanged; what changes is the shipped `deny` tier in the governance snippet.
   enforced by a repo invariant test that derives the exact expected rule set (verified to fail red on
   the old snippet), and the red-team harness's containment deny got the same both-spellings fix.
   Found by the Praxen 1.3.0 behavior audit. (#72, #74)
-
 
 ## [0.6.8] — 2026-08-05
 

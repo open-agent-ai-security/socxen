@@ -15,7 +15,7 @@ blank or failed render can never clobber a checked-in figure. Optimization uses 
 
 Usage:
     scripts/render_diagram.py plugin/docs/diagram security/redteam/diagram
-    CHROME=/path/to/chrome scripts/render_diagram.py --window-size 1200x3200 docs/diagram
+    CHROME=/path/to/chrome scripts/render_diagram.py --window-size 1200x3200 plugin/docs/diagram
 """
 import argparse
 import os

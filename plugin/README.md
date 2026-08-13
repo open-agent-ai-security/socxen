@@ -43,7 +43,8 @@ claude plugin marketplace add open-agent-ai-security/plugins
 claude plugin install socxen@open-agent-ai-security
 ```
 
-Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks:
+Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks.
+It can also **turn the gate on for you** (opt-in, backed up first — see below):
 
 ```bash
 git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./plugin/install.sh
@@ -56,7 +57,15 @@ the governance safety gate**. The setup guide does the lifting:
 
 > ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
 > dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-> Do not point socxen at alerts you care about until it's on. The setup guide walks you through it.
+> Do not point socxen at alerts you care about until it's on. Merge it by hand (the setup guide walks
+> you through it) or let the installer do it:
+>
+> ```bash
+> ./plugin/install.sh --merge-permissions
+> ```
+>
+> Nothing merges by default and `-y` does not authorise it — the flag is the consent. The merge is
+> additive-only, backs your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 
@@ -76,7 +85,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 | **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
 | **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
 | **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
-| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in `evals/`. |
+| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](../evals/). |
 
 ## Layout
 

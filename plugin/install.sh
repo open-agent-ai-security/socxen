@@ -5,15 +5,17 @@
 # socxen installer — adds the marketplace, installs the soc-investigate skill into
 # Claude Code, and runs a connectivity preflight. Idempotent; safe to re-run.
 #
-# Usage:
-#   ./install.sh                     install at user scope, then check connectivity
-#   ./install.sh --checks-only       run diagnostics only (no install/changes)
-#   ./install.sh --merge-permissions merge the governance gate into ~/.claude/settings.json
-#   ./install.sh --skip-connectivity install but skip the live MCP check
-#   ./install.sh --skip-update       keep an existing install as-is (e.g. offline re-runs)
-#   ./install.sh -y                  non-interactive (assume yes; never merges on its own)
-#   ./install.sh --no-color          plain output
-#   ./install.sh -h | --help
+# Usage — run it as ./plugin/install.sh from a clone of the repo, or ./install.sh from inside the
+# installed plugin directory (the payload ships under plugin/, so the two differ):
+#   install.sh                     install at user scope, then check connectivity
+#   install.sh --checks-only       run diagnostics only (no install/changes)
+#   install.sh --merge-permissions merge the governance gate into the resolved settings file
+#                                  (SOCXEN_SETTINGS_FILE below), NOT always ~/.claude/settings.json
+#   install.sh --skip-connectivity install but skip the live MCP check
+#   install.sh --skip-update       keep an existing install as-is (e.g. offline re-runs)
+#   install.sh -y                  non-interactive (assume yes; never merges on its own)
+#   install.sh --no-color          plain output
+#   install.sh -h | --help
 #
 # Env (all overridable):
 #   SOCXEN_SCOPE=user|project   SOCXEN_REPO   SOCXEN_MARKETPLACE   SOCXEN_PLUGIN
@@ -538,8 +540,8 @@ ${BOLD}   Next steps${RST}
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
    2. Merge the ${BOLD}permissions${RST} block from
-      skills/soc-investigate/settings.snippet.json into ${SETTINGS}
-      — or let the installer do it: ${CYAN}./install.sh --merge-permissions${RST}
+      ${SNIPPET} into ${SETTINGS}
+      — or let the installer do it: ${CYAN}${BASH_SOURCE[0]} --merge-permissions${RST}
       ${YLW}⚠ don't run with --dangerously-skip-permissions (it disables the gate).${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT

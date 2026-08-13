@@ -119,7 +119,8 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > mandatory, not "recommended."
 
 This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
-`skills/soc-investigate/settings.snippet.json` into your `~/.claude/settings.json`:
+`plugin/skills/soc-investigate/settings.snippet.json` into the settings file Claude Code reads
+(usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
 
 - **allow** the read + escalation tools,
 - **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
@@ -133,11 +134,14 @@ rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); 
 
 ### Let the installer merge it for you
 
-From a clone, `install.sh` can perform the merge instead of you hand-editing JSON:
+From a clone, `plugin/install.sh` can perform the merge instead of you hand-editing JSON:
 
 ```bash
-./install.sh --merge-permissions        # merge, then verify the gate reads ON
+./plugin/install.sh --merge-permissions   # merge, then verify the gate reads ON
 ```
+
+`--checks-only` outranks it: diagnostics promise to change nothing, so the two together skip the merge
+and say so.
 
 It is **opt-in and never silent**. Installing without the flag still only *warns* that the gate is
 off — and `-y` does not stand in for consent here, because installation alone must never rewrite your
@@ -156,10 +160,12 @@ What it guarantees:
 - **Fails honestly** — no `python3`, or a snippet it can't find, means "cannot merge, here's the manual
   path," never a false green. A failed write is restored from the backup.
 
-The merge itself is `skills/soc-investigate/merge_permissions.py`, which you can also run directly —
+The merge itself is `plugin/skills/soc-investigate/merge_permissions.py`, which you can also run directly —
 add `--dry-run` to see the exact changes without writing anything.
 
-**Which settings file?** The one Claude Code will actually read: `SOCXEN_SETTINGS_FILE` if you set it,
+### Which settings file?
+
+The one Claude Code will actually read: `SOCXEN_SETTINGS_FILE` if you set it,
 otherwise `$CLAUDE_CONFIG_DIR/settings.json` if your config dir is relocated, otherwise
 `~/.claude/settings.json`. Every message names the resolved path, so you can always see which file was
 checked or written.

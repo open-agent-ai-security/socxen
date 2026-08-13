@@ -28,7 +28,7 @@ source). Everything else at the repo root is build-time only and never ships:
 | [`plugin/`](plugin/) | the shipped plugin — skill, connector bridge, manifests, docs, LICENSE |
 | [`plugin/README.md`](plugin/README.md) | **full documentation** — what socxen does, how it investigates, governance |
 | `tests/` · `evals/` | test + regression harnesses |
-| `security/` | AI BOM generator + red-team corpus |
+| [`security/`](security/) | AI BOM · red-team program · agent-behavior verification (the two release gates) |
 | `scripts/` · `.github/` | release tooling + CI |
 
 See **[`plugin/README.md`](plugin/README.md)** for the complete overview, and
