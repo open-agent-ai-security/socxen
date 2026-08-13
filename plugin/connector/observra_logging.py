@@ -27,8 +27,10 @@ such framework object. Since observra 1.1 that's a first-class case: this shim e
 observra >= 1.1 (the bridge's PEP 723 header pins `observra>=1.1,<2`).
 
 DESIGN RULES:
-  * FAIL-OPEN, ALWAYS. Telemetry is best-effort. Any error (observra missing, backend misconfigured, an
-    emit failure) disables logging and is swallowed. Logging must NEVER break or slow an investigation.
+  * FAIL-OPEN, ALWAYS. Telemetry is best-effort and must NEVER break or slow an investigation. A
+    CONFIGURATION error (observra missing, backend misconfigured) disables logging and is swallowed; a
+    single failed emit drops only THAT event and leaves the trail on — a transient fault must not switch
+    off a mandatory audit log for the rest of the session.
   * PRIVACY BY CONSTRUCTION. We log *metadata* about the agent's actions — tool names, durations, gated-
     action IDs/enums (alertId, alertStatus, disposition, ...), guardrail counts, stripped code-point
     classes — never the free-text field values / notes / payloads the guardrails neutralize. The audit
@@ -147,8 +149,9 @@ def _emit(event_type, **data):
         # DROP this one event; do NOT disable the whole trail. A transient per-event fault (one
         # unserializable value, observra internals changed) must not silently switch off a mandatory
         # audit log for the rest of the session. Only a configuration-level failure (in _configure)
-        # disables. (observra.emit() itself swallows queue-level faults into its logger, which
-        # _configure routes to stderr — either way the operator sees the drop.)
+        # disables. NOTE: observra swallows a QUEUE-full drop into a debug-level log + the
+        # observra_events_dropped_total counter, below the stderr handler _configure installs, so that
+        # particular drop is counted rather than announced.
         sys.stderr.write(f"bridge: telemetry event dropped ({type(e).__name__})\n")
 
 

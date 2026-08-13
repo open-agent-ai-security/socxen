@@ -4,7 +4,7 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for the assisted governance merge (skills/soc-investigate/merge_permissions.py).
+"""Tests for the assisted governance merge (plugin/skills/soc-investigate/merge_permissions.py).
 
 This module writes to the operator's real ~/.claude/settings.json, so the failure modes
 that matter are not "did it merge" but "what did it do to everything it wasn't asked to

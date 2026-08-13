@@ -37,7 +37,7 @@ The already-running MCP is fine.
 
 1. **Know what's actually live.** The installed version can lag the repo. Check before you trust it:
    ```bash
-   CACHE=~/.claude/plugins/cache/socxen/socxen/<version>/connector
+   CACHE=~/.claude/plugins/cache/open-agent-ai-security/socxen/<version>/connector
    ls "$CACHE"; grep -c observra_logging "$CACHE/exabeam-mcp-bridge.py"   # is logging even there?
    ```
    (Real example: installed `v0.5.0` predated the a10 guardrails *and* logging — a bare 3.7 KB bridge.)
@@ -45,7 +45,7 @@ The already-running MCP is fine.
 2. **Stage your working-tree connector into the cache** (back up first so you can restore):
    ```bash
    cp "$CACHE/exabeam-mcp-bridge.py" "$CACHE/exabeam-mcp-bridge.py.bak"
-   cp plugin/connector/*.py "$CACHE/"
+   cp plugin/connector/*.py plugin/connector/*.lock "$CACHE/"   # the .lock too, or uv resolves a different tree
    ```
 
 3. **Boot-check before you throw away your session.** This resolves the bridge's PEP-723 deps
