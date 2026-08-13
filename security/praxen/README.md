@@ -66,37 +66,17 @@ regression-fixture arc in [`HISTORY.md`](../redteam/HISTORY.md) is cited as a co
 feedback loop. **Monitor Continuously** is credited for the default-on structured audit
 trail at the bridge's single chokepoint.
 
-### Triage — 2026-08-12 / 0.6.9
+### Findings — 2026-08-12 / 0.6.9
 
-The gate says non-blocking findings are triaged rather than ignored. This is that record.
-**Disposition is the maintainer's call**; rows marked *awaiting triage* have no recorded
-decision yet and are the live worklist.
+The gate says non-blocking findings are triaged rather than ignored, so **every finding from this scan
+is tracked as a GitHub issue** — that is where status lives, and there is no second copy here to drift
+out of date. Findings 001, 007 (rungs 1–2) and 009 were fixed in **0.7.0**.
 
-| # | Sev | Finding (short) | Disposition |
-|---|---|---|---|
-| 001 | High | Installer never applies the permission pack — gate off by default | **In flight** — #70 / PR #73 (`install.sh --merge-permissions`). See note below. |
-| 002 | High | Documented manual MCP registration bypasses screening/neutralization/audit | *Awaiting triage* |
-| 003 | High | Write tools replace analyst-authored free text rather than appending | *Awaiting triage* |
-| 004 | High | Evidence-borne credential/PII redaction is prompt-only, no code control | *Awaiting triage* — overlaps red-team class **D**, which has no fixture (008) |
-| 005 | High | `list_tools` descriptions reach context uncanonicalized | *Awaiting triage* |
-| 006 | Medium | Operator-facing disclosures go to the bridge's stderr, never surfaced | *Awaiting triage* |
-| 007 | Medium | Three of five deps unbounded; no lockfile; no scanner | **Tracked** — #71 |
-| 008 | Medium | Corpus is class-A only; classes C and D never exercised | **Tracked** — [#82](https://github.com/open-agent-ai-security/socxen/issues/82); both are release-blocking per `redteam/PLAN.md` |
-| 009 | Medium | Red-team runner defaults to a floating `sonnet` alias | **Tracked** — #76 |
-| 010 | Medium | No instruction to decline out-of-lane work | *Awaiting triage* |
-| 011 | Medium | Permission pack governs MCP tools only, not built-in shell/filesystem | *Awaiting triage* — adjacent to 001 |
-| 012 | Medium | No abandon-and-report rule after a refused approval | *Awaiting triage* — partly in #70 / #73's lap |
-| 013 | Low | CI actions pinned to mutable major tags, not commit SHAs | *Awaiting triage* |
-
-**Note on 001** (updated 2026-08-13) — the merge instruction sits inside `if [ "$CREDS_OK" = 0 ]`
-(`plugin/install.sh:534`), so an install that *already has* credentials never prints it at all.
-**Largely addressed by #73** (unreleased at time of writing): the interactive offer to merge fires
-whenever the gate reads OFF, independent of credential state, so the common upgrade path is no
-longer silent. The *static* next-steps text remains inside that branch.
-
-**Previously fixed:** #72 (containment deny-list naming), found by the prior scan and
-resolved in 0.6.9 — this re-scan verifies it (68 rules, both spellings × both namespaces,
-invariant-tested in CI).
+To find one, search the issue tracker for its finding ID, e.g.
+[`PRAX-2026-08-12-004`](https://github.com/open-agent-ai-security/socxen/issues?q=PRAX-2026-08-12-004);
+each issue names the ID it came from. The scan's own dated artifacts in [`results/`](results/) remain
+the authoritative record of **what was found** — severity, evidence, and the `file:line` citations —
+and are never edited after the fact.
 
 ## Contents
 
