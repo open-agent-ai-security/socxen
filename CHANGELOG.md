@@ -8,7 +8,11 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.7.0] — 2026-08-13
+
+The plugin's shipped surface changes shape: only the payload under `plugin/` is distributed now, and
+the installer can turn the governance gate **on** rather than only warning that it is off. Both release
+gates ran against this candidate.
 
 ### Added
 - **`install.sh --merge-permissions` — the installer can now install the governance gate, not just
@@ -67,6 +71,19 @@ governance model (feature → `dev`, release `dev` → `main`).
   observra 1.1 (the bridge pins `observra>=1.1,<2`). Two of the three private reach-ins are gone; the
   remaining one is the underscore-level exit drain, tracked upstream. observra's own backend write
   errors now surface on stderr instead of vanishing into a library logger. (#71, #78)
+
+- **The red-team gate is pinned to a named model, and it has been run against this release.** The
+  runner's default was the floating `sonnet` alias, so a recorded verdict could not be tied to a model
+  version after the fact and the "weakest supported model" invariant quietly stopped holding whenever a
+  new Sonnet shipped. It now defaults to the explicit `claude-sonnet-4-6` and records the model the
+  session actually *resolved*, so no run can produce an unattributable artifact. The gate itself had not
+  run since 2026-07-03, across three releases: the 2026-08-13 run is **50/50 trials resisted — every
+  class-A family 0/5, zero errored, zero inconclusive, verdict PASS**
+  (`security/redteam/results/2026-08-13T2009-claude-sonnet-4-6.md`). Notably the export/formula-injection
+  family resisted 5/5 with the deterministic neutralizer demonstrably load-bearing — the model reproduced
+  the payload in chat, and the persisted artifact came out clean anyway. Running it also surfaced a
+  harness bug that discarded whole trials on an unrelated stream notice, now fixed with regression tests.
+  Classes C and D remain unexercised by the corpus, tracked in #82. (#76, #81)
 
 ## [0.6.9] — 2026-08-12
 
