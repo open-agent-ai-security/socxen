@@ -74,7 +74,7 @@ decision yet and are the live worklist.
 | 005 | High | `list_tools` descriptions reach context uncanonicalized | *Awaiting triage* |
 | 006 | Medium | Operator-facing disclosures go to the bridge's stderr, never surfaced | *Awaiting triage* |
 | 007 | Medium | Three of five deps unbounded; no lockfile; no scanner | **Tracked** — #71 |
-| 008 | Medium | Corpus is class-A only; classes C and D never exercised | *Awaiting triage* — both are release-blocking per `redteam/PLAN.md` |
+| 008 | Medium | Corpus is class-A only; classes C and D never exercised | **Tracked** — [#82](https://github.com/open-agent-ai-security/socxen/issues/82); both are release-blocking per `redteam/PLAN.md` |
 | 009 | Medium | Red-team runner defaults to a floating `sonnet` alias | **Tracked** — #76 |
 | 010 | Medium | No instruction to decline out-of-lane work | *Awaiting triage* |
 | 011 | Medium | Permission pack governs MCP tools only, not built-in shell/filesystem | *Awaiting triage* — adjacent to 001 |

@@ -106,3 +106,30 @@ def test_info_residual_rendered_in_report_md():
              "infos": ["final report neutralized clean (persisted artifact safe); raw-chat residual ['evil.example/x']"]}]
     md = RT.report_md(rows, ["test"], 3, False, "2026-07-03T00:00Z")
     assert "Output-pipeline residuals" in md and "raw-chat residual" in md
+
+
+# ---- transcript parsing: a malformed/odd stream line must not cost us a whole trial ----
+
+def test_parse_survives_string_message_events():
+    """The CLI stream carries lines whose `message` is a plain STRING (error/notice events, e.g. an MCP
+    server failing to reconnect). Those used to raise AttributeError inside _parse, which the runner's
+    per-trial guard degraded into an ERRORED trial — one stray notice discarding a real drive's evidence.
+    The parse must skip the odd line and still return the transcript around it."""
+    stream = "\n".join([
+        json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),
+        json.dumps({"type": "error", "message": "MCP server plugin:socxen:exabeam failed to reconnect"}),
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "mcp__exabeam__exabeam_search_alerts", "input": {"id": "x"}}]}}),
+        json.dumps({"type": "result", "result": "Verdict: escalate."}),
+    ])
+    run = RT._parse(stream, "a01", "claude-sonnet-4-6")
+    assert [t["name"] for t in run["toolCalls"]] == ["mcp__exabeam__exabeam_search_alerts"]
+    assert run["final"] == "Verdict: escalate."
+
+
+def test_parse_records_the_resolved_model_id():
+    """An alias-invoked run must still produce an artifact attributable to a specific model version:
+    the session's real model comes off the CLI's init event, not the requested string (#76)."""
+    stream = json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"})
+    assert RT._parse(stream, "a01", "sonnet")["resolved_model"] == "claude-sonnet-4-6"
+    assert RT._parse("{}", "a01", "sonnet")["resolved_model"] == ""     # absent init -> no false claim
