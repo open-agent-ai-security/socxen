@@ -10,8 +10,21 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-Documentation and repo-side fixes awaiting the next version bump. The only change inside the shipped
-payload is `plugin/README.md`; no code, skill, connector or manifest changes.
+Documentation and repo-side fixes awaiting the next version bump. The only changes inside the shipped
+payload are `plugin/README.md` and `plugin/docs/README.md`; no code, skill, connector or manifest
+changes.
+
+### Fixed
+- **Shipped docs no longer link to files the restructure stopped shipping.** `plugin/docs/README.md`
+  carried five links to `../../CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `evals/` and
+  `tests/end-to-end-testing.md`. They resolve while browsing the repo and dead-end in an installed
+  plugin, because a plugin cache's root **is** `plugin/` — so `../../` climbs out of the distribution.
+  Not a typo class: the same links read `../CHANGELOG.md` and were correct in both places until #29
+  stopped shipping their targets, and one of them is how to report a vulnerability. They now point at
+  canonical URLs, correct from a clone and a cache alike; in-plugin links stay relative. Added
+  `test_shipped_docs_never_link_outside_the_plugin`, which resolves every relative markdown link under
+  `plugin/` and fails if it escapes the shipped root or doesn't exist — nothing covered `plugin/docs/`
+  before. Shipped in 0.7.0. (#29)
 
 ### Changed
 - **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
