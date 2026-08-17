@@ -18,8 +18,9 @@ finds, baselines what is normal for them, tests a benign explanation against a m
 writes up its reasoning with the evidence behind it. Then it acts — opens or updates a case, writes
 notes, escalates.
 
-**Dismissing an alert or closing a case is held back by two locks**: a Claude Code permission rule that
-stops the call at the harness, and the skill asking you first. Containment is *recommended* for a human
+**Dismissing an alert or closing a case is held back by two locks once you turn the governance gate on
+(below)**: a Claude Code permission rule that stops the call at the harness, and the skill asking you
+first. Containment is *recommended* for a human
 to perform in EDR or IAM; the plugin never executes it. No server, no database, no approval queue — the
 analyst at the terminal is the human-in-the-loop.
 
@@ -76,7 +77,7 @@ access is not, by itself, something you can let near a SOC queue.
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) | the Exabeam New-Scale MCP — data-lake search, alerts and cases, threat timelines, rule and MITRE context |
 | **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by Claude Code, not by the model** |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
-| **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program, agent-behavior verification, AI BOM, regression harness — every release is gated on them |
+| **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
 
 ## Documentation
 
