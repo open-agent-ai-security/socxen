@@ -20,8 +20,9 @@
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
 false-positive verdict, and acts. No server, no database, no approval queue: the analyst at the terminal
-is the human-in-the-loop, and the consequential action (dismiss/close) is held back by **two locks** —
-Claude Code permission rules *and* the skill asking you first — never left to the model alone.
+is the human-in-the-loop, and once you turn the governance gate on (below) the consequential action
+(dismiss/close) is held back by **two locks** — Claude Code permission rules *and* the skill asking you
+first — never left to the model alone.
 
 ## What it does
 
@@ -31,8 +32,8 @@ Claude Code permission rules *and* the skill asking you first — never left to 
   explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
 - ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
-- 🔒 **Stops where it should** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
-  you switch on during setup; containment is never executed.
+- 🔒 **Stops where it should** — once you switch the gate on during setup, dismiss/close sits behind a
+  hard, Claude-Code-enforced permission rule; containment is never executed.
 - 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
   hidden-character smuggling from what it reads and de-activates dangerous content (formulas, clickable
   links) in what it writes back.

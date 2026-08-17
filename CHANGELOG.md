@@ -28,6 +28,27 @@ changes.
   payload, so no version bump.
 
 ### Fixed
+- **Both READMEs stated the post-merge state as if it were the shipped state.** "Dismissing an alert or
+  closing a case is held back by **two locks**" is true only *after* the operator merges the permission
+  pack. On a fresh install there is one lock — the skill's in-prompt ask — which is exactly what the 🛑
+  box thirty lines below said, so each page contradicted itself and the claim a skimmer retained was the
+  confident one stated up front. The same overclaim appeared twice in `plugin/README.md`. Both now
+  qualify the sentence with "once you turn the governance gate on (below)".
+
+  This direction of error is the dangerous one, and the repo's own tooling already knows it: `install.sh`
+  refuses to report a gate ON it cannot verify and treats "cannot verify" as a distinct third outcome,
+  and #73 added an exit path for a merge that claims success while `gate_on()` still reads OFF. The front
+  page should not assert what the installer deliberately declines to assume. It also undercut the hero
+  line — *"You keep the verdict"* is precisely what is not yet true on a fresh install. Caught in review
+  by @mattwillems-exabeam on #97. (#97)
+
+- **The Evidence row overclaimed for `evals/`.** It grouped `security/` and `evals/` and said every
+  release is gated on them. `CONTRIBUTING.md:121-124` names exactly two release gates — red team and
+  Agent Behavior Verification — both in `security/`; `evals/` is a regression harness, and `:214` asks
+  only for a recorded run when a fixture or the harness changes. The gating is now attributed to the two
+  gates that exist, with `evals/` described as what it is. A small thing, on a page whose credibility
+  rests on being precise about exactly this. Caught in review by @mattwillems-exabeam on #97. (#97)
+
 - **Shipped docs no longer link to files the restructure stopped shipping.** `plugin/docs/README.md`
   carried five links to `../../CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `evals/` and
   `tests/end-to-end-testing.md`. They resolve while browsing the repo and dead-end in an installed
