@@ -42,7 +42,7 @@ socxen's own value depends on that gate staying real.
 
 - Accepts an alert or case identifier (or a pasted alert/case payload) from the analyst at the terminal
   and works it end to end.
-- Gathers evidence through the Exabeam New-Scale MCP read surface — data-lake event search, alert and
+- Gathers evidence through the Exabeam New-Scale MCP read surface — SIEM event search, alert and
   case search, threat timelines, detection-rule details, MITRE ATT&CK coverage, and context tables.
 - Pivots on entities (users, hosts, IPs, sessions), correlates activity into a timeline, and maps
   observed behavior to MITRE ATT&CK.
@@ -135,7 +135,7 @@ socxen's own value depends on that gate staying real.
 
 ### Allowed Tools (Known Good Baseline)
 
-- Exabeam read tools: data-lake event search, alert search, case search, threat timelines, detection-rule
+- Exabeam read tools: SIEM event search, alert search, case search, threat timelines, detection-rule
   details, MITRE coverage, and context-table lookups.
 - Exabeam non-destructive write tools: create a case, update a case, write case notes, and update an
   alert.

@@ -20,63 +20,42 @@
 socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
 through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
 false-positive verdict, and acts. No server, no database, no approval queue: the analyst at the terminal
-is the human-in-the-loop, and the consequential action (dismiss/close) is held back by **two locks** —
-Claude Code permission rules *and* the skill asking you first — never left to the model alone.
+is the human-in-the-loop, and once you turn the governance gate on (below) the consequential action
+(dismiss/close) is held back by **two locks** — Claude Code permission rules *and* the skill asking you
+first — never left to the model alone.
 
-## Highlights
+## What it does
 
-- ⚡ **One-command install** from the Claude Code plugin marketplace — the Exabeam connection is *bundled*
-  and auto-registers (no `claude mcp add`, no expiring tokens to babysit).
-- 🔍 **End-to-end investigation** on the real Exabeam read surface — events, alerts/cases, threat
-  timelines, rule details, MITRE coverage, context tables — with a disciplined verdict bar.
-- 🔒 **Safety-first by design** — dismiss/close sits behind a hard, Claude-Code-enforced permission gate
-  you switch on during setup; containment is *recommended* to a human, never executed.
-- 🧾 **High-performance audit logging, on by default** — a structured, bounded, privacy-preserving record
-  of every action and every time a guardrail fired. ~16 µs/event, non-blocking, local.
-- 🛡️ **Untrusted-telemetry guardrails, always on** — strips hidden-character smuggling from what it reads,
-  de-activates dangerous content (formulas, clickable links) in what it writes.
+- 🔍 **Investigates** on the real Exabeam read surface — `search_events` (SIEM logs),
+  `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
+- ⚖️ **Decides** against a disciplined bar — a false-positive close requires a *positive* benign
+  explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
+- ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
+  **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
+- 🔒 **Stops where it should** — once you switch the gate on during setup, dismiss/close sits behind a
+  hard, Claude-Code-enforced permission rule; containment is never executed.
+- 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
+  hidden-character smuggling from what it reads and de-activates dangerous content (formulas, clickable
+  links) in what it writes back.
+- 🧾 **Logs what it did** — a structured, bounded, privacy-preserving audit record of every action and
+  every time a guardrail fired, on by default. ~16 µs/event, non-blocking, local.
 
-## Quick start
+## Setup
 
-```bash
-claude plugin marketplace add open-agent-ai-security/plugins
-claude plugin install socxen@open-agent-ai-security
-```
-
-Or use the guided installer — the same install, plus preflight, connectivity, and governance-gate checks.
-It can also **turn the gate on for you** (opt-in, backed up first — see below):
-
-```bash
-git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./plugin/install.sh
-```
-
-Two one-time steps remain — **connect Exabeam** (drop your API key in `~/.exabeam-mcp.env`) and **turn on
-the governance safety gate**. The setup guide does the lifting:
+With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
+`~/.exabeam-mcp.env`) and **turn on the governance safety gate**. The setup guide does the lifting:
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
 > ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
 > dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-> Do not point socxen at alerts you care about until it's on. Merge it by hand (the setup guide walks
-> you through it) or let the installer do it:
->
-> ```bash
-> ./plugin/install.sh --merge-permissions
-> ```
->
-> Nothing merges by default and `-y` does not authorise it — the flag is the consent. The merge is
-> additive-only, backs your settings file up first, and refuses if a rule already sits in a different tier.
+> Do not point socxen at alerts you care about until it's on. The
+> **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you
+> through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
+> default and `-y` does not authorise it — the flag is the consent. The merge is additive-only, backs
+> your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
-
-## What it does
-
-- **Investigates** with the real Exabeam read surface — `search_events` (data-lake logs),
-  `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
-- **Decides** with a disciplined bar: a false-positive close requires a *positive* benign explanation;
-  when in doubt, it escalates rather than silently suppressing a real threat.
-- **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
-  **recommends** containment for the analyst to perform in EDR/IAM (the Exabeam MCP has no containment).
 
 ## Documentation
 
@@ -85,6 +64,7 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 | **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
 | **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
 | **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
+| **[Architecture](https://github.com/open-agent-ai-security/socxen#how-its-built)** | how the layers fit together — methodology, capability, authority, guardrails, evidence — and why they're separate |
 | **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](https://github.com/open-agent-ai-security/socxen/tree/main/evals). |
 
 ## Layout
@@ -98,13 +78,28 @@ docs/                    installation · security-guardrails · logging
 install.sh               convenience installer (idempotent)
 ```
 
+## How it's tested
+
+Claims about agent safety are worth what the testing behind them is worth, so the testing is public and
+every release is gated on it: socxen is **red-teamed** with prompt-injection fixtures run against a live
+model — graded on whether the attack *landed*, not on whether the model sounded cautious — and
+**behavior-verified** against a declared policy, with no release shipping on an open Critical finding.
+Methodology, per-run results and the known residuals:
+**[security/](https://github.com/open-agent-ai-security/socxen/tree/main/security)**.
+
 ## Status
 
 Pre-release, for evaluation — validated end-to-end against a live Exabeam staging MCP
 (install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
-playbook, a worked investigation, and a regression harness (`evals/`). The version badge above and
-`CHANGELOG.md` track the current release; run `claude plugin list` for your installed version.
-Sharing with testers; feedback welcome.
+playbook, and a worked investigation. The version badge above and the
+[changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
+release; run `claude plugin list` for your installed version. Sharing with testers; feedback welcome.
+
+## Project sponsor
+
+socxen is sponsored by [Exabeam](https://www.exabeam.com/). Exabeam contributed the initial code and
+continues to provide ongoing support and contributions to the project as part of its commitment to
+security in an increasingly agentic world.
 
 ## License
 

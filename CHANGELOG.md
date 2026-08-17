@@ -10,8 +10,102 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-No change to the shipped plugin — `plugin/` is byte-identical to 0.7.0. These are repo-side fixes that
-will ride the next version bump.
+Documentation and repo-side fixes awaiting the next version bump. The only changes inside the shipped
+payload are `plugin/README.md` and `plugin/docs/README.md`; no code, skill, connector or manifest
+changes.
+
+### Added
+- **The root README now says where your data goes.** A prospective customer's security review asks this
+  on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
+  reasoning about what enters model context. It is also a *good* answer the page was already giving
+  away: the README noted "no server, no database, no approval queue" but spent that entirely on
+  human-in-the-loop. The other half is data control — socxen hosts nothing, so residency, retention and
+  processing terms stay between the operator and their own model provider, and we are not a party to
+  that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
+  customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
+  recommendation asked the *deploying organisation* for a data-classification review and asked socxen
+  for nothing; recorded here as documentation, not a defect. Root README only — outside the shipped
+  payload, so no version bump.
+
+### Fixed
+- **"Data-lake search" is now "SIEM search".** Exabeam's own term for the read surface, corrected in the
+  six places the phrase appeared: the root and plugin READMEs, `SKILL.md`, `reference/tool-map.md`, and
+  twice in the Praxen Worker Remit — which is a living policy document derived from the shipped docs, so
+  leaving it behind would have drifted the remit from what it describes. The dated scan artifacts under
+  `security/praxen/results/` are records and were not touched. (#97)
+
+- **The front page credited the agent with baselining it doesn't do itself.** "Baselines what is normal
+  for them" reads as the agent building a baseline. New-Scale is a behavioral analytics platform, so the
+  baseline already exists and the skill *consumes* it — the worked example opens on an "abnormal (4) of
+  password retrievals" detection and then pushes back on it ("per-detection counts are tiny, so the
+  aggregate size alone is not the signal"), which is interrogating the platform's baseline rather than
+  recomputing one. The claim was never false, but it attributed the wrong agency. Now reads "weighs the
+  activity against what is normal for them", which holds whether normal comes from the platform's scoring
+  or from a 30-day search in `reference/search-cookbook.md`. (#97)
+
+- **Both READMEs stated the post-merge state as if it were the shipped state.** "Dismissing an alert or
+  closing a case is held back by **two locks**" is true only *after* the operator merges the permission
+  pack. On a fresh install there is one lock — the skill's in-prompt ask — which is exactly what the 🛑
+  box thirty lines below said, so each page contradicted itself and the claim a skimmer retained was the
+  confident one stated up front. The same overclaim appeared twice in `plugin/README.md`. Both now
+  qualify the sentence with "once you turn the governance gate on (below)".
+
+  This direction of error is the dangerous one, and the repo's own tooling already knows it: `install.sh`
+  refuses to report a gate ON it cannot verify and treats "cannot verify" as a distinct third outcome,
+  and #73 added an exit path for a merge that claims success while `gate_on()` still reads OFF. The front
+  page should not assert what the installer deliberately declines to assume. It also undercut the hero
+  line — *"You keep the verdict"* is precisely what is not yet true on a fresh install. Caught in review
+  by @mattwillems-exabeam on #97. (#97)
+
+- **The Evidence row overclaimed for `evals/`.** It grouped `security/` and `evals/` and said every
+  release is gated on them. `CONTRIBUTING.md:121-124` names exactly two release gates — red team and
+  Agent Behavior Verification — both in `security/`; `evals/` is a regression harness, and `:214` asks
+  only for a recorded run when a fixture or the harness changes. The gating is now attributed to the two
+  gates that exist, with `evals/` described as what it is. A small thing, on a page whose credibility
+  rests on being precise about exactly this. Caught in review by @mattwillems-exabeam on #97. (#97)
+
+- **Shipped docs no longer link to files the restructure stopped shipping.** `plugin/docs/README.md`
+  carried five links to `../../CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `evals/` and
+  `tests/end-to-end-testing.md`. They resolve while browsing the repo and dead-end in an installed
+  plugin, because a plugin cache's root **is** `plugin/` — so `../../` climbs out of the distribution.
+  Not a typo class: the same links read `../CHANGELOG.md` and were correct in both places until #29
+  stopped shipping their targets, and one of them is how to report a vulnerability. They now point at
+  canonical URLs, correct from a clone and a cache alike; in-plugin links stay relative. Added
+  `test_shipped_docs_never_link_outside_the_plugin`, which resolves every relative markdown link under
+  `plugin/` and fails if it escapes the shipped root or doesn't exist — nothing covered `plugin/docs/`
+  before. Shipped in 0.7.0. (#29)
+
+### Changed
+- **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
+  point but was written as a router to `plugin/README.md` — it offered copy-pasteable install commands
+  with **no pre-release warning and no governance-gate warning anywhere on the page**, so a reader
+  arriving from search could install and run with no hard dismiss/close gate, never having been told the
+  permission pack is mandatory. Both warnings are now on it, the gate warning adjacent to the install
+  commands. It also gains a five-layer architecture table (methodology / capability / authority /
+  guardrails / evidence) and a documentation index, while the detailed claims stay on the pages that
+  own them — `security/` for the release gates, `security-guardrails.md` for the threat model,
+  `SKILL.md` for the verdict bar.
+
+  Both READMEs now follow the org house style used by praxen and observra: a bold role descriptor under
+  the H1, a pull-quote hero, and a `## Project sponsor` block — the sponsorship was declared in
+  `plugin/NOTICE` but appeared in neither README.
+
+  `plugin/README.md` is now a **post-install operator card** rather than a second front page. socxen is
+  the only sibling project needing two READMEs: praxen and observra ship their whole repo, so one README
+  is both landing page and shipped doc, while socxen ships only `plugin/`. Split by that job, the
+  shipped README drops the pull-quote hero, the marketplace install commands and the guided-installer
+  clone block — all front-door material for someone who has not installed yet — and merges its two
+  overlapping `Highlights` / `What it does` lists into one. Its gate warning now links the setup guide's
+  anchor rather than inlining `./plugin/install.sh --merge-permissions`, a clone-relative path that is
+  wrong inside an installed plugin where no `plugin/` directory exists. The dangling bare `CHANGELOG.md`
+  reference — that file does not ship either — is now an absolute link. The 🛑 governance-gate warning
+  is unchanged. (#96, #98)
+
+- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
+  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
+  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
+  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
+  remain the authoritative record of what was found. (#94)
 
 ### Fixed
 - **`bump_version.py`'s duplicate-match guard can now actually fire.** `re.subn` was called with
@@ -20,13 +114,6 @@ will ride the next version bump.
   bumped and the second silently left stale, with the bumper reporting success. Removing the cap is
   safe because every edit is computed before any file is written. Adds the script's first tests.
   (#65, #85)
-
-### Changed
-- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
-  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
-  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
-  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
-  remain the authoritative record of what was found. (#94)
 
 ## [0.7.0] — 2026-08-13
 

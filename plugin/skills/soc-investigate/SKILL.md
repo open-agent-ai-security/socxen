@@ -141,7 +141,7 @@ mapping, watchlists — this is where "is this normal?" becomes a *positive* ben
 
 **3 — Gather evidence (read-only, run freely).** Use the Exabeam read surface, not generic intuition
 (see `reference/tool-map.md` for all 20 tools): pivot on the central entity with `exabeam_search_events`
-(raw data-lake logs by user/host/IP/time — the workhorse) and `exabeam_search_alerts` /
+(raw SIEM logs by user/host/IP/time — the workhorse) and `exabeam_search_alerts` /
 `exabeam_search_cases` for related activity; pull `exabeam_get_*_threat_timeline` and
 `exabeam_threat_summary`; read `exabeam_get_correlation_rule_details` to see exactly what the rule
 keyed on (often the fastest FP/TP tell); enrich via context tables; and note

@@ -256,5 +256,32 @@ def test_source_files_carry_spdx_headers():
     assert not missing, "files missing the SPDX header:\n" + "\n".join(sorted(missing))
 
 
+def test_shipped_docs_never_link_outside_the_plugin():
+    """Everything under plugin/ is copied into a user's plugin cache, and that cache's root IS
+    plugin/ — so a relative link climbing above it (`../../CHANGELOG.md`) resolves fine while you
+    browse the repo and dead-ends for every installed user. That is not a typo class: #29 moved
+    tests/, evals/, security/ and the root docs out of the distribution ON PURPOSE, so any shipped
+    link to them is pointing at something deliberately absent. Link those absolutely, or not at all.
+
+    Caught five such links in plugin/docs/README.md, introduced by mechanically deepening `../` to
+    `../../` during the restructure — correct for the repo, dead in the cache."""
+    PLUGIN = ROOT / "plugin"
+    bad = []
+    for doc in PLUGIN.rglob("*.md"):
+        if "__pycache__" in doc.parts:
+            continue
+        for target in re.findall(r"\]\(([^)]+)\)", doc.read_text()):
+            t = target.strip().split("#")[0].strip()
+            if not t or t.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            resolved = (doc.parent / t).resolve()
+            rel = doc.relative_to(ROOT)
+            if PLUGIN.resolve() not in resolved.parents and resolved != PLUGIN.resolve():
+                bad.append(f"{rel} -> {t} (escapes the shipped plugin root)")
+            elif not resolved.exists():
+                bad.append(f"{rel} -> {t} (target does not exist)")
+    assert not bad, "shipped docs link outside the distributed plugin:\n" + "\n".join(sorted(bad))
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
