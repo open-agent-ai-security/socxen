@@ -39,10 +39,18 @@ changes.
 
   Both READMEs now follow the org house style used by praxen and observra: a bold role descriptor under
   the H1, a pull-quote hero, and a `## Project sponsor` block — the sponsorship was declared in
-  `plugin/NOTICE` but appeared in neither README. `plugin/README.md` stays the operator's guide, with
-  its highlights reordered so what it does leads and install trails, the guardrails entry naming the
-  threat before the mechanism, and its dangling bare `CHANGELOG.md` reference (that file does not ship
-  inside the plugin) replaced with an absolute link. (#96)
+  `plugin/NOTICE` but appeared in neither README.
+
+  `plugin/README.md` is now a **post-install operator card** rather than a second front page. socxen is
+  the only sibling project needing two READMEs: praxen and observra ship their whole repo, so one README
+  is both landing page and shipped doc, while socxen ships only `plugin/`. Split by that job, the
+  shipped README drops the pull-quote hero, the marketplace install commands and the guided-installer
+  clone block — all front-door material for someone who has not installed yet — and merges its two
+  overlapping `Highlights` / `What it does` lists into one. Its gate warning now links the setup guide's
+  anchor rather than inlining `./plugin/install.sh --merge-permissions`, a clone-relative path that is
+  wrong inside an installed plugin where no `plugin/` directory exists. The dangling bare `CHANGELOG.md`
+  reference — that file does not ship either — is now an absolute link. The 🛑 governance-gate warning
+  is unchanged. (#96, #98)
 
 - **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
   2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
