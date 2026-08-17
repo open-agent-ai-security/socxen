@@ -14,6 +14,19 @@ Documentation and repo-side fixes awaiting the next version bump. The only chang
 payload are `plugin/README.md` and `plugin/docs/README.md`; no code, skill, connector or manifest
 changes.
 
+### Added
+- **The root README now says where your data goes.** A prospective customer's security review asks this
+  on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
+  reasoning about what enters model context. It is also a *good* answer the page was already giving
+  away: the README noted "no server, no database, no approval queue" but spent that entirely on
+  human-in-the-loop. The other half is data control — socxen hosts nothing, so residency, retention and
+  processing terms stay between the operator and their own model provider, and we are not a party to
+  that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
+  customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
+  recommendation asked the *deploying organisation* for a data-classification review and asked socxen
+  for nothing; recorded here as documentation, not a defect. Root README only — outside the shipped
+  payload, so no version bump.
+
 ### Fixed
 - **Shipped docs no longer link to files the restructure stopped shipping.** `plugin/docs/README.md`
   carried five links to `../../CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `evals/` and

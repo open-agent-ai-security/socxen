@@ -57,6 +57,14 @@ claude plugin install socxen@open-agent-ai-security
 
 Then ask it to *"investigate alert &lt;id&gt;"*.
 
+## Where your data goes
+
+Nothing is hosted by us. socxen runs on the analyst's machine, against your Exabeam tenant, through
+your own model provider under your own agreement — so residency, retention and processing terms stay
+yours. The audit log is local and metadata-only.
+
+**[Full detail →](plugin/docs/security-guardrails.md)**
+
 ## How it's built
 
 socxen is five separable layers, and keeping them separate is the point — a capable model with tool
