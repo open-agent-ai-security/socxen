@@ -14,9 +14,9 @@
 
 A Claude Code plugin that takes an Exabeam New-Scale alert or case from first look to written verdict.
 Point it at one and it runs the investigation: pulls the underlying events, pivots on the entities it
-finds, baselines what is normal for them, tests a benign explanation against a malicious one, and
-writes up its reasoning with the evidence behind it. Then it acts — opens or updates a case, writes
-notes, escalates.
+finds, weighs the activity against what is normal for them, tests a benign explanation against a
+malicious one, and writes up its reasoning with the evidence behind it. Then it acts — opens or
+updates a case, writes notes, escalates.
 
 **Dismissing an alert or closing a case is held back by two locks once you turn the governance gate on
 (below)**: a Claude Code permission rule that stops the call at the harness, and the skill asking you
