@@ -48,7 +48,7 @@ always the cause.
 - `exabeam_get_case_notes` — existing notes on a case (read before you add)
 
 ## Evidence — gather & correlate (all read-only, run freely)
-- `exabeam_search_events` — **raw log/event search** from the data lake by user, host, IP, or time.
+- `exabeam_search_events` — **raw log/event search** from the SIEM by user, host, IP, or time.
   The primary evidence workhorse; pivot on entities here. Its query language (EQL), real CIM field
   names, and copy-paste pivot/baseline recipes are in **`search-cookbook.md`** — read it before writing
   a non-trivial filter.

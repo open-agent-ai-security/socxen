@@ -26,7 +26,7 @@ first — never left to the model alone.
 
 ## What it does
 
-- 🔍 **Investigates** on the real Exabeam read surface — `search_events` (data-lake logs),
+- 🔍 **Investigates** on the real Exabeam read surface — `search_events` (SIEM logs),
   `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
 - ⚖️ **Decides** against a disciplined bar — a false-positive close requires a *positive* benign
   explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
