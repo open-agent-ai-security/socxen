@@ -28,6 +28,12 @@ changes.
   payload, so no version bump.
 
 ### Fixed
+- **"Data-lake search" is now "SIEM search".** Exabeam's own term for the read surface, corrected in the
+  six places the phrase appeared: the root and plugin READMEs, `SKILL.md`, `reference/tool-map.md`, and
+  twice in the Praxen Worker Remit — which is a living policy document derived from the shipped docs, so
+  leaving it behind would have drifted the remit from what it describes. The dated scan artifacts under
+  `security/praxen/results/` are records and were not touched. (#97)
+
 - **The front page credited the agent with baselining it doesn't do itself.** "Baselines what is normal
   for them" reads as the agent building a baseline. New-Scale is a behavioral analytics platform, so the
   baseline already exists and the skill *consumes* it — the worked example opens on an "abnormal (4) of

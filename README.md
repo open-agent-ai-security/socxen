@@ -74,7 +74,7 @@ access is not, by itself, something you can let near a SOC queue.
 | Layer | Where | What it contributes |
 |---|---|---|
 | **Methodology** | [`skills/soc-investigate/`](plugin/skills/soc-investigate/SKILL.md) | the investigation *procedure* — entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix |
-| **Capability** | [`.mcp.json`](plugin/.mcp.json) | the Exabeam New-Scale MCP — data-lake search, alerts and cases, threat timelines, rule and MITRE context |
+| **Capability** | [`.mcp.json`](plugin/.mcp.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context |
 | **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by Claude Code, not by the model** |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
 | **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
