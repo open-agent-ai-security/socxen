@@ -28,6 +28,15 @@ changes.
   payload, so no version bump.
 
 ### Fixed
+- **The front page credited the agent with baselining it doesn't do itself.** "Baselines what is normal
+  for them" reads as the agent building a baseline. New-Scale is a behavioral analytics platform, so the
+  baseline already exists and the skill *consumes* it — the worked example opens on an "abnormal (4) of
+  password retrievals" detection and then pushes back on it ("per-detection counts are tiny, so the
+  aggregate size alone is not the signal"), which is interrogating the platform's baseline rather than
+  recomputing one. The claim was never false, but it attributed the wrong agency. Now reads "weighs the
+  activity against what is normal for them", which holds whether normal comes from the platform's scoring
+  or from a 30-day search in `reference/search-cookbook.md`. (#97)
+
 - **Both READMEs stated the post-merge state as if it were the shipped state.** "Dismissing an alert or
   closing a case is held back by **two locks**" is true only *after* the operator merges the permission
   pack. On a fresh install there is one lock — the skill's in-prompt ask — which is exactly what the 🛑
