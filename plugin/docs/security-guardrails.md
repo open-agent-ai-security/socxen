@@ -44,7 +44,8 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
 
 - **Spreadsheet formulas.** A value like `=HYPERLINK(...)` looks like data, but if a report is exported
   to a spreadsheet it can *run* when the file is opened. socxen prefixes these so they're treated as
-  plain text and never execute.
+  plain text and never execute — including a known-dangerous formula quoted *mid-sentence* in a note
+  (unlike a plain web address, a pasted formula re-arms the moment it lands in a spreadsheet cell).
 - **Clickable links.** Any link written into a note is **escaped** so it can't be clicked or auto-opened
   — you'll see it rendered as `hxxps://example[.]com` instead of a live link.
 - **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labelled

@@ -154,6 +154,20 @@ def redact_secrets(text, notes=None):
     return text
 
 _FORMULA_CALL_RE = re.compile(r"^[=+\-@][\w.$]*\(")                 # sign + name + "(" : =HYPERLINK(, @SUM(
+# Mid-line (prose-position) formulas. A formula the model QUOTES in running text -- after a label colon
+# ("username field: =HYPERLINK(..."), inside backticks, in a bullet -- is not cell-leading, but the
+# verbatim string re-arms the moment it is copy-pasted into a sheet or re-celled by a CSV export, so it
+# is not a safe "mention" the way a bare URL is. Cell positions keep the generic sign+name+( detector;
+# mid-line detection requires a KNOWN dangerous function name (high specificity, same philosophy as
+# redaction) so prose like "score =high(ish)" or "@channel (all hands)" is never touched. (?<!') skips
+# occurrences already quote-prefixed by the cell-position passes.
+# (?<![\w']) blocks occurrences already quote-prefixed AND hyphenated prose ("on-call (rotation)",
+# "auto-exec (enabled)" -- the sign glued to a preceding word is prose, not a formula). Function names
+# that are also English words (EXEC, CALL, REGISTER, RTD) additionally require the "(" with no space.
+_MID_LINE_FORMULA_RE = re.compile(
+    r"(?<![\w'])[=+\-@](?:(?:HYPERLINK|WEBSERVICE|FILTERXML|IMPORT(?:XML|DATA|HTML|FEED|RANGE)|"
+    r"DDE(?:AUTO)?)\s*\(|(?:EXEC|CALL|REGISTER|RTD)\()",
+    re.IGNORECASE)
 _DDE_RE = re.compile(r"\|\S[^|!]*!")                                # DDE channel ref: cmd|'/C calc'!A0
 _QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')            # a quoted field value: "=HYPERLINK(...)"
 _MD_CELL_RE = re.compile(r"(\|[ \t]*)([^|\n]*)")                    # a markdown-table cell
@@ -241,6 +255,13 @@ def _neutralize_formulas(text, notes):
             notes.append({"type": "formula", "original": val[:60]})
             return '"' + m.group(1) + "'" + val
         core = _QUOTED_FORMULA_RE.sub(_q, core)
+
+        def _mid(m):                                        # known-dangerous formula quoted mid-prose
+            nonlocal found
+            found = True
+            notes.append({"type": "formula", "original": m.group(0)[:60]})
+            return "'" + m.group(0)
+        core = _MID_LINE_FORMULA_RE.sub(_mid, core)
 
         if found:                                           # this line carries a formula -> defang its URL(s)
             core = _defang(core)
