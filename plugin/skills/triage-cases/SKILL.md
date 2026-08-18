@@ -9,8 +9,8 @@ description: >-
   "prioritize", rather than handing over one specific case ID. Reads the open case
   queue through the Exabeam MCP, clusters cases by attack-shape, ranks them by
   corroborated signal (with the risk score as one tunable input, not the sole one),
-  and returns a short "start here" list plus the noise clusters worth tuning. Read-
-  only during the sweep: it prioritizes and flags, and may call an obvious verdict,
+  and returns a short "start here" list plus the noise clusters worth tuning. Read-only
+  during the sweep: it prioritizes and flags, and may call an obvious verdict,
   but never auto-writes across the queue. Hand a single case to soc-investigate; hand
   a noise cluster to rule-tuning. Requires the Exabeam MCP server to be configured.
 ---
@@ -164,5 +164,9 @@ query you ran, never from the case title alone.
 Use the same `exabeam_*` tools and `arg0`/`arg1` convention as `soc-investigate` (see its
 `reference/tool-map.md`). For queue work the workhorses are `exabeam_search_cases` (the queue),
 `exabeam_get_case_details` (a cluster's rules/entities), and `exabeam_search_events` (baseline a
-converged-on entity). **Always override `fields:["*"]`** with an explicit set — it is the difference
-between a fast sweep and a context overflow.
+converged-on entity). **On the searches (`search_cases` / `search_events`), always override
+`fields:["*"]`** with an explicit set — it is the difference between a fast sweep and a context overflow.
+`exabeam_get_case_details` takes only `caseId` (no field projection), so it cannot be bounded at the API
+and can return very large payloads — **save an oversized result and parse it from file** for the few
+fields you need (the rule histogram, per-detection severity spread, IOC count). Note
+`detections_info[].event` is a JSON *string*, not an object — `fromjson` it before indexing.
