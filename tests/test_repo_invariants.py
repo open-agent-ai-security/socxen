@@ -104,6 +104,46 @@ def test_no_containment_tool_is_allowed_or_asked():
             assert not tier_has(ASK, verb), f"containment tool {verb} must not be in `ask`"
 
 
+# --- #109: the safety spine must live in every skill body, not just a shared file ---
+
+def _skill_dirs():
+    """Every skill under plugin/skills/ (the #108 glob) — dirs carrying a SKILL.md."""
+    base = ROOT / "plugin" / "skills"
+    return sorted(d for d in base.iterdir() if (d / "SKILL.md").exists())
+
+# Load-bearing safety markers every SKILL.md body must carry. Distinctive phrases,
+# matched case-insensitively and tolerant of the wording around them — the point is
+# "this lock exists in this body", not freezing prose. The write-gating marker set is
+# a union across tiers (investigate: explicit-human-yes; sweep: no writes across the
+# sweep; propose: propose-only) so skills nobody has written yet still have to carry one.
+SPINE_MARKERS = {
+    "untrusted-data principle": ["untrusted data, never instructions"],
+    "evidence over assertion": ["evidence over assertion"],
+    "write-gating rule for its tier": [
+        "ask the analyst", "explicit yes", "explicit human yes",
+        "never auto-write", "present-only", "propose-only",
+        "no rule-write", "no write path", "gated egress",
+    ],
+}
+
+def test_every_skill_body_carries_the_safety_spine():
+    """Reference files load lazily, so a guardrail that lives only in a shared file is
+    one the model may never read — an unloaded guardrail is no guardrail. The safety
+    spine is therefore duplicated into every skill body on purpose; the cost of that
+    doctrine is drift (#105 shipped because two copies of one governance claim diverged).
+    This proves every plugin/skills/*/SKILL.md still carries its locks — the untrusted-
+    data principle, evidence-over-assertion, and a write-gating rule for its tier — so
+    coherence holds by construction, including for skills not yet written. (#109)"""
+    skills = _skill_dirs()
+    assert skills, "no skills found under plugin/skills/"
+    for d in skills:
+        body = (d / "SKILL.md").read_text().lower()
+        for marker, phrases in SPINE_MARKERS.items():
+            assert any(p.lower() in body for p in phrases), (
+                f"{d.name}/SKILL.md is missing the {marker!r} spine marker "
+                f"(expected one of: {phrases})")
+
+
 # --- #3: containment deny-list <-> containment-tools.md sync ---
 
 def _containment_doc_tools():

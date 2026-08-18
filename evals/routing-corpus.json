@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "description": "Skill-selection routing corpus (#110). Each ask must route to exactly one skill via the quoted trigger phrases its frontmatter description advertises. Grading is deterministic — substring match on those phrases, no live tenant and no model — so a description collision (see #103 Finding A) fails CI instead of surfacing as an analyst getting the wrong skill's governance. New skill => new cases; the tie-breaks for deliberately-ambiguous asks are recorded here as tested decisions, not left to model mood.",
+  "cases": [
+    {"ask": "investigate alert 12345", "expect": "soc-investigate"},
+    {"ask": "work this alert", "expect": "soc-investigate"},
+    {"ask": "is this a real threat?", "expect": "soc-investigate"},
+    {"ask": "triage this alert/case", "expect": "soc-investigate"},
+    {"ask": "morning triage", "expect": "triage-cases"},
+    {"ask": "what should I look at", "expect": "triage-cases"},
+    {"ask": "sweep the open cases", "expect": "triage-cases"},
+    {"ask": "what needs attention", "expect": "triage-cases"},
+    {"ask": "prioritize the queue", "expect": "triage-cases"},
+    {"ask": "why is this rule so loud", "expect": "rule-tuning"},
+    {"ask": "find noisy rules", "expect": "rule-tuning"},
+    {"ask": "reduce alert noise", "expect": "rule-tuning"},
+    {"ask": "which rules waste our time", "expect": "rule-tuning"}
+  ]
+}
