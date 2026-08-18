@@ -1,19 +1,17 @@
 ---
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
 name: soc-investigate
 description: >-
   Investigate and triage a security alert or case in Exabeam New-Scale, end to end.
   Use when the analyst hands over an alert/case ID or payload, or asks to "investigate",
-  "triage", "work this alert", or "is this a real threat?". Gathers evidence through the
+  "triage this alert/case", "work this alert", or "is this a real threat?" — for one item at
+  depth, not a whole queue (sweeping the queue is the `triage-cases` skill). Gathers evidence through the
   Exabeam MCP, correlates activity into a timeline, maps to MITRE ATT&CK, reaches a
   threat / false-positive verdict, takes the non-destructive terminal action (open a
   case, dismiss an alert, write case notes), and recommends any containment for the
   analyst to approve. Requires the Exabeam MCP server to be configured.
 ---
-
-<!--
-  Copyright 2026 Exabeam, Inc.
-  SPDX-License-Identifier: Apache-2.0
--->
 
 # SOC Investigation — Exabeam New-Scale
 
@@ -89,8 +87,10 @@ Then stop — don't proceed until the tools are available.
 The principles above hold whether you work one case, sweep a queue, or brief a CISO — only **depth**
 changes, and depth caps verdict strength:
 
-- **Cursory / queue sweep** (metadata + light lookups): cluster, prioritize, and flag for investigation —
-  don't declare "confirmed" or recommend containment. Cursory lowers verdict strength, not the evidence bar.
+- **A whole queue rather than one case?** That is the **`triage-cases`** skill — it sweeps and
+  prioritizes the queue and owns the sweep-depth verdict policy. Hand queue work there; this skill works
+  one alert/case at depth. (When you *are* invoked cursorily on a single item, depth still caps verdict
+  strength — cluster and flag, don't declare "confirmed" or recommend containment on a metadata skim.)
 - **Reporting / briefing**: aggregating *amplifies* data-quality artifacts rather than cancelling them, so
   a number that alarms mainly by its size is a noise hypothesis before it's scale. And presentation
   confidence must not exceed evidence confidence — don't let a polished label assert more than you know,
