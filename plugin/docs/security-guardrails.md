@@ -18,7 +18,7 @@ configuration.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
-    <img alt="socxen guardrail bridge: Claude Code talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
+    <img alt="socxen guardrail bridge: Claude Code talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
   </picture>
 </p>
 
@@ -47,6 +47,13 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   plain text and never execute.
 - **Clickable links.** Any link written into a note is **escaped** so it can't be clicked or auto-opened
   — you'll see it rendered as `hxxps://example[.]com` instead of a live link.
+- **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labelled
+  password) or a structured identifier (a Social Security number, a payment-card number) is sitting in
+  the alert data, socxen **masks it before writing** — you'll see `[REDACTED:aws-key]` or `[REDACTED:ssn]`
+  in the note instead of the value. The finding is still recorded ("a credential was exposed here"); the
+  secret itself doesn't get copied into a case note or export where a wider audience — or an attacker who
+  can read case notes — could retrieve it. This is deterministic: it doesn't depend on the model
+  remembering to redact.
 
 ### Why your links look "broken" — this is intentional
 
@@ -67,6 +74,14 @@ Keep expectations honest:
 
 - They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
+  In particular, the redaction above protects what socxen **persists** (case notes, exports) — the
+  durable, wider-audience copy. A secret shown on **your own screen** during an investigation is *not*
+  redacted, and that's deliberate: you're already authorised to read the underlying log, so it crosses
+  no trust boundary the console itself doesn't.
+- Redaction covers **structured** secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
+  a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
+  personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable
+  from the timestamps in every log line). Handle those with the same care you'd give any sensitive case.
 - A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
   to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
 - They reduce the blast radius of hostile content. They do **not** replace the permission gate, your SOC
