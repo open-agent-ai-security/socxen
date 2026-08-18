@@ -54,7 +54,11 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   in the note instead of the value. The finding is still recorded ("a credential was exposed here"); the
   secret itself doesn't get copied into a case note or export where a wider audience — or an attacker who
   can read case notes — could retrieve it. This is deterministic: it doesn't depend on the model
-  remembering to redact.
+  remembering to redact. That distinction is measured, not theoretical — in our red-team runs the
+  weakest supported model (Sonnet 4.6) reproduced seeded secrets in its raw output in nearly every
+  trial, and even the strongest (Opus 5) let a raw credential and an SSN through occasionally. The
+  persisted record came out clean **100% of trials on both models** because this filter, not model
+  judgment, is what stands between the alert data and the case note.
 
 ### Why your links look "broken" — this is intentional
 

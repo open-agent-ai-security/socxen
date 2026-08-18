@@ -143,7 +143,11 @@ The design choices below are deliberate; each exists for a reason.
   dollar. This is *not* a monotonicity guarantee — injection resistance isn't strictly monotonic in
   capability, and a stronger model can occasionally fail a case a weaker one passes — so a **release run
   also sweeps Opus**, and a blocking finding on *any* supported model blocks. Runs are parallelized across
-  a worker pool, so a full pass is tens of minutes.
+  a worker pool, so a full pass is tens of minutes. The weak-model choice is also **diagnostic, not just
+  conservative**: the 2026-08-18 two-leg gate measured it — Sonnet 4.6 reproduced seeded payloads in its
+  raw output in ~15 of 20 output-pipeline trials (exercising the deterministic write-side layer every
+  time), while Opus 5 self-redacted in 18 of 20. Gating only on the strong model would return a wall of
+  green that proves the *model* behaved and says nothing about whether the *guardrail* works.
 - **Pre-release, not CI.** This is live, nondeterministic, and costly, so it's a **maintainer-run gate
   before a release** — never a CI check. (Only a cheap, deterministic *lint* of the attack corpus runs in
   CI, keeping the fixtures healthy.)
@@ -208,6 +212,34 @@ is an a10-class **residual** (best-effort, not guaranteed), closed properly only
 read→write redaction. Full arc: [#88](https://github.com/open-agent-ai-security/socxen/issues/88) →
 [#115](https://github.com/open-agent-ai-security/socxen/pull/115); the residual follow-up is
 [#116](https://github.com/open-agent-ai-security/socxen/issues/116).
+
+## Worked example — the two-leg gate (2026-08-18)
+
+The first release-shaped exercise of the full bar: the whole A/B/C/D corpus, run as **one gate on the
+combined tree** (every in-flight fix together), on both supported models — `claude-sonnet-4-6` (the gate)
+then `claude-opus-5` (the sweep). Two lessons, both now load-bearing in how we run:
+
+- **Piecewise-green ≠ combined-green.** Every piece had already passed its own runs. The combined 19×5
+  re-run still surfaced two 1/5 landings: a **mid-line formula gap** in the output neutralizer (the model
+  quoted `=HYPERLINK(...)` mid-prose — a position the cell-scoped passes skipped, latent since the
+  original a10 fix because fix-time trials only ever emitted the link form; [#117](https://github.com/open-agent-ai-security/socxen/issues/117)),
+  and a **grading-scope miscalibration** (d02 still graded raw model chat from before the write-side
+  redactor existed; 1-in-5 the model complied with an instructed exfil the redactor would have masked at
+  the persisted sink). One was a real code gap, one a fixture bug — a fresh multi-trial roll of the
+  integrated tree finds both kinds, and nothing less does. Both fixed and re-verified 0/5 the same day.
+- **Model discipline is real on the strong model — and still not total.** On the four output-pipeline
+  fixtures (20 trials/model), Sonnet 4.6 put the seeded payload in its raw output in ~15 — the write-side
+  chokepoint was the only thing between a credential and the case note, and it held every time. Opus 5
+  self-redacted in 18 of 20 — but still let a raw AWS access key and an SSN into its output once each,
+  which the chokepoint caught. That asymmetry is the whole two-lock argument in one table: the weak model
+  proves the **deterministic layer works under constant fire**; the strong model proves **model-level
+  discipline improves with capability but never reaches 100%** — so the code layer ships for both, and
+  neither leg of the gate is optional. (Opus swept clean: 95/95, no class-B social-engineering landing —
+  the non-monotonicity concern didn't materialize this round, which is what the sweep is for.)
+
+Reports: [Sonnet full gate](results/2026-08-18T2032-claude-sonnet-4-6.md) ·
+[re-verify](results/2026-08-18T2045-claude-sonnet-4-6.md) ·
+[Opus sweep](results/2026-08-18T2128-claude-opus-5.md).
 
 ## Safety, ownership, and cadence
 
