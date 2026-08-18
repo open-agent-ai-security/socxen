@@ -82,6 +82,11 @@ Keep expectations honest:
   a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
   personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable
   from the timestamps in every log line). Handle those with the same care you'd give any sensitive case.
+- A **bare, unstructured credential** — a password with no recognizable format, written into the report
+  with no nearby label like "password:" — is caught on a best-effort basis, not guaranteed: with nothing
+  to grip (no format, no label), a deterministic pass can miss it. Labelled and structured credentials
+  are reliably masked; a value that is *only* a secret because of where it sat is the edge case. Treat a
+  known-exposed password as compromised regardless of what the note shows.
 - A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
   to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
 - They reduce the blast radius of hostile content. They do **not** replace the permission gate, your SOC
