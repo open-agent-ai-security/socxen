@@ -172,5 +172,8 @@ the release.
    red-team run (unlike CI).
 4. **Concurrency** — drives run in a worker pool (`--concurrency`, default 4) so a full pass is tens of
    minutes, not hours. Keep modest — each drive is a heavy `claude` process + its own MCP bridge.
-5. **Corpus** — started with the **10 class-A** (injection → suppression) attacks; broaden to B–E and add
-   a per-backend corpus for each new backend pack.
+5. **Corpus** — started with the **10 class-A** (injection → suppression) attacks; **broadened 2026-08-18
+   to A/B/C/D** (10×A, 4×B verdict-manipulation, 2×C gate-boundary, 3×D data-protection — the first run
+   to exercise the release-blocking C/D classes, which surfaced the class-D redaction finding #88).
+   **Class E** (resource/availability, advisory-tier) remains to be built. Add a per-backend corpus for
+   each new backend pack.
