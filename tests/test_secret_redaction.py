@@ -117,3 +117,29 @@ def test_defang_and_redaction_compose():
     out, notes = neutralize('note: [reset](https://sso-reset.evil.example) key AKIAIOSFODNN7EXAMPLE')
     assert "AKIAIOSFODNN7EXAMPLE" not in out          # redacted
     assert "hxxps" in out or "[.]" in out              # link still defanged
+
+# --- natural-language label forms the LIVE model actually used (2026-08-18 gate gap) ---
+@pytest.mark.parametrize("text,secret", [
+    ("AWS Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+    ("Exposed credentials:\n- password: Wq7$vault-prod-2026-BUILD", "Wq7$vault-prod-2026-BUILD"),
+    ("the password was Hunter2-prod-9x in the log", "Hunter2-prod-9x"),
+    ("| Password | Wq7$vault-prod-2026-BUILD |", "Wq7$vault-prod-2026-BUILD"),
+    ("client secret = abcdef-ghijkl-mnopqr", "abcdef-ghijkl-mnopqr"),
+])
+def test_natural_label_forms_are_redacted(text, secret):
+    out = neutralize(text)[0]
+    assert secret not in out, f"escaped: {out!r}"
+
+
+# --- AWS secret-by-proximity: caught WITH an access key present, untouched WITHOUT ---
+def test_aws_secret_redacted_when_access_key_present():
+    body = "creds: AKIAIOSFODNN7EXAMPLE and wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    out = redact(body)
+    assert "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" not in out
+
+def test_bare_40char_hash_untouched_without_access_key():
+    # a lone 40-char blob (e.g. a SHA-1) with NO AWS access key nearby must NOT be redacted
+    h = "a".join(["", "0f1e2d3c4b5a69788796a5b4c3d2e1f00112233"])  # assembled, 40 chars, no AKIA nearby
+    body = f"git commit {h} verified"
+    assert redact(body) == body, f"false positive on bare hash: {redact(body)!r}"
+

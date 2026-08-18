@@ -57,14 +57,37 @@ _SECRET_PATTERNS = [
     ("token", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("ssn", re.compile(r"\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b")),
 ]
-# Labeled secret: a credential keyword, a separator, then the value up to whitespace/quote/comma.
-# Redacts only the VALUE, and only because a label vouches for it -- so a bare 40-char string with no
-# credential context is left alone (that is where blind entropy would create false positives).
+# Labeled secret: a credential keyword, a separator, then the value. Redacts only the VALUE, and only
+# because a label vouches for it -- so a bare high-entropy string with no credential context is left
+# alone (that is where blind entropy would create false positives). The keyword set and separator are
+# broad on purpose: the live red-team (2026-08-18) showed the MODEL phrases labels its own way --
+# "Secret Access Key: <v>", a value on the next line under a heading, a markdown-table cell -- so a
+# rigid `key=value` anchor missed real leaks a unit test (which used the exact form) did not.
+_KEYWORD = (
+    r"passwo?r?d|passwd|pwd|pass[\s_-]?phrase|"
+    r"secret[\s_-]?(?:access[\s_-]?)?key|access[\s_-]?key(?:[\s_-]?id)?|"
+    r"api[\s_-]?(?:key|token|secret)|auth(?:orization)?[\s_-]?token|client[\s_-]?secret|"
+    r"secret|token|bearer|credential|passcode")
+# Reliable separator (=/:, "is"/"was", newline/bullet/table): the label vouches for the value, so any
+# 6+ char value is redacted.
 _LABELED_SECRET_RE = re.compile(
-    r"(?i)\b(password|passwd|pwd|secret[\s_-]?key|secret|api[\s_-]?key|access[\s_-]?key|auth[\s_-]?token|token|client[\s_-]?secret|bearer)\b"
-    r"(\s*[:=]\s*|\s+)"
-    r"(?P<val>[^\s,;\"'<>]{6,})")
+    r"(?i)\b(" + _KEYWORD + r")\b"
+    r"(\s*[:=]\s*|\s+(?:is|was|=)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
+    r"(?P<val>[^\s,;\"'<>|]{6,})")
+# Plain-space separator (a CLI flag like `--secret-key <v>`) is ambiguous — "password protection" would
+# false-positive. So a space-separated value is redacted ONLY if it LOOKS secret-like: 12+ chars with at
+# least one digit AND one letter (a dictionary word like "protection" has no digit and is spared).
+_SPACE_SECRET_RE = re.compile(
+    r"(?i)\b(" + _KEYWORD + r")\b\s+"
+    r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[A-Za-z0-9+/=_$.\-]{12,})")
 _CC_CANDIDATE_RE = re.compile(r"\b(?:\d[ -]?){13,19}\b")
+# AWS secret access keys are exactly 40 base64 chars with no intrinsic prefix -- bare, they are
+# indistinguishable from a hash (redacting all 40-char b64 => heavy false positives). But an AWS leak
+# almost always carries the paired ACCESS key (AKIA/ASIA...), which IS intrinsically detectable. So:
+# only when an access key is present in the text, redact 40-char base64 secrets. Proximity to the
+# intrinsic marker is what makes this low-FP.
+_AWS_ACCESS_KEY_RE = re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")
+_B64_40_RE = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{40}(?![A-Za-z0-9+/=])")
 
 
 def _luhn_ok(digits):
@@ -88,6 +111,9 @@ def redact_secrets(text, notes=None):
     if not text:
         return text
     ns = notes if notes is not None else []
+    # Snapshot the AWS-access-key signal BEFORE any redaction — the intrinsic pass below rewrites AKIA to
+    # a placeholder, which would blind the proximity rule that keys off it.
+    had_aws_key = bool(_AWS_ACCESS_KEY_RE.search(text))
 
     def _note(kind):
         ns.append({"type": f"redact:{kind}", "original": f"<{kind} redacted>"})
@@ -103,6 +129,11 @@ def redact_secrets(text, notes=None):
         return m.group(1) + m.group(2) + "[REDACTED:secret]"
     text = _LABELED_SECRET_RE.sub(_labeled, text)
 
+    def _space_labeled(m):
+        _note("secret")
+        return m.group(1) + " [REDACTED:secret]"
+    text = _SPACE_SECRET_RE.sub(_space_labeled, text)
+
     def _cc(m):
         digits = re.sub(r"[ -]", "", m.group(0))
         if 13 <= len(digits) <= 19 and _luhn_ok(digits):
@@ -110,6 +141,15 @@ def redact_secrets(text, notes=None):
             return "[REDACTED:credit-card]"
         return m.group(0)
     text = _CC_CANDIDATE_RE.sub(_cc, text)
+
+    # AWS secret-by-proximity: only if an AWS access key is present (the leak signature), redact bare
+    # 40-char base64 blobs -- the paired secret. Skips our own placeholder. Off entirely without the
+    # access-key signal, so a lone hash elsewhere is never touched.
+    if had_aws_key:
+        def _awssec(m):
+            _note("aws-secret")
+            return "[REDACTED:aws-secret]"
+        text = _B64_40_RE.sub(_awssec, text)
 
     return text
 
