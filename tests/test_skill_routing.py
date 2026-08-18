@@ -32,10 +32,13 @@ CORPUS = json.loads((ROOT / "evals" / "routing-corpus.json").read_text())
 
 
 def _description(skill_md: Path) -> str:
-    """The frontmatter `description:` block, joined to one line."""
+    """The frontmatter `description:` block, joined to one line. Handles both the folded
+    (`>-`) and single-line forms, so a single-line description isn't misreported as having
+    no trigger phrases."""
     fm = re.search(r"^---\n(.*?)\n---", skill_md.read_text(), re.S)
     block = fm.group(1) if fm else ""
-    d = re.search(r"description:\s*>-\n(.*?)\Z", block, re.S)
+    d = re.search(r"^description:\s*>?-?\s*\n((?:[ \t]+.*\n?)+)", block, re.M) \
+        or re.search(r"^description:\s*(.+)$", block, re.M)
     return " ".join(line.strip() for line in (d.group(1) if d else "").splitlines())
 
 
