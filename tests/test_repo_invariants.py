@@ -22,7 +22,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIR = ROOT / "plugin" / "skills" / "soc-investigate"
-SKILL_NAME = "soc-investigate"
 
 
 # ---------- loaders ----------
@@ -116,6 +115,10 @@ def _skill_dirs():
 # "this lock exists in this body", not freezing prose. The write-gating marker set is
 # a union across tiers (investigate: explicit-human-yes; sweep: no writes across the
 # sweep; propose: propose-only) so skills nobody has written yet still have to carry one.
+# Known limit (honest): because it is a union, it asserts *some* recognized write-gating
+# phrase exists, not that *this skill's tier's* gate does — a future investigate-tier skill
+# could satisfy it with propose-only prose while lacking a human-ask gate. Bind the marker
+# subset to the tier once skills carry a `tier:` frontmatter key.
 SPINE_MARKERS = {
     "untrusted-data principle": ["untrusted data, never instructions"],
     "evidence over assertion": ["evidence over assertion"],
@@ -241,39 +244,47 @@ def test_all_json_files_parse():
 
 
 def test_no_dangling_reference_links():
-    """SKILL.md and the reference docs point at reference/*.md and settings.snippet.json;
-    every such local target must exist on disk (catches 'points to a file that isn't there')."""
-    scanned = [SKILL_DIR / "SKILL.md", *(SKILL_DIR / "reference").glob("*.md")]
+    """Every `reference/*.md` (and settings.snippet.json) a skill points at must exist.
+    Iterates ALL skills (#108) — a `reference/...` mention resolves against the citing
+    skill's own dir first, then soc-investigate's `reference/` (SKILL_DIR — the shared
+    library the fleet skills cite in prose), so cross-skill references don't false-positive."""
     missing = []
-    for doc in scanned:
-        text = doc.read_text()
-        for rel in set(re.findall(r"`?(reference/[A-Za-z0-9_./-]+\.md)`?", text)):
-            if not (SKILL_DIR / rel).exists():
-                missing.append(f"{doc.name} -> {rel}")
-        if "settings.snippet.json" in text and not (SKILL_DIR / "settings.snippet.json").exists():
-            missing.append(f"{doc.name} -> settings.snippet.json")
+    for d in _skill_dirs():
+        own_ref = d / "reference"
+        scanned = [d / "SKILL.md", *(own_ref.glob("*.md") if own_ref.is_dir() else [])]
+        for doc in scanned:
+            text = doc.read_text()
+            for rel in set(re.findall(r"`?(reference/[A-Za-z0-9_./-]+\.md)`?", text)):
+                if not ((d / rel).exists() or (SKILL_DIR / rel).exists()):
+                    missing.append(f"{d.name}/{doc.name} -> {rel}")
+            if "settings.snippet.json" in text and not (d / "settings.snippet.json").exists() \
+                    and not (SKILL_DIR / "settings.snippet.json").exists():
+                missing.append(f"{d.name}/{doc.name} -> settings.snippet.json")
     assert not missing, "dangling references:\n" + "\n".join(sorted(missing))
 
 
 def test_skill_frontmatter_is_valid():
-    """SKILL.md must have YAML frontmatter whose `name` matches the skill directory and
-    a non-empty `description` within Claude Code's length cap — else the skill won't register."""
-    text = (SKILL_DIR / "SKILL.md").read_text()
-    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
-    assert m, "SKILL.md is missing --- frontmatter ---"
-    fm = m.group(1)
+    """Every plugin/skills/*/SKILL.md must have YAML frontmatter whose `name` matches its
+    OWN directory and a non-empty `description` within Claude Code's 1024-char cap — else
+    the skill won't register. Iterates all skills (#108), not just soc-investigate: anything
+    matching plugin/skills/*/SKILL.md registers with Claude Code, so all of it must be valid."""
+    for d in _skill_dirs():
+        text = (d / "SKILL.md").read_text()
+        m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+        assert m, f"{d.name}/SKILL.md is missing --- frontmatter ---"
+        fm = m.group(1)
 
-    name_m = re.search(r"^name:\s*(\S+)\s*$", fm, re.M)
-    assert name_m, "frontmatter has no `name:`"
-    assert name_m.group(1) == SKILL_NAME, (
-        f"frontmatter name {name_m.group(1)!r} != skill dir {SKILL_NAME!r}")
+        name_m = re.search(r"^name:\s*(\S+)\s*$", fm, re.M)
+        assert name_m, f"{d.name}/SKILL.md frontmatter has no `name:`"
+        assert name_m.group(1) == d.name, (
+            f"{d.name}/SKILL.md frontmatter name {name_m.group(1)!r} != skill dir {d.name!r}")
 
-    desc_m = re.search(r"^description:\s*>?-?\s*\n((?:[ \t]+.*\n?)+)", fm, re.M) \
-        or re.search(r"^description:\s*(.+)$", fm, re.M)
-    assert desc_m, "frontmatter has no `description:`"
-    desc = " ".join(line.strip() for line in desc_m.group(1).splitlines()).strip()
-    assert desc, "frontmatter description is empty"
-    assert len(desc) <= 1024, f"description is {len(desc)} chars (>1024 cap)"
+        desc_m = re.search(r"^description:\s*>?-?\s*\n((?:[ \t]+.*\n?)+)", fm, re.M) \
+            or re.search(r"^description:\s*(.+)$", fm, re.M)
+        assert desc_m, f"{d.name}/SKILL.md frontmatter has no `description:`"
+        desc = " ".join(line.strip() for line in desc_m.group(1).splitlines()).strip()
+        assert desc, f"{d.name}/SKILL.md frontmatter description is empty"
+        assert len(desc) <= 1024, f"{d.name}/SKILL.md description is {len(desc)} chars (>1024 cap)"
 
 
 def test_source_files_carry_spdx_headers():
