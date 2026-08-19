@@ -129,6 +129,8 @@ _LABELED_SECRET_RE = re.compile(
 # STRONG separator, table form: a markdown table ROW whose cell is exactly a credential keyword labels
 # the cell beside it -- structurally a label/value pair, so no shape guard is needed. Anchored to ^| so
 # an INLINE pipe in prose ("Evidence: token | source: pastebin") stays with the weak rule below.
+# A GFM table delimiter row: |---|:---:|---| . Its presence marks the line ABOVE as a header row.
+_TABLE_DELIM_RE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|[\s:|-]*$")
 _TABLE_ROW_SECRET_RE = re.compile(
     r"(?im)^(\|[^\n]*?\b(?:" + _KEYWORD + r")\b)(\s*\|\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
@@ -206,7 +208,15 @@ def redact_secrets(text, notes=None):
             return m.group(1) + m.group(2) + lead + "[REDACTED:secret]" + tail
         return _sub
     text = _LABELED_SECRET_RE.sub(_labeled_min(6), text)
-    text = _TABLE_ROW_SECRET_RE.sub(_labeled_min(6), text)
+    # A GFM HEADER row is always followed by a delimiter row (|---|---|), and its cells are column
+    # names, not values -- redacting there mangles an ordinary findings table ("| Token | Source |
+    # First seen |"). Skip those rows; apply the label/value rule to the rest.
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        if i + 1 < len(lines) and _TABLE_DELIM_RE.match(lines[i + 1]):
+            continue
+        lines[i] = _TABLE_ROW_SECRET_RE.sub(_labeled_min(6), line)
+    text = "\n".join(lines)
     text = _WEAK_SEP_SECRET_RE.sub(_labeled_min(12), text)
 
     def _space_labeled(m):

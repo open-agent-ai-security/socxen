@@ -333,3 +333,25 @@ def test_quote_wrapped_values_are_masked(template):
     out = redact(template % secret)
     assert secret not in out
     assert "[REDACTED:secret]" in out
+
+
+@pytest.mark.parametrize("table", [
+    "| Token | Source | First seen |\n|---|---|---|\n| abc | pastebin | 03:12 |",
+    "| Credential | Status |\n| :--- | ---: |\n| svc-backup | rotated |",
+    "| Secret | Location |\n|---|---|",
+])
+def test_table_header_rows_are_not_redacted(table):
+    """Do no harm: a GFM header row's cells are COLUMN NAMES, not values. A findings table with a Token
+    or Credential column had its neighbouring header cell replaced. A header is always followed by a
+    delimiter row (|---|---|), which is what distinguishes it from a real label/value row."""
+    assert redact(table) == table
+
+
+@pytest.mark.parametrize("row", [
+    "| Password | correcthorsebatterystaple |",
+    "| user | host | Password | Wq7$vault-2026 |",
+    "| Password | `Wq7$vault-2026` |",
+])
+def test_table_label_value_rows_still_masked(row):
+    """The header exemption must not disarm the rule it guards -- a real label/value row still masks."""
+    assert "[REDACTED:secret]" in redact(row)
