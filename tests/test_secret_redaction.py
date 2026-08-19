@@ -313,3 +313,10 @@ def test_delimiter_peel_is_linear_not_quadratic():
     start = time.monotonic()
     neutralize(payload)
     assert time.monotonic() - start < 1.0
+
+
+def test_card_redaction_does_not_swallow_the_following_space():
+    """Do no harm: the candidate match must not consume the separator after the final digit, or the
+    sentence closes up around the placeholder in a legitimate report."""
+    assert redact("Card number 4111 1111 1111 1111 was charged") == "Card number [REDACTED:credit-card] was charged"
+    assert redact("card 4111-1111-1111-1111 seen") == "card [REDACTED:credit-card] seen"

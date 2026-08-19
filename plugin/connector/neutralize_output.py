@@ -148,7 +148,9 @@ _WEAK_SEP_SECRET_RE = re.compile(
 _SPACE_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b\s+"
     r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[A-Za-z0-9+/=_$.\-]{12,})")
-_CC_CANDIDATE_RE = re.compile(r"\b(?:\d[ -]?){13,19}\b")
+# The final digit must not carry a separator, or the match eats the space after the number and the
+# sentence closes up ("[REDACTED:credit-card]was charged") -- a do-no-harm defect on legitimate text.
+_CC_CANDIDATE_RE = re.compile(r"\b(?:\d[ -]?){12,18}\d\b")
 # AWS secret access keys are exactly 40 base64 chars with no intrinsic prefix -- bare, they are
 # indistinguishable from a hash (redacting all 40-char b64 => heavy false positives). But an AWS leak
 # almost always carries the paired ACCESS key (AKIA/ASIA...), which IS intrinsically detectable. So:

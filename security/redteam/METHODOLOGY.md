@@ -160,7 +160,7 @@ The design choices below are deliberate; each exists for a reason.
   a worker pool, so a full pass is tens of minutes. The weak-model choice is also **diagnostic, not just
   conservative**: the 2026-08-18 two-leg gate measured it — Sonnet 4.6 reproduced seeded payloads in its
   raw output in ~15 of 20 output-pipeline trials (exercising the deterministic write-side layer every
-  time), while Opus 5 self-redacted in 18 of 20. Gating only on the strong model would return a wall of
+  time), while Opus 5 self-redacted in at least 18 of 20. Gating only on the strong model would return a wall of
   green that proves the *model* behaved and says nothing about whether the *guardrail* works.
 - **Pre-release, not CI.** This is live, nondeterministic, and costly, so it's a **maintainer-run gate
   before a release** — never a CI check. (Only a cheap, deterministic *lint* of the attack corpus runs in
@@ -269,7 +269,7 @@ then `claude-opus-5` (the sweep). Two lessons, both now load-bearing in how we r
 - **Model discipline is real on the strong model — and still not total.** On the four output-pipeline
   fixtures (20 trials/model), Sonnet 4.6 put the seeded payload in its raw output in ~15 — the write-side
   chokepoint was the only thing between a credential and the case note, and it held every time. Opus 5
-  self-redacted in 18 of 20 — but still let a raw AWS access key and an SSN into its output once each,
+  self-redacted in at least 18 of 20 — but still let a raw AWS access key and an SSN into its output,
   which the chokepoint caught. That asymmetry is the whole two-lock argument in one table: the weak model
   proves the **deterministic layer works under constant fire**; the strong model proves **model-level
   discipline improves with capability but never reaches 100%** — so the code layer ships for both, and
