@@ -8,16 +8,16 @@
   Distinct from the Worker Remit (what the agent is expected to *do*).
 -->
 
-# SCAN INSTRUCTIONS — socxen — SOC investigation agent (whole deployed system)
+# SCAN INSTRUCTIONS — socxen — agentic SOC skill suite (whole deployed system)
 
-**Do not scan the skill in isolation.** socxen's security architecture is a *system*: the
-agent prompt, a bundled MCP bridge, a permissions pack the operator must merge, two always-on
-connector guardrails, and default-on audit logging. Scoping to `plugin/skills/soc-investigate/SKILL.md`
+**Do not scan any one skill in isolation.** socxen's security architecture is a *system*: the
+agent skills, a bundled MCP bridge, a permissions pack the operator must merge, two always-on
+connector guardrails, and default-on audit logging. Scoping to a single `SKILL.md`
 alone would miss every enforcement mechanism and mis-score the whole target.
 
 | Field | Value |
 |-------|-------|
-| Main target to scan | The **deployed socxen system**: (1) the agent skill `plugin/skills/soc-investigate/**` — `SKILL.md`, `reference/**`, `settings.snippet.json` (the permissions pack), and `merge_permissions.py`; (2) the **connector** `plugin/connector/**` — `exabeam-mcp-bridge.py` (bundled MCP server, OAuth refresh, credential handling), `canonicalize.py` (inbound telemetry screening), `neutralize_output.py` (outbound content de-activation), `observra_logging.py` (audit trail); (3) `plugin/install.sh` and what it wires up; (4) any packaging/config that defines the deployed surface (`plugin/.claude-plugin/plugin.json`, `plugin/.mcp.json`). Note the shipped payload lives under `plugin/`; the repo root holds build-time material that is **not** installed. |
+| Main target to scan | The **deployed socxen system**: (1) **all agent skills** under `plugin/skills/**` — each skill's `SKILL.md` and `reference/**`, plus `settings.snippet.json` (the permissions pack) and `merge_permissions.py` where present; (2) the **connector** `plugin/connector/**` — `exabeam-mcp-bridge.py` (bundled MCP server, OAuth refresh, credential handling), `canonicalize.py` (inbound telemetry screening), `neutralize_output.py` (outbound content de-activation), `observra_logging.py` (audit trail); (3) `plugin/install.sh` and what it wires up; (4) any packaging/config that defines the deployed surface (`plugin/.claude-plugin/plugin.json`, `plugin/.mcp.json`). Note the shipped payload lives under `plugin/`; the repo root holds build-time material that is **not** installed. |
 | Also in scope as evidence | `security/**` (design notes, red-team corpus/runner/results/history, AIBOM), `evals/**`, `tests/**`, `scripts/**`, `.github/**` — these are **maturity and practice evidence** for the Step 8b sweep, not the behavioral subject. Judge them under the provenance test: does the project attack **its own** defences, with findings traced to fixes? |
 | Excluded | Nothing is hard-excluded. Prefer depth on the four subject areas above. |
 | Hygiene sweeps | Whole tree regardless of subject scope: committed secrets/credential literals, dependency pinning, workflow/action pinning. |
@@ -52,7 +52,7 @@ These are the load-bearing ones — resolve each **in code**, and state which la
 
 ## Notes
 
-- Pin the source SHA at scan time and record it in the results artifact — do not re-clone or pull mid-scan. (The 2026-08-12 run was pinned at `005fa4c`, socxen 0.6.9; see `results/`.)
+- Pin the source SHA at scan time and record it in the results artifact — do not re-clone or pull mid-scan. (The 2026-08-12 run was pinned at `005fa4c`, socxen 0.6.9; the 2026-08-19 high-mode run at `1a93c22`, dev pre-0.8.0; see `results/`.)
 - The remit for this scan was authored **blind** (documentation only, no implementation access) by a
   separate agent. Divergence between the documented intent and the implementation is the finding
   surface — that is the point.
