@@ -90,8 +90,19 @@ anything merged to `main` reaches installers immediately.
 `main` therefore receives only deliberate, re-verified releases — everyday work
 lands on `dev` first.
 
-When you open a PR, GitHub pre-selects the base as the repository default; confirm
-it's **`dev`** unless you are specifically cutting a release.
+When you open a PR, GitHub pre-selects the base as the repository default (`main`);
+confirm it's **`dev`** unless you are specifically cutting a release. A PR into `main`
+from anything but `dev` fails the **`PRs into main come from dev`** check, which tells
+you how to fix it. If you get it, you don't need to close anything: click **Edit** next to
+the PR title and change the base to `dev`. Commits and review history carry over.
+
+### If your checks look missing rather than failing
+
+On your **first** contribution from a fork, GitHub holds the workflow runs until a
+maintainer approves them. Until that happens the PR shows *no checks at all* — which
+looks like "nothing to do" but actually means **nothing has run yet**, including the
+DCO sign-off check. It is not a failure and it is not something you can fix from your
+side; a maintainer will approve the run. Don't read an empty check list as a pass.
 
 No write access? **Fork** socxen, branch from `dev` in your fork, and open the PR
 against `dev` here — fork PRs run the same CI and DCO checks.
