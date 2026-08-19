@@ -124,6 +124,20 @@ and are never edited after the fact.
 | `results/<date>-socxen-<version>.json` | The same analysis, machine-readable. |
 | `results/<date>-socxen-<version>-audit.md` | Independent audit record — a context-unaware second pass that re-reads every cited line and tries to refute each finding. |
 
+### Which scan gated which release
+
+Artifacts are named `<scan date>-socxen-<version at scan time>` — the version the scan **read**, not the
+release it **gated**. A gate scan necessarily runs before the version bump, so the two never match. The
+mapping, newest first:
+
+| Artifact | Scanned | Gated the release | Verdict |
+|---|---|---|---|
+| `2026-08-19-socxen-0.7.0.*` | `dev` @ `1a93c22`, then at 0.7.0 | **0.8.0** | 0 Critical — pass · RAISE 3.15 |
+| `2026-08-12-socxen-0.6.9.*` | `dev` @ `005fa4c`, then at 0.6.9 | **0.7.0** | 0 Critical — pass · RAISE 2.45 |
+
+Keep this table current when a scan is archived: the filenames alone are ambiguous a year out, and the
+gate record is release evidence.
+
 ## Reproducing a scan
 
 Praxen installs from the same community marketplace as socxen:
