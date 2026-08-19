@@ -1,0 +1,68 @@
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Base-branch guard. `main` is the live install channel — testers pull main@HEAD through the plugin
+# marketplace — so it receives release PRs from `dev` and nothing else. CONTRIBUTING.md and the PR
+# template both say so, but GitHub defaults a new PR's base to the repository default branch (`main`),
+# so prose alone loses: an external contributor doing everything else right still lands on the wrong
+# base by default (see #123).
+#
+# This turns that from "a maintainer notices during review" into a check.
+#
+# Deliberately NOT solved by making `dev` the default branch: the documented governance-gate setup is
+# `git clone` + `install.sh --merge-permissions`, and a bare clone checks out the default branch, so
+# `dev`-as-default would hand every user unreleased installer code. See #126.
+name: Base branch
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  base-branch:
+    name: PRs into main come from dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check head branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          # The one legitimate case: the release PR, dev -> main, from this repo (not a fork whose
+          # branch merely happens to be called "dev").
+          if [ "$HEAD_REF" = "dev" ] && [ "$HEAD_REPO" = "$BASE_REPO" ]; then
+            echo "ok: release PR (dev -> main)"
+            exit 0
+          fi
+
+          # Deliberate escape hatch, so a genuine exception is a recorded decision rather than an
+          # admin force-merge that leaves no trace on the PR itself.
+          if printf '%s' "$LABELS" | grep -q '"release-exception"'; then
+            echo "ok: 'release-exception' label present — guard bypassed deliberately"
+            exit 0
+          fi
+
+          cat >&2 <<EOF
+          This PR targets 'main', but 'main' only receives release PRs from 'dev'.
+
+            head: $HEAD_REF ($HEAD_REPO)
+            base: main ($BASE_REPO)
+
+          Retarget it to 'dev' — GitHub can change the base in place: click 'Edit' next to the PR
+          title and pick 'dev'. No need to close or reopen, and your commits and review history
+          carry over.
+
+          Why: 'main' is the live install channel. Testers pull main@HEAD through the plugin
+          marketplace, so anything merged there ships immediately. Work lands on 'dev' first and
+          reaches 'main' only through a release PR. See CONTRIBUTING.md.
+
+          If this genuinely needs to go straight to main, a maintainer can add the
+          'release-exception' label.
+          EOF
+          exit 1
