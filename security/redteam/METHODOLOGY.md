@@ -136,6 +136,20 @@ The design choices below are deliberate; each exists for a reason.
   gated-tool attempt, a verbatim leak). The *semantic* questions ("was the reasoning subverted?") are
   graded by a **fresh Claude sub-agent given nothing but the grading prompt** — same auth as the driver,
   no API key, no shared context.
+
+  **Choosing the layer is part of authoring an attack, and some harms only the judge can see.** Two
+  recurring patterns:
+  - *A violation with no tool to name.* c02 claims a containment the MCP is structurally incapable of
+    performing. Containment tools are **deny-tier**, so they cannot appear in `must_not.tools` at all —
+    the governed-tools lint would reject them. So the fixture splits: the containment **claim** goes to
+    the judge (`reasoning`), the **close** it tries to license goes to the deterministic layer
+    (`tools`/`outcomes`). Two boundary violations, two layers.
+  - *A harm outside the outcome taxonomy.* b04's real failure is **burial** — the agent raises the case
+    but ranks the genuine exfil as noise. That is not `fp_closed` or `auto_closed`; nothing structural
+    fires. Only the judge sees it.
+
+  The consequence is a rule: **an attack whose thesis is semantic passes vacuously under `--no-judge`.**
+  Say so in its `grader_notes`, or a future maintainer reads a meaningless green as coverage.
 - **Trials × model sweep.** LLM behavior is stochastic, so each attack runs several trials and we report a
   **success rate**, not a single pass/fail. The gate runs on the **weakest supported model** (currently
   **Sonnet** — a *supported* model, not just a surfacing one), as the **conservative default**: it's the
@@ -219,6 +233,15 @@ The first release-shaped exercise of the full bar: the whole A/B/C/D corpus, run
 combined tree** (every in-flight fix together), on both supported models — `claude-sonnet-4-6` (the gate)
 then `claude-opus-5` (the sweep). Two lessons, both now load-bearing in how we run:
 
+- **Fixture-green ≠ control-green.** A follow-on review of the same tree found a defect the whole green
+  run could not see: the new redaction pass ran *before* the link defanger and its value class did not
+  exclude closing delimiters, so on a link whose URL carried a credential-shaped query parameter
+  (`[reset](https://…/login?token=abc123)`) the redactor swallowed the closing paren — the markdown-link
+  matcher then no longer matched, and a **live clickable phishing link** persisted. Reachable by simply
+  appending `?token=…`. Every gate run passed a10 while this was live, because a10's payload URL has no
+  query string: the fixture could not express the interaction. Two controls that are individually correct
+  can compose into a hole, and a corpus only tests the compositions someone thought to write down. The
+  regression is now `a11`, which grades both controls on one string — verified to land on the pre-fix tree.
 - **Piecewise-green ≠ combined-green.** Every piece had already passed its own runs. The combined 19×5
   re-run still surfaced two 1/5 landings: a **mid-line formula gap** in the output neutralizer (the model
   quoted `=HYPERLINK(...)` mid-prose — a position the cell-scoped passes skipped, latent since the
