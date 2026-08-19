@@ -68,12 +68,25 @@ _KEYWORD = (
     r"secret[\s_-]?(?:access[\s_-]?)?key|access[\s_-]?key(?:[\s_-]?id)?|"
     r"api[\s_-]?(?:key|token|secret)|auth(?:orization)?[\s_-]?token|client[\s_-]?secret|"
     r"secret|token|bearer|credential|passcode")
-# Reliable separator (=/:, "is"/"was", newline/bullet/table): the label vouches for the value, so any
-# 6+ char value is redacted.
+# STRONG separator only: an explicit label assignment (`password: X`, `token=X`). Here a 6+ value of
+# almost any shape is a secret -- you don't write "password: rotated". The value class excludes CLOSING
+# delimiters ()]}`) as well as separators: a credential-ish query parameter inside a markdown link
+# (`[reset](https://evil/login?token=abc123)`) must not swallow the closing paren, or _MD_LINK_RE
+# downstream no longer matches and the link is never defanged -- redaction would disarm the a10 link
+# defanger on the exact artifact it protects (found in review of #115).
 _LABELED_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b"
-    r"(\s*[:=]\s*|\s+(?:is|was|=)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
-    r"(?P<val>[^\s,;\"'<>|]{6,})")
+    r"(\s*[:=]\s*)"
+    r"(?P<val>[^\s,;\"'<>|)\]}`]{6,})")
+# WEAK separators -- a copula ("secret was rotated"), a line break ("API token\nAKIA..."), or a table
+# pipe ("| Password | Wq7$... |") -- are AMBIGUOUS: the word that follows is usually recommendation prose
+# ("rotated", "Rotate", "Disable"), not the secret. So these require a secret-SHAPED value: 12+ chars
+# with a digit AND a letter -- the same heuristic _SPACE_SECRET_RE uses for the identical ambiguity, so a
+# dictionary word (no digit) is spared while a real credential ("Hunter2-prod-9x") still masks.
+_WEAK_SEP_SECRET_RE = re.compile(
+    r"(?i)\b(" + _KEYWORD + r")\b"
+    r"(\s+(?:is|was)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
+    r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[^\s,;\"'<>|)\]}`]{12,})")
 # Plain-space separator (a CLI flag like `--secret-key <v>`) is ambiguous — "password protection" would
 # false-positive. So a space-separated value is redacted ONLY if it LOOKS secret-like: 12+ chars with at
 # least one digit AND one letter (a dictionary word like "protection" has no digit and is spared).
@@ -128,6 +141,7 @@ def redact_secrets(text, notes=None):
         _note("secret")
         return m.group(1) + m.group(2) + "[REDACTED:secret]"
     text = _LABELED_SECRET_RE.sub(_labeled, text)
+    text = _WEAK_SEP_SECRET_RE.sub(_labeled, text)
 
     def _space_labeled(m):
         _note("secret")

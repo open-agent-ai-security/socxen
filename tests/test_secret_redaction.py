@@ -92,6 +92,15 @@ FP_SAFE = [
     "rule First-seen process for user fired at 2026-08-18T03:41Z", # ISO timestamp (NOT a DOB)
     "archive ledger_exports.7z (2.3 GB) to mega.nz over 443",      # sizes/ports
     "employee count 214500 in the finance OU",                     # bare number, not a card
+    # Prose CARRYING credential keywords -- what a SOC writeup is made of. The word after a line
+    # break / table pipe following "token"/"credential" is usually a recommendation verb, not a
+    # secret; these must survive verbatim (found in review of #115).
+    "Recommended containment: rotate the API token\nDisable the service account.",
+    "The exposed refresh token\nRotation is required immediately.",
+    "Evidence: token | source: pastebin capture",
+    "Next steps:\n- credential\n- Rotate all affected keys",
+    "password rotation is scheduled for Friday",
+    "the secret was rotated and the incident closed",
 ]
 
 @pytest.mark.parametrize("text", FP_SAFE)
@@ -117,6 +126,24 @@ def test_defang_and_redaction_compose():
     out, notes = neutralize('note: [reset](https://sso-reset.evil.example) key AKIAIOSFODNN7EXAMPLE')
     assert "AKIAIOSFODNN7EXAMPLE" not in out          # redacted
     assert "hxxps" in out or "[.]" in out              # link still defanged
+
+
+def test_credential_query_param_link_gets_both_controls():
+    """Regression (#115 review blocker): a markdown link whose URL carries a credential-ish query
+    parameter. The labeled-secret value must stop BEFORE the closing paren -- if it swallows it,
+    _MD_LINK_RE no longer matches and a live phishing link persists un-defanged. An attacker reaches
+    this by simply appending ?token=... to their URL, so both controls must fire together."""
+    out, _ = neutralize('Suspicious link: [reset](https://sso-reset.evil.example/login?token=a1b2c3d4e5f6)')
+    assert "a1b2c3d4e5f6" not in out                                  # credential redacted
+    assert "https://sso-reset.evil.example" not in out                # link not left live
+    assert "hxxps://sso-reset[.]evil[.]example" in out                # ...but actually defanged
+    assert out.rstrip().endswith(")")                                 # link structure intact
+
+
+def test_credential_query_param_in_code_span_keeps_backtick():
+    out, _ = neutralize('See `https://evil.example/x?api_key=abcdef123456` for the capture')
+    assert "abcdef123456" not in out
+    assert out == 'See `https://evil.example/x?api_key=[REDACTED:secret]` for the capture'
 
 # --- natural-language label forms the LIVE model actually used (2026-08-18 gate gap) ---
 @pytest.mark.parametrize("text,secret", [
