@@ -69,9 +69,9 @@ when someone opens or exports the report later. The address is still fully reada
 a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone with a stray
 click.
 
-This applies to **every** link socxen writes, including harmless internal ones. socxen can't reliably
-tell a legitimate link from a disguised malicious one, so it treats them all the same way — the tiny
-inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
+This applies to harmless internal links too, not just suspicious ones. socxen can't reliably tell a
+legitimate link from a disguised malicious one, so it treats them the same way — the tiny inconvenience
+of copy-pasting a good link is worth never handing an analyst a live malicious one.
 
 ## What these guardrails do *not* do
 
@@ -99,5 +99,9 @@ Keep expectations honest:
   known-exposed password as compromised regardless of what the note shows.
 - A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
   to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
+- Link escaping covers the ordinary link form. Unusual variants — a link carrying a title, one padded
+  with spaces inside its brackets, a reference-style definition, or a raw HTML anchor — are **not**
+  escaped and will render as live links. Treat any link in a note as unverified regardless of how it
+  is rendered.
 - They reduce the blast radius of hostile content. They do **not** replace the permission gate, your SOC
   procedures, or your judgment on the verdict itself.

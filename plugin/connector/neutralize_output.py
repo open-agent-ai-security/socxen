@@ -11,9 +11,10 @@ narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-c
 
   1. FORMULA cells (=HYPERLINK(...), @SUM(...), =cmd|'..'!A0): quote-prefixed inert, and any URL on the
      formula's line is defanged. Stops CSV / formula injection on spreadsheet export.
-  2. MARKDOWN LINKS [text](target): the target is defanged (host -> [.], scheme -> hxxp, javascript: ->
-     [:]). Stops a clickable phishing link. EVERY markdown link is mutated -- the accepted compromise,
-     since a deterministic pass cannot tell a legit link from a malicious one.
+  2. MARKDOWN LINKS in the standard inline form [text](target): the target is defanged (host -> [.],
+     scheme -> hxxp, javascript: -> [:]). Stops a clickable phishing link. Legitimate links are mutated
+     too -- the accepted compromise, since a deterministic pass cannot tell a legit link from a
+     malicious one. Other link forms are NOT covered; see the residuals below.
   3. SECRETS / STRUCTURED PII (the class-D redaction fix, #88 / assessment F-04): a credential or
      structured government identifier planted in telemetry must not survive verbatim into a persisted
      case note / export -- a durable, broader-audience artifact. Prompt-only redaction was measured
@@ -25,6 +26,10 @@ narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-c
 DOCUMENTED RESIDUALS (out of scope, by decision):
   - a BARE URL typed in prose (not a markdown link, not on a formula line) is left UNTOUCHED -- defanging
     every URL would mangle the legit reference links analysts write in notes (do harm).
+  - LINK FORMS OTHER THAN THE STANDARD INLINE ONE are not defanged: a CommonMark title
+    ([t](url "title")), whitespace padding inside the parens, reference-style definitions
+    ([ref]: url), GFM autolinks (<url>), and raw HTML anchors. Tracked in #119. The matcher covers
+    the form a model overwhelmingly writes; the rest are a known gap, not a claim.
   - an ALL-ALPHABETIC value after a BARE LINE BREAK ("Recovered credential\ncorrecthorsebatterystaple")
     is not caught: after a line break, a word with no digit and no delimiter is indistinguishable from
     recommendation prose ("credential\nRotation is required immediately"), and redacting it would eat
