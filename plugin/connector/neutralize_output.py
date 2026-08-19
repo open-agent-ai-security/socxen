@@ -365,10 +365,10 @@ def _neutralize_formulas(text, notes):
 
 
 def neutralize_output(text):
-    """Redact secrets/structured-PII, quote-prefix executable formulas (+ defang URLs on those lines),
-    and defang markdown-link targets. Bare URLs and free-form PII in prose are out of scope (documented
-    residuals). Pure and deterministic. Redaction runs FIRST, so a secret is masked before any structural
-    transform can split or requote it."""
+    """Defang markdown-link targets, redact secrets/structured-PII, then quote-prefix executable formulas
+    (+ defang URLs on those lines). Bare URLs and free-form PII in prose are out of scope (documented
+    residuals). Pure and deterministic. Link defang runs FIRST -- see the ordering note in the body: with
+    redaction first, its value match could consume a link's closing bracket and leave the URL live."""
     if not text:
         return text, []
     notes = []
