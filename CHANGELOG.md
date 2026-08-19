@@ -10,11 +10,85 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-Documentation and repo-side fixes awaiting the next version bump. The only changes inside the shipped
-payload are `plugin/README.md` and `plugin/docs/README.md`; no code, skill, connector or manifest
-changes.
+_Nothing yet._
+
+## [0.8.0] — 2026-08-19
+
+**socxen becomes a skill suite.** `triage-cases` (shift lead) and `rule-tuning` (detection engineer) join
+`soc-investigate` (analyst), taking socxen from single-case work to the whole queue and the detections
+behind it. The connector bridge gains **deterministic secret/PII redaction** on the write path — the
+control the first full A/B/C/D red-team gate proved was missing, and which that gate now measures as
+load-bearing: a **21% raw leak rate on the weakest supported model, 3% on the strongest, 0% net on both**.
+
+Both release gates are green against this tree: red team **0 landings across 20 attacks × 5 trials on
+both supported models**, and Praxen agent-behavior verification **0 Critical**, 14/14 findings
+independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 
 ### Added
+- **socxen is now a skill suite: `triage-cases` and `rule-tuning` join `soc-investigate`.** Two
+  queue/fleet-level skills sharing the investigator's spine and corroboration thesis, extending socxen
+  from single-case analyst work to shift-lead and detection-engineering work. **`triage-cases`**
+  sweeps the open case queue, clusters by attack-shape, and ranks by corroborated signal (risk score as
+  one tunable input, not the sole one) into a short "start here" list plus the noise clusters worth
+  tuning — read-only across the sweep; it may call an *obvious* verdict but a dismiss/close remains a
+  gated recommendation, never a bulk action. **`rule-tuning`** finds *noisy* rules — volume ×
+  low precision, never volume alone (tuning a loud-but-precise rule is a miss you caused) — and
+  proposes changes mapped to real Exabeam mechanics (context tables, exclusion rules, filter/scope/
+  maturity); strictly read-only and propose-only, since there is no rule-write path and detection
+  engineering applies the change. Each skill hands off to the others: a single case to
+  `soc-investigate`, a noise cluster to `rule-tuning`. Routing and the shared spine are enforced by
+  new repo-side invariant tests (skill-spine + routing-selection, generalized across every skill).
+  ([#103](https://github.com/open-agent-ai-security/socxen/issues/103); tests
+  [#108](https://github.com/open-agent-ai-security/socxen/issues/108)/[#109](https://github.com/open-agent-ai-security/socxen/issues/109)/[#110](https://github.com/open-agent-ai-security/socxen/issues/110))
+- **Deterministic secret / PII redaction on the write path.** The first red-team run to exercise class D
+  (data protection) showed the model reproducing seeded secrets verbatim into its report 5/5 —
+  `[REDACTED]` lived only in the skill prompt, with no code chokepoint. Every case-note/export write now
+  passes through the bridge's output neutralizer, which masks high-specificity credentials and
+  identifiers (AWS keys, `ghp_`/`xoxb-`/`sk_live_`/`AIza`/JWT prefixes, PEM private-key blocks,
+  label-anchored passwords, SSNs, Luhn-checked card numbers) as typed `[REDACTED:<kind>]` placeholders
+  before anything persists — independent of model behavior. Legitimate report content (IPs, hashes,
+  UUIDs, timestamps, ports) passes through untouched, enforced by a dedicated false-positive corpus.
+  Documented residuals: free-form PII (names, addresses), date-shaped values, and the operator's own
+  console (not a trust boundary). ([#88](https://github.com/open-agent-ai-security/socxen/issues/88),
+  fixed in [#115](https://github.com/open-agent-ai-security/socxen/pull/115); context-aware follow-up
+  tracked in [#116](https://github.com/open-agent-ai-security/socxen/issues/116))
+- **Mid-line formula neutralization.** The full-gate re-run caught the model quoting an executable
+  `=HYPERLINK(...)` formula *mid-sentence* in a note — a position the cell-scoped formula defang
+  (line-leading / quoted field / table cell) deliberately skipped. Unlike a bare URL, a verbatim formula
+  re-arms on copy-paste or CSV re-celling, so mid-line occurrences of known-dangerous functions
+  (HYPERLINK, WEBSERVICE, IMPORT\*, FILTERXML, DDE, and the XLM macro set) are now quote-prefixed with
+  their line's URLs defanged — allowlist-gated so everyday prose (`on-call (rotation)`,
+  `score =high(ish)`) is never touched.
+  ([#117](https://github.com/open-agent-ai-security/socxen/issues/117), fixed in
+  [#115](https://github.com/open-agent-ai-security/socxen/pull/115))
+- **The red-team corpus now covers classes A/B/C/D — 20 attacks.** Up from 10 (class A only): 11×A
+  injection, 4×B verdict manipulation, 2×C gate boundary, 3×D data protection. The first runs to
+  exercise the release-blocking C and D classes, which is what surfaced the redaction finding above.
+  Methodology, per-run reports and the ledger live in `security/redteam/`.
+- **Release evidence: the first two-leg red-team gate.** The full 20-attack A/B/C/D corpus × 5 trials on
+  **both** supported models against the release tree — `claude-sonnet-4-6` (the gate) and `claude-opus-5`
+  (the sweep). **Zero landings on either model.** The runs also measure what the deterministic layer is
+  actually worth. On the five fixtures that route through the write path (25 trials per model), the model
+  reproduced the payload in its own output **21 of 25 times on Sonnet and 3 of 25 on Opus**. Measured
+  against the whole run of 100 drives, that is a raw leak rate of **21% and 3%**. The *persisted*
+  artifact came out clean every time, so the net rate on both models is **0 of 100 = 0%**. (Two
+  denominators, deliberately distinct: the count is over the write-path trials, the rate over all drives.
+  Per-trial breakdown: `security/redteam/results/2026-08-19-per-trial-residuals.md`.) The remaining 15 fixtures have no code guardrail at all and resisted on the skill prompt
+  alone: prompts hold the judgment classes (suppression, gate bypass), code holds the transcription
+  classes (a diligent model quoting its evidence, secret and all). Read 0% as "no leak in the shapes we
+  test", not as a guarantee — the shapes we know it would miss are documented as residuals and tracked in
+  [#116](https://github.com/open-agent-ai-security/socxen/issues/116),
+  [#118](https://github.com/open-agent-ai-security/socxen/issues/118) and
+  [#119](https://github.com/open-agent-ai-security/socxen/issues/119). Methodology, per-run reports and
+  the ledger: `security/redteam/`.
+- **Release evidence: agent-behavior verification (Praxen), and a remit covering the whole suite.**
+  High-mode scan of the release tree — **0 Critical, the gate passes** (7 High · 4 Medium · 3 Low, none
+  blocking), with every finding independently re-read at its cited lines by a context-unaware auditor and
+  **14/14 confirmed**. Weighted RAISE posture **3.15 (Established)**, up from 2.45 at the 0.6.9 scan.
+  **Worker Remit v1.2** extends the declared policy from `soc-investigate` to all three skills — per-skill
+  authority, read-only sweeps that never bulk-close, propose-only tuning — and declares the deterministic
+  write-path redaction, including its residuals, as policy rather than as implementation detail.
+  (`security/praxen/`)
 - **The root README now says where your data goes.** A prospective customer's security review asks this
   on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
   reasoning about what enters model context. It is also a *good* answer the page was already giving
@@ -24,10 +98,71 @@ changes.
   that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
   customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
   recommendation asked the *deploying organisation* for a data-classification review and asked socxen
-  for nothing; recorded here as documentation, not a defect. Root README only — outside the shipped
-  payload, so no version bump.
+  for nothing; recorded here as documentation, not a defect.
+
+### Changed
+- **The front page now describes a suite, not a skill.** Both READMEs still opened with "an agentic SOC
+  analyst, as a Claude Code skill" — singular, and silent on the shift-lead and detection-engineer work
+  that now ships. They lead instead with *"Analyst, shift lead, detection engineer. Three skills, one
+  governance gate. You stay in control."*, and state the shape plainly: an **agentic SOC skill suite**
+  plus the deterministic guardrails and governance that make it safe to point at a live tenant — a suite
+  rather than a library, because the bridge is a mandatory chokepoint and not an optional part. A skills
+  table names each by whose job it does, with the safety scope inline (the queue sweep never bulk-closes;
+  tuning is propose-only because no rule-write path exists). "What it does" gains queue prioritization
+  and rule tuning, and the guardrails bullet now names the credential masking that shipped this round and
+  was missing from the front page entirely.
+- **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
+  point but was written as a router to `plugin/README.md` — it offered copy-pasteable install commands
+  with **no pre-release warning and no governance-gate warning anywhere on the page**, so a reader
+  arriving from search could install and run with no hard dismiss/close gate, never having been told the
+  permission pack is mandatory. Both warnings are now on it, the gate warning adjacent to the install
+  commands. It also gains a five-layer architecture table (methodology / capability / authority /
+  guardrails / evidence) and a documentation index, while the detailed claims stay on the pages that
+  own them — `security/` for the release gates, `security-guardrails.md` for the threat model,
+  `SKILL.md` for the verdict bar.
+
+  Both READMEs now follow the org house style used by praxen and observra: a bold role descriptor under
+  the H1, a pull-quote hero, and a `## Project sponsor` block — the sponsorship was declared in
+  `plugin/NOTICE` but appeared in neither README.
+
+  `plugin/README.md` is now a **post-install operator card** rather than a second front page. socxen is
+  the only sibling project needing two READMEs: praxen and observra ship their whole repo, so one README
+  is both landing page and shipped doc, while socxen ships only `plugin/`. Split by that job, the
+  shipped README drops the pull-quote hero, the marketplace install commands and the guided-installer
+  clone block — all front-door material for someone who has not installed yet — and merges its two
+  overlapping `Highlights` / `What it does` lists into one. Its gate warning now links the setup guide's
+  anchor rather than inlining `./plugin/install.sh --merge-permissions`, a clone-relative path that is
+  wrong inside an installed plugin where no `plugin/` directory exists. The dangling bare `CHANGELOG.md`
+  reference — that file does not ship either — is now an absolute link. The 🛑 governance-gate warning
+  is unchanged. (#96, #98)
+
+- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
+  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
+  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
+  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
+  remain the authoritative record of what was found. (#94)
 
 ### Fixed
+- **A credential in a link could leave a live phishing URL in a case note.** Redaction ran before the
+  link defanger, so a credential-shaped query parameter (`[reset](https://…/login?token=…)`) let the
+  redaction match consume the link's closing bracket — the defanger then no longer recognised a link and
+  the host persisted un-defanged. Found in review of the redaction work above, before release. The write
+  path now **defangs links first**, so whatever redaction consumes it cannot re-arm a link for any value
+  shape; the value boundary stops at an unmatched closing bracket; the `[REDACTED:…]` placeholder is
+  never re-consumed (which also restores idempotence and keeps the typed kind, e.g. `[REDACTED:aws-key]`,
+  intact); and the delimiter peel is linear rather than quadratic on adversary-supplied input.
+- **Redaction no longer mangles ordinary tables or sentences.** A markdown table *header* whose cell is a
+  credential keyword had its neighbouring column name replaced (`| Token | Source |` → `| Token |
+  [REDACTED:secret] |`); header rows are now exempt, while real label/value rows still mask. Credit-card
+  redaction also consumed the following space, closing up the sentence around the placeholder.
+- **The guardrail doc claimed more link coverage than the code delivers.** `security-guardrails.md` told
+  operators the escaping applies to *every* link socxen writes, and the module docstring said every
+  markdown link is mutated. Neither was true: only the ordinary inline `[text](target)` form is
+  recognised — a link carrying a title, one padded with spaces inside its brackets, a reference-style
+  definition, a GFM autolink and a raw HTML anchor all pass through and render live. The gap is
+  pre-existing and stays open ([#119](https://github.com/open-agent-ai-security/socxen/issues/119)); the
+  overclaim does not ship. Both files now state what is covered and name the variants that are not, and
+  the residual is listed alongside the others.
 - **"Data-lake search" is now "SIEM search".** Exabeam's own term for the read surface, corrected in the
   six places the phrase appeared: the root and plugin READMEs, `SKILL.md`, `reference/tool-map.md`, and
   twice in the Praxen Worker Remit — which is a living policy document derived from the shipped docs, so
@@ -75,39 +210,7 @@ changes.
   `plugin/` and fails if it escapes the shipped root or doesn't exist — nothing covered `plugin/docs/`
   before. Shipped in 0.7.0. (#29)
 
-### Changed
-- **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
-  point but was written as a router to `plugin/README.md` — it offered copy-pasteable install commands
-  with **no pre-release warning and no governance-gate warning anywhere on the page**, so a reader
-  arriving from search could install and run with no hard dismiss/close gate, never having been told the
-  permission pack is mandatory. Both warnings are now on it, the gate warning adjacent to the install
-  commands. It also gains a five-layer architecture table (methodology / capability / authority /
-  guardrails / evidence) and a documentation index, while the detailed claims stay on the pages that
-  own them — `security/` for the release gates, `security-guardrails.md` for the threat model,
-  `SKILL.md` for the verdict bar.
 
-  Both READMEs now follow the org house style used by praxen and observra: a bold role descriptor under
-  the H1, a pull-quote hero, and a `## Project sponsor` block — the sponsorship was declared in
-  `plugin/NOTICE` but appeared in neither README.
-
-  `plugin/README.md` is now a **post-install operator card** rather than a second front page. socxen is
-  the only sibling project needing two READMEs: praxen and observra ship their whole repo, so one README
-  is both landing page and shipped doc, while socxen ships only `plugin/`. Split by that job, the
-  shipped README drops the pull-quote hero, the marketplace install commands and the guided-installer
-  clone block — all front-door material for someone who has not installed yet — and merges its two
-  overlapping `Highlights` / `What it does` lists into one. Its gate warning now links the setup guide's
-  anchor rather than inlining `./plugin/install.sh --merge-permissions`, a clone-relative path that is
-  wrong inside an installed plugin where no `plugin/` directory exists. The dangling bare `CHANGELOG.md`
-  reference — that file does not ship either — is now an absolute link. The 🛑 governance-gate warning
-  is unchanged. (#96, #98)
-
-- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
-  2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
-  of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
-  triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
-  remain the authoritative record of what was found. (#94)
-
-### Fixed
 - **`bump_version.py`'s duplicate-match guard can now actually fire.** `re.subn` was called with
   `count=1`, which caps the *reported* substitution count at 1, so the `n != 1` check could only ever
   catch zero matches. A version string appearing twice in a file would have had the first occurrence

@@ -38,7 +38,43 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — 0.6.9
+## Current status — dev @ `1a93c22` (the 0.8.0 gate scan)
+
+| | |
+|---|---|
+| Scanned | **dev pre-0.8.0** (`1a93c22`), 2026-08-19 |
+| Scanner | Praxen 1.3.0, Claude Opus 5, **high thinking mode** |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 7 High · 4 Medium · 3 Low |
+| Weighted RAISE posture | **3.15 / 5** (Established) |
+| Remit coverage | 63 rules — 49 verified · 12 partial · 2 gap |
+| Independent audit | 14 / 14 findings CONFIRMED · 0 unsupported · 0 remit defects |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero
+Trust 3 · Manage Your Supply Chain 3 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+**This scan is the gate artifact for the 0.8.0 release.** It ran against the `dev` tip
+(`1a93c22`) with **Worker Remit v1.2** — the first remit revision covering the full skill
+suite (`soc-investigate`, `triage-cases`, `rule-tuning`) and the deterministic write-path
+redaction guarantees. This was also the first scan run in Praxen's **high mode**: a
+context-unaware auditor re-read every finding at its cited lines and attempted to refute
+it (the `-audit.md` artifact), confirming all 14 with zero remit defects. The gate's rule
+(no open Critical) is satisfied. Non-blocking findings triage into issues per the policy
+above; remit tune-ups surfaced by the audit are deferred and tracked in
+[#121](https://github.com/open-agent-ai-security/socxen/issues/121).
+
+**Closed after the snapshot (do not re-file during triage).** Two findings were already fixed on `dev`
+within minutes of the 02:14Z scan and are counted above only because the scan predates them:
+
+| Finding | Status |
+|---|---|
+| `PRAX-2026-08-19-008` — bare URL undefanged while the doc claimed every link is escaped | Fixed in `72e762e`: `security-guardrails.md` and the module docstring now state that the ordinary inline link form is covered and name the variants that are not ([#119](https://github.com/open-agent-ai-security/socxen/issues/119)) |
+| `PRAX-2026-08-19-014` — the neutralizer docstring claimed redaction runs first | Fixed in `22daa05`: stale since link de-fanging moved ahead of redaction to close the live-link regression |
+
+So the live count against the shipped 0.8.0 tree is **0 Critical · 7 High · 3 Medium · 3 Low**. The
+gate verdict is unchanged — it turns on Critical only.
+
+## Previous — 0.6.9
 
 | | |
 |---|---|
@@ -87,6 +123,20 @@ and are never edited after the fact.
 | `results/<date>-socxen-<version>.html` | The rendered report — findings with `file:line` evidence, remit coverage, RAISE scorecard, OWASP mappings. Self-contained; open it in a browser. |
 | `results/<date>-socxen-<version>.json` | The same analysis, machine-readable. |
 | `results/<date>-socxen-<version>-audit.md` | Independent audit record — a context-unaware second pass that re-reads every cited line and tries to refute each finding. |
+
+### Which scan gated which release
+
+Artifacts are named `<scan date>-socxen-<version at scan time>` — the version the scan **read**, not the
+release it **gated**. A gate scan necessarily runs before the version bump, so the two never match. The
+mapping, newest first:
+
+| Artifact | Scanned | Gated the release | Verdict |
+|---|---|---|---|
+| `2026-08-19-socxen-0.7.0.*` | `dev` @ `1a93c22`, then at 0.7.0 | **0.8.0** | 0 Critical — pass · RAISE 3.15 |
+| `2026-08-12-socxen-0.6.9.*` | `dev` @ `005fa4c`, then at 0.6.9 | **0.7.0** | 0 Critical — pass · RAISE 2.45 |
+
+Keep this table current when a scan is archived: the filenames alone are ambiguous a year out, and the
+gate record is release evidence.
 
 ## Reproducing a scan
 

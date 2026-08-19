@@ -4,11 +4,11 @@
 -->
 
 # socxen
-**An agentic SOC analyst, as a Claude Code skill.**
+**An agentic SOC skill suite for Exabeam New-Scale, as a Claude Code plugin.**
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.7.0-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.8.0-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -17,12 +17,22 @@
 > for production SOC operations or point it at alerts whose disposition matters without a human
 > reviewing every action.
 
-socxen investigates and triages **Exabeam New-Scale** alerts and cases end to end — it gathers evidence
-through the Exabeam MCP, pivots on entities, weighs competing hypotheses, reaches a threat /
-false-positive verdict, and acts. No server, no database, no approval queue: the analyst at the terminal
-is the human-in-the-loop, and once you turn the governance gate on (below) the consequential action
-(dismiss/close) is held back by **two locks** — Claude Code permission rules *and* the skill asking you
-first — never left to the model alone.
+socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make it
+safe to point at a live tenant. Three skills work **Exabeam New-Scale** through the Exabeam MCP — one case, the
+whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
+database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
+governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
+Claude Code permission rules *and* the skill asking you first — never left to the model alone.
+
+## The three skills
+
+| Skill | Whose work it is | What it does |
+|---|---|---|
+| **`soc-investigate`** | the analyst | One alert or case, first look to written verdict: gathers evidence, pivots on entities, weighs competing hypotheses, reaches a threat / false-positive verdict, and acts. |
+| **`triage-cases`** | the shift lead | The open queue rather than one case: clusters by attack shape, ranks by corroborated signal (risk score is one input, not the answer), returns a "start here" list plus the noise worth tuning. Read-only across the sweep — never closes in bulk. |
+| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: there is no rule-write path. |
+
+Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
 ## What it does
 
@@ -30,13 +40,18 @@ first — never left to the model alone.
   `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
 - ⚖️ **Decides** against a disciplined bar — a false-positive close requires a *positive* benign
   explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
+- 🗂️ **Prioritizes at fleet scale** — sweeps the open queue, clusters it by attack shape, and makes the
+  urgent cases impossible to miss instead of re-triaging the same noise every shift.
+- 🔧 **Tunes the source of the noise** — separates high-volume-low-precision rules from high-volume-
+  high-precision ones, so the fix lands on the detection instead of on the analyst.
 - ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
 - 🔒 **Stops where it should** — once you switch the gate on during setup, dismiss/close sits behind a
   hard, Claude-Code-enforced permission rule; containment is never executed.
 - 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
-  hidden-character smuggling from what it reads and de-activates dangerous content (formulas, clickable
-  links) in what it writes back.
+  hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
+  content (formulas, clickable links) **and masks credentials and structured identifiers** (API keys,
+  tokens, private keys, SSNs, card numbers) before they can persist into a case note or export.
 - 🧾 **Logs what it did** — a structured, bounded, privacy-preserving audit record of every action and
   every time a guardrail fired, on by default. ~16 µs/event, non-blocking, local.
 
@@ -55,7 +70,8 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 > default and `-y` does not authorise it — the flag is the consent. The merge is additive-only, backs
 > your settings file up first, and refuses if a rule already sits in a different tier.
 
-Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
+Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /
+*"find noisy rules"* to reach the other two skills. Claude Code routes on what you ask for.
 
 ## Documentation
 
@@ -73,6 +89,8 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case).
 .claude-plugin/          plugin.json (plugin manifest — installs via open-agent-ai-security/plugins)
 .mcp.json                bundled Exabeam MCP — auto-registers on install
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
+skills/triage-cases/     SKILL.md — queue sweep (shift lead)
+skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
 docs/                    installation · security-guardrails · logging
 install.sh               convenience installer (idempotent)
