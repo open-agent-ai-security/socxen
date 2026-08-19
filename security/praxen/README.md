@@ -63,6 +63,17 @@ it (the `-audit.md` artifact), confirming all 14 with zero remit defects. The ga
 above; remit tune-ups surfaced by the audit are deferred and tracked in
 [#121](https://github.com/open-agent-ai-security/socxen/issues/121).
 
+**Closed after the snapshot (do not re-file during triage).** Two findings were already fixed on `dev`
+within minutes of the 02:14Z scan and are counted above only because the scan predates them:
+
+| Finding | Status |
+|---|---|
+| `PRAX-2026-08-19-008` — bare URL undefanged while the doc claimed every link is escaped | Fixed in `72e762e`: `security-guardrails.md` and the module docstring now state that the ordinary inline link form is covered and name the variants that are not ([#119](https://github.com/open-agent-ai-security/socxen/issues/119)) |
+| `PRAX-2026-08-19-014` — the neutralizer docstring claimed redaction runs first | Fixed in `22daa05`: stale since link de-fanging moved ahead of redaction to close the live-link regression |
+
+So the live count against the shipped 0.8.0 tree is **0 Critical · 7 High · 3 Medium · 3 Low**. The
+gate verdict is unchanged — it turns on Critical only.
+
 ## Previous — 0.6.9
 
 | | |
