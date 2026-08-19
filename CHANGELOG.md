@@ -10,10 +10,9 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-Changes awaiting the next version bump (0.8.0). This round **does** change shipped payload code: two
-deterministic guardrail additions to the connector bridge (below), found and verified by the first full
-A/B/C/D red-team gate. (An earlier revision of this section predated them and said the pending changes
-were docs-only.)
+Changes awaiting the next version bump (0.8.0). A functional release: socxen becomes a **skill suite**
+(two new skills join `soc-investigate`) and the connector bridge gains **deterministic secret/PII
+redaction** on the write path — the control the first full A/B/C/D red-team gate proved was missing.
 
 ### Added
 - **socxen is now a skill suite: `triage-cases` and `rule-tuning` join `soc-investigate`.** Two
@@ -52,10 +51,15 @@ were docs-only.)
   `score =high(ish)`) is never touched.
   ([#117](https://github.com/open-agent-ai-security/socxen/issues/117), fixed in
   [#115](https://github.com/open-agent-ai-security/socxen/pull/115))
-- **Release evidence: the first two-leg red-team gate.** Full 19-attack A/B/C/D corpus × 5 trials on
-  both supported models — `claude-sonnet-4-6` (gate) and `claude-opus-5` (sweep) — ending 0 landings on
-  both, with the guardrails-vs-model split measured and recorded
-  (`security/redteam/HISTORY.md`, dated reports under `security/redteam/results/`).
+- **The red-team corpus now covers classes A/B/C/D — 20 attacks.** Up from 10 (class A only): 11×A
+  injection, 4×B verdict manipulation, 2×C gate boundary, 3×D data protection. The first runs to
+  exercise the release-blocking C and D classes, which is what surfaced the redaction finding above.
+  Methodology, per-run reports and the ledger live in `security/redteam/`.
+- **Release evidence: the first two-leg red-team gate.** A/B/C/D corpus × 5 trials on **both** supported
+  models — `claude-sonnet-4-6` (the gate) and `claude-opus-5` (the sweep) — with the guardrails-vs-model
+  split measured and recorded (`security/redteam/HISTORY.md`, dated reports under
+  `security/redteam/results/`). *Note:* those archived runs predate the write-path fixes below and the
+  a11 fixture; a fresh gate on the release tree is run before the tag, per `security/redteam/PLAN.md`.
 - **The root README now says where your data goes.** A prospective customer's security review asks this
   on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
   reasoning about what enters model context. It is also a *good* answer the page was already giving
@@ -65,10 +69,21 @@ were docs-only.)
   that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
   customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
   recommendation asked the *deploying organisation* for a data-classification review and asked socxen
-  for nothing; recorded here as documentation, not a defect. Root README only — outside the shipped
-  payload, so no version bump.
+  for nothing; recorded here as documentation, not a defect.
 
 ### Fixed
+- **A credential in a link could leave a live phishing URL in a case note.** Redaction ran before the
+  link defanger, so a credential-shaped query parameter (`[reset](https://…/login?token=…)`) let the
+  redaction match consume the link's closing bracket — the defanger then no longer recognised a link and
+  the host persisted un-defanged. Found in review of the redaction work above, before release. The write
+  path now **defangs links first**, so whatever redaction consumes it cannot re-arm a link for any value
+  shape; the value boundary stops at an unmatched closing bracket; the `[REDACTED:…]` placeholder is
+  never re-consumed (which also restores idempotence and keeps the typed kind, e.g. `[REDACTED:aws-key]`,
+  intact); and the delimiter peel is linear rather than quadratic on adversary-supplied input.
+- **Redaction no longer mangles ordinary tables or sentences.** A markdown table *header* whose cell is a
+  credential keyword had its neighbouring column name replaced (`| Token | Source |` → `| Token |
+  [REDACTED:secret] |`); header rows are now exempt, while real label/value rows still mask. Credit-card
+  redaction also consumed the following space, closing up the sentence around the placeholder.
 - **"Data-lake search" is now "SIEM search".** Exabeam's own term for the read surface, corrected in the
   six places the phrase appeared: the root and plugin READMEs, `SKILL.md`, `reference/tool-map.md`, and
   twice in the Praxen Worker Remit — which is a living policy document derived from the shipped docs, so

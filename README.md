@@ -4,19 +4,25 @@
 -->
 
 # socxen
-**agentic SOC analyst for Exabeam New-Scale**
+**an agentic SOC skill suite for Exabeam New-Scale**
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](plugin/LICENSE)
 
-> ### It works your alert queue. You keep the verdict.
+> ### Analyst, shift lead, detection engineer.
+> ### Three skills, one governance gate. You stay in control.
 
-A Claude Code plugin that takes an Exabeam New-Scale alert or case from first look to written verdict.
-Point it at one and it runs the investigation: pulls the underlying events, pivots on the entities it
-finds, weighs the activity against what is normal for them, tests a benign explanation against a
-malicious one, and writes up its reasoning with the evidence behind it. Then it acts — opens or
-updates a case, writes notes, escalates.
+socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make
+it safe to point at a live tenant. Three Claude Code skills, named for the person whose job they do:
+
+| Skill | Whose work it is | What it does |
+|---|---|---|
+| **`soc-investigate`** | the analyst | Takes one Exabeam New-Scale alert or case from first look to written verdict — pulls the underlying events, pivots on the entities it finds, weighs the activity against what is normal for them, tests a benign explanation against a malicious one, and writes up its reasoning with the evidence behind it. Then it acts: opens or updates a case, writes notes, escalates. |
+| **`triage-cases`** | the shift lead | Sweeps the open queue instead of one case — clusters by attack shape, ranks by corroborated signal rather than risk score alone, and hands back a short "start here" list plus the noise worth tuning. Read-only across the sweep; it never closes in bulk. |
+| **`rule-tuning`** | the detection engineer | Finds the rules quietly wasting analyst attention — *noisy*, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: there is no rule-write path, and that is deliberate. |
+
+Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
 **Dismissing an alert or closing a case is held back by two locks once you turn the governance gate on
 (below)**: a Claude Code permission rule that stops the call at the harness, and the skill asking you
@@ -56,7 +62,8 @@ claude plugin install socxen@open-agent-ai-security
 > instead, and to supply your Exabeam credentials (the only other setup step), follow
 > **[the setup guide](plugin/docs/installation.md)**.
 
-Then ask it to *"investigate alert &lt;id&gt;"*.
+Then ask it to *"investigate alert &lt;id&gt;"* — or *"triage the queue"* / *"find noisy rules"* for the
+other two skills.
 
 ## Where your data goes
 
@@ -73,7 +80,7 @@ access is not, by itself, something you can let near a SOC queue.
 
 | Layer | Where | What it contributes |
 |---|---|---|
-| **Methodology** | [`skills/soc-investigate/`](plugin/skills/soc-investigate/SKILL.md) | the investigation *procedure* — entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix |
+| **Methodology** | [`skills/`](plugin/skills/) | the *procedures* — [`soc-investigate`](plugin/skills/soc-investigate/SKILL.md) (entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix), [`triage-cases`](plugin/skills/triage-cases/SKILL.md) and [`rule-tuning`](plugin/skills/rule-tuning/SKILL.md), sharing one safety spine |
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context |
 | **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by Claude Code, not by the model** |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
