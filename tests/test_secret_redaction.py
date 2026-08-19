@@ -320,3 +320,16 @@ def test_card_redaction_does_not_swallow_the_following_space():
     sentence closes up around the placeholder in a legitimate report."""
     assert redact("Card number 4111 1111 1111 1111 was charged") == "Card number [REDACTED:credit-card] was charged"
     assert redact("card 4111-1111-1111-1111 seen") == "card [REDACTED:credit-card] seen"
+
+
+@pytest.mark.parametrize("template", ['password: "%s"', "password: '%s'", "api_key = \"%s\""])
+def test_quote_wrapped_values_are_masked(template):
+    """Pinning behaviour that arrived UNINTENDED: dropping quotes from the value class (a fix aimed at
+    backticks and link parens) made quote-wrapped values redactable as a side effect. It is the behaviour
+    we want, but nothing asserted it, and per #120 the suite would not notice it regressing. NOTE the
+    JSON-shaped form ({"password": "..."}) is still a MISS -- the closing quote sits between keyword and
+    separator, so `[:=]` is not adjacent. Tracked in #118 with a d04 fixture."""
+    secret = _s("Wq7$", "vault-prod-", "2026-BUILD")
+    out = redact(template % secret)
+    assert secret not in out
+    assert "[REDACTED:secret]" in out
