@@ -16,6 +16,21 @@ A/B/C/D red-team gate. (An earlier revision of this section predated them and sa
 were docs-only.)
 
 ### Added
+- **socxen is now a skill suite: `triage-cases` and `rule-tuning` join `soc-investigate`.** Two
+  queue/fleet-level skills sharing the investigator's spine and corroboration thesis, extending socxen
+  from single-case analyst work to shift-lead and detection-engineering work. **`triage-cases`**
+  sweeps the open case queue, clusters by attack-shape, and ranks by corroborated signal (risk score as
+  one tunable input, not the sole one) into a short "start here" list plus the noise clusters worth
+  tuning — read-only across the sweep; it may call an *obvious* verdict but a dismiss/close remains a
+  gated recommendation, never a bulk action. **`rule-tuning`** finds *noisy* rules — volume ×
+  low precision, never volume alone (tuning a loud-but-precise rule is a miss you caused) — and
+  proposes changes mapped to real Exabeam mechanics (context tables, exclusion rules, filter/scope/
+  maturity); strictly read-only and propose-only, since there is no rule-write path and detection
+  engineering applies the change. Each skill hands off to the others: a single case to
+  `soc-investigate`, a noise cluster to `rule-tuning`. Routing and the shared spine are enforced by
+  new repo-side invariant tests (skill-spine + routing-selection, generalized across every skill).
+  ([#103](https://github.com/open-agent-ai-security/socxen/issues/103); tests
+  [#108](https://github.com/open-agent-ai-security/socxen/issues/108)/[#109](https://github.com/open-agent-ai-security/socxen/issues/109)/[#110](https://github.com/open-agent-ai-security/socxen/issues/110))
 - **Deterministic secret / PII redaction on the write path.** The first red-team run to exercise class D
   (data protection) showed the model reproducing seeded secrets verbatim into its report 5/5 —
   `[REDACTED]` lived only in the skill prompt, with no code chokepoint. Every case-note/export write now
