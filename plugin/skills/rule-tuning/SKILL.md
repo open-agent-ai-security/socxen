@@ -74,6 +74,12 @@ from as many of these signals as the data offers, most decisive first:
   suppression, or an `autoDisabled` flag, is the platform already telling you the rule is noisy.
 - **Uniform broad spread.** A rule firing evenly across dozens of unrelated users/hosts is profiling
   noise; a rule concentrated on one incident is signal.
+- **Escalation-to-case rate (cheap, searchable first pass).** The fraction of a rule's alerts that
+  became a case an analyst opened — an *aggregate, fully-searchable* precision proxy, unlike
+  `closedReason` (per-case only). Rank the whole inventory by `volume × (1 − escalation_rate)` to
+  decide *which* rules earn the expensive disposition sampling, then confirm with the signals above
+  before proposing a change. Coarser than a disposition sample — a low rate can also mean an unworked
+  queue, so never tune on it alone. See `reference/escalation-rate-signal.md`.
 
 No single signal is proof — combine them. A rule that is high-volume, never-corroborated,
 org-scoped-first-seen with maturity off, and sampled-mostly-FP is unambiguously noisy. A high-volume
