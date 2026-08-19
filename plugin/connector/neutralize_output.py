@@ -25,6 +25,11 @@ narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-c
 DOCUMENTED RESIDUALS (out of scope, by decision):
   - a BARE URL typed in prose (not a markdown link, not on a formula line) is left UNTOUCHED -- defanging
     every URL would mangle the legit reference links analysts write in notes (do harm).
+  - an ALL-ALPHABETIC value after a BARE LINE BREAK ("Recovered credential\ncorrecthorsebatterystaple")
+    is not caught: after a line break, a word with no digit and no delimiter is indistinguishable from
+    recommendation prose ("credential\nRotation is required immediately"), and redacting it would eat
+    real analyst text. Labelled (`password: X`), wrapped (`X` / "X"), and markdown-TABLE forms are all
+    caught regardless of shape -- this residual is only the bare-newline-plus-dictionary-word case.
   - FREE-FORM PII (names, home addresses) and DATE-shaped values (DOB) are NOT redacted: a home address
     is not reliably regex-detectable, and a date is indistinguishable from the timestamp on every log
     line (redacting it would gut legitimate reports). These stay a best-effort SKILL-prompt ask.
@@ -68,25 +73,48 @@ _KEYWORD = (
     r"secret[\s_-]?(?:access[\s_-]?)?key|access[\s_-]?key(?:[\s_-]?id)?|"
     r"api[\s_-]?(?:key|token|secret)|auth(?:orization)?[\s_-]?token|client[\s_-]?secret|"
     r"secret|token|bearer|credential|passcode")
-# STRONG separator only: an explicit label assignment (`password: X`, `token=X`). Here a 6+ value of
-# almost any shape is a secret -- you don't write "password: rotated". The value class excludes CLOSING
-# delimiters ()]}`) as well as separators: a credential-ish query parameter inside a markdown link
-# (`[reset](https://evil/login?token=abc123)`) must not swallow the closing paren, or _MD_LINK_RE
-# downstream no longer matches and the link is never defanged -- redaction would disarm the a10 link
-# defanger on the exact artifact it protects (found in review of #115).
+# Delimiters that WRAP a value rather than belong to it. Matching excludes them from the value class
+# would be wrong in both directions: exclude them and a backtick- or quote-wrapped secret is never seen
+# (SKILL.md actively tells the model to wrap dangerous values in a code span, so that is the FORMAT WE
+# ASK FOR); include them and the match swallows a markdown link's closing paren, disarming the link
+# defanger downstream. So match permissively and hand the delimiters back at substitution time.
+_OPEN_DELIMS, _CLOSE_DELIMS = "([{`\"'", ")]}`\"'"
+
+
+def _trim_delims(val, minlen):
+    """Split a matched value into (lead, core, tail) by peeling wrapping delimiters. Returns None if the
+    core is shorter than minlen -- so a run of punctuation never counts as a secret."""
+    lead = ""
+    while val and val[0] in _OPEN_DELIMS:
+        lead, val = lead + val[0], val[1:]
+    tail = ""
+    while val and val[-1] in _CLOSE_DELIMS:
+        tail, val = val[-1] + tail, val[:-1]
+    return (lead, val, tail) if len(val) >= minlen else None
+
+
+# STRONG separator: an explicit label assignment (`password: X`, `token=X`). The label vouches for the
+# value, so any 6+ core is a secret -- you don't write "password: rotated".
 _LABELED_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b"
     r"(\s*[:=]\s*)"
-    r"(?P<val>[^\s,;\"'<>|)\]}`]{6,})")
-# WEAK separators -- a copula ("secret was rotated"), a line break ("API token\nAKIA..."), or a table
-# pipe ("| Password | Wq7$... |") -- are AMBIGUOUS: the word that follows is usually recommendation prose
-# ("rotated", "Rotate", "Disable"), not the secret. So these require a secret-SHAPED value: 12+ chars
-# with a digit AND a letter -- the same heuristic _SPACE_SECRET_RE uses for the identical ambiguity, so a
-# dictionary word (no digit) is spared while a real credential ("Hunter2-prod-9x") still masks.
+    r"(?P<val>[^\s,;<>|]{6,})")
+# STRONG separator, table form: a markdown table ROW whose cell is exactly a credential keyword labels
+# the cell beside it -- structurally a label/value pair, so no shape guard is needed. Anchored to ^| so
+# an INLINE pipe in prose ("Evidence: token | source: pastebin") stays with the weak rule below.
+_TABLE_ROW_SECRET_RE = re.compile(
+    r"(?im)^(\|[^\n]*?\b(?:" + _KEYWORD + r")\b)(\s*\|\s*)"
+    r"(?P<val>[^\s,;<>|]{6,})")
+# WEAK separators -- a copula ("secret was rotated") or a bare line break ("API token\nAKIA...") -- are
+# AMBIGUOUS: what follows is usually recommendation prose ("rotated", "Rotate", "Disable"), not the
+# secret. These require a secret-SHAPED core: 12+ chars with a digit AND a letter, the same heuristic
+# _SPACE_SECRET_RE uses for the identical ambiguity. Documented consequence: a purely ALPHABETIC
+# passphrase after a bare line break ("Recovered credential\ncorrecthorsebatterystaple") is NOT caught --
+# a line break genuinely cannot be told from prose. Labelled, quoted, and table forms all are.
 _WEAK_SEP_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b"
     r"(\s+(?:is|was)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
-    r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[^\s,;\"'<>|)\]}`]{12,})")
+    r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[^\s,;<>|]{12,})")
 # Plain-space separator (a CLI flag like `--secret-key <v>`) is ambiguous — "password protection" would
 # false-positive. So a space-separated value is redacted ONLY if it LOOKS secret-like: 12+ chars with at
 # least one digit AND one letter (a dictionary word like "protection" has no digit and is spared).
@@ -137,11 +165,20 @@ def redact_secrets(text, notes=None):
             return f"[REDACTED:{_k}]"
         text = rx.sub(_sub, text)
 
-    def _labeled(m):
-        _note("secret")
-        return m.group(1) + m.group(2) + "[REDACTED:secret]"
-    text = _LABELED_SECRET_RE.sub(_labeled, text)
-    text = _WEAK_SEP_SECRET_RE.sub(_labeled, text)
+    def _labeled_min(minlen):
+        def _sub(m):
+            trimmed = _trim_delims(m.group("val"), minlen)
+            if trimmed is None:                      # punctuation only -- not a secret
+                return m.group(0)
+            lead, _core, tail = trimmed
+            _note("secret")
+            # Hand the wrapping delimiters back: the link keeps its ")", the code span its backticks,
+            # so the downstream link defanger / formula passes still see the structure they need.
+            return m.group(1) + m.group(2) + lead + "[REDACTED:secret]" + tail
+        return _sub
+    text = _LABELED_SECRET_RE.sub(_labeled_min(6), text)
+    text = _TABLE_ROW_SECRET_RE.sub(_labeled_min(6), text)
+    text = _WEAK_SEP_SECRET_RE.sub(_labeled_min(12), text)
 
     def _space_labeled(m):
         _note("secret")

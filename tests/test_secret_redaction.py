@@ -170,3 +170,63 @@ def test_bare_40char_hash_untouched_without_access_key():
     body = f"git commit {h} verified"
     assert redact(body) == body, f"false positive on bare hash: {redact(body)!r}"
 
+
+
+# --- delimiter-wrapped values: the formats SKILL.md itself asks the model to use ------------------
+# Review of #115 round 2: excluding wrapping delimiters from the value class blinded the redactor to
+# backtick- and quote-wrapped secrets -- and SKILL.md actively instructs "wrap it in backticks so it
+# stays inert" / "render them inert: a code span". The redactor must see the format we ask for, so
+# delimiters are peeled at substitution time and handed back around the placeholder.
+
+@pytest.mark.parametrize("text", [
+    "Observed password: `%s`",
+    'password: "%s"',
+    "password: '%s'",
+    "| Password | `%s` |",
+    "| Password | %s |",
+    "| user | host | Password | %s |",
+])
+def test_delimiter_wrapped_secret_is_masked(text):
+    secret = _s("Wq7$", "vault-prod-", "2026-BUILD")
+    out = redact(text % secret)
+    assert secret not in out
+    assert "[REDACTED:secret]" in out
+
+
+def test_wrapping_delimiters_survive_redaction():
+    """The delimiters belong to the surrounding structure, not the value -- downstream passes (the link
+    defanger, the formula quoter) still need them, and a mangled code span corrupts the note."""
+    assert redact("Observed password: `%s`" % _s("Wq7$", "vault-prod-2026")) == "Observed password: `[REDACTED:secret]`"
+    assert redact("| Password | %s |" % _s("Wq7$", "vault-prod-2026")) == "| Password | [REDACTED:secret] |"
+
+
+def test_alphabetic_passphrase_in_table_row_is_masked():
+    """A table row whose cell is exactly a credential keyword is a structural label/value pair, so no
+    digit-shape guard applies -- an all-alphabetic passphrase there is still a secret."""
+    out = redact("| Password | correcthorsebatterystaple |")
+    assert out == "| Password | [REDACTED:secret] |"
+
+
+@pytest.mark.parametrize("row", [
+    "| Finding | token rotation recommended |",   # keyword mid-cell, not the whole cell
+    "| Status | Secret rotated by IR |",
+    "| Step | rotate the API token |",
+])
+def test_table_rows_of_prose_are_not_redacted(row):
+    """The table rule requires the keyword to BE the cell (a label), not merely appear inside it."""
+    assert redact(row) == row
+
+
+def test_punctuation_only_value_is_not_a_secret():
+    """_trim_delims peels delimiters, then enforces the minimum on what's LEFT -- so a run of brackets
+    after a label never counts as a secret."""
+    assert redact("password: ((((((") == "password: (((((("
+
+
+def test_alphabetic_value_after_bare_newline_is_a_documented_residual():
+    """DOCUMENTED RESIDUAL (see module docstring + security-guardrails.md): after a bare line break, an
+    all-alphabetic value is indistinguishable from prose ('credential\\nRotation is required'), so the
+    shape guard spares it. Labelled, quoted, and table forms ARE caught. Asserted so the residual is a
+    recorded decision rather than an accident."""
+    text = "Recovered credential\ncorrecthorsebatterystaple"
+    assert redact(text) == text

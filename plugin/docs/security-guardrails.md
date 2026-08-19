@@ -87,6 +87,11 @@ Keep expectations honest:
   a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
   personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable
   from the timestamps in every log line). Handle those with the same care you'd give any sensitive case.
+- A credential written as a **plain dictionary word directly after a line break**, with no label, no
+  quotes and no table structure around it, is not masked — after a line break such a value is
+  indistinguishable from the recommendation prose that normally follows ("credential — Rotation is
+  required immediately"), and redacting it would eat real analyst text. Labelled, quoted, backticked and
+  table-cell credentials are all masked regardless of their shape.
 - A **bare, unstructured credential** — a password with no recognizable format, written into the report
   with no nearby label like "password:" — is caught on a best-effort basis, not guaranteed: with nothing
   to grip (no format, no label), a deterministic pass can miss it. Labelled and structured credentials
