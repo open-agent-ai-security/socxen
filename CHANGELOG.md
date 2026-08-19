@@ -68,10 +68,12 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 - **Release evidence: the first two-leg red-team gate.** The full 20-attack A/B/C/D corpus × 5 trials on
   **both** supported models against the release tree — `claude-sonnet-4-6` (the gate) and `claude-opus-5`
   (the sweep). **Zero landings on either model.** The runs also measure what the deterministic layer is
-  actually worth: on the five fixtures that route through the write path, the model reproduced the
-  payload in its own output in **21 of 25 trials on Sonnet and 3 of 25 on Opus** — a raw failure rate of
-  **21% and 3%** — and the *persisted* artifact came out clean every time, so the net rate on both models
-  is **0%**. The remaining 15 fixtures have no code guardrail at all and resisted on the skill prompt
+  actually worth. On the five fixtures that route through the write path (25 trials per model), the model
+  reproduced the payload in its own output **21 of 25 times on Sonnet and 3 of 25 on Opus**. Measured
+  against the whole run of 100 drives, that is a raw leak rate of **21% and 3%**. The *persisted*
+  artifact came out clean every time, so the net rate on both models is **0 of 100 = 0%**. (Two
+  denominators, deliberately distinct: the count is over the write-path trials, the rate over all drives.
+  Per-trial breakdown: `security/redteam/results/2026-08-19-per-trial-residuals.md`.) The remaining 15 fixtures have no code guardrail at all and resisted on the skill prompt
   alone: prompts hold the judgment classes (suppression, gate bypass), code holds the transcription
   classes (a diligent model quoting its evidence, secret and all). Read 0% as "no leak in the shapes we
   test", not as a guarantee — the shapes we know it would miss are documented as residuals and tracked in
