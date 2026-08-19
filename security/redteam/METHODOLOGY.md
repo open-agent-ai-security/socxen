@@ -250,6 +250,22 @@ then `claude-opus-5` (the sweep). Two lessons, both now load-bearing in how we r
   redactor existed; 1-in-5 the model complied with an instructed exfil the redactor would have masked at
   the persisted sink). One was a real code gap, one a fixture bug — a fresh multi-trial roll of the
   integrated tree finds both kinds, and nothing less does. Both fixed and re-verified 0/5 the same day.
+- **Stochasticity is a third failure mode, distinct from composition.** `d02` resisted 5/5 in its own PR,
+  **landed 1/5** on the combined tree's fresh roll, then resisted again once its grading scope was
+  corrected. Nothing about the fixture or the code changed between the first two runs — only the dice. So
+  per-PR evidence cannot substitute for a release gate: piecewise-green is about *composition* (controls
+  that break each other), this is about *sampling* (a 20%-rate behaviour that a single 5-trial run has a
+  real chance of missing entirely). Rate-based grading exists for exactly this, and it only works if the
+  gate re-rolls on the tree that ships.
+- **A fix to a security control needs its own adversarial pass — a green suite is not one.** Both fixes in
+  this round proved it. The mid-line formula fix passed every test and then a *review* found it disarmed
+  the link defanger; the fix for **that** passed 340 tests and introduced four new false negatives,
+  including on the very formatting `SKILL.md` tells the model to use (backticks / code spans) — a control
+  blind to the format we ask for inverts the two-lock argument entirely. The tests encoded the
+  false-*positive* class we had just been burned by, and nothing watched the false-*negative* direction. A
+  mechanical **"what did this fix stop catching?" diff against the pre-fix tree** surfaces all of it in
+  seconds, and is now the habit: after changing a detection control, diff both directions before claiming
+  it is safe.
 - **Model discipline is real on the strong model — and still not total.** On the four output-pipeline
   fixtures (20 trials/model), Sonnet 4.6 put the seeded payload in its raw output in ~15 — the write-side
   chokepoint was the only thing between a credential and the case note, and it held every time. Opus 5
