@@ -230,3 +230,86 @@ def test_alphabetic_value_after_bare_newline_is_a_documented_residual():
     recorded decision rather than an accident."""
     text = "Recovered credential\ncorrecthorsebatterystaple"
     assert redact(text) == text
+
+
+# --- ordering: link defang must run BEFORE redaction ----------------------------------------------
+# Round-3 review: with redaction first, a credential-shaped query parameter let the value match consume
+# the link's closing ")", so _MD_LINK_RE no longer saw a link and a LIVE clickable phishing URL
+# persisted -- strictly worse than having no redactor (dev defangs these correctly). Defanging first
+# makes that impossible for EVERY value shape, not just the shapes a fixture happens to cover.
+
+@pytest.mark.parametrize("trailer", ["", ".", "!", ",", "**now**", ", then rotate", ")"])
+def test_credential_link_is_defanged_whatever_follows_it(trailer):
+    """The trailing character after a link is what defeated the previous fix -- a sentence-ending period
+    is the single most natural way a model writes this. No trailer may leave the host live."""
+    out, _ = neutralize("See [reset](https://sso-reset.evil.example/login?token=a1b2c3d4e5f6)" + trailer)
+    assert "https://sso-reset.evil.example" not in out       # never a live host
+    assert "hxxps://sso-reset[.]evil[.]example" in out       # actually defanged
+    assert "a1b2c3d4e5f6" not in out                         # and the credential still masked
+
+
+@pytest.mark.parametrize("raw,kept", [
+    ("See [r](https://e.evil.example/l?token=a1b2c3d4e5f6).", ")."),
+    ("See [r](https://e.evil.example/l?token=a1b2c3d4e5f6)**now**", ")**now**"),
+    ("See [r](https://e.evil.example/l?token=a1b2c3d4e5f6), then rotate", "), then rotate"),
+])
+def test_structure_after_the_link_is_not_swallowed(raw, kept):
+    """An unmatched closing bracket ends the value -- so the ")" and everything after it survive rather
+    than being eaten into the redaction span."""
+    assert neutralize(raw)[0].endswith(kept)
+
+
+# --- the placeholder is never re-consumed ---------------------------------------------------------
+
+@pytest.mark.parametrize("text,kind", [
+    ("password: AKIAIOSFODNN7EXAMPLE", "aws-key"),
+    ("credential: 123-45-6789", "ssn"),
+    ("api key: %s" % _s("ghp_", "abcdefghij", "klmnopqrst", "uvwxyz0123"), "token"),
+])
+def test_typed_kind_survives_a_second_matching_rule(text, kind):
+    """An intrinsic pattern fires first and a label rule then matches the SAME span. Without a guard the
+    placeholder is re-wrapped and its type is destroyed ([[REDACTED:secret]]), losing the analyst-facing
+    fact of WHAT leaked."""
+    out = redact(text)
+    assert out.endswith("[REDACTED:%s]" % kind), out
+    assert "[[" not in out
+
+
+def test_redaction_is_idempotent():
+    """The bridge could apply the pipeline twice (retry, re-edit of an existing note). Re-application
+    must be a no-op, not accrete brackets and spurious audit notes."""
+    once = neutralize("password: hunter2xyz and key AKIAIOSFODNN7EXAMPLE")[0]
+    twice, notes = neutralize(once)
+    assert twice == once
+    assert notes == []
+
+
+def test_trailing_punctuation_in_a_value_is_not_disclosed():
+    """A password may genuinely end in punctuation. Peeling it out of the redacted span would leak that
+    character, so bare trailing punctuation (no structural delimiter with it) stays inside the value."""
+    assert redact("password: Hunter2!") == "password: [REDACTED:secret]"
+    assert redact("password: abc123.") == "password: [REDACTED:secret]"
+
+
+@pytest.mark.parametrize("raw", [
+    "[token: abcdef123456](https://sso-reset.evil.example/x)",
+    "[password: hunter2xyz](https://sso-reset.evil.example/x)",
+])
+def test_credential_label_in_link_TEXT_still_defangs_the_target(raw):
+    """The case that makes the ordering load-bearing rather than belt-and-braces: a credential label in
+    the link's TEXT (not its target) lets the redaction match run through the "](" and swallow the whole
+    link, so with redaction first the target is never defanged and a live host persists. Defanging first
+    means the URL is already inert whatever redaction later consumes."""
+    out, _ = neutralize(raw)
+    assert "https://sso-reset.evil.example" not in out
+    assert "hxxps://sso-reset[.]evil[.]example" in out
+
+
+def test_delimiter_peel_is_linear_not_quadratic():
+    """The peel runs on attacker-controlled telemetry; a per-character slice loop was ~1.4s on a 320k
+    delimiter run. Bounded generously so the test is about complexity class, not machine speed."""
+    import time
+    payload = "password: " + "(" * 200_000 + ")" * 200_000
+    start = time.monotonic()
+    neutralize(payload)
+    assert time.monotonic() - start < 1.0

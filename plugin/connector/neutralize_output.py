@@ -81,16 +81,43 @@ _KEYWORD = (
 _OPEN_DELIMS, _CLOSE_DELIMS = "([{`\"'", ")]}`\"'"
 
 
+# Sentence punctuation that can trail a structural delimiter ("...(see [x](url).", "...`secret`!").
+# Peeled ONLY when a real closing delimiter is peeled with it -- otherwise a password that genuinely ends
+# in punctuation ("Hunter2!") would have that character stripped out of the redacted span and disclosed.
+_TRAIL_PUNCT = ".!?"
+
+
 def _trim_delims(val, minlen):
-    """Split a matched value into (lead, core, tail) by peeling wrapping delimiters. Returns None if the
-    core is shorter than minlen -- so a run of punctuation never counts as a secret."""
-    lead = ""
-    while val and val[0] in _OPEN_DELIMS:
-        lead, val = lead + val[0], val[1:]
-    tail = ""
-    while val and val[-1] in _CLOSE_DELIMS:
-        tail, val = val[-1] + tail, val[:-1]
-    return (lead, val, tail) if len(val) >= minlen else None
+    """Split a matched value into (lead, core, tail) by peeling wrapping delimiters. Returns None when the
+    value must not be redacted: it is already a placeholder, or the core is shorter than minlen (so a run
+    of punctuation never counts as a secret). O(len(val)) -- a per-character slice loop here is quadratic
+    on an adversary-supplied delimiter run, and this input is attacker-controlled telemetry."""
+    if "[REDACTED:" in val:              # never re-consume our own output: keeps the typed <kind> intact
+        return None                      # (password: AKIA... -> [REDACTED:aws-key], not [[REDACTED:secret]])
+    core = val.lstrip(_OPEN_DELIMS)
+    lead = val[:len(val) - len(core)]
+    # An UNMATCHED closing bracket ends the value: it belongs to the structure around it, and everything
+    # after it does too. This is what keeps "…?token=abc123)." and "…?token=abc123)**now**" from having
+    # their ")" (and trailing text) eaten -- peeling only from the end cannot see a delimiter with junk
+    # behind it. Depth-tracked so a value with balanced brackets is not cut short.
+    depth = {")": 0, "]": 0, "}": 0}
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    cut = len(core)
+    for i, ch in enumerate(core):
+        if ch in pairs:
+            depth[pairs[ch]] += 1
+        elif ch in depth:
+            if depth[ch] == 0:
+                cut = i
+                break
+            depth[ch] -= 1
+    stripped, tail = core[:cut], core[cut:]
+    # Then peel any quote/backtick wrapper, plus sentence punctuation riding on a real closing delimiter.
+    inner = stripped.rstrip(_CLOSE_DELIMS + _TRAIL_PUNCT)
+    peeled = stripped[len(inner):]
+    if peeled and any(c in _CLOSE_DELIMS for c in peeled):
+        stripped, tail = inner, peeled + tail   # e.g. `secret`  ->  core=secret, tail=`
+    return (lead, stripped, tail) if len(stripped) >= minlen else None
 
 
 # STRONG separator: an explicit label assignment (`password: X`, `token=X`). The label vouches for the
@@ -329,8 +356,14 @@ def neutralize_output(text):
         return text, []
     notes = []
 
-    text = redact_secrets(text, notes)
-
+    # ORDER MATTERS. Link defang runs BEFORE redaction, not after. A credential-shaped query parameter
+    # (`[reset](https://evil/login?token=abc123).`) puts both controls on one span, and whichever runs
+    # first wins: with redaction first, its value match consumed the link's closing ")" and _MD_LINK_RE
+    # could no longer see a link -- leaving a LIVE clickable phishing URL in a persisted note (worse than
+    # no redactor at all). Defanging first makes that impossible for EVERY value shape rather than for the
+    # shapes a fixture happens to cover: by the time the redactor runs, the host is already inert, so
+    # whatever it consumes it cannot re-arm a link. Redaction still sees the query value verbatim (defang
+    # rewrites the scheme and host, never the query string), so nothing is lost.
     def _link(m):
         target = m.group(2)
         d = _defang_target(target)
@@ -338,6 +371,8 @@ def neutralize_output(text):
             notes.append({"type": "link", "original": target[:60]})
         return m.group(1) + d + m.group(3)
     text = _MD_LINK_RE.sub(_link, text)
+
+    text = redact_secrets(text, notes)
 
     text = _neutralize_formulas(text, notes)
     return text, notes
