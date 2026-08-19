@@ -15,9 +15,14 @@
 name: Base branch
 
 on:
+  # Deliberately NOT filtered with `branches: [main]`. With that filter, retargeting a PR from main
+  # to dev -- the exact remedy this guard asks for -- fires an `edited` event that the filter drops,
+  # so the failed check would sit red on the PR forever. Running on every PR and exiting early when
+  # the base is not `main` lets the check re-report green the moment the contributor fixes it.
+  # `labeled`/`unlabeled` are required for the release-exception escape hatch to take effect at all:
+  # re-running a failed job replays the ORIGINAL event payload, so without these the label is invisible.
   pull_request:
-    branches: [main]
-    types: [opened, reopened, edited, synchronize]
+    types: [opened, reopened, edited, synchronize, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -29,11 +34,20 @@ jobs:
     steps:
       - name: Check head branch
         env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.repository }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
+          # Only `main` is guarded; every other base is fine. Checked here rather than with a
+          # `branches:` filter so the check still reports (green) after a retarget -- see the note
+          # on the trigger above.
+          if [ "$BASE_REF" != "main" ]; then
+            echo "ok: PR targets '$BASE_REF', not 'main' — nothing to guard"
+            exit 0
+          fi
+
           # The one legitimate case: the release PR, dev -> main, from this repo (not a fork whose
           # branch merely happens to be called "dev").
           if [ "$HEAD_REF" = "dev" ] && [ "$HEAD_REPO" = "$BASE_REPO" ]; then

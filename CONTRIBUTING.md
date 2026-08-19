@@ -91,9 +91,9 @@ anything merged to `main` reaches installers immediately.
 lands on `dev` first.
 
 When you open a PR, GitHub pre-selects the base as the repository default (`main`);
-confirm it's **`dev`** unless you are specifically cutting a release. CI enforces
-this — a PR into `main` from anything but `dev` fails the **Base branch** check with
-instructions. If you get it, you don't need to close anything: click **Edit** next to
+confirm it's **`dev`** unless you are specifically cutting a release. A PR into `main`
+from anything but `dev` fails the **`PRs into main come from dev`** check, which tells
+you how to fix it. If you get it, you don't need to close anything: click **Edit** next to
 the PR title and change the base to `dev`. Commits and review history carry over.
 
 ### If your checks look missing rather than failing
