@@ -10,9 +10,19 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-Changes awaiting the next version bump (0.8.0). A functional release: socxen becomes a **skill suite**
-(two new skills join `soc-investigate`) and the connector bridge gains **deterministic secret/PII
-redaction** on the write path — the control the first full A/B/C/D red-team gate proved was missing.
+_Nothing yet._
+
+## [0.8.0] — 2026-08-19
+
+**socxen becomes a skill suite.** `triage-cases` (shift lead) and `rule-tuning` (detection engineer) join
+`soc-investigate` (analyst), taking socxen from single-case work to the whole queue and the detections
+behind it. The connector bridge gains **deterministic secret/PII redaction** on the write path — the
+control the first full A/B/C/D red-team gate proved was missing, and which that gate now measures as
+load-bearing: a **21% raw leak rate on the weakest supported model, 3% on the strongest, 0% net on both**.
+
+Both release gates are green against this tree: red team **0 landings across 20 attacks × 5 trials on
+both supported models**, and Praxen agent-behavior verification **0 Critical**, 14/14 findings
+independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 
 ### Added
 - **socxen is now a skill suite: `triage-cases` and `rule-tuning` join `soc-investigate`.** Two
