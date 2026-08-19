@@ -38,7 +38,32 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — 0.6.9
+## Current status — dev @ `1a93c22` (the 0.8.0 gate scan)
+
+| | |
+|---|---|
+| Scanned | **dev pre-0.8.0** (`1a93c22`), 2026-08-19 |
+| Scanner | Praxen 1.3.0, Claude Opus 5, **high thinking mode** |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 7 High · 4 Medium · 3 Low |
+| Weighted RAISE posture | **3.15 / 5** (Established) |
+| Remit coverage | 63 rules — 49 verified · 12 partial · 2 gap |
+| Independent audit | 14 / 14 findings CONFIRMED · 0 unsupported · 0 remit defects |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero
+Trust 3 · Manage Your Supply Chain 3 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+**This scan is the gate artifact for the 0.8.0 release.** It ran against the `dev` tip
+(`1a93c22`) with **Worker Remit v1.2** — the first remit revision covering the full skill
+suite (`soc-investigate`, `triage-cases`, `rule-tuning`) and the deterministic write-path
+redaction guarantees. This was also the first scan run in Praxen's **high mode**: a
+context-unaware auditor re-read every finding at its cited lines and attempted to refute
+it (the `-audit.md` artifact), confirming all 14 with zero remit defects. The gate's rule
+(no open Critical) is satisfied. Non-blocking findings triage into issues per the policy
+above; remit tune-ups surfaced by the audit are deferred and tracked in
+[#121](https://github.com/open-agent-ai-security/socxen/issues/121).
+
+## Previous — 0.6.9
 
 | | |
 |---|---|
