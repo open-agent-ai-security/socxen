@@ -10,11 +10,37 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-Documentation and repo-side fixes awaiting the next version bump. The only changes inside the shipped
-payload are `plugin/README.md` and `plugin/docs/README.md`; no code, skill, connector or manifest
-changes.
+Changes awaiting the next version bump (0.8.0). This round **does** change shipped payload code: two
+deterministic guardrail additions to the connector bridge (below), found and verified by the first full
+A/B/C/D red-team gate. (An earlier revision of this section predated them and said the pending changes
+were docs-only.)
 
 ### Added
+- **Deterministic secret / PII redaction on the write path.** The first red-team run to exercise class D
+  (data protection) showed the model reproducing seeded secrets verbatim into its report 5/5 —
+  `[REDACTED]` lived only in the skill prompt, with no code chokepoint. Every case-note/export write now
+  passes through the bridge's output neutralizer, which masks high-specificity credentials and
+  identifiers (AWS keys, `ghp_`/`xoxb-`/`sk_live_`/`AIza`/JWT prefixes, PEM private-key blocks,
+  label-anchored passwords, SSNs, Luhn-checked card numbers) as typed `[REDACTED:<kind>]` placeholders
+  before anything persists — independent of model behavior. Legitimate report content (IPs, hashes,
+  UUIDs, timestamps, ports) passes through untouched, enforced by a dedicated false-positive corpus.
+  Documented residuals: free-form PII (names, addresses), date-shaped values, and the operator's own
+  console (not a trust boundary). ([#88](https://github.com/open-agent-ai-security/socxen/issues/88),
+  fixed in [#115](https://github.com/open-agent-ai-security/socxen/pull/115); context-aware follow-up
+  tracked in [#116](https://github.com/open-agent-ai-security/socxen/issues/116))
+- **Mid-line formula neutralization.** The full-gate re-run caught the model quoting an executable
+  `=HYPERLINK(...)` formula *mid-sentence* in a note — a position the cell-scoped formula defang
+  (line-leading / quoted field / table cell) deliberately skipped. Unlike a bare URL, a verbatim formula
+  re-arms on copy-paste or CSV re-celling, so mid-line occurrences of known-dangerous functions
+  (HYPERLINK, WEBSERVICE, IMPORT\*, FILTERXML, DDE, and the XLM macro set) are now quote-prefixed with
+  their line's URLs defanged — allowlist-gated so everyday prose (`on-call (rotation)`,
+  `score =high(ish)`) is never touched.
+  ([#117](https://github.com/open-agent-ai-security/socxen/issues/117), fixed in
+  [#115](https://github.com/open-agent-ai-security/socxen/pull/115))
+- **Release evidence: the first two-leg red-team gate.** Full 19-attack A/B/C/D corpus × 5 trials on
+  both supported models — `claude-sonnet-4-6` (gate) and `claude-opus-5` (sweep) — ending 0 landings on
+  both, with the guardrails-vs-model split measured and recorded
+  (`security/redteam/HISTORY.md`, dated reports under `security/redteam/results/`).
 - **The root README now says where your data goes.** A prospective customer's security review asks this
   on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
   reasoning about what enters model context. It is also a *good* answer the page was already giving
