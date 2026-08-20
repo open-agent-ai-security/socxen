@@ -91,8 +91,9 @@ rule that is often corroborated or frequently confirmed is **loud and precise �
 ## The tuning loop
 
 **1 — Inventory the rules and their volume.** `exabeam_analytics_rule_list` and
-`exabeam_correlation_rule_list` (both no-arg, and both **large** — expect to save and parse the result,
-not read it inline). Capture per rule: type, severity, enabled, and any native volume/suppression stats.
+`exabeam_correlation_rule_list` (both no-arg, and both **large** — the harness saves an oversized result
+to a file and gives you its path; parse that for the fields you need rather than reading the raw dump
+inline). Capture per rule: type, severity, enabled, and any native volume/suppression stats.
 Cross-reference the noisy *cases* surfaced by `triage-cases` to the rules driving them.
 
 **2 — Estimate precision per candidate.** For the high-volume rules, gather the precision signals above:
@@ -172,8 +173,10 @@ Close with: *no rule was changed — this is a proposal* (no write path exists).
 
 Use the same `exabeam_*` tools and `arg0`/`arg1` convention as `soc-investigate` (see its
 `reference/tool-map.md`). Key ones here: `exabeam_analytics_rule_list` / `exabeam_correlation_rule_list`
-(no-arg, large — save + parse), `exabeam_get_correlation_rule_details`, `exabeam_context_table_list` /
+(no-arg, large — the harness saves the oversized result to a file; parse that),
+`exabeam_get_correlation_rule_details`, `exabeam_context_table_list` /
 `exabeam_get_context_table_records` (the exclusion surface), `exabeam_search_cases` +
 `exabeam_get_case_details` (disposition sampling — remember `closedReason` is **read-only per case, not
 searchable**), and `exabeam_search_events` (baseline an entity). **Always override `fields:["*"]`** on
-searches, and expect the rule-list results to exceed the context window — parse them from file.
+searches, and expect the rule-list results to exceed the context window — the harness saves them to a
+file and gives you the path; parse that and don't copy the raw dump anywhere durable.
