@@ -83,13 +83,14 @@ Keep expectations honest:
   durable, wider-audience copy. A secret shown on **your own screen** during an investigation is *not*
   redacted, and that's deliberate: you're already authorised to read the underlying log, so it crosses
   no trust boundary the console itself doesn't.
-- **Large results transit a local temp file, and it isn't redacted.** When the Exabeam MCP returns a
-  payload too big for the context window — a full case dump, the rule inventory — it is spilled to a
-  **transient file on your own machine** so socxen can extract the few fields it needs. That file holds
-  raw telemetry and is *not* run through the redactor, but it crosses **no trust boundary the console
-  doesn't**: it lives on the same system you're signed in to New-Scale from, where you're already
-  authorised to read that data, and it is session-scoped scratch — not a durable or wider-audience copy.
-  socxen neither persists nor transmits it; don't copy it somewhere durable yourself.
+- **Large results are written to a local file, and it isn't redacted.** When the Exabeam MCP returns a
+  payload too big for the context window — a full case dump, the rule inventory — the harness writes it
+  to a file under `~/.claude/projects/…/tool-results/` so socxen can extract the few fields it needs.
+  That file holds raw telemetry and is *not* run through the redactor. It crosses **no trust boundary the
+  console doesn't** — it lives on the same machine you're signed in to New-Scale from, where you're
+  already authorised to read that data — but unlike scratch it **persists after the session and is not
+  pruned automatically.** socxen itself neither writes nor transmits it (the harness does), but the raw
+  copy is durable: **if the case data is sensitive, delete those files when you're done.**
 - Redaction covers **structured** secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
   a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
   personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable

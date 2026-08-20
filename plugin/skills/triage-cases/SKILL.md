@@ -167,7 +167,7 @@ Use the same `exabeam_*` tools and `arg0`/`arg1` convention as `soc-investigate`
 converged-on entity). **On the searches (`search_cases` / `search_events`), always override
 `fields:["*"]`** with an explicit set — it is the difference between a fast sweep and a context overflow.
 `exabeam_get_case_details` takes only `caseId` (no field projection), so it cannot be bounded at the API
-and can return very large payloads that overflow context. When a result is too large the harness spills
-it to a **transient local file** on your machine — read that file to pull only the few fields you need
-(the rule histogram, per-detection severity spread, IOC count); don't copy the raw dump anywhere durable. Note
+and can return very large payloads that overflow context. When a result is too large the harness saves
+it to a file and hands you the path — read that file to pull only the few fields you need (the rule
+histogram, per-detection severity spread, IOC count); don't copy the raw dump anywhere durable. Note
 `detections_info[].event` is a JSON *string*, not an object — `fromjson` it before indexing.
