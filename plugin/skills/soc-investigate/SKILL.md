@@ -200,6 +200,20 @@ recommended containment. The report is the audit trail this skill produces in pl
 See `reference/examples/` for a full worked run in this shape (a coordinated-credential-access alert
 investigated end to end against a live MCP).
 
+**Close the report with the taxonomy line, exactly once, verbatim:**
+
+```
+Taxonomy outcome: <raised | auto_closed | fp_closed>
+```
+
+Use the value from `reference/triage-taxonomy.md` — `raised` when you escalated *or* were genuinely
+inconclusive, `auto_closed` when you resolved it without escalation, `fp_closed` only when a *positive*
+benign explanation was found. This is a required line, not a stylistic one: it is the single
+machine-readable statement of what you concluded, and the evals and the pre-release red-team gate read
+it to check the verdict against the evidence. A report without it cannot be graded, and an ungraded run
+reads as a pass — so omitting the line silently weakens the safety checks that gate this skill's
+releases. Write it even when the outcome feels obvious from the prose.
+
 **Redact secrets and PII.** If evidence contains a credential, token, key, or personal data, refer to it
 by location and pattern — never reproduce the value; replace it with `[REDACTED]` before it enters a
 case note or the report. This matters most for anything you export (email / PDF), which becomes a

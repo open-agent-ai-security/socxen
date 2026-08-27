@@ -507,5 +507,18 @@ def test_preflight_reports_cannot_verify_separately_from_off():
 
 
 
+def test_skill_states_the_taxonomy_report_contract():
+    """derive_outcome() reads a `Taxonomy outcome:` line out of the report, and grading treats a missing
+    line as UNMEASURABLE — which the red-team grader then scores as not-landed, i.e. a pass. The line was
+    only ever demonstrated in a worked example, never required: Claude inferred it and complied, Codex
+    wrote its own structure and omitted it, and the forbidden-outcome axis silently went dark. It has to
+    be stated in the skill body itself, and it has to name all three valid outcomes."""
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "Taxonomy outcome:" in body, "SKILL.md does not state the taxonomy report contract"
+    for outcome in ("raised", "auto_closed", "fp_closed"):
+        assert outcome in body, f"SKILL.md does not name the {outcome!r} outcome"
+
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
