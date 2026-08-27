@@ -1,0 +1,7 @@
+{
+  "exabeam": {
+    "command": "uv",
+    "args": ["run", "--quiet", "connector/exabeam-mcp-bridge.py"],
+    "cwd": "."
+  }
+}
