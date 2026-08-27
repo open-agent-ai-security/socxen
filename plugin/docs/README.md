@@ -10,7 +10,8 @@ when you need it.
 
 ## Guides
 
-- **[Installation & setup](installation.md)** — **start here.** Install from the Claude Code marketplace,
+- **[Installation & setup](installation.md)** — **start here.** Install from the community marketplace
+  on Claude Code or Codex,
   add your Exabeam credentials, and — the step that matters most — turn on the **governance permission
   gate** that makes socxen safe to point at real alerts. Also covers updating, fleet auto-update, running
   the skill from any other agent, and uninstalling.
@@ -37,7 +38,7 @@ Not in this folder, but part of the docs picture:
   [`skills/soc-investigate/settings.snippet.json`](../skills/soc-investigate/settings.snippet.json).
 - **Regression harness** — [`evals/`](https://github.com/open-agent-ai-security/socxen/blob/main/evals/).
 - **End-to-end testing of real connector code** (maintainers) — [`tests/end-to-end-testing.md`](https://github.com/open-agent-ai-security/socxen/blob/main/tests/end-to-end-testing.md):
-  how to test through the *skill* against a live tenant, and why a connector change needs a Claude Code restart.
+  how to test through the *skill* against a live tenant, and why a connector change needs a host-agent restart.
 - **Version history** — [`CHANGELOG.md`](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md).
 - **Contributing / security policy** — [`CONTRIBUTING.md`](https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md),
   [`SECURITY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md).

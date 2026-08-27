@@ -31,7 +31,8 @@ too consequential to leave to an automatic prompt that can be switched off.
 Everything here runs through the **Exabeam New-Scale MCP** (the `exabeam_*` tools, e.g.
 `exabeam_search_alerts`, `exabeam_get_alert_details`). socxen **bundles** this connection — it
 auto-registers when the plugin is installed — so it's usually already there. Confirm you can see
-`exabeam_*` tools; if unsure, run `claude mcp list` and look for `exabeam`.
+`exabeam_*` tools; if unsure, run `claude mcp list` (Codex: `codex mcp get exabeam`) and look for
+`exabeam`.
 
 If it's **not** connected, do not improvise, guess, or invent alert data. It's almost always one of two
 setup gaps. Stop and give the user this — calmly; it's setup, not an error:
@@ -48,7 +49,7 @@ setup gaps. Stop and give the user this — calmly; it's setup, not an error:
 >    API Keys (role-gated). Exabeam's MCP guide:
 >    https://docs.exabeam.com/en/new-scale-soc-platform/all/administration-guide/get-started-with-the-new-scale-security-operations-platform/connect-to-exabeam-mcp-server.html
 >
-> Then restart Claude Code (or `/reload-plugins`) and ask me again.
+> Then restart your agent — on Claude Code, `/reload-plugins` — and ask me again.
 
 Then stop — don't proceed until the tools are available.
 
@@ -121,9 +122,11 @@ verdict suppressing a real threat.** Three tiers:
    here. They're denied at the permission layer as defense-in-depth even though absent. Surface them
    as **Recommended containment** in the report; never claim you executed one.
 
-Two layers enforce this: Claude Code's permission rules (`settings.snippet.json`) **and** your own
-explicit ask before any close. The permission layer can be bypassed; your ask can't — so always do
-both, and never dismiss or close on your own initiative.
+Two layers enforce this: your host agent's tool-approval rules **and** your own explicit ask before
+any close. On Claude Code those rules are `settings.snippet.json`, merged during setup; on Codex they
+ship inside the plugin and are on from install. Either way the approval layer can be bypassed by whoever
+configures the host; your ask can't — so always do both, and never dismiss or close on your own
+initiative.
 
 ## The investigation loop
 

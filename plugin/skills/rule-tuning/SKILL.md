@@ -34,7 +34,7 @@ correct: you diagnose and recommend; detection engineering applies. Never claim 
 ## Preflight — is the Exabeam MCP connected?
 
 Everything runs through the **Exabeam New-Scale MCP** (`exabeam_*` tools). Confirm you can see them; if
-unsure, `claude mcp list` and look for `exabeam`. If it is not connected, stop and give the operator the
+unsure, `claude mcp list` (Codex: `codex mcp get exabeam`) and look for `exabeam`. If it is not connected, stop and give the operator the
 setup steps (see `soc-investigate`'s preflight) — do not invent rule or case data.
 
 ## Why this skill exists

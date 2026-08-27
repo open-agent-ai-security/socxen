@@ -4,7 +4,7 @@
 -->
 
 # socxen
-**An agentic SOC skill suite for Exabeam New-Scale, as a Claude Code plugin.**
+**An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.**
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
@@ -22,7 +22,8 @@ safe to point at a live tenant. Three skills work **Exabeam New-Scale** through 
 whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
 database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
 governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
-Claude Code permission rules *and* the skill asking you first — never left to the model alone.
+your host agent's tool-approval rules *and* the skill asking you first — never left to the model alone.
+On Codex that gate ships inside the plugin, so it is on from the moment you install.
 
 ## The three skills
 
@@ -46,8 +47,9 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
   high-precision ones, so the fix lands on the detection instead of on the analyst.
 - ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
-- 🔒 **Stops where it should** — once you switch the gate on during setup, dismiss/close sits behind a
-  hard, Claude-Code-enforced permission rule; containment is never executed.
+- 🔒 **Stops where it should** — dismiss/close sits behind a hard, harness-enforced approval rule;
+  containment is never executed. On Claude Code you switch that gate on during setup; on Codex it ships
+  with the plugin.
 - 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
   hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
   content (formulas, clickable links) **and masks credentials and structured identifiers** (API keys,
@@ -71,7 +73,7 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 > your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /
-*"find noisy rules"* to reach the other two skills. Claude Code routes on what you ask for.
+*"find noisy rules"* to reach the other two skills. The host agent routes on what you ask for.
 
 ## Documentation
 
@@ -86,14 +88,17 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or 
 ## Layout
 
 ```
-.claude-plugin/          plugin.json (plugin manifest — installs via open-agent-ai-security/plugins)
-.mcp.json                bundled Exabeam MCP — auto-registers on install
+.claude-plugin/          plugin.json (Claude Code manifest — installs via open-agent-ai-security/plugins)
+.codex-plugin/           plugin.json (Codex manifest — same skills, same catalog)
+.mcp.json                bundled Exabeam MCP for Claude Code — auto-registers on install
+.mcp.codex.json          the same bridge for Codex, carrying the approval gate (generated)
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
 skills/triage-cases/     SKILL.md — queue sweep (shift lead)
 skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
 docs/                    installation · security-guardrails · logging
-install.sh               convenience installer (idempotent)
+install.sh               convenience installer, Claude Code (idempotent)
+preflight.sh             read-only diagnostics, either host agent
 ```
 
 ## How it's tested
@@ -111,7 +116,13 @@ Pre-release, for evaluation — validated end-to-end against a live Exabeam stag
 (install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
 playbook, and a worked investigation. The version badge above and the
 [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
-release; run `claude plugin list` for your installed version. Sharing with testers; feedback welcome.
+release; run `claude plugin list` (or `codex plugin list`) for your installed version. Sharing with
+testers; feedback welcome.
+
+**Codex support is packaged, not yet proven.** The install, the bundled bridge and the shipped approval
+gate are verified end to end against `codex-cli` 0.146.0, but no OpenAI model has been through socxen's
+red-team gate or routing evals; the evaluation target is **OpenAI Sol 5.6**. Treat that path accordingly
+until the run lands.
 
 ## Project sponsor
 

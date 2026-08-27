@@ -17,7 +17,8 @@ It runs inside the local MCP bridge — the one place that sees every Exabeam ca
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.
 
 **observra 1.1 or newer is required** (the bridge pins `observra>=1.1,<2`). socxen is not one of
-observra's built-in frameworks — the "agent" here is Claude Code driving a skill over an MCP bridge, so
+observra's built-in frameworks — the "agent" here is a host agent (Claude Code or Codex) driving a skill
+over an MCP bridge, so
 there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
 public `observra.emit()`, and the rotation bounds below pass through to the backend (clamped to
 sane minimums). On older
@@ -151,5 +152,6 @@ The trail records the **gated action and its disposition deterministically at th
 [supported governance posture](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this) an
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
 event is evidence the approval happened. It does **not** yet capture a distinct *approver-identity* event
-(who clicked yes), because that lives in Claude Code's permission layer, which the bridge cannot see. An
-explicit approval event would be added via a Claude Code `PostToolUse` hook feeding the same log.
+(who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
+Claude Code's permission rules, or Codex's tool-approval modes. An explicit approval event would be added
+via a host-side post-tool hook feeding the same log.

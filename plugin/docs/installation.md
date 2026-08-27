@@ -5,18 +5,25 @@
 
 # Installation
 
-socxen ships as a portable **agent skill** (`skills/soc-investigate`) for **Claude Code**, running
-against the **Exabeam New-Scale MCP**. It investigates and triages alerts/cases end to end and produces
+socxen ships as a portable **agent skill suite** (`skills/`) for **Claude Code** and **OpenAI Codex**,
+running against the **Exabeam New-Scale MCP**. Both hosts load the same skills and the same guarded
+connector; only the packaging and where the safety gate lives differ. It investigates and triages alerts/cases end to end and produces
 a structured report. It takes no destructive action: containment is *recommended* for a human, and
 dismiss/close are *gated* — by permission rules **and** an explicit confirmation the skill asks for.
 
 ## Prerequisites
 
-- **Claude Code** (the `claude` CLI) — tool use and multi-step instruction following.
-- **A supported model.** socxen is validated on **Claude Sonnet 4.6+ or Opus**. Sonnet is the *floor* —
-  our pre-release red-team gates on the weakest supported model as the conservative default (it's the most
-  injection-susceptible and cheapest to run), and a release run additionally sweeps Opus. Smaller models
-  (e.g. Haiku) are **not supported** for this skill.
+- **A host agent** — **Claude Code** (the `claude` CLI) or **OpenAI Codex** (the `codex` CLI). Both need
+  tool use and multi-step instruction following.
+- **A supported model.** On **Claude Code**, socxen is validated on **Claude Sonnet 4.6+ or Opus**. Sonnet
+  is the *floor* — our pre-release red-team gates on the weakest supported model as the conservative
+  default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
+  Opus. Smaller models (e.g. Haiku) are **not supported** for this skill.
+
+  On **Codex**, **no model is validated yet.** The packaging is verified and the safety gate is enforced,
+  but neither the red-team gate nor the routing evals have been run against an OpenAI model. The
+  evaluation target is **OpenAI Sol 5.6**. Until that run lands, treat the Codex path as *packaged, not
+  proven* — the same conservative reading you would give any un-gated release.
 - **An Exabeam New-Scale API key + secret** (OAuth client-credentials), from the New-Scale platform
   (role-gated; the MCP inherits the key's access level). You wire it up in *Connect the Exabeam MCP*
   below — the skill uses read tools to gather evidence and case/alert tools to act.
@@ -74,6 +81,31 @@ git clone https://github.com/open-agent-ai-security/socxen.git
 cd socxen && ./plugin/install.sh
 ```
 
+## OpenAI Codex
+
+Codex reads the **same community marketplace** as the Claude Code path — the catalog manifest and its
+`main`-branch pin are shared, so the plugin key is the same shape. From your terminal:
+
+```bash
+codex plugin marketplace add open-agent-ai-security/plugins
+codex plugin add socxen@open-agent-ai-security
+codex plugin list      # confirm: socxen@open-agent-ai-security, installed, enabled
+```
+
+That's the whole install. **There is no installer script and no permissions merge on Codex** — see
+Governance below for why: the safety gate ships inside the plugin, so it is already on.
+
+The bundled connector registers as `exabeam` and the three skills are available to every Codex session.
+To check credentials and reach the tenant:
+
+```bash
+./preflight.sh          # read-only diagnostics; nothing is written
+```
+
+> **Two host agents on one machine?** `preflight.sh` detects which one it is checking, or takes
+> `--platform claude|codex`. Installing on both is supported, but each host keeps its own plugin copy
+> and its own gate — verify them separately.
+
 ## Credentials (the only manual step)
 
 socxen **bundles** the Exabeam connection: installing the plugin auto-registers a server named
@@ -90,8 +122,9 @@ EOF
 chmod 600 ~/.exabeam-mcp.env
 ```
 
-Requires [`uv`](https://docs.astral.sh/uv/) (it runs the bundled bridge). Restart Claude Code (or
-`/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔ Connected`. Regions: `us-west`,
+Requires [`uv`](https://docs.astral.sh/uv/) (it runs the bundled bridge). Restart your host agent (on
+Claude Code, `/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔ Connected`, or on Codex
+`codex mcp get exabeam`. Regions: `us-west`,
 `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
 
 <details><summary>Advanced — wire it manually (no auto-refresh)</summary>
@@ -113,10 +146,15 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 
 ## Governance — turn on the safety gate (do not skip this)
 
-> 🛑 **This is the most important step on the page. Install the permissions pack before you point socxen
-> at anything real.** It is the *only* hard, harness-enforced lock on dismiss/close. Skip it and a wrong
-> AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it as
-> mandatory, not "recommended."
+> 🛑 **On Claude Code this is the most important step on the page. Install the permissions pack before you
+> point socxen at anything real.** It is the *only* hard, harness-enforced lock on dismiss/close. Skip it
+> and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
+> as mandatory, not "recommended."
+>
+> **On Codex there is nothing to do here — the gate ships inside the plugin and is already on.** Skip to
+> [Verifying the gate on Codex](#verifying-the-gate-on-codex).
+
+### Claude Code
 
 This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
 `skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
@@ -180,6 +218,44 @@ Beyond this gate, socxen also runs two automatic checks on every Exabeam call �
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in
 what it writes back. See **[Security guardrails](security-guardrails.md)** for what to expect.
 
+### Verifying the gate on Codex
+
+Codex lets a plugin declare tool-approval policy for its own bundled MCP server, so socxen ships the gate
+rather than asking you to merge it. There is no snippet, no merge step, and no window where the plugin is
+installed but the gate is off — which is the one real difference between the two hosts, and it runs in
+Codex's favour.
+
+The same three tiers, expressed as Codex approval modes in `.mcp.codex.json`:
+
+- **`approval_mode: "auto"`** on the read + escalation tools,
+- **`approval_mode: "approve"`** on `update_alert` / `update_case` (dismiss/close),
+- **`disabled_tools`** for the containment tools — Codex applies this *after* any allowlist, so they
+  cannot be re-enabled at runtime and never reach the model at all.
+
+`default_tools_approval_mode` is `approve`, which makes the Codex gate slightly stricter than the Claude
+one in one deliberate place: a tool the Exabeam MCP grows that socxen has not classified asks you rather
+than inheriting a permissive default.
+
+Verify it:
+
+```bash
+./preflight.sh --platform codex
+```
+
+Expect **`Human-in-the-loop gate ON — shipped with the plugin, nothing to merge`**. Or read it directly:
+
+```bash
+codex mcp get exabeam    # expect default_tools_approval_mode: approve, and a disabled_tools list
+```
+
+> **If no `exabeam` server resolves**, that is not the same as the gate being off — Codex drops a bundled
+> server entirely if any part of its config is invalid, and `codex plugin add` still reports success.
+> Reinstall with `codex plugin add socxen@open-agent-ai-security` and check again.
+
+You can tighten socxen's defaults further in `~/.codex/config.toml` under
+`[plugins."socxen@open-agent-ai-security".mcp_servers.exabeam]` — for example moving more tools to
+`approve`. Overrides there win over what the plugin ships.
+
 ## Audit logging (on by default)
 
 socxen keeps a **structured audit log out of the box** — a machine-parseable record of every tool call,
@@ -219,6 +295,13 @@ Or fleet-wide in managed `settings.json`:
 }
 ```
 
+### OpenAI Codex
+
+```bash
+codex plugin marketplace upgrade open-agent-ai-security
+codex plugin add socxen@open-agent-ai-security
+```
+
 ## Any other agent
 
 socxen is just a skill folder in the repo — any capable coding agent can fetch and run it:
@@ -236,3 +319,13 @@ claude plugin marketplace remove open-agent-ai-security   # optional — see not
 The marketplace is removed by its registered name (`open-agent-ai-security`). Skip that step if
 you use other community plugins from it (e.g. praxen) — removing a marketplace also uninstalls
 every plugin that was installed from it.
+
+On **Codex**:
+
+```bash
+codex plugin remove socxen@open-agent-ai-security
+codex plugin marketplace remove open-agent-ai-security   # optional — same caveat as above
+```
+
+Removing the plugin also removes the gate it shipped, since the two are the same artifact. Neither
+command touches `~/.exabeam-mcp.env` — delete that yourself if you are done with the credentials.
