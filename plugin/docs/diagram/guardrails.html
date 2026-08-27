@@ -141,7 +141,7 @@
   <h1>The socxen guardrail bridge <span class="mono">exabeam-mcp-bridge.py</span></h1>
   <p class="lede">
     Your log data is untrusted input — an attacker can plant a payload in an alert knowing an agent will
-    read it. So socxen never talks to Exabeam directly. Claude Code talks to a <strong>local bridge MCP</strong>
+    read it. So socxen never talks to Exabeam directly. Your agent talks to a <strong>local bridge MCP</strong>
     that proxies every call to the real Exabeam MCP — and because it sits in the path of <em>every</em>
     call, it's the one place to <strong>hook input and output</strong> for safety.
   </p>
@@ -158,7 +158,7 @@
     <!-- agent -->
     <div class="col agent">
       <div class="role">★ the analyst</div>
-      <div class="nm">soc-investigate agent<span class="path">Claude Code + skill</span></div>
+      <div class="nm">soc-investigate agent<span class="path">Claude Code or Codex</span></div>
       <div class="sub">Issues read &amp; write tool calls over stdio.</div>
     </div>
 
