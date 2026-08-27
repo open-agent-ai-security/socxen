@@ -26,13 +26,20 @@
 # nothing. The UI helpers are only defined if the caller has not already defined them.
 
 # ---- ui (only if the sourcing script has not already provided these) ----
-if ! declare -F ok >/dev/null 2>&1; then
+# Palette as a function, not a one-shot assignment: --no-color is parsed inside preflight_main,
+# which runs AFTER this file loads, so assigning here only would make the documented flag a no-op
+# on a TTY (it silently "worked" whenever stdout was already a pipe). preflight_main re-derives.
+_palette() {
   if [ "${USE_COLOR:-1}" = 1 ] && [ -t 1 ]; then
     BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
     CYAN=$'\033[1;36m'; GRN=$'\033[1;32m'; YLW=$'\033[1;33m'; RED=$'\033[1;31m'; GRY=$'\033[0;90m'
   else
     BOLD=""; DIM=""; RST=""; CYAN=""; GRN=""; YLW=""; RED=""; GRY=""
   fi
+}
+
+if ! declare -F ok >/dev/null 2>&1; then
+  _palette
   PASS=0; WARN_N=0; FAIL=0; SUMMARY=()
   ok()   { printf '   %s✓%s %s\n'  "$GRN" "$RST" "$1"; PASS=$((PASS+1)); SUMMARY+=("${GRN}✓${RST} $1"); }
   warn() { printf '   %s!%s %s\n'  "$YLW" "$RST" "$1"; WARN_N=$((WARN_N+1)); SUMMARY+=("${YLW}!${RST} $1"); }
@@ -238,6 +245,7 @@ preflight_main() {
   esac
   [ "$platform" = "auto" ] && platform=""
   [ -n "$platform" ] || platform="$(detect_platform)"
+  _palette          # re-derive now that --no-color has actually been parsed
 
   printf '\n%s   socxen preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
 

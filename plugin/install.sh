@@ -89,6 +89,14 @@ banner
 # ---- preflight checks ----
 # Sourced, not exec'd: preflight.sh defines its checks and runs nothing when sourced, and its UI
 # helpers defer to the ones defined above so counters and summary stay shared.
+# A missing file here would abort bash under `set -e` with a bare "No such file or directory"
+# and no socxen framing, before any UI has been printed. It ships beside us and is git-tracked,
+# so this only fires on a partial checkout or a packaging filter — but make it legible when it does.
+if [ ! -f "$SCRIPT_DIR/preflight.sh" ]; then
+  printf '%s✗%s preflight.sh not found beside install.sh (%s)\n' "$RED" "$RST" "$SCRIPT_DIR" >&2
+  printf '   The shared checks live there. Re-clone, or reinstall the plugin.\n' >&2
+  exit 1
+fi
 # shellcheck source=./preflight.sh
 . "$SCRIPT_DIR/preflight.sh"
 

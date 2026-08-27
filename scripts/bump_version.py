@@ -59,6 +59,9 @@ def main(argv):
     if len(positional) != 1 or not SEMVER.match(positional[0]):
         fail("usage: bump_version.py X.Y.Z[-prerelease] [--dry-run]")
     new = positional[0]
+    for f in (PLUGIN, CODEX_PLUGIN, README):
+        if not f.exists():
+            fail(f"{f.relative_to(ROOT)} not found — cannot bump a partial checkout")
     old = json.loads(PLUGIN.read_text())["version"]
     if old == new:
         fail(f"version is already {new}")
@@ -94,12 +97,13 @@ def main(argv):
     # verify consistency (what the invariant tests enforce)
     got = {
         "plugin.json": json.loads(PLUGIN.read_text())["version"],
+        "codex plugin.json": json.loads(CODEX_PLUGIN.read_text())["version"],
         "README pill": (re.search(r"badge/version-v([0-9][0-9A-Za-z.\-]*)-", README.read_text()) or [None, None])[1],
     }
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ plugin.json / README pill both at {new}")
+    print(f"\n✓ plugin.json / codex plugin.json / README pill all at {new}")
     print("  AI BOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0

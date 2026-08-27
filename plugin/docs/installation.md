@@ -113,7 +113,8 @@ Read that section before you point socxen at a real tenant — it is on in an in
 **not** under `codex exec`.
 
 The bundled connector registers as `exabeam` and the three skills are available to every Codex session.
-To check credentials and reach the tenant:
+To check credentials and reach the tenant, run the diagnostics from a clone, or from the installed plugin
+directory — `codex plugin list` prints its path:
 
 ```bash
 ./preflight.sh          # read-only diagnostics; nothing is written
@@ -276,7 +277,9 @@ Verify it:
 ./preflight.sh --platform codex
 ```
 
-Expect **`Human-in-the-loop gate ON — shipped with the plugin, nothing to merge`**. Or read it directly:
+Expect **`Human-in-the-loop gate ON (interactive sessions) — shipped with the plugin`**, followed by the
+standing warning that the gate does not hold under `codex exec`. That warning is expected on a healthy
+install and will remain until the bridge enforces dismiss/close itself. Or read the config directly:
 
 ```bash
 codex mcp get exabeam    # expect default_tools_approval_mode: approve, and a disabled_tools list
