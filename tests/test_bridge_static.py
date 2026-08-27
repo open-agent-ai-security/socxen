@@ -119,3 +119,84 @@ def test_check_without_creds_exits_clean():
     assert "missing credentials" in proc.stderr.lower(), proc.stderr
     assert "traceback" not in proc.stderr.lower(), f"should exit cleanly, not crash:\n{proc.stderr}"
     assert proc.stdout.strip() == "", f"no-creds run must not print to stdout: {proc.stdout!r}"
+
+
+# ---------- dry run (the write refusal that does not depend on host approval semantics) ----------
+#
+# Context: the two hosts disagree about what "needs approval" means with no human present. Claude Code's
+# ask tier fails CLOSED under `claude -p`; Codex's approve fails OPEN under `codex exec` — verified, the
+# write executes. The bridge is the only shared layer, so it is the only place a write can be refused
+# identically on both. These pin the properties that make that refusal trustworthy.
+
+def _call_tool_body():
+    i = SRC.index("async def call_tool(")
+    j = SRC.index("\nasync def _check(", i)
+    return SRC[i:j]
+
+
+def _dry_run_guard():
+    """Just the dry-run block. Anchored on the main try's first statement, because the guard contains a
+    nested try of its own and a naive search for `    try:` stops inside it."""
+    body = _call_tool_body()
+    i = body.index("if DRY_RUN and name in WRITE_TOOLS:")
+    return body[i:body.index("    try:\n        if is_write:", i)]
+
+
+def test_dry_run_is_off_unless_the_env_says_otherwise():
+    """A dry run that turns itself on would silently stop protecting a real tenant; one that turns
+    itself off would silently write to it. It must come from the environment and nowhere else."""
+    assert 'DRY_RUN = _truthy(os.environ.get("SOCXEN_DRY_RUN", ""))' in SRC
+    assert "DRY_RUN = True" not in SRC
+
+
+def test_truthy_accepts_only_explicit_affirmatives():
+    """Executed, not eyeballed — extracted from source so this needs none of the bridge's imports."""
+    i = SRC.index("def _truthy(")
+    ns = {}
+    exec(SRC[i:SRC.index("\n\n", i)], ns)          # noqa: S102 — our own source, no input
+    truthy = ns["_truthy"]
+    for v in ("1", "true", "TRUE", " yes ", "on"):
+        assert truthy(v), f"{v!r} should enable the dry run"
+    for v in ("", "0", "false", "no", "off", "maybe"):
+        assert not truthy(v), f"{v!r} must NOT enable the dry run"
+
+
+def test_dry_run_refuses_on_the_tool_name_not_on_having_arguments():
+    """`is_write` is `name in WRITE_TOOLS and bool(arguments)`. Keying the refusal on that would forward
+    an argument-less write to the tenant, which is still a write."""
+    body = _call_tool_body()
+    assert "if DRY_RUN and name in WRITE_TOOLS:" in body, (
+        "the dry-run guard must key on the tool name, not on is_write")
+
+
+def test_dry_run_refuses_before_the_remote_call():
+    """A refusal after `await remote(...)` refuses nothing — the write has already happened."""
+    body = _call_tool_body()
+    assert body.index("if DRY_RUN and name in WRITE_TOOLS:") < body.index("await remote("), (
+        "the dry-run guard must come before the remote call")
+
+
+def test_dry_run_returns_a_refusal_rather_than_raising():
+    """Claude Code's permission layer hands the model a tool RESULT saying it was denied, and the
+    red-team grader needs the attempt recorded as a completed call. Raising would make an attempted
+    gated write look like a transport error instead."""
+    guard = _dry_run_guard()
+    assert "return [TextContent(" in guard, "the refusal must be returned to the agent"
+    assert "raise" not in guard, "the refusal must not raise"
+    assert "REFUSED" in guard
+
+
+def test_dry_run_attempt_is_marked_in_the_audit_record():
+    """The emit layer's `result` means 'the MCP call completed', which is true for a refusal too. Without
+    an explicit marker an audit reader sees action.stage=closed / result=success and concludes the close
+    landed."""
+    guard = _dry_run_guard()
+    assert '"dryRunRefused"' in guard, "a refused write must be distinguishable from a landed one"
+    assert "telemetry.tool_end(" in guard, "the attempt must still reach the audit trail"
+
+
+def test_dry_run_is_announced_on_startup():
+    """A dry run mistaken for a live one wastes an exercise; a live run mistaken for a dry one writes to
+    a real tenant. Neither may be silent."""
+    assert "DRY RUN is ON" in SRC
+    assert "DRY RUN" in SRC[SRC.index("async def _check("):], "--check must report dry-run state too"
