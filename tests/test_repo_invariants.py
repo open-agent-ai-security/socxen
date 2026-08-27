@@ -478,6 +478,23 @@ def test_preflight_never_writes():
     assert not bad_redirects, f"preflight.sh redirects into a file: {bad_redirects}"
 
 
+def test_codex_gate_check_sees_per_tool_overrides():
+    """`codex mcp get` prints the server default and disabled_tools but NOT per-tool
+    approval modes. An operator who loosens only exabeam_update_case leaves a server that
+    still reports 'default: approve' while dismiss/close runs unattended — so reading the
+    resolved server config alone reports a false green on the single change that matters
+    most. The reader must also inspect config.toml and downgrade to 'overridden'."""
+    body = PREFLIGHT_SH.split("gate_state_codex()", 1)[1].split("\n}", 1)[0]
+    assert "codex_write_override" in body, (
+        "gate_state_codex trusts `codex mcp get` alone — it cannot see a per-tool override")
+    assert "overridden" in body, "gate_state_codex has no 'weakened by local config' outcome"
+    assert "overridden)" in PREFLIGHT_SH, "check_gate does not handle the overridden state"
+    ovr = PREFLIGHT_SH.split("codex_write_override()", 1)[1].split("\n}", 1)[0]
+    for verb in ("exabeam_update_alert", "exabeam_update_case"):
+        stem = verb.replace("exabeam_update_", "")
+        assert stem in ovr or verb in ovr, f"override scan does not cover {verb}"
+
+
 def test_preflight_reports_cannot_verify_separately_from_off():
     """Three outcomes, not two, on both hosts.
 

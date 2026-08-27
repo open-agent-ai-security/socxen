@@ -146,6 +146,34 @@ PY
 # default and the containment deny-list. A server that is missing entirely reads as "unknown",
 # not "off": an invalid per-tool approval_mode makes Codex drop the whole server silently, and
 # that is a different problem from an un-merged gate.
+# Does any config.toml loosen a per-tool approval mode on a gated write?
+#
+# `codex mcp get` prints the server's default mode and disabled_tools, but NOT per-tool
+# overrides — so an operator who sets ONLY exabeam_update_case to "auto" leaves a server
+# that still reports 'default: approve' while dismiss/close runs unattended. Reading the
+# resolved server config alone therefore produces a false green on precisely the change
+# that matters most, which is the dangerous direction.
+#
+# This does not resolve TOML — it detects that an override exists and refuses to claim
+# green, which is the conservative half of the job and the only half worth doing here. An
+# override that TIGHTENS the gate reads as "overridden" too; safe direction, and rare.
+codex_write_override() {
+  local f
+  for f in "${CODEX_HOME:-$HOME/.codex}/config.toml" "./.codex/config.toml"; do
+    [ -f "$f" ] || continue
+    awk '
+      /^[[:space:]]*\[/ {
+        ingate = ($0 ~ /tools\.exabeam_update_(alert|case)\]/) ? 1 : 0
+        next
+      }
+      ingate && /approval_mode/ {
+        if ($0 !~ /"approve"/) { print "loose"; exit }
+      }
+    ' "$f" | grep -q loose && { printf 'yes'; return; }
+  done
+  printf 'no'
+}
+
 gate_state_codex() {
   local out
   command -v codex >/dev/null 2>&1 || { printf 'unknown'; return; }
@@ -153,6 +181,7 @@ gate_state_codex() {
   [ -n "$out" ] || { printf 'unknown'; return; }
   if printf '%s' "$out" | grep -q 'default_tools_approval_mode: *approve' \
      && printf '%s' "$out" | grep -q 'disabled_tools:'; then
+    [ "$(codex_write_override)" = "yes" ] && { printf 'overridden'; return; }
     printf 'on'
   else
     printf 'off'
@@ -166,6 +195,8 @@ check_gate() {
       state="$(gate_state_codex)"
       case "$state" in
         on)  ok "Human-in-the-loop gate ON — shipped with the plugin, nothing to merge" ;;
+        overridden)
+             fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
         off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
         *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
       esac ;;
