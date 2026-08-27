@@ -5,6 +5,14 @@
 # socxen installer — adds the marketplace, installs the soc-investigate skill into
 # Claude Code, and runs a connectivity preflight. Idempotent; safe to re-run.
 #
+# Claude Code only, deliberately. Most of this script is `claude plugin` CLI handling plus
+# the governance-gate merge, and Codex needs neither: its gate ships inside the plugin, so
+# installing there is just `codex plugin marketplace add` + `codex plugin add`. The checks
+# that ARE shared — credentials, toolchain, live connectivity — live in preflight.sh, which
+# this script sources and Codex users run directly:
+#
+#   ./preflight.sh                 read-only diagnostics on either host agent
+#
 # Usage — run it as ./plugin/install.sh from a clone of the repo, or ./install.sh from inside the
 # installed plugin directory (the payload ships under plugin/, so the two differ):
 #   install.sh                     install at user scope, then check connectivity
@@ -79,6 +87,11 @@ step() { printf '   %s▸%s %s\n'  "$CYAN" "$RST" "$1"; }
 banner
 
 # ---- preflight checks ----
+# Sourced, not exec'd: preflight.sh defines its checks and runs nothing when sourced, and its UI
+# helpers defer to the ones defined above so counters and summary stay shared.
+# shellcheck source=./preflight.sh
+. "$SCRIPT_DIR/preflight.sh"
+
 head2 "Preflight"
 
 # claude CLI (required)
@@ -86,40 +99,23 @@ if command -v claude >/dev/null 2>&1; then
   ok "Claude Code CLI — $(claude --version 2>/dev/null | head -1)"
 else
   fail "Claude Code CLI not found — install it first: https://claude.com/claude-code"
-  echo; printf '   %sCannot continue without the claude CLI.%s\n' "$RED" "$RST"; exit 1
-fi
-
-# uv (needed by the bundled bridge)
-if command -v uv >/dev/null 2>&1; then
-  ok "uv present — $(uv --version 2>/dev/null)"
-else
-  warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
-fi
-
-# python3 (used to read installed-plugin state and verify the governance gate)
-if command -v python3 >/dev/null 2>&1; then
-  ok "python3 present"
-else
-  warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
-fi
-
-# credentials file
-CREDS_OK=0
-if [ -f "$ENV_FILE" ]; then
-  missing=""
-  for k in EXABEAM_MCP_URL EXABEAM_API_KEY EXABEAM_API_SECRET; do
-    grep -q "^${k}=" "$ENV_FILE" 2>/dev/null || missing="$missing $k"
-  done
-  if [ -z "$missing" ]; then
-    CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present)"
-    perms="$(stat -f '%A' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE" 2>/dev/null || echo '?')"
-    [ "$perms" = "600" ] || warn "  $ENV_FILE is mode $perms — consider: chmod 600 $ENV_FILE"
-  else
-    warn "Credentials file present but missing:$missing"
+  echo; printf '   %sCannot continue without the claude CLI.%s\n' "$RED" "$RST"
+  if command -v codex >/dev/null 2>&1; then
+    printf '\n   %sOn Codex?%s This installer is Claude-Code-only, and Codex does not need one —\n' "$BOLD" "$RST"
+    printf '   the gate ships inside the plugin, so there is nothing to merge:\n\n'
+    printf '     %scodex plugin marketplace add %s%s\n' "$CYAN" "$MARKETPLACE_REPO" "$RST"
+    printf '     %scodex plugin add %s@%s%s\n' "$CYAN" "$PLUGIN" "$MARKETPLACE_NAME" "$RST"
+    printf '     %s%s/preflight.sh%s   %s(checks credentials and connectivity)%s\n\n' \
+      "$CYAN" "$SCRIPT_DIR" "$RST" "$DIM" "$RST"
   fi
-else
-  warn "No credentials yet — create $ENV_FILE (see the Next steps below)"
+  exit 1
 fi
+
+# Host-neutral checks live in preflight.sh so the two entry points cannot drift: a credentials
+# or connectivity check that behaves differently depending on which script you ran is exactly the
+# bug that reproduces on one platform and not the other.
+check_toolchain
+check_credentials
 
 # Version of ${PLUGIN}@${MARKETPLACE_NAME} installed at scope $1 (any scope if omitted). Prints
 # empty ONLY when the plugin is genuinely absent; a present entry with no version field prints
@@ -397,22 +393,7 @@ fi
 
 # ---- connectivity ----
 head2 "Connectivity"
-if [ "$SKIP_CONN" = 1 ]; then
-  skip "MCP connectivity check skipped (--skip-connectivity)"
-elif [ "$CREDS_OK" = 0 ]; then
-  skip "MCP connectivity check skipped — add credentials first"
-elif ! command -v uv >/dev/null 2>&1; then
-  skip "MCP connectivity check skipped — uv not installed"
-elif [ ! -f "$BRIDGE" ]; then
-  skip "MCP connectivity check skipped — bridge not found (run from a cloned repo)"
-else
-  step "Connecting to Exabeam MCP via the bundled bridge…"
-  if out="$(uv run --quiet "$BRIDGE" --check 2>&1)"; then
-    ok "Exabeam MCP reachable — ${out##*OK — }"
-  else
-    warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1)"
-  fi
-fi
+check_connectivity
 
 # ---- governance ----
 # A false "gate is ON" is the dangerous direction, so verify the close tools are specifically in the

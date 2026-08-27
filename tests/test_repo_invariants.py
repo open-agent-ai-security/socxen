@@ -416,5 +416,79 @@ def test_codex_and_claude_manifests_agree():
 
 
 
+# =====================================================================
+# TIER 1 (cont.) — the installer / preflight split
+#
+# install.sh is Claude-Code-specific by nature: 63% of it is `claude plugin` CLI
+# quirk-handling and a gate merge Codex does not need. Everything genuinely shared —
+# credentials, toolchain, live connectivity — lives in preflight.sh, which BOTH entry
+# points use. A check that behaves differently depending on which script you ran is
+# the bug that reproduces on one platform and not the other.
+# =====================================================================
+
+INSTALL_SH = (ROOT / "plugin" / "install.sh").read_text()
+PREFLIGHT_SH = (ROOT / "plugin" / "preflight.sh").read_text()
+
+
+def test_install_sources_preflight_instead_of_duplicating_it():
+    """The shared checks must have exactly one implementation."""
+    assert '. "$SCRIPT_DIR/preflight.sh"' in INSTALL_SH, "install.sh no longer sources preflight.sh"
+    for fn in ("check_toolchain", "check_credentials", "check_connectivity"):
+        assert f"{fn}()" in PREFLIGHT_SH, f"{fn} is not defined in preflight.sh"
+        assert f"{fn}()" not in INSTALL_SH, (
+            f"{fn} was re-inlined into install.sh — it must come from preflight.sh")
+
+
+def _shell_code_only(text):
+    """Shell source with comments and quoted strings removed.
+
+    A tripwire, not a parser: the point is that a mutating command must not appear in
+    *code*, while the same word is fine inside a message ("consider: chmod 600 ..."),
+    which is where every legitimate occurrence in preflight.sh lives."""
+    lines = [l for l in text.splitlines() if not l.lstrip().startswith("#")]
+    body = "\n".join(lines)
+    body = re.sub(r'"(?:[^"\\]|\\.)*"', '""', body)
+    body = re.sub(r"'(?:[^'])*'", "''", body)
+    return body
+
+
+def test_preflight_never_writes():
+    """preflight.sh is a mirror, not a hand.
+
+    On Claude Code the gate ships off and turning it on is a consent-gated action that
+    belongs to install.sh --merge-permissions. On Codex the gate ships inside the plugin
+    and there is nothing to merge. A fixer here would re-import exactly the consent
+    problem the Codex packaging removed, so mutation stays out of this file."""
+    code = _shell_code_only(PREFLIGHT_SH)
+    forbidden = [
+        ("merge_permissions", "runs the settings.json merger"),
+        ("plugin install", "mutates a plugin install"),
+        ("plugin update", "mutates a plugin install"),
+        ("plugin add", "mutates a plugin install"),
+        ("mcp add", "writes an MCP server into config.toml"),
+        ("mcp remove", "removes an MCP server from config.toml"),
+        ("chmod", "changes file modes"),
+        ("tee ", "writes a file"),
+    ]
+    found = [f"{tok} ({why})" for tok, why in forbidden if tok in code]
+    assert not found, "preflight.sh must stay read-only, found:\n  " + "\n  ".join(found)
+    # No redirection into a real file. /dev/null and heredocs are fine.
+    bad_redirects = [m for m in re.findall(r">>?\s*\S+", code)
+                     if "/dev/null" not in m and not m.startswith(">&")]
+    assert not bad_redirects, f"preflight.sh redirects into a file: {bad_redirects}"
+
+
+def test_preflight_reports_cannot_verify_separately_from_off():
+    """Three outcomes, not two, on both hosts.
+
+    'Cannot verify' reported as 'OFF' sends an operator re-merging a working gate; on
+    Codex it would send them reinstalling over a server that a bad approval_mode had
+    silently dropped. Both gate readers must have an unknown branch."""
+    for fn in ("gate_state_claude", "gate_state_codex"):
+        body = PREFLIGHT_SH.split(f"{fn}()", 1)[1].split("\n}", 1)[0]
+        assert "unknown" in body, f"{fn} has no 'cannot verify' outcome"
+
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# socxen preflight — read-only diagnostics, on any host agent.
+#
+# Everything socxen needs to actually work is the same on Claude Code and on Codex:
+# credentials, a toolchain, and a bridge that can reach the tenant. Only the
+# human-in-the-loop gate is stored differently, so only the gate check branches.
+#
+# This script NEVER writes. Not to settings.json, not to config.toml, not to the
+# credentials file. On Claude Code the gate ships off and `install.sh --merge-permissions`
+# is the (consent-gated) thing that turns it on; on Codex the gate ships in the plugin and
+# there is nothing to merge. A fixer here would re-import the consent problem the Codex
+# packaging just removed, so this stays a mirror, not a hand.
+#
+# Usage:
+#   preflight.sh                       detect the host agent and check everything
+#   preflight.sh --platform codex      force a host (claude | codex | none)
+#   preflight.sh --skip-connectivity   skip the live MCP call
+#   preflight.sh --no-color
+#
+# Exit: 0 when nothing failed, 1 when something did. Warnings do not fail.
+#
+# install.sh sources this file for the shared checks; sourcing defines functions and runs
+# nothing. The UI helpers are only defined if the caller has not already defined them.
+
+# ---- ui (only if the sourcing script has not already provided these) ----
+if ! declare -F ok >/dev/null 2>&1; then
+  if [ "${USE_COLOR:-1}" = 1 ] && [ -t 1 ]; then
+    BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+    CYAN=$'\033[1;36m'; GRN=$'\033[1;32m'; YLW=$'\033[1;33m'; RED=$'\033[1;31m'; GRY=$'\033[0;90m'
+  else
+    BOLD=""; DIM=""; RST=""; CYAN=""; GRN=""; YLW=""; RED=""; GRY=""
+  fi
+  PASS=0; WARN_N=0; FAIL=0; SUMMARY=()
+  ok()   { printf '   %s✓%s %s\n'  "$GRN" "$RST" "$1"; PASS=$((PASS+1)); SUMMARY+=("${GRN}✓${RST} $1"); }
+  warn() { printf '   %s!%s %s\n'  "$YLW" "$RST" "$1"; WARN_N=$((WARN_N+1)); SUMMARY+=("${YLW}!${RST} $1"); }
+  fail() { printf '   %s✗%s %s\n'  "$RED" "$RST" "$1"; FAIL=$((FAIL+1)); SUMMARY+=("${RED}✗${RST} $1"); }
+  skip() { printf '   %s↷ %s%s\n'  "$GRY" "$1" "$RST"; SUMMARY+=("${GRY}↷ $1${RST}"); }
+  step() { printf '   %s▸%s %s\n'  "$CYAN" "$RST" "$1"; }
+  head2(){ printf '\n%s   %s%s\n' "$BOLD" "$1" "$RST"; }
+  hr()   { printf '%s   ────────────────────────────────────────────────────%s\n' "$GRY" "$RST"; }
+fi
+
+: "${ENV_FILE:=${EXABEAM_ENV_FILE:-$HOME/.exabeam-mcp.env}}"
+: "${CREDS_OK:=0}"
+
+# ---- host detection ----
+# Which agent is this install for? Both CLIs can be present on one machine, so an explicit
+# --platform always wins; otherwise prefer the one whose plugin cache actually holds socxen,
+# and fall back to whichever CLI exists.
+detect_platform() {
+  if [ -n "${SOCXEN_PLATFORM:-}" ]; then printf '%s' "$SOCXEN_PLATFORM"; return; fi
+  local has_claude=0 has_codex=0
+  command -v claude >/dev/null 2>&1 && has_claude=1
+  command -v codex  >/dev/null 2>&1 && has_codex=1
+  if [ "$has_claude" = 1 ] && [ "$has_codex" = 1 ]; then
+    # Both installed — let an actual socxen install break the tie.
+    if codex mcp get exabeam >/dev/null 2>&1; then printf 'codex'; else printf 'claude'; fi
+  elif [ "$has_codex" = 1 ]; then printf 'codex'
+  elif [ "$has_claude" = 1 ]; then printf 'claude'
+  else printf 'none'; fi
+}
+
+# ---- shared checks (identical on every host) ----
+
+check_toolchain() {
+  if command -v uv >/dev/null 2>&1; then
+    ok "uv present — $(uv --version 2>/dev/null)"
+  else
+    warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    ok "python3 present"
+  else
+    warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
+  fi
+}
+
+# Sets CREDS_OK=1 when the file exists and carries all three keys. Reports the file mode but
+# never changes it: 0600 is advice here, exactly as it is in install.sh.
+check_credentials() {
+  CREDS_OK=0
+  if [ ! -f "$ENV_FILE" ]; then
+    warn "No credentials yet — create $ENV_FILE (see Next steps)"
+    return
+  fi
+  local missing="" k perms
+  for k in EXABEAM_MCP_URL EXABEAM_API_KEY EXABEAM_API_SECRET; do
+    grep -q "^${k}=" "$ENV_FILE" 2>/dev/null || missing="$missing $k"
+  done
+  if [ -n "$missing" ]; then
+    warn "Credentials file present but missing:$missing"
+    return
+  fi
+  CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present)"
+  perms="$(stat -f '%A' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE" 2>/dev/null || echo '?')"
+  [ "$perms" = "600" ] || warn "  $ENV_FILE is mode $perms — consider: chmod 600 $ENV_FILE"
+}
+
+# The one check that proves the whole path works: same bridge, same --check, on both hosts.
+check_connectivity() {
+  local bridge="${BRIDGE:-$SCRIPT_DIR/connector/exabeam-mcp-bridge.py}" out
+  if [ "${SKIP_CONN:-0}" = 1 ]; then
+    skip "MCP connectivity check skipped (--skip-connectivity)"
+  elif [ "$CREDS_OK" = 0 ]; then
+    skip "MCP connectivity check skipped — add credentials first"
+  elif ! command -v uv >/dev/null 2>&1; then
+    skip "MCP connectivity check skipped — uv not installed"
+  elif [ ! -f "$bridge" ]; then
+    skip "MCP connectivity check skipped — bridge not found (run from a cloned repo)"
+  else
+    step "Connecting to Exabeam MCP via the bundled bridge…"
+    if out="$(uv run --quiet "$bridge" --check 2>&1)"; then
+      ok "Exabeam MCP reachable — ${out##*OK — }"
+    else
+      warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1)"
+    fi
+  fi
+}
+
+# ---- gate check (the only part that differs by host) ----
+
+# Claude Code: the gate lives in the operator's settings.json and ships OFF.
+# Three outcomes, not two — without python3 the check CANNOT run, and "cannot verify" must never
+# be reported as "OFF" or users go re-merging a working gate.
+gate_state_claude() {
+  local settings="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
+  command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
+  [ -f "$settings" ] || { printf 'off'; return; }
+  if python3 - "$settings" <<'PY' 2>/dev/null
+import json, sys
+try:
+    ask = json.load(open(sys.argv[1])).get("permissions", {}).get("ask", [])
+except Exception:
+    sys.exit(1)
+bare = {t.split("__")[-1] for t in ask}
+sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
+PY
+  then printf 'on'; else printf 'off'; fi
+}
+
+# Codex: the gate ships inside the plugin, so this reads the resolved server config rather than
+# any file the operator maintains. ON means Codex actually resolved both halves — the approve
+# default and the containment deny-list. A server that is missing entirely reads as "unknown",
+# not "off": an invalid per-tool approval_mode makes Codex drop the whole server silently, and
+# that is a different problem from an un-merged gate.
+gate_state_codex() {
+  local out
+  command -v codex >/dev/null 2>&1 || { printf 'unknown'; return; }
+  out="$(codex mcp get exabeam 2>/dev/null)" || { printf 'unknown'; return; }
+  [ -n "$out" ] || { printf 'unknown'; return; }
+  if printf '%s' "$out" | grep -q 'default_tools_approval_mode: *approve' \
+     && printf '%s' "$out" | grep -q 'disabled_tools:'; then
+    printf 'on'
+  else
+    printf 'off'
+  fi
+}
+
+check_gate() {
+  local platform="$1" state
+  case "$platform" in
+    codex)
+      state="$(gate_state_codex)"
+      case "$state" in
+        on)  ok "Human-in-the-loop gate ON — shipped with the plugin, nothing to merge" ;;
+        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
+        *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
+      esac ;;
+    claude)
+      state="$(gate_state_claude)"
+      case "$state" in
+        on)  ok "Human-in-the-loop gate ON — dismiss/close require approval" ;;
+        off) warn "Gate is OFF — merge it with: install.sh --merge-permissions" ;;
+        *)   warn "Cannot verify the gate (needs python3) — not the same as OFF; check manually" ;;
+      esac ;;
+    *)
+      skip "Gate check skipped — no host agent detected" ;;
+  esac
+}
+
+# ---- standalone entry point ----
+
+preflight_main() {
+  local platform=""
+  # A while/shift loop, not `for arg in "$@"`: `--platform codex` needs to consume its value,
+  # and a `shift` inside a for-loop does not advance the loop variable — the value came back
+  # round as an unknown option.
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --platform=*) platform="${1#*=}" ;;
+      --platform)   shift; platform="${1:-}"
+                    [ -n "$platform" ] || { printf '--platform needs a value (claude|codex|none)\n' >&2; return 2; } ;;
+      --skip-connectivity) SKIP_CONN=1 ;;
+      --no-color) USE_COLOR=0 ;;
+      -h|--help) awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"; return 0 ;;
+      *) printf 'unknown option: %s (try --help)\n' "$1" >&2; return 2 ;;
+    esac
+    shift
+  done
+  case "${platform:-auto}" in
+    claude|codex|none|auto) ;;
+    *) printf 'unknown platform: %s (want claude|codex|none)\n' "$platform" >&2; return 2 ;;
+  esac
+  [ "$platform" = "auto" ] && platform=""
+  [ -n "$platform" ] || platform="$(detect_platform)"
+
+  printf '\n%s   socxen preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+
+  head2 "Host agent"
+  case "$platform" in
+    claude) ok "Claude Code — $(claude --version 2>/dev/null | head -1)" ;;
+    codex)  ok "OpenAI Codex — $(codex --version 2>/dev/null | head -1)" ;;
+    *)      warn "No host agent CLI found (looked for 'claude' and 'codex')" ;;
+  esac
+
+  head2 "Toolchain";    check_toolchain
+  head2 "Credentials";  check_credentials
+  head2 "Connectivity"; check_connectivity
+  head2 "Governance";   check_gate "$platform"
+
+  hr
+  printf '\n%s   Summary%s   %s%d ok%s · %s%d warn%s · %s%d fail%s\n\n' \
+    "$BOLD" "$RST" "$GRN" "$PASS" "$RST" "$YLW" "$WARN_N" "$RST" "$RED" "$FAIL" "$RST"
+  local line; for line in "${SUMMARY[@]}"; do printf '     %b\n' "$line"; done
+  printf '\n'
+  [ "$FAIL" -gt 0 ] && return 1 || return 0
+}
+
+# Run only when executed directly; sourcing defines the checks and runs nothing.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  set -euo pipefail
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  preflight_main "$@"
+fi
