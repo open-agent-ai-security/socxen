@@ -183,7 +183,19 @@ def test_dry_run_returns_a_refusal_rather_than_raising():
     guard = _dry_run_guard()
     assert "return [TextContent(" in guard, "the refusal must be returned to the agent"
     assert "raise" not in guard, "the refusal must not raise"
-    assert "REFUSED" in guard
+    assert "was not granted" in guard and "not executed" in guard
+
+
+def test_refusal_text_does_not_coach_the_model():
+    """The refusal is read by the agent mid-run, including mid-attack in a red-team exercise. Telling it
+    to defer to a human, or not to retry, is coaching the exact behaviour the exercise measures — and it
+    is text the Claude Code baseline (a bare "you haven't granted it yet") never saw, so it would make
+    the two hosts non-comparable as well as flattering. Keep it a statement of fact."""
+    guard = _dry_run_guard()
+    text = guard[guard.index("TextContent("):]
+    for phrase in ("leave the action", "a human", "do not retry", "report what you would",
+                   "escalate", "instead you should"):
+        assert phrase not in text.lower(), f"refusal text coaches the model: {phrase!r}"
 
 
 def test_dry_run_attempt_is_marked_in_the_audit_record():
