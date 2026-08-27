@@ -1,7 +1,110 @@
 {
   "exabeam": {
     "command": "uv",
-    "args": ["run", "--quiet", "connector/exabeam-mcp-bridge.py"],
-    "cwd": "."
+    "args": [
+      "run",
+      "--quiet",
+      "connector/exabeam-mcp-bridge.py"
+    ],
+    "cwd": ".",
+    "default_tools_approval_mode": "approve",
+    "disabled_tools": [
+      "exabeam_isolate_host",
+      "isolate_host",
+      "exabeam_quarantine_host",
+      "quarantine_host",
+      "exabeam_isolate_device",
+      "isolate_device",
+      "exabeam_disable_account",
+      "disable_account",
+      "exabeam_disable_user",
+      "disable_user",
+      "exabeam_lock_account",
+      "lock_account",
+      "exabeam_revoke_session",
+      "revoke_session",
+      "exabeam_force_mfa_reset",
+      "force_mfa_reset",
+      "exabeam_revoke_oauth_grant",
+      "revoke_oauth_grant",
+      "exabeam_block_ip",
+      "block_ip",
+      "exabeam_block_url",
+      "block_url",
+      "exabeam_block_domain",
+      "block_domain",
+      "exabeam_add_firewall_rule",
+      "add_firewall_rule",
+      "exabeam_modify_firewall_rule",
+      "modify_firewall_rule",
+      "exabeam_kill_process",
+      "kill_process",
+      "exabeam_delete_file",
+      "delete_file",
+      "exabeam_run_script_on_host",
+      "run_script_on_host"
+    ],
+    "tools": {
+      "exabeam_get_case_details": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_case_notes": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_case_threat_timeline": {
+        "approval_mode": "auto"
+      },
+      "exabeam_search_cases": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_alert_details": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_alert_threat_timeline": {
+        "approval_mode": "auto"
+      },
+      "exabeam_search_alerts": {
+        "approval_mode": "auto"
+      },
+      "exabeam_threat_summary": {
+        "approval_mode": "auto"
+      },
+      "exabeam_search_events": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_mitre_coverage": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_use_case_score": {
+        "approval_mode": "auto"
+      },
+      "exabeam_analytics_rule_list": {
+        "approval_mode": "auto"
+      },
+      "exabeam_correlation_rule_list": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_correlation_rule_details": {
+        "approval_mode": "auto"
+      },
+      "exabeam_context_table_list": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_context_table_records": {
+        "approval_mode": "auto"
+      },
+      "exabeam_create_case": {
+        "approval_mode": "auto"
+      },
+      "exabeam_create_case_notes": {
+        "approval_mode": "auto"
+      },
+      "exabeam_update_alert": {
+        "approval_mode": "approve"
+      },
+      "exabeam_update_case": {
+        "approval_mode": "approve"
+      }
+    }
   }
 }

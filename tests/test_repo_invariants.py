@@ -334,5 +334,87 @@ def test_shipped_docs_never_link_outside_the_plugin():
     assert not bad, "shipped docs link outside the distributed plugin:\n" + "\n".join(sorted(bad))
 
 
+# =====================================================================
+# TIER 1 (cont.) — the Codex gate
+#
+# socxen ships the same human-in-the-loop gate to two host agents that enforce it in
+# different places. Claude Code reads permission tiers out of the operator's
+# settings.json; Codex reads approval modes out of the plugin's own .mcp.codex.json.
+# Two hand-maintained copies of a safety control is exactly the drift this file exists
+# to catch, so the Codex copy is generated and pinned here.
+# =====================================================================
+
+CODEX_PLUGIN = _load("plugin/.codex-plugin/plugin.json")
+CODEX_MCP = _load("plugin/.mcp.codex.json")
+CODEX_SERVER = CODEX_MCP["exabeam"]
+
+
+def _gen_codex_mcp():
+    """Import the generator by path — scripts/ is not a package."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "gen_codex_mcp", ROOT / "scripts" / "gen_codex_mcp.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.build()
+
+
+def test_codex_gate_is_derived_from_the_claude_snippet():
+    """The committed Codex gate must equal what the generator derives from the snippet.
+
+    Without this, editing settings.snippet.json silently loosens the Codex gate — the
+    Claude tier changes and the Codex approval modes stay where they were."""
+    assert CODEX_MCP == _gen_codex_mcp(), (
+        "plugin/.mcp.codex.json is stale — run python3 scripts/gen_codex_mcp.py")
+
+
+def test_codex_gate_never_auto_approves_a_gated_write():
+    """dismiss/close must require a human on Codex, exactly as on Claude Code."""
+    for verb in GATED_WRITES:
+        mode = CODEX_SERVER["tools"].get(verb, {}).get("approval_mode")
+        assert mode == "approve", f"{verb} is '{mode}' on Codex — must be 'approve'"
+
+
+def test_codex_gate_disables_every_containment_tool():
+    """The deny tier must land in disabled_tools, which Codex applies after any
+    allowlist — so a containment tool cannot be re-enabled at runtime."""
+    disabled = set(CODEX_SERVER["disabled_tools"])
+    missing = sorted({bare(t) for t in DENY} - disabled)
+    assert not missing, f"containment tools not disabled on Codex: {missing}"
+    assert not (disabled & set(CODEX_SERVER["tools"])), (
+        "a tool is both disabled and given an approval mode")
+
+
+def test_codex_gate_defaults_to_asking():
+    """An unclassified tool must ask a human, not inherit a permissive default.
+
+    This is the one place the Codex gate is stricter than the Claude one, and it is
+    why we never set enabled_tools: an allowlist would silently drop a tool the remote
+    server grows, where 'approve' surfaces it to a human instead."""
+    assert CODEX_SERVER["default_tools_approval_mode"] == "approve"
+    assert "enabled_tools" not in CODEX_SERVER
+
+
+def test_codex_transport_needs_no_variable_expansion():
+    """Verified against codex-cli 0.146.0: Codex expands neither ${CLAUDE_PLUGIN_ROOT}
+    nor ${PLUGIN_ROOT} in a plugin-bundled .mcp.json, but does resolve a relative `cwd`
+    against the installed plugin root. A '$' back in these args means the bridge
+    launches at a literal path and every skill comes up with no tools."""
+    assert CODEX_SERVER["cwd"] == "."
+    assert not any("$" in a for a in CODEX_SERVER["args"]), (
+        "Codex does not expand variables in .mcp.json args")
+
+
+def test_codex_and_claude_manifests_agree():
+    """Two manifests, one release. bump_version.py must move both."""
+    assert CODEX_PLUGIN["version"] == PLUGIN["version"], (
+        f"version skew: claude={PLUGIN['version']} codex={CODEX_PLUGIN['version']}")
+    assert CODEX_PLUGIN["name"] == PLUGIN["name"]
+    assert CODEX_PLUGIN["skills"] == PLUGIN["skills"]
+    assert CODEX_PLUGIN["mcpServers"] == "./.mcp.codex.json", (
+        "Codex only registers a bundled server when the manifest names the file")
+
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
