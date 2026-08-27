@@ -108,7 +108,9 @@ codex plugin list      # confirm: socxen@open-agent-ai-security, installed, enab
 ```
 
 That's the whole install. **There is no installer script and no permissions merge on Codex** — see
-Governance below for why: the safety gate ships inside the plugin, so it is already on.
+Governance below for why: the safety gate ships inside the plugin, so it is on in an interactive session.
+Read that section before you point socxen at a real tenant — it is on in an interactive session and
+**not** under `codex exec`.
 
 The bundled connector registers as `exabeam` and the three skills are available to every Codex session.
 To check credentials and reach the tenant:
@@ -166,7 +168,8 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
 > as mandatory, not "recommended."
 >
-> **On Codex there is nothing to do here — the gate ships inside the plugin and is already on.** Skip to
+> **On Codex there is nothing to merge — the gate ships inside the plugin and is on in an interactive
+> session. It does NOT hold under `codex exec`.** Skip to
 > [Verifying the gate on Codex](#verifying-the-gate-on-codex).
 
 ### Claude Code
@@ -236,9 +239,25 @@ what it writes back. See **[Security guardrails](security-guardrails.md)** for w
 ### Verifying the gate on Codex
 
 Codex lets a plugin declare tool-approval policy for its own bundled MCP server, so socxen ships the gate
-rather than asking you to merge it. There is no snippet, no merge step, and no window where the plugin is
-installed but the gate is off — which is the one real difference between the two hosts, and it runs in
-Codex's favour.
+rather than asking you to merge it. There is no snippet and no merge step: in an **interactive** Codex
+session the gate is on from the moment you install.
+
+> ### ⛔ Do not run socxen under `codex exec`
+>
+> **The gate does not hold in a non-interactive Codex session.** `approval_mode = "approve"` prompts a
+> human interactively; under `codex exec` the session approval policy resolves to *proceed without
+> asking*, so a gated write is auto-approved and executed. Verified against `codex-cli` 0.146.0: a
+> `exabeam_update_case` call with `stage: closed` ran end to end, reached the Exabeam API, and was
+> recorded by the bridge's audit log as a completed write. Nothing was closed only because the case ID
+> in the test was deliberately invalid.
+>
+> This is the one place the two hosts differ in the dangerous direction. Claude Code's `ask` tier fails
+> **closed** non-interactively — the same call under `claude -p` is refused by the harness and never
+> reaches the bridge. Codex's `approve` fails **open**.
+>
+> Until socxen enforces dismiss/close in the bridge itself — the only layer that does not depend on host
+> approval semantics — **`codex exec` is not a supported way to run socxen.** Use an interactive Codex
+> session, where the gate behaves as documented.
 
 The same three tiers, expressed as Codex approval modes in `.mcp.codex.json`:
 

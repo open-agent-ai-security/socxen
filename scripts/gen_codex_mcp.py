@@ -15,6 +15,11 @@ enforce it in different places:
   Codex        .mcp.codex.json -> the same three tiers as approval modes on the
                plugin-bundled server. Codex reads this straight out of the installed
                plugin, so the gate ships ON — no merge step, no operator action.
+               CAVEAT: "approve" prompts a human only in an INTERACTIVE session. Under
+               `codex exec` the approval policy resolves to proceed, so a gated write
+               executes unasked. Codex fails open where Claude Code's ask tier fails
+               closed. Until the bridge enforces dismiss/close itself, `codex exec` is
+               not a supported way to run socxen.
 
 Keeping the two by hand would guarantee drift, and drift in this particular pair is a
 safety regression rather than a cosmetic one. So the Codex file is generated from the

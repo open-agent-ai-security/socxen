@@ -124,9 +124,10 @@ verdict suppressing a real threat.** Three tiers:
 
 Two layers enforce this: your host agent's tool-approval rules **and** your own explicit ask before
 any close. On Claude Code those rules are `settings.snippet.json`, merged during setup; on Codex they
-ship inside the plugin and are on from install. Either way the approval layer can be bypassed by whoever
-configures the host; your ask can't — so always do both, and never dismiss or close on your own
-initiative.
+ship inside the plugin and are on from install in an interactive session. The approval layer can be
+bypassed by whoever configures the host, and under `codex exec` it does not hold at all — a gated write
+is auto-approved there. Your ask is the layer that does not depend on any of that, so always do both, and
+never dismiss or close on your own initiative.
 
 ## The investigation loop
 

@@ -194,7 +194,8 @@ check_gate() {
     codex)
       state="$(gate_state_codex)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — shipped with the plugin, nothing to merge" ;;
+        on)  ok "Human-in-the-loop gate ON (interactive sessions) — shipped with the plugin"
+             warn "  the gate does NOT hold under 'codex exec' — a gated write is auto-approved there" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
         off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
