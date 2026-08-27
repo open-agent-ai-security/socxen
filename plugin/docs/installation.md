@@ -21,9 +21,24 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
   Opus. Smaller models (e.g. Haiku) are **not supported** for this skill.
 
   On **Codex**, **no model is validated yet.** The packaging is verified and the safety gate is enforced,
-  but neither the red-team gate nor the routing evals have been run against an OpenAI model. The
-  evaluation target is **OpenAI Sol 5.6**. Until that run lands, treat the Codex path as *packaged, not
-  proven* — the same conservative reading you would give any un-gated release.
+  but neither the red-team gate nor the routing evals have been run against an OpenAI model.
+
+  The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
+  strongest at release — and map by capability, not by name:
+
+  | role | Claude Code | Codex |
+  |---|---|---|
+  | release sweep | Opus | GPT-5.6 **Sol** |
+  | **floor — the red-team gate** | **Sonnet 4.6+** | GPT-5.6 **Terra** |
+  | not supported | Haiku | GPT-5.6 **Luna** |
+
+  Luna is the Haiku-tier analogue, so it is out for the same reason Haiku is. Reasoning effort is pinned
+  at `model_reasoning_effort = "medium"` — Codex's own default — and the red-team result will be stated
+  at that level. Codex accepts `minimal | low | medium | high | xhigh`; there is no `auto`. A run at a
+  different effort is a different result, so quote the effort alongside the number.
+
+  Until that run lands, treat the Codex path as *packaged, not proven* — the same conservative reading
+  you would give any un-gated release.
 - **An Exabeam New-Scale API key + secret** (OAuth client-credentials), from the New-Scale platform
   (role-gated; the MCP inherits the key's access level). You wire it up in *Connect the Exabeam MCP*
   below — the skill uses read tools to gather evidence and case/alert tools to act.

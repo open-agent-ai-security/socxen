@@ -121,8 +121,9 @@ testers; feedback welcome.
 
 **Codex support is packaged, not yet proven.** The install, the bundled bridge and the shipped approval
 gate are verified end to end against `codex-cli` 0.146.0, but no OpenAI model has been through socxen's
-red-team gate or routing evals; the evaluation target is **OpenAI Sol 5.6**. Treat that path accordingly
-until the run lands.
+red-team gate or routing evals. Mirroring the Claude discipline, the gate will run on **GPT-5.6 Terra**
+(the Sonnet-tier analogue) at `model_reasoning_effort = "medium"`, with **Sol** as the release sweep;
+**Luna** is the Haiku-tier analogue and is not supported. Treat that path accordingly until the run lands.
 
 ## Project sponsor
 
