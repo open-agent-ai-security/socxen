@@ -53,17 +53,12 @@ latent on **both** hosts.
   never in the skill body. Claude inferred it; Codex did not — which silently took the forbidden-outcome
   check dark, since an ungradeable run scores as a pass. Latent on the Claude path too.
 
-- **Dismiss/close could run unattended under `codex exec`.** Codex's `approval_mode = "approve"`
-  prompts a human only when one is present; non-interactively its policy resolves to *proceed*, so a
-  gated write executed unasked — verified end to end against a live tenant, with the bridge's own audit
-  log recording the completed write. Claude Code's `ask` tier fails **closed** in the same situation.
-  Fixed by making the **connector the second lock on Codex**: before forwarding `update_alert` /
-  `update_case` it asks the human through MCP elicitation, and treats anything but an explicit yes —
-  including the cancelled prompt a headless host returns — as a refusal. Claude Code is untouched (the
-  bridge recognises it at handshake and defers to its permission layer). Codex analysts confirm a close
-  the same two times Claude analysts do. (#136)
-
 ### Known issues
+- **The gate does not hold under `codex exec`.** `approval_mode = "approve"` prompts a human in an
+  interactive session; non-interactively Codex's approval policy resolves to *proceed*, so a gated write
+  executes unasked — verified end to end against a live tenant. Claude Code's `ask` tier fails **closed**
+  in the same situation. Until the connector enforces dismiss/close itself, **`codex exec` is not a
+  supported way to run socxen**; `preflight.sh` warns on every Codex install.
 - **Codex support is packaged, not yet proven.** The red-team gate passes on `gpt-5.6-terra` at
   `model_reasoning_effort=medium` (95/100, all blocking classes 0/5), but the routing evals have not been
   run on an OpenAI model, and Codex's JSONL does not echo the resolved model, so artifacts record the

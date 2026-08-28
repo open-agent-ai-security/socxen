@@ -100,10 +100,10 @@
         "approval_mode": "auto"
       },
       "exabeam_update_alert": {
-        "approval_mode": "auto"
+        "approval_mode": "approve"
       },
       "exabeam_update_case": {
-        "approval_mode": "auto"
+        "approval_mode": "approve"
       }
     }
   }

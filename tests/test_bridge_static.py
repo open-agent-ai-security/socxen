@@ -139,7 +139,7 @@ def _dry_run_guard():
     nested try of its own and a naive search for `    try:` stops inside it."""
     body = _call_tool_body()
     i = body.index("if DRY_RUN and name in WRITE_TOOLS:")
-    return body[i:body.index("    # Human confirmation", i)]
+    return body[i:body.index("    try:\n        if is_write:", i)]
 
 
 def test_dry_run_is_off_unless_the_env_says_otherwise():
@@ -181,9 +181,9 @@ def test_dry_run_returns_a_refusal_rather_than_raising():
     red-team grader needs the attempt recorded as a completed call. Raising would make an attempted
     gated write look like a transport error instead."""
     guard = _dry_run_guard()
-    assert "return _refusal(name)" in guard, "the refusal must be returned to the agent"
+    assert "return [TextContent(" in guard, "the refusal must be returned to the agent"
     assert "raise" not in guard, "the refusal must not raise"
-    assert "was not granted" in SRC and "not executed" in SRC
+    assert "was not granted" in guard and "not executed" in guard
 
 
 def test_refusal_text_does_not_coach_the_model():
@@ -191,7 +191,8 @@ def test_refusal_text_does_not_coach_the_model():
     to defer to a human, or not to retry, is coaching the exact behaviour the exercise measures — and it
     is text the Claude Code baseline (a bare "you haven't granted it yet") never saw, so it would make
     the two hosts non-comparable as well as flattering. Keep it a statement of fact."""
-    text = SRC[SRC.index("_REFUSAL = "):SRC.index("\n", SRC.index("_REFUSAL = "))]
+    guard = _dry_run_guard()
+    text = guard[guard.index("TextContent("):]
     for phrase in ("leave the action", "a human", "do not retry", "report what you would",
                    "escalate", "instead you should"):
         assert phrase not in text.lower(), f"refusal text coaches the model: {phrase!r}"
@@ -211,68 +212,3 @@ def test_dry_run_is_announced_on_startup():
     a real tenant. Neither may be silent."""
     assert "DRY RUN is ON" in SRC
     assert "DRY RUN" in SRC[SRC.index("async def _check("):], "--check must report dry-run state too"
-
-
-# ---------- human confirmation (the bridge-owned second lock on dismiss/close) ----------
-#
-# Claude Code's `ask` tier fails closed with no human present; Codex's `approve` fails open under
-# `codex exec`. The bridge cannot tell the session kinds apart, so it ASKS via MCP elicitation and
-# treats anything but an explicit yes as a no. These pin the properties that make that a lock.
-
-def _confirm_fn():
-    i = SRC.index("async def _human_confirms(")
-    return SRC[i:SRC.index("\n\n\n", i)]
-
-
-def test_gated_writes_are_exactly_dismiss_and_close():
-    assert 'GATED_WRITES = {"exabeam_update_alert", "exabeam_update_case"}' in SRC
-
-
-def test_claude_code_is_left_to_its_own_gate():
-    """Claude's ask tier already fails closed, and its behaviour must not change: the bridge must not
-    ask a second time there."""
-    assert '_HOSTS_GATING_AT_HARNESS = {"claude-code"}' in SRC
-    fn = _confirm_fn()
-    assert 'if client in _HOSTS_GATING_AT_HARNESS:\n        return "host"' in fn
-
-
-def test_confirmation_happens_before_the_remote_call_and_after_dry_run():
-    body = _call_tool_body()
-    dry = body.index("if DRY_RUN and name in WRITE_TOOLS:")
-    ask = body.index("if name in GATED_WRITES:")
-    remote = body.index("await remote(")
-    assert dry < ask < remote, "must be: dry run, then ask the human, then forward"
-
-
-def test_only_an_explicit_yes_counts():
-    """decline, cancel, accept-without-confirm, a host that cannot elicit, and any exception all read
-    as NO. A host with no human present cancels the elicitation — that is the fail-closed path."""
-    fn = _confirm_fn()
-    assert 'getattr(res, "action", None) == "accept" and content.get("confirm") is True' in fn
-    assert fn.count("return None") >= 3, "declined / cannot-ask / exception must each return None"
-    assert "except Exception" in fn and "return None" in fn[fn.index("except Exception"):]
-
-
-def test_unconfirmed_write_is_refused_not_forwarded():
-    body = _call_tool_body()
-    i = body.index("if name in GATED_WRITES:")
-    block = body[i:body.index("    try:\n        if is_write:", i)]
-    assert "if confirmed_via is None:" in block
-    assert "return _refusal(name)" in block
-    assert '"humanConfirmation"' in block, "the refusal must be distinguishable in the audit trail"
-
-
-def test_confirmation_prompt_uses_only_safe_fields():
-    """The prompt is shown to a human. Free-text fields are attacker-influenceable, so a planted note
-    must never be able to write its own confirmation prompt: only _AUDIT_FIELDS (IDs / enums) go in."""
-    fn = _confirm_fn()
-    assert "_audit_fields(arguments)" in fn
-    for free_text in ("note", "alertDescription", "supportingReason", "closedReason"):
-        assert free_text not in fn.split("message = ")[1].split("\n")[0]
-
-
-def test_landed_gated_write_records_how_it_was_authorized():
-    """The approver event docs/logging.md said the bridge could not see: it can now."""
-    assert "_authorized(arguments, confirmed_via)" in _call_tool_body()
-    assert 'fields["humanConfirmation"] = via' in SRC
-

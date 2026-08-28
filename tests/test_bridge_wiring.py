@@ -39,8 +39,6 @@ class _TextContent:                                     # the bridge builds one 
 
 
 sys.modules["mcp.types"].TextContent = _TextContent
-sys.modules["mcp.types"].ClientCapabilities = lambda **kw: kw       # the bridge builds these to ask
-sys.modules["mcp.types"].ElicitationCapability = lambda **kw: kw    # the host whether it can elicit
 
 
 class _Server:                                          # identity decorators for @server.list_tools/call_tool
@@ -171,7 +169,6 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
 
     monkeypatch.setattr(B, "remote", fake_remote)
     monkeypatch.setattr(B.telemetry, "enabled", lambda: True)                 # force the tail to run
-    monkeypatch.setattr(B, "_client_name", lambda: "claude-code")             # host gates; bridge won't ask
     def boom(*a, **k):
         raise RecursionError("pathological arguments")
     monkeypatch.setattr(B, "_audit_fields", boom)
@@ -188,102 +185,3 @@ def test_audit_fields_cap_long_strings_inside_list_values():
     out = B._audit_fields({"arg1": {"useCases": [long, "ok"], "alertId": "y" * 500}})
     assert out["alertId"] == "y" * 80                       # scalar capped
     assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped
-
-
-# ---- human confirmation: the bridge-owned second lock on dismiss/close ----
-#
-# Executable, not static: these drive call_tool and check what actually reached `remote`.
-
-def _committed_remote(calls):
-    async def fake_remote(op):
-        calls.append(op)
-        class R:
-            content = [Blk(text="committed")]
-        return R()
-    return fake_remote
-
-
-def test_gated_write_is_refused_when_nobody_can_confirm(monkeypatch):
-    """No request context = no host to ask = no. The remote must never be called."""
-    import asyncio
-    calls = []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    monkeypatch.setattr(B, "_client_name", lambda: "some-headless-host")
-    out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {"caseId": "1", "stage": "closed"}}))
-    assert "was not granted" in out[0].text
-    assert calls == [], "a gated write was forwarded without a human confirming it"
-
-
-def test_gated_write_forwards_when_a_human_confirms(monkeypatch):
-    import asyncio
-    calls = []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    async def yes(name, arguments):
-        return "elicited"
-    monkeypatch.setattr(B, "_human_confirms", yes)
-    out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {"caseId": "1", "stage": "closed"}}))
-    assert out[0].text == "committed" and len(calls) == 1
-
-
-def test_gated_write_on_claude_code_is_not_asked_twice(monkeypatch):
-    """Claude's ask tier already gated it fail-closed; the bridge must forward without eliciting."""
-    import asyncio
-    calls, asked = [], []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    monkeypatch.setattr(B, "_client_name", lambda: "claude-code")
-    class Sess:
-        def check_client_capability(self, cap): asked.append("checked"); return True
-        async def elicit(self, **kw): asked.append("elicited"); raise AssertionError("must not elicit")
-    monkeypatch.setattr(B.server, "request_context", type("C", (), {"session": Sess(), "request_id": 1})(),
-                        raising=False)
-    out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "1"}}))
-    assert out[0].text == "committed" and len(calls) == 1 and asked == []
-
-
-def test_declined_elicitation_is_refused(monkeypatch):
-    import asyncio
-    calls = []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    monkeypatch.setattr(B, "_client_name", lambda: "codex-mcp-client")
-    class Sess:
-        client_params = None
-        def check_client_capability(self, cap): return True
-        async def elicit(self, **kw):
-            return type("R", (), {"action": "decline", "content": None})()
-    monkeypatch.setattr(B.server, "request_context", type("C", (), {"session": Sess(), "request_id": 1})(),
-                        raising=False)
-    out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {"caseId": "1", "stage": "closed"}}))
-    assert "was not granted" in out[0].text and calls == []
-
-
-def test_non_gated_write_never_asks(monkeypatch):
-    """create_case / create_case_notes are escalation, not suppression — never gated."""
-    import asyncio
-    calls = []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    async def never(name, arguments):
-        raise AssertionError("asked for a non-gated write")
-    monkeypatch.setattr(B, "_human_confirms", never)
-    out = asyncio.run(B.call_tool("exabeam_create_case_notes", {"arg1": {"caseId": "1", "note": "x"}}))
-    assert out[0].text == "committed" and len(calls) == 1
-
-
-def test_cancelled_elicitation_records_the_attempt_then_propagates(monkeypatch):
-    """A headless Codex cancels the tool request rather than declining the question. That is a
-    BaseException; the refusal must still reach the audit trail, and the cancellation must not be
-    swallowed."""
-    import asyncio
-    calls, ended = [], []
-    monkeypatch.setattr(B, "remote", _committed_remote(calls))
-    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
-    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
-    monkeypatch.setattr(B.telemetry, "tool_end", lambda name, ms, **k: ended.append(k.get("action_fields")))
-    async def cancelled(name, arguments):
-        raise asyncio.CancelledError()
-    monkeypatch.setattr(B, "_human_confirms", cancelled)
-    import pytest
-    with pytest.raises(asyncio.CancelledError):
-        asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {"caseId": "1", "stage": "closed"}}))
-    assert calls == []
-    assert ended and ended[-1].get("humanConfirmation") == "refused"
-

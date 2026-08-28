@@ -152,10 +152,6 @@ The trail records the **gated action and its disposition deterministically at th
 [supported governance posture](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this) an
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
 event is evidence the approval happened. It does **not** yet capture a distinct *approver-identity* event
-(who clicked yes) on Claude Code, because that lives in the host's permission layer, which the bridge
-cannot see. On Codex the bridge asks the human itself, so a landed dismiss/close carries
-`action.humanConfirmation=elicited` and a refused one `action.humanConfirmation=refused`; Claude Code
-writes record `host`. A Claude-side approver event would still need a host post-tool hook. One
-limitation: when a headless Codex refuses by *cancelling* the request, it tears the bridge down at the
-same time, and the queued `tool_start` for that attempt can be lost with it — the write was refused
-either way; only the record of the attempt is best-effort there.
+(who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
+Claude Code's permission rules, or Codex's tool-approval modes. An explicit approval event would be added
+via a host-side post-tool hook feeding the same log.

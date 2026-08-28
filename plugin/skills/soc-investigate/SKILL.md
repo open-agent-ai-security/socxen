@@ -134,11 +134,12 @@ verdict suppressing a real threat.** Three tiers:
    here. They're denied at the permission layer as defense-in-depth even though absent. Surface them
    as **Recommended containment** in the report; never claim you executed one.
 
-Two layers enforce this: a hard confirmation at the tool call **and** your own explicit ask before
-any close. On Claude Code the hard confirmation is the permission rule in `settings.snippet.json`,
-merged during setup; on Codex it is the connector itself, which asks the analyst directly before
-forwarding a dismiss/close and refuses if nobody confirms. The hard layer can be misconfigured by whoever
-sets up the host; your ask cannot — so always do both, and never dismiss or close on your own initiative.
+Two layers enforce this: your host agent's tool-approval rules **and** your own explicit ask before
+any close. On Claude Code those rules are `settings.snippet.json`, merged during setup; on Codex they
+ship inside the plugin and are on from install in an interactive session. The approval layer can be
+bypassed by whoever configures the host, and under `codex exec` it does not hold at all — a gated write
+is auto-approved there. Your ask is the layer that does not depend on any of that, so always do both, and
+never dismiss or close on your own initiative.
 
 ## The investigation loop
 

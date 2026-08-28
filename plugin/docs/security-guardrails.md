@@ -27,19 +27,6 @@ configuration.
 This is a safety net, not a replacement for judgment. Your **[governance permission gate](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)**
 and your own review before you act remain the primary controls.
 
-## 0. Confirming before it suppresses (the second lock, on Codex)
-
-Dismissing an alert or closing a case is the one action where a wrong verdict does real harm — a real
-threat, hidden. socxen puts two locks in front of it: the skill asks you in chat, and the host asks again
-at the tool call. On Claude Code that second lock is the permission rule you merge during setup, and it
-refuses the call outright when no human is present. Codex's equivalent does not: under `codex exec` its
-"approve" resolves to *proceed*. So on Codex the connector is the second lock. Before it forwards
-`exabeam_update_alert` or `exabeam_update_case`, it asks you directly through the host, naming the case
-and the action; anything other than an explicit yes — a decline, a cancelled prompt, nobody there — is a
-refusal, and the write never leaves your machine. The prompt is built only from identifiers and state
-fields, never from free text, so a planted note cannot write its own confirmation. Which lock authorized
-a close is recorded in the audit log.
-
 ## 1. Screening what socxen reads (hidden-character smuggling)
 
 Text can carry **invisible characters** — zero-width spaces, direction-reversing marks, and other hidden
