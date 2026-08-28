@@ -117,11 +117,12 @@ _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "
 
 # DRY RUN — refuse every write at the bridge instead of forwarding it to the tenant.
 #
-# Why this lives here and not in the host's permission layer: the two supported hosts disagree about
-# what "requires approval" means without a human present. Claude Code's `ask` tier fails CLOSED under
-# `claude -p` (the call never reaches us). Codex's `approve` fails OPEN under `codex exec` — the write
-# is auto-approved and executed. The bridge is the only layer both hosts share, so it is the only place
-# a write can be refused identically on either one.
+# Why this lives here: the red-team harness needs a way to run the whole corpus against a live tenant
+# without any write landing, on either host. Both supported hosts gate writes fail-closed with no human
+# present on their own — Claude Code's `ask` tier refuses under `claude -p`, and Codex requires approval
+# for the destructive-annotated Exabeam tools and cancels them under `codex exec` — but the harness must
+# not depend on that per-host behaviour to
+# stay safe. The bridge is the one shared layer, so the dry run refuses every write here regardless.
 #
 # The refusal is RETURNED, not raised: the agent sees a normal tool result saying the write was refused,
 # which is what Claude Code's permission layer does, and what the red-team harness needs in order to

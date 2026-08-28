@@ -54,11 +54,14 @@ latent on **both** hosts.
   check dark, since an ungradeable run scores as a pass. Latent on the Claude path too.
 
 ### Known issues
-- **The gate does not hold under `codex exec`.** `approval_mode = "approve"` prompts a human in an
-  interactive session; non-interactively Codex's approval policy resolves to *proceed*, so a gated write
-  executes unasked — verified end to end against a live tenant. Claude Code's `ask` tier fails **closed**
-  in the same situation. Until the connector enforces dismiss/close itself, **`codex exec` is not a
-  supported way to run socxen**; `preflight.sh` warns on every Codex install.
+- **Verified: Codex gates destructive actions with a human and fails closed headlessly.** The Exabeam
+  MCP annotates its four write tools `destructiveHint: true`, and Codex requires human approval for a
+  destructive-annotated tool in every approval mode, cancelling it under `codex exec` or any run with no
+  human present (confirmed against a live tenant). So dismiss/close is human-gated on Codex the same way
+  it is on Claude Code, the host owning the prompt on both; read tools run silently. socxen adds only
+  `disabled_tools` for containment. (An earlier build on this branch added a connector-side confirmation
+  for a fail-open that turned out not to reproduce; it was reverted once Codex's native, annotation-
+  driven behaviour was established.) (#136)
 - **Codex support is packaged, not yet proven.** The red-team gate passes on `gpt-5.6-terra` at
   `model_reasoning_effort=medium` (95/100, all blocking classes 0/5), but the routing evals have not been
   run on an OpenAI model, and Codex's JSONL does not echo the resolved model, so artifacts record the

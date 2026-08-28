@@ -148,11 +148,10 @@ PY
   then printf 'on'; else printf 'off'; fi
 }
 
-# Codex: the gate ships inside the plugin, so this reads the resolved server config rather than
-# any file the operator maintains. ON means Codex actually resolved both halves — the approve
-# default and the containment deny-list. A server that is missing entirely reads as "unknown",
-# not "off": an invalid per-tool approval_mode makes Codex drop the whole server silently, and
-# that is a different problem from an un-merged gate.
+# Codex: the gate ships inside the plugin, so this reads the resolved server config. ON means Codex
+# resolved both halves — the approve default and the containment deny-list. Codex itself prompts for
+# approval for the Exabeam write tools (annotated destructive) in every mode and refuses them when no
+# human is present, so the dismiss/close gate needs nothing merged. A missing server reads as "unknown".
 # Does any config.toml loosen a per-tool approval mode on a gated write?
 #
 # `codex mcp get` prints the server's default mode and disabled_tools, but NOT per-tool
@@ -201,8 +200,7 @@ check_gate() {
     codex)
       state="$(gate_state_codex)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON (interactive sessions) — shipped with the plugin"
-             warn "  the gate does NOT hold under 'codex exec' — a gated write is auto-approved there" ;;
+        on)  ok "Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the destructive write tools and refuses them with no human present" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
         off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;

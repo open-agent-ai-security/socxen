@@ -23,8 +23,9 @@ whole queue, or the rules behind it — and each is named for the person whose j
 database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
 governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
 your host agent's tool-approval rules *and* the skill asking you first — never left to the model alone.
-On Codex that gate ships inside the plugin, so it is on from the moment you install an **interactive**
-session — it does not hold under `codex exec`, which is not a supported way to run socxen.
+On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
+destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
+there the same as on Claude, `codex exec` included.
 
 ## The three skills
 
