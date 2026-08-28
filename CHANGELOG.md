@@ -11,9 +11,10 @@ governance model (feature → `dev`, release `dev` → `main`).
 ## [Unreleased]
 
 **socxen runs on OpenAI Codex.** The same three skills and the same guarded connector, packaged for a
-second host — and the port immediately paid for itself, surfacing one defect in each direction: a
-fail-open in Codex's approval model, and a gap in the skill's own untrusted-data doctrine that had been
-latent on **both** hosts.
+second host — and the port immediately paid for itself, surfacing two defects that had been latent on
+**both** hosts all along: a gap in the skill's own untrusted-data doctrine (planted *evidence*, not just
+planted instructions), and a required taxonomy line that lived only in an example. The second host read
+the skills differently and both gaps fell out.
 
 ### Added
 - **Codex support.** `plugin/.codex-plugin/plugin.json` alongside the Claude Code manifest, sharing one

@@ -123,10 +123,14 @@ def test_check_without_creds_exits_clean():
 
 # ---------- dry run (the write refusal that does not depend on host approval semantics) ----------
 #
-# Context: the two hosts disagree about what "needs approval" means with no human present. Claude Code's
-# ask tier fails CLOSED under `claude -p`; Codex's approve fails OPEN under `codex exec` — verified, the
-# write executes. The bridge is the only shared layer, so it is the only place a write can be refused
-# identically on both. These pin the properties that make that refusal trustworthy.
+# Context: with no human present, both hosts refuse a destructive write. Claude Code's ask tier fails
+# CLOSED under `claude -p`; Codex cancels its destructive-annotated write tools under `codex exec`,
+# because approval can't be granted. (An earlier build on this branch read Codex's approve mode as
+# failing OPEN headlessly and added a connector-side confirmation for it; that did not reproduce and the
+# claim was retracted — see CHANGELOG.) SOCXEN_DRY_RUN is therefore a host-independent test switch, not a
+# safety fix: the bridge is the only shared layer, so it is the only place a write can be refused
+# identically on both without depending on either host's approval semantics. These pin the properties
+# that make that refusal trustworthy.
 
 def _call_tool_body():
     i = SRC.index("async def call_tool(")
