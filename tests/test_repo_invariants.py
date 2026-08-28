@@ -368,11 +368,22 @@ def test_codex_gate_is_derived_from_the_claude_snippet():
         "plugin/.mcp.codex.json is stale — run python3 scripts/gen_codex_mcp.py")
 
 
-def test_codex_gate_never_auto_approves_a_gated_write():
-    """dismiss/close must require a human on Codex, exactly as on Claude Code."""
+BRIDGE_SRC = (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text()
+
+
+def test_codex_gated_writes_are_locked_by_the_bridge_not_by_codex():
+    """dismiss/close must require a human on Codex, exactly as on Claude Code — but Codex's own
+    `approve` fails OPEN under `codex exec`, so the lock lives in the bridge (an elicitation the host
+    must route to a human; a headless host cancels it). The Codex config therefore sets these two to
+    "auto" ON PURPOSE — "approve" as well would be a third prompt for no added safety — and the bridge
+    source must carry the lock. Both halves are pinned together so neither can drift alone."""
     for verb in GATED_WRITES:
         mode = CODEX_SERVER["tools"].get(verb, {}).get("approval_mode")
-        assert mode == "approve", f"{verb} is '{mode}' on Codex — must be 'approve'"
+        assert mode == "auto", f"{verb} is '{mode}' on Codex — the bridge owns this lock; expected 'auto'"
+        assert verb not in CODEX_SERVER["disabled_tools"], f"{verb} must stay usable on Codex"
+        assert f'"{verb}"' in BRIDGE_SRC.split("GATED_WRITES = ")[1].split("\n")[0], (
+            f"{verb} is not in the bridge's GATED_WRITES — nothing would ask the human")
+    assert "await _human_confirms(name, arguments)" in BRIDGE_SRC
 
 
 def test_codex_gate_disables_every_containment_tool():
@@ -476,23 +487,6 @@ def test_preflight_never_writes():
     bad_redirects = [m for m in re.findall(r">>?\s*\S+", code)
                      if "/dev/null" not in m and not m.startswith(">&")]
     assert not bad_redirects, f"preflight.sh redirects into a file: {bad_redirects}"
-
-
-def test_codex_gate_check_sees_per_tool_overrides():
-    """`codex mcp get` prints the server default and disabled_tools but NOT per-tool
-    approval modes. An operator who loosens only exabeam_update_case leaves a server that
-    still reports 'default: approve' while dismiss/close runs unattended — so reading the
-    resolved server config alone reports a false green on the single change that matters
-    most. The reader must also inspect config.toml and downgrade to 'overridden'."""
-    body = PREFLIGHT_SH.split("gate_state_codex()", 1)[1].split("\n}", 1)[0]
-    assert "codex_write_override" in body, (
-        "gate_state_codex trusts `codex mcp get` alone — it cannot see a per-tool override")
-    assert "overridden" in body, "gate_state_codex has no 'weakened by local config' outcome"
-    assert "overridden)" in PREFLIGHT_SH, "check_gate does not handle the overridden state"
-    ovr = PREFLIGHT_SH.split("codex_write_override()", 1)[1].split("\n}", 1)[0]
-    for verb in ("exabeam_update_alert", "exabeam_update_case"):
-        stem = verb.replace("exabeam_update_", "")
-        assert stem in ovr or verb in ovr, f"override scan does not cover {verb}"
 
 
 def test_preflight_reports_cannot_verify_separately_from_off():

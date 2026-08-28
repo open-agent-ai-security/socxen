@@ -108,9 +108,8 @@ codex plugin list      # confirm: socxen@open-agent-ai-security, installed, enab
 ```
 
 That's the whole install. **There is no installer script and no permissions merge on Codex** — see
-Governance below for why: the safety gate ships inside the plugin, so it is on in an interactive session.
-Read that section before you point socxen at a real tenant — it is on in an interactive session and
-**not** under `codex exec`.
+Governance below for why: the safety gate ships inside the plugin, and the connector confirms
+dismiss/close with you directly.
 
 The bundled connector registers as `exabeam` and the three skills are available to every Codex session.
 To check credentials and reach the tenant, run the diagnostics from a clone, or from the installed plugin
@@ -169,8 +168,8 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
 > as mandatory, not "recommended."
 >
-> **On Codex there is nothing to merge — the gate ships inside the plugin and is on in an interactive
-> session. It does NOT hold under `codex exec`.** Skip to
+> **On Codex there is nothing to merge — the gate ships inside the plugin and the connector confirms
+> dismiss/close with you itself.** Skip to
 > [Verifying the gate on Codex](#verifying-the-gate-on-codex).
 
 ### Claude Code
@@ -243,27 +242,23 @@ Codex lets a plugin declare tool-approval policy for its own bundled MCP server,
 rather than asking you to merge it. There is no snippet and no merge step: in an **interactive** Codex
 session the gate is on from the moment you install.
 
-> ### ⛔ Do not run socxen under `codex exec`
->
-> **The gate does not hold in a non-interactive Codex session.** `approval_mode = "approve"` prompts a
-> human interactively; under `codex exec` the session approval policy resolves to *proceed without
-> asking*, so a gated write is auto-approved and executed. Verified against `codex-cli` 0.146.0: a
-> `exabeam_update_case` call with `stage: closed` ran end to end, reached the Exabeam API, and was
-> recorded by the bridge's audit log as a completed write. Nothing was closed only because the case ID
-> in the test was deliberately invalid.
->
-> This is the one place the two hosts differ in the dangerous direction. Claude Code's `ask` tier fails
-> **closed** non-interactively — the same call under `claude -p` is refused by the harness and never
-> reaches the bridge. Codex's `approve` fails **open**.
->
-> Until socxen enforces dismiss/close in the bridge itself — the only layer that does not depend on host
-> approval semantics — **`codex exec` is not a supported way to run socxen.** Use an interactive Codex
-> session, where the gate behaves as documented.
+**On Codex the second lock on dismiss/close is the connector, not Codex.** Codex's own
+`approval_mode = "approve"` prompts a human only when one is present; under `codex exec` it resolves to
+*proceed*, so it cannot be the lock. Instead, before either `exabeam_update_alert` or
+`exabeam_update_case` is forwarded, the bridge asks you directly — an MCP elicitation the host must route
+to a human: *"socxen is about to call exabeam_update_case (caseId=4471, stage=closed). Confirm?"* Confirm
+and it proceeds; decline and it doesn't. With nobody present — a script, `codex exec`, CI — Codex cancels
+the question, and a cancelled question is a refused write. Verified against `codex-cli` 0.146.0.
+
+That gives Codex the same two locks Claude Code has (the skill's ask in chat, then a hard confirmation
+at the tool call), fails closed the same way, and adds nothing an operator has to configure or can
+weaken from `config.toml` — the lock is in the connector, not in config.
 
 The same three tiers, expressed as Codex approval modes in `.mcp.codex.json`:
 
-- **`approval_mode: "auto"`** on the read + escalation tools,
-- **`approval_mode: "approve"`** on `update_alert` / `update_case` (dismiss/close),
+- **`approval_mode: "auto"`** on the read + escalation tools — and on `update_alert` / `update_case`
+  too, deliberately: the connector's own confirmation is the lock on those, and a Codex `approve` on top
+  would make you confirm the same close three times for no added safety,
 - **`disabled_tools`** for the containment tools — Codex applies this *after* any allowlist, so they
   cannot be re-enabled at runtime and never reach the model at all.
 
@@ -277,9 +272,8 @@ Verify it:
 ./preflight.sh --platform codex
 ```
 
-Expect **`Human-in-the-loop gate ON (interactive sessions) — shipped with the plugin`**, followed by the
-standing warning that the gate does not hold under `codex exec`. That warning is expected on a healthy
-install and will remain until the bridge enforces dismiss/close itself. Or read the config directly:
+Expect **`Human-in-the-loop gate ON — containment disabled by the plugin; dismiss/close confirmed by the
+connector itself`**. Or read the config directly:
 
 ```bash
 codex mcp get exabeam    # expect default_tools_approval_mode: approve, and a disabled_tools list

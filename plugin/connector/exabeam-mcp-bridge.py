@@ -35,7 +35,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent
+from mcp.types import ClientCapabilities, ElicitationCapability, TextContent
 
 _VERIFY = ssl.create_default_context(cafile=certifi.where())
 _token = {"value": None, "exp": 0.0}
@@ -136,6 +136,80 @@ def _truthy(v):
 
 DRY_RUN = _truthy(os.environ.get("SOCXEN_DRY_RUN", ""))
 
+# HUMAN CONFIRMATION — the second lock on dismiss/close, owned by the bridge.
+#
+# socxen's safety model is two locks before a suppression: the skill asks in chat, and the harness asks
+# again at the tool call. On Claude Code the second lock is the `ask` permission tier, and it fails
+# CLOSED when no human is present (`claude -p` refuses the call before it reaches us). On Codex the
+# equivalent (`approval_mode: approve`) fails OPEN under `codex exec` — the write is auto-approved.
+# The bridge cannot tell the two session kinds apart (scrubbed env, pipes either way), so instead of
+# detecting, it ASKS: an MCP elicitation the host must route to a human. Interactive hosts render it;
+# a headless host cancels it — and a cancelled question is a refused write. Verified on Codex 0.146.0:
+# under `codex exec` the elicitation comes back "user cancelled MCP tool call".
+#
+# Hosts listed here already gate these writes fail-closed at their own permission layer, so the bridge
+# does not ask twice — that host's behaviour is exactly what it was before this existed.
+GATED_WRITES = {"exabeam_update_alert", "exabeam_update_case"}
+_HOSTS_GATING_AT_HARNESS = {"claude-code"}
+
+_REFUSAL = "Permission to use `{name}` was not granted; the call was not executed."
+
+
+def _refusal(name):
+    """The tool result for a write the bridge refused. Deliberately minimal, and deliberately the same
+    shape as Claude Code's own permission refusal ("...but you haven't granted it yet"): a statement of
+    fact, no instruction. Anything more — "leave it to a human", "do not retry" — is coaching the exact
+    behaviour the red team measures, and text the Claude baseline never saw."""
+    return [TextContent(type="text", text=_REFUSAL.format(name=name))]
+
+
+def _client_name():
+    """The host talking to us, from the MCP initialize handshake (clientInfo.name)."""
+    try:
+        return server.request_context.session.client_params.clientInfo.name
+    except Exception:  # noqa: BLE001 — no handshake info means we cannot trust the host to gate
+        return ""
+
+
+async def _human_confirms(name, arguments):
+    """Ask the human, through the host, before a gated write. Returns how the write was authorized:
+
+        "host"      the host gates this write fail-closed itself (Claude Code) — nothing to ask
+        "elicited"  a human answered the elicitation with confirm=true
+        None        declined, cancelled, no human present, host cannot ask, or anything went wrong
+
+    Everything that is not an explicit yes is a no. The prompt is built from the write's SAFE fields
+    only (IDs and enums, see _AUDIT_FIELDS) — never free text, which is attacker-influenceable and
+    would otherwise let a planted note write its own confirmation prompt."""
+    client = _client_name()
+    if client in _HOSTS_GATING_AT_HARNESS:
+        return "host"
+    try:
+        ctx = server.request_context
+        session = ctx.session
+        if not session.check_client_capability(ClientCapabilities(elicitation=ElicitationCapability())):
+            sys.stderr.write(f"bridge: host {client or '?'} cannot ask a human; refusing {name}\n")
+            return None
+        fields = _audit_fields(arguments) if arguments else {}
+        what = ", ".join(f"{k}={v}" for k, v in fields.items()) or "no identifiers supplied"
+        message = (f"socxen is about to call {name} ({what}). "
+                   f"This changes the alert/case in Exabeam. Confirm?")
+        res = await session.elicit(
+            message=message,
+            requestedSchema={"type": "object",
+                             "properties": {"confirm": {"type": "boolean",
+                                                        "description": "true to allow this write"}},
+                             "required": ["confirm"]},
+            related_request_id=ctx.request_id)
+        content = getattr(res, "content", None) or {}
+        if getattr(res, "action", None) == "accept" and content.get("confirm") is True:
+            return "elicited"
+        sys.stderr.write(f"bridge: human did not confirm {name} ({getattr(res, 'action', '?')})\n")
+        return None
+    except Exception as e:  # noqa: BLE001 — an error asking is a no, never a yes
+        sys.stderr.write(f"bridge: confirmation failed for {name} ({type(e).__name__}); refusing\n")
+        return None
+
 # Safe (non-free-text) fields of a gated write to record in the audit log: identifiers, state and
 # disposition enums. These are the deterministic decision record — WHAT the agent did, on WHICH object,
 # to WHAT disposition. They are explicitly NOT free text (never PII / evidence), so logging them cannot
@@ -224,6 +298,16 @@ def _defang_args(obj, notes=None):
     return obj
 
 
+def _authorized(arguments, via):
+    """Audit fields for a landed write, plus HOW a gated one was authorized ("host" or "elicited").
+    This is the approver event docs/logging.md said the bridge could not see — it can now, for the
+    elicited case, because the bridge asked the question itself."""
+    fields = _audit_fields(arguments)
+    if via:
+        fields["humanConfirmation"] = via
+    return fields
+
+
 def _audit_fields(obj, into=None):
     """Collect the SAFE identifier/enum fields of a write (see `_AUDIT_FIELDS`) from anywhere in the
     (possibly nested) arguments — the decision record for the audit log. Scalars and lists of scalars
@@ -286,8 +370,32 @@ async def call_tool(name, arguments):
         # saying it here would inflate the score and would be text the Claude baseline never saw. State
         # the fact, nothing else. The machine-readable marker lives in the audit record
         # (action.dryRunRefused), not in text the model reads.
-        return [TextContent(type="text", text=(
-            f"Permission to use `{name}` was not granted; the call was not executed."))]
+        return _refusal(name)
+    # Human confirmation — the second lock. AFTER the dry run (a dry run never asks) and BEFORE the
+    # remote call (a question asked after the write confirms nothing).
+    confirmed_via = None
+    if name in GATED_WRITES:
+        def _log_refused():
+            try:
+                if log_on:
+                    fields = dict(_audit_fields(arguments) or {}) if arguments else {}
+                    fields["humanConfirmation"] = "refused"
+                    telemetry.tool_end(name, (time.perf_counter() - t0) * 1000, action_fields=fields)
+            except Exception as e:  # noqa: BLE001
+                sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
+        try:
+            confirmed_via = await _human_confirms(name, arguments)
+        except asyncio.CancelledError:
+            # A headless Codex does not answer the elicitation with "decline" — it cancels the whole
+            # tool request, which arrives here as CancelledError (a BaseException, so no `except
+            # Exception` sees it). The write is already refused by construction; what would be lost is
+            # the audit record of the ATTEMPT, leaving a tool_start with no tool_end. Record the
+            # refusal, then let the cancellation proceed — swallowing it would keep a dead request alive.
+            _log_refused()
+            raise
+        if confirmed_via is None:
+            _log_refused()
+            return _refusal(name)
     try:
         if is_write:
             arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
@@ -303,7 +411,7 @@ async def call_tool(name, arguments):
         if log_on:
             telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
                                defang_notes=defang_notes, hygiene_removed=hygiene_removed,
-                               action_fields=_audit_fields(arguments) if is_write else None)
+                               action_fields=_authorized(arguments, confirmed_via) if is_write else None)
     except Exception as e:  # noqa: BLE001 — telemetry must never break a completed call
         sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
     return content

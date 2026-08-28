@@ -15,11 +15,8 @@ enforce it in different places:
   Codex        .mcp.codex.json -> the same three tiers as approval modes on the
                plugin-bundled server. Codex reads this straight out of the installed
                plugin, so the gate ships ON — no merge step, no operator action.
-               CAVEAT: "approve" prompts a human only in an INTERACTIVE session. Under
-               `codex exec` the approval policy resolves to proceed, so a gated write
-               executes unasked. Codex fails open where Claude Code's ask tier fails
-               closed. Until the bridge enforces dismiss/close itself, `codex exec` is
-               not a supported way to run socxen.
+               The second lock on dismiss/close is the BRIDGE's elicitation, not
+               Codex's approval mode — see the tier mapping below for why.
 
 Keeping the two by hand would guarantee drift, and drift in this particular pair is a
 safety regression rather than a cosmetic one. So the Codex file is generated from the
@@ -28,10 +25,19 @@ Claude one and pinned by tests/test_repo_invariants.py.
 Tier mapping:
 
     allow -> approval_mode "auto"      run without asking
-    ask   -> approval_mode "approve"   always require a human
+    ask   -> approval_mode "auto"      the BRIDGE asks the human itself (see below)
     deny  -> disabled_tools            removed from the tool list entirely; Codex
                                        applies disabled_tools after any allowlist, so
                                        these cannot be re-enabled at runtime
+
+Why the `ask` tier is "auto" here and not "approve": Codex's `approve` prompts a human
+only when there is one — under `codex exec` the session policy resolves to proceed and
+the write executes unasked (verified, 0.146.0). So on Codex the second lock on
+dismiss/close lives in the connector instead: exabeam-mcp-bridge.py asks the human via
+MCP elicitation before forwarding either write, and a headless host cancels the
+question, which the bridge treats as a refusal. Setting these two to "approve" as well
+would make an interactive analyst confirm the same close three times (skill, Codex
+dialog, bridge) for no added safety, since the Codex dialog is the one that fails open.
 
 `default_tools_approval_mode` is "approve", which is the one place the Codex gate is
 deliberately stricter than the Claude one: a tool the remote server grows that nobody
@@ -74,7 +80,7 @@ def bare(entries):
 def build():
     perms = json.loads(SNIPPET.read_text())["permissions"]
     tools = {t: {"approval_mode": "auto"} for t in bare(perms["allow"])}
-    tools.update({t: {"approval_mode": "approve"} for t in bare(perms["ask"])})
+    tools.update({t: {"approval_mode": "auto"} for t in bare(perms["ask"])})   # bridge elicits
     return {
         "exabeam": {
             **TRANSPORT,
