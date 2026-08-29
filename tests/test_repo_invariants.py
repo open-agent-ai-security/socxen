@@ -334,5 +334,191 @@ def test_shipped_docs_never_link_outside_the_plugin():
     assert not bad, "shipped docs link outside the distributed plugin:\n" + "\n".join(sorted(bad))
 
 
+# =====================================================================
+# TIER 1 (cont.) — the Codex gate
+#
+# socxen ships the same human-in-the-loop gate to two host agents that enforce it in
+# different places. Claude Code reads permission tiers out of the operator's
+# settings.json; Codex reads approval modes out of the plugin's own .mcp.codex.json.
+# Two hand-maintained copies of a safety control is exactly the drift this file exists
+# to catch, so the Codex copy is generated and pinned here.
+# =====================================================================
+
+CODEX_PLUGIN = _load("plugin/.codex-plugin/plugin.json")
+CODEX_MCP = _load("plugin/.mcp.codex.json")
+CODEX_SERVER = CODEX_MCP["exabeam"]
+
+
+def _gen_codex_mcp():
+    """Import the generator by path — scripts/ is not a package."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "gen_codex_mcp", ROOT / "scripts" / "gen_codex_mcp.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.build()
+
+
+def test_codex_gate_is_derived_from_the_claude_snippet():
+    """The committed Codex gate must equal what the generator derives from the snippet.
+
+    Without this, editing settings.snippet.json silently loosens the Codex gate — the
+    Claude tier changes and the Codex approval modes stay where they were."""
+    assert CODEX_MCP == _gen_codex_mcp(), (
+        "plugin/.mcp.codex.json is stale — run python3 scripts/gen_codex_mcp.py")
+
+
+def test_codex_gate_never_auto_approves_a_gated_write():
+    """dismiss/close must require a human on Codex, exactly as on Claude Code."""
+    for verb in GATED_WRITES:
+        mode = CODEX_SERVER["tools"].get(verb, {}).get("approval_mode")
+        assert mode == "approve", f"{verb} is '{mode}' on Codex — must be 'approve'"
+
+
+def test_codex_gate_disables_every_containment_tool():
+    """The deny tier must land in disabled_tools, which Codex applies after any
+    allowlist — so a containment tool cannot be re-enabled at runtime."""
+    disabled = set(CODEX_SERVER["disabled_tools"])
+    missing = sorted({bare(t) for t in DENY} - disabled)
+    assert not missing, f"containment tools not disabled on Codex: {missing}"
+    assert not (disabled & set(CODEX_SERVER["tools"])), (
+        "a tool is both disabled and given an approval mode")
+
+
+def test_codex_gate_defaults_to_asking():
+    """An unclassified tool must ask a human, not inherit a permissive default.
+
+    This is the one place the Codex gate is stricter than the Claude one, and it is
+    why we never set enabled_tools: an allowlist would silently drop a tool the remote
+    server grows, where 'approve' surfaces it to a human instead."""
+    assert CODEX_SERVER["default_tools_approval_mode"] == "approve"
+    assert "enabled_tools" not in CODEX_SERVER
+
+
+def test_codex_transport_needs_no_variable_expansion():
+    """Verified against codex-cli 0.146.0: Codex expands neither ${CLAUDE_PLUGIN_ROOT}
+    nor ${PLUGIN_ROOT} in a plugin-bundled .mcp.json, but does resolve a relative `cwd`
+    against the installed plugin root. A '$' back in these args means the bridge
+    launches at a literal path and every skill comes up with no tools."""
+    assert CODEX_SERVER["cwd"] == "."
+    assert not any("$" in a for a in CODEX_SERVER["args"]), (
+        "Codex does not expand variables in .mcp.json args")
+
+
+def test_codex_and_claude_manifests_agree():
+    """Two manifests, one release. bump_version.py must move both."""
+    assert CODEX_PLUGIN["version"] == PLUGIN["version"], (
+        f"version skew: claude={PLUGIN['version']} codex={CODEX_PLUGIN['version']}")
+    assert CODEX_PLUGIN["name"] == PLUGIN["name"]
+    assert CODEX_PLUGIN["skills"] == PLUGIN["skills"]
+    assert CODEX_PLUGIN["mcpServers"] == "./.mcp.codex.json", (
+        "Codex only registers a bundled server when the manifest names the file")
+
+
+
+# =====================================================================
+# TIER 1 (cont.) — the installer / preflight split
+#
+# install.sh is Claude-Code-specific by nature: 63% of it is `claude plugin` CLI
+# quirk-handling and a gate merge Codex does not need. Everything genuinely shared —
+# credentials, toolchain, live connectivity — lives in preflight.sh, which BOTH entry
+# points use. A check that behaves differently depending on which script you ran is
+# the bug that reproduces on one platform and not the other.
+# =====================================================================
+
+INSTALL_SH = (ROOT / "plugin" / "install.sh").read_text()
+PREFLIGHT_SH = (ROOT / "plugin" / "preflight.sh").read_text()
+
+
+def test_install_sources_preflight_instead_of_duplicating_it():
+    """The shared checks must have exactly one implementation."""
+    assert '. "$SCRIPT_DIR/preflight.sh"' in INSTALL_SH, "install.sh no longer sources preflight.sh"
+    for fn in ("check_toolchain", "check_credentials", "check_connectivity"):
+        assert f"{fn}()" in PREFLIGHT_SH, f"{fn} is not defined in preflight.sh"
+        assert f"{fn}()" not in INSTALL_SH, (
+            f"{fn} was re-inlined into install.sh — it must come from preflight.sh")
+
+
+def _shell_code_only(text):
+    """Shell source with comments and quoted strings removed.
+
+    A tripwire, not a parser: the point is that a mutating command must not appear in
+    *code*, while the same word is fine inside a message ("consider: chmod 600 ..."),
+    which is where every legitimate occurrence in preflight.sh lives."""
+    lines = [l for l in text.splitlines() if not l.lstrip().startswith("#")]
+    body = "\n".join(lines)
+    body = re.sub(r'"(?:[^"\\]|\\.)*"', '""', body)
+    body = re.sub(r"'(?:[^'])*'", "''", body)
+    return body
+
+
+def test_preflight_never_writes():
+    """preflight.sh is a mirror, not a hand.
+
+    On Claude Code the gate ships off and turning it on is a consent-gated action that
+    belongs to install.sh --merge-permissions. On Codex the gate ships inside the plugin
+    and there is nothing to merge. A fixer here would re-import exactly the consent
+    problem the Codex packaging removed, so mutation stays out of this file."""
+    code = _shell_code_only(PREFLIGHT_SH)
+    forbidden = [
+        ("merge_permissions", "runs the settings.json merger"),
+        ("plugin install", "mutates a plugin install"),
+        ("plugin update", "mutates a plugin install"),
+        ("plugin add", "mutates a plugin install"),
+        ("mcp add", "writes an MCP server into config.toml"),
+        ("mcp remove", "removes an MCP server from config.toml"),
+        ("chmod", "changes file modes"),
+        ("tee ", "writes a file"),
+    ]
+    found = [f"{tok} ({why})" for tok, why in forbidden if tok in code]
+    assert not found, "preflight.sh must stay read-only, found:\n  " + "\n  ".join(found)
+    # No redirection into a real file. /dev/null and heredocs are fine.
+    bad_redirects = [m for m in re.findall(r">>?\s*\S+", code)
+                     if "/dev/null" not in m and not m.startswith(">&")]
+    assert not bad_redirects, f"preflight.sh redirects into a file: {bad_redirects}"
+
+
+def test_codex_gate_check_sees_per_tool_overrides():
+    """`codex mcp get` prints the server default and disabled_tools but NOT per-tool
+    approval modes. An operator who loosens only exabeam_update_case leaves a server that
+    still reports 'default: approve' while dismiss/close runs unattended — so reading the
+    resolved server config alone reports a false green on the single change that matters
+    most. The reader must also inspect config.toml and downgrade to 'overridden'."""
+    body = PREFLIGHT_SH.split("gate_state_codex()", 1)[1].split("\n}", 1)[0]
+    assert "codex_write_override" in body, (
+        "gate_state_codex trusts `codex mcp get` alone — it cannot see a per-tool override")
+    assert "overridden" in body, "gate_state_codex has no 'weakened by local config' outcome"
+    assert "overridden)" in PREFLIGHT_SH, "check_gate does not handle the overridden state"
+    ovr = PREFLIGHT_SH.split("codex_write_override()", 1)[1].split("\n}", 1)[0]
+    for verb in ("exabeam_update_alert", "exabeam_update_case"):
+        stem = verb.replace("exabeam_update_", "")
+        assert stem in ovr or verb in ovr, f"override scan does not cover {verb}"
+
+
+def test_preflight_reports_cannot_verify_separately_from_off():
+    """Three outcomes, not two, on both hosts.
+
+    'Cannot verify' reported as 'OFF' sends an operator re-merging a working gate; on
+    Codex it would send them reinstalling over a server that a bad approval_mode had
+    silently dropped. Both gate readers must have an unknown branch."""
+    for fn in ("gate_state_claude", "gate_state_codex"):
+        body = PREFLIGHT_SH.split(f"{fn}()", 1)[1].split("\n}", 1)[0]
+        assert "unknown" in body, f"{fn} has no 'cannot verify' outcome"
+
+
+
+def test_skill_states_the_taxonomy_report_contract():
+    """derive_outcome() reads a `Taxonomy outcome:` line out of the report, and grading treats a missing
+    line as UNMEASURABLE — which the red-team grader then scores as not-landed, i.e. a pass. The line was
+    only ever demonstrated in a worked example, never required: Claude inferred it and complied, Codex
+    wrote its own structure and omitted it, and the forbidden-outcome axis silently went dark. It has to
+    be stated in the skill body itself, and it has to name all three valid outcomes."""
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "Taxonomy outcome:" in body, "SKILL.md does not state the taxonomy report contract"
+    for outcome in ("raised", "auto_closed", "fp_closed"):
+        assert outcome in body, f"SKILL.md does not name the {outcome!r} outcome"
+
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

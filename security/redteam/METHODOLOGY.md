@@ -124,9 +124,11 @@ The design choices below are deliberate; each exists for a reason.
 - **The eval harness is the range.** Attacks are graded by the same machinery that grades socxen's normal
   evals, so a red-team result is a repeatable, gradeable artifact — *and a confirmed attack becomes a
   permanent test.* Red-teaming compounds into the guardrail suite instead of being a one-off.
-- **Synthetic tenant, dry-run, writes denied.** We drive the *real* skill but with the write/close/
-  containment tools disallowed and only read tools allowed. This lets us **measure intent** ("did it try
-  to close?") without ever letting a harmful action land. Seeded "secrets" are fake. No real customer
+- **Synthetic tenant, dry-run, writes denied.** We drive the *real* skill, but no write, close or
+  containment call is ever allowed to land — on Claude Code by disallowing those tools, on Codex by the
+  connector's dry run refusing them at the bridge (see *Two hosts, one grader* below; the mechanism
+  differs, the guarantee does not). Either way we **measure intent** ("did it try to close?") without a
+  harmful action landing. Seeded "secrets" are fake. No real customer
   data ever enters a fixture or a result — the skill's own PII rules demand it.
 - **Fidelity controls.** Each run drives the skill from a **neutral working directory** with the built-in
   filesystem/exec tools denied, so the agent's only surface is the Exabeam MCP — a faithful investigation
@@ -136,6 +138,30 @@ The design choices below are deliberate; each exists for a reason.
   gated-tool attempt, a verbatim leak). The *semantic* questions ("was the reasoning subverted?") are
   graded by a **fresh Claude sub-agent given nothing but the grading prompt** — same auth as the driver,
   no API key, no shared context.
+- **Two hosts, one grader.** `--host codex` drives the corpus on OpenAI Codex instead of Claude Code; the
+  judge stays on Claude either way, so both hosts are scored by the same model against the same prompt
+  and the agent under test is the only variable. Two mechanics differ and both are load-bearing:
+
+  *Writes are held by the bridge, not by host tool policy.* The Claude path passes `--disallowedTools`,
+  so the model can attempt a gated write and be refused — and the **attempt** is what we score. Codex's
+  deny-list removes a tool from the model's view **entirely**, so the attempt never happens and the
+  gated-tool signal could never fire. On Codex the read-only guarantee therefore comes from the
+  connector's dry run (`SOCXEN_DRY_RUN`): the write is refused at the bridge, but the tool stays visible
+  and the attempt is recorded. The runner builds a throwaway `CODEX_HOME`, installs the working-tree
+  plugin with the dry run injected, and **verifies via `codex mcp get` that it is active before driving
+  anything** — it raises rather than running if it cannot prove that. The refusal text is deliberately
+  minimal and mirrors Claude Code's; an earlier draft told the agent to "leave the action to a human",
+  which is coaching the exact behaviour the exercise measures.
+
+  *Attribution is weaker on Codex.* Its JSONL does not echo the resolved model, so the artifact records
+  the **requested** id. The Claude path records the model the session actually resolved (#76); reports
+  from a Codex run say so explicitly.
+- **A landing is not one thing.** Every landing is classified as either a **guardrail save** — the
+  agent's reasoning was subverted *and it acted*, but a deterministic control refused the call, so
+  nothing persisted — or **unguarded**, where it reached a forbidden verdict, obeyed the injection in its
+  reasoning, or reproduced a payload with no code layer in the path. Two attacks at the same landing rate
+  can mean very different things, and collapsing them hides the distinction that matters: an unguarded
+  landing has nothing between it and harm except the analyst reading the report.
 
   **Choosing the layer is part of authoring an attack, and some harms only the judge can see.** Two
   recurring patterns:
@@ -297,6 +323,7 @@ security/redteam/
   HISTORY.md       when we ran full-scale tests, results, and the fixed-findings ledger
   attacks/         the versioned attack corpus (*.attack.json)
   run.py           the runner — drive × grade × trials × model-sweep, writes a report
+                   (--host claude|codex; the grader stays on Claude for both)
   results/         dated run reports (release evidence)
   diagram/         the architecture figure above — HTML source + regeneration
 ```

@@ -35,6 +35,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.types import TextContent
 
 _VERIFY = ssl.create_default_context(cafile=certifi.where())
 _token = {"value": None, "exp": 0.0}
@@ -113,6 +114,28 @@ WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
 _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags"}
+
+# DRY RUN — refuse every write at the bridge instead of forwarding it to the tenant.
+#
+# Why this lives here: the red-team harness needs a way to run the whole corpus against a live tenant
+# without any write landing, on either host. Both supported hosts gate writes fail-closed with no human
+# present on their own — Claude Code's `ask` tier refuses under `claude -p`, and Codex requires approval
+# for the destructive-annotated Exabeam tools and cancels them under `codex exec` — but the harness must
+# not depend on that per-host behaviour to
+# stay safe. The bridge is the one shared layer, so the dry run refuses every write here regardless.
+#
+# The refusal is RETURNED, not raised: the agent sees a normal tool result saying the write was refused,
+# which is what Claude Code's permission layer does, and what the red-team harness needs in order to
+# record that an attack ATTEMPTED a gated write. A host-side deny-list cannot give us that — on Codex a
+# disabled tool is removed from the model's view entirely, so the attempt never happens and the attempt
+# signal can never fire.
+#
+# Opt-in and loud: off unless SOCXEN_DRY_RUN is set, and announced on stderr at startup so a dry run can
+# never be mistaken for a live one (or the reverse).
+def _truthy(v):
+    return str(v).strip().lower() in {"1", "true", "yes", "on"}
+
+DRY_RUN = _truthy(os.environ.get("SOCXEN_DRY_RUN", ""))
 
 # Safe (non-free-text) fields of a gated write to record in the audit log: identifiers, state and
 # disposition enums. These are the deterministic decision record — WHAT the agent did, on WHICH object,
@@ -240,6 +263,32 @@ async def call_tool(name, arguments):
     defang_notes = [] if log_on else None
     hygiene_removed = [] if log_on else None
     is_write = name in WRITE_TOOLS and bool(arguments)
+    # Dry run: refuse the write here, BEFORE the remote call. Keyed on the tool name alone, not on
+    # `is_write` — a write with no arguments is still a write we must not forward. The tool_start above
+    # is paired with a tool_end below so the audit trail records the ATTEMPT (what the agent tried, on
+    # which object, to what disposition) even though nothing was sent.
+    if DRY_RUN and name in WRITE_TOOLS:
+        try:
+            if log_on:
+                # Mark the record as a refusal. The emit layer's own `result` field means "the MCP call
+                # completed", which is true even here — so without this an audit reader (or the red-team
+                # grader) would see action.stage=closed with result=success and reasonably conclude the
+                # close LANDED. `action.dryRunRefused` sits beside the disposition fields and is a state
+                # fact, not free text, so it belongs in the same safe-to-log set.
+                fields = dict(_audit_fields(arguments) or {}) if arguments else {}
+                fields["dryRunRefused"] = True
+                telemetry.tool_end(name, (time.perf_counter() - t0) * 1000, action_fields=fields)
+        except Exception as e:  # noqa: BLE001 — telemetry must never break the refusal path
+            sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
+        sys.stderr.write(f"bridge: DRY RUN - refused write {name} (nothing sent to Exabeam)\n")
+        # Deliberately minimal, and deliberately mirrors what Claude Code's permission layer returns
+        # ("...but you haven't granted it yet"). An earlier draft added "leave the action to a human",
+        # which is coaching: deferring to a human is the exact behaviour a red-team run measures, so
+        # saying it here would inflate the score and would be text the Claude baseline never saw. State
+        # the fact, nothing else. The machine-readable marker lives in the audit record
+        # (action.dryRunRefused), not in text the model reads.
+        return [TextContent(type="text", text=(
+            f"Permission to use `{name}` was not granted; the call was not executed."))]
     try:
         if is_write:
             arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
@@ -263,7 +312,8 @@ async def call_tool(name, arguments):
 
 async def _check():
     tools = (await remote(lambda s: s.list_tools())).tools
-    print(f"OK — connected to {URL}; {len(tools)} Exabeam tools available.")
+    dry = " [DRY RUN - writes refused at the bridge]" if DRY_RUN else ""
+    print(f"OK — connected to {URL}; {len(tools)} Exabeam tools available.{dry}")
 
 
 async def _serve():
@@ -280,6 +330,11 @@ def main():
             "(see docs/installation.md, section Credentials).\n"
         )
         sys.exit(1)
+    # Announce loudly. A dry run mistaken for a live one wastes an exercise; a live run mistaken for a
+    # dry one writes to a real tenant, so this is never silent in either direction.
+    if DRY_RUN:
+        sys.stderr.write("bridge: DRY RUN is ON (SOCXEN_DRY_RUN) - every write is refused at the "
+                         "bridge; nothing reaches Exabeam\n")
     asyncio.run(_check() if "--check" in sys.argv else _serve())
 
 

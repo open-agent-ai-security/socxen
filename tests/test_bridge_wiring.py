@@ -24,13 +24,21 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # ---- stub the bridge's heavy top-level deps (import-time only) ----
 for _n in ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http",
-           "mcp.server", "mcp.server.stdio"]:
+           "mcp.server", "mcp.server.stdio", "mcp.types"]:
     sys.modules.setdefault(_n, types.ModuleType(_n))
 sys.modules["certifi"].where = lambda: None            # cafile=None -> ssl uses system CAs, no file read
 sys.modules["httpx"].AsyncClient = object
 sys.modules["mcp"].ClientSession = object
 sys.modules["mcp.client.streamable_http"].streamablehttp_client = object
 sys.modules["mcp.server.stdio"].stdio_server = object
+
+
+class _TextContent:                                     # the bridge builds one of these to refuse a
+    def __init__(self, **kw): self.__dict__.update(kw)  # write in dry-run mode; keep it constructible
+    def __repr__(self): return f"_TextContent({self.__dict__})"
+
+
+sys.modules["mcp.types"].TextContent = _TextContent
 
 
 class _Server:                                          # identity decorators for @server.list_tools/call_tool
