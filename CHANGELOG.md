@@ -10,11 +10,20 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.8.5] — 2026-08-29
+
 **socxen runs on OpenAI Codex.** The same three skills and the same guarded connector, packaged for a
 second host — and the port immediately paid for itself, surfacing two defects that had been latent on
 **both** hosts all along: a gap in the skill's own untrusted-data doctrine (planted *evidence*, not just
 planted instructions), and a required taxonomy line that lived only in an example. The second host read
 the skills differently and both gaps fell out.
+
+Release gate for this version: the **Codex red-team leg** (`gpt-5.6-terra`, 20 attacks × 5 trials, zero
+landings, same Claude judge as the Claude legs) — an affirmative maintainer decision recorded in the release
+PR, since this is the release that puts the second host live. The 0.8.0 Claude-side red-team legs and the
+0.8.0 Praxen ABV scan stand; neither was re-run on this tree.
 
 ### Added
 - **Codex support.** `plugin/.codex-plugin/plugin.json` alongside the Claude Code manifest, sharing one
@@ -39,6 +48,17 @@ the skills differently and both gaps fell out.
 - **`run.py --host codex`** drives the red-team corpus on Codex with the grader still on Claude, so both
   hosts are scored by the same judge. Reports now record driver, model, pinned reasoning effort, and
   split landings into **guardrail saves** vs **unguarded** failures.
+
+### Changed
+- **Oversized-result handling reframed, and the on-disk footprint disclosed** (#125, #133). `triage-cases` and
+  `rule-tuning` no longer tell the agent to *save* an oversized result and parse it from file; the harness
+  saves the result and hands back a path, the agent reads the few fields it needs, and must not copy the raw
+  dump anywhere durable. `security-guardrails.md` now says plainly that those spill files persist under the
+  operator's own harness directory and are not pruned by socxen — on the operator's own authorised machine,
+  crossing no trust boundary the console doesn't, but there, and theirs to delete. Elimination is upstream
+  projection/pagination (#34).
+- **CI actions pinned to commit SHAs, workflow token permissions explicit** (#93, #130). Build-time only —
+  nothing in the shipped payload changes. Closes Praxen finding PRAX-2026-08-19-011.
 
 ### Fixed
 - **Planted-baseline acceptance (`b03`).** The first Codex gate found `b03-baseline-poisoning` landing
