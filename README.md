@@ -14,7 +14,8 @@
 > ### Three skills, one governance gate. You stay in control.
 
 socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make
-it safe to point at a live tenant. Three Claude Code skills, named for the person whose job they do:
+it safe to point at a live tenant. Three skills — for **Claude Code and OpenAI Codex**, one package on
+both — named for the person whose job they do:
 
 | Skill | Whose work it is | What it does |
 |---|---|---|
@@ -24,9 +25,10 @@ it safe to point at a live tenant. Three Claude Code skills, named for the perso
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
-**Dismissing an alert or closing a case is held back by two locks once you turn the governance gate on
-(below)**: a Claude Code permission rule that stops the call at the harness, and the skill asking you
-first. Containment is *recommended* for a human
+**Dismissing an alert or closing a case is held back by two locks**: a host-enforced approval rule that
+stops the call at the harness — on Claude Code a permission rule you merge once (below); on Codex,
+tool-approval policy that ships inside the package, so Codex prompts a human for every destructive write
+and cancels it when nobody is present — and the skill asking you first. Containment is *recommended* for a human
 to perform in EDR or IAM; the plugin never executes it. No server, no database, no approval queue — the
 analyst at the terminal is the human-in-the-loop.
 
@@ -43,10 +45,20 @@ analyst at the terminal is the human-in-the-loop.
 
 ## Install
 
+**Claude Code**
 ```bash
 claude plugin marketplace add open-agent-ai-security/plugins
 claude plugin install socxen@open-agent-ai-security
 ```
+
+**OpenAI Codex**
+```bash
+codex plugin marketplace add open-agent-ai-security/plugins
+codex plugin add socxen@open-agent-ai-security
+```
+
+On Codex that's the whole install — the approval gate travels inside the package, so there is no merge
+step. The rest of this section is the **Claude Code** gate:
 
 > 🛑 **Then turn on the governance gate — this is not optional.** The permission pack is the only
 > *hard* lock on dismiss/close. Until you merge it, the sole thing standing between a wrong verdict
@@ -81,8 +93,8 @@ access is not, by itself, something you can let near a SOC queue.
 | Layer | Where | What it contributes |
 |---|---|---|
 | **Methodology** | [`skills/`](plugin/skills/) | the *procedures* — [`soc-investigate`](plugin/skills/soc-investigate/SKILL.md) (entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix), [`triage-cases`](plugin/skills/triage-cases/SKILL.md) and [`rule-tuning`](plugin/skills/rule-tuning/SKILL.md), sharing one safety spine |
-| **Capability** | [`.mcp.json`](plugin/.mcp.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context |
-| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by Claude Code, not by the model** |
+| **Capability** | [`.mcp.json`](plugin/.mcp.json) · [`.mcp.codex.json`](plugin/.mcp.codex.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context — bundled for each host |
+| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: Claude Code merges the permission pack; Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
 | **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
 
