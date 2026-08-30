@@ -4,11 +4,11 @@
 -->
 
 # socxen
-**An agentic SOC skill suite for Exabeam New-Scale, as a Claude Code plugin.**
+**An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.**
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.8.0-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.8.5-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -22,7 +22,10 @@ safe to point at a live tenant. Three skills work **Exabeam New-Scale** through 
 whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
 database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
 governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
-Claude Code permission rules *and* the skill asking you first — never left to the model alone.
+your host agent's tool-approval rules *and* the skill asking you first — never left to the model alone.
+On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
+destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
+there the same as on Claude, `codex exec` included.
 
 ## The three skills
 
@@ -46,8 +49,9 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
   high-precision ones, so the fix lands on the detection instead of on the analyst.
 - ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
-- 🔒 **Stops where it should** — once you switch the gate on during setup, dismiss/close sits behind a
-  hard, Claude-Code-enforced permission rule; containment is never executed.
+- 🔒 **Stops where it should** — dismiss/close sits behind a hard, harness-enforced approval rule;
+  containment is never executed. On Claude Code you switch that gate on during setup; on Codex it ships
+  with the plugin.
 - 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
   hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
   content (formulas, clickable links) **and masks credentials and structured identifiers** (API keys,
@@ -71,7 +75,7 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 > your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /
-*"find noisy rules"* to reach the other two skills. Claude Code routes on what you ask for.
+*"find noisy rules"* to reach the other two skills. The host agent routes on what you ask for.
 
 ## Documentation
 
@@ -86,14 +90,17 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or 
 ## Layout
 
 ```
-.claude-plugin/          plugin.json (plugin manifest — installs via open-agent-ai-security/plugins)
-.mcp.json                bundled Exabeam MCP — auto-registers on install
+.claude-plugin/          plugin.json (Claude Code manifest — installs via open-agent-ai-security/plugins)
+.codex-plugin/           plugin.json (Codex manifest — same skills, same catalog)
+.mcp.json                bundled Exabeam MCP for Claude Code — auto-registers on install
+.mcp.codex.json          the same bridge for Codex, carrying the approval gate (generated)
 skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
 skills/triage-cases/     SKILL.md — queue sweep (shift lead)
 skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
 docs/                    installation · security-guardrails · logging
-install.sh               convenience installer (idempotent)
+install.sh               convenience installer, Claude Code (idempotent)
+preflight.sh             read-only diagnostics, either host agent
 ```
 
 ## How it's tested
@@ -111,7 +118,15 @@ Pre-release, for evaluation — validated end-to-end against a live Exabeam stag
 (install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
 playbook, and a worked investigation. The version badge above and the
 [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
-release; run `claude plugin list` for your installed version. Sharing with testers; feedback welcome.
+release; run `claude plugin list` (or `codex plugin list`) for your installed version. Sharing with
+testers; feedback welcome.
+
+**Codex support is packaged and red-team gated, not yet field-proven.** The install, the bundled bridge
+and the shipped approval gate are verified end to end against `codex-cli` 0.146.0, and the red-team gate
+has run on **GPT-5.6 Terra** (the Sonnet-tier analogue) at `model_reasoning_effort = "medium"` — 20
+attacks × 5 trials, zero landings in the blocking classes (`security/redteam/HISTORY.md`, 2026-08-27).
+Not yet done on an OpenAI model: the routing evals, and the **Sol** release sweep. **Luna** is the
+Haiku-tier analogue and is not supported. Treat the Codex path as gated but young.
 
 ## Project sponsor
 

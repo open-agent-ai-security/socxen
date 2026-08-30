@@ -45,6 +45,8 @@ skimmable. Write the same content into the case via `exabeam_create_case_notes` 
 
 ## Open questions / next steps (if inconclusive)
 - <What's still unknown and exactly what a human should look at next.>
+
+Taxonomy outcome: <raised | auto_closed | fp_closed>
 ```
 
 ## Quality bar

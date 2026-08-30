@@ -10,6 +10,7 @@ Version lives in three coupled places; the invariant tests + CI fail if they dri
 is error-prone. This edits all of them and regenerates the AI BOM:
 
   - `plugin/.claude-plugin/plugin.json`               → `version`
+  - `plugin/.codex-plugin/plugin.json`                → `version`  (must not skew)
   - `plugin/README.md`                                → the `version-vX.Y.Z` pill
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
 
@@ -28,6 +29,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugin/.claude-plugin/plugin.json"
+# Two manifests, one release. A skew here ships a Codex plugin whose advertised version
+# disagrees with the Claude one; tests/test_repo_invariants.py pins them together.
+CODEX_PLUGIN = ROOT / "plugin/.codex-plugin/plugin.json"
 README = ROOT / "plugin" / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
 
@@ -55,6 +59,9 @@ def main(argv):
     if len(positional) != 1 or not SEMVER.match(positional[0]):
         fail("usage: bump_version.py X.Y.Z[-prerelease] [--dry-run]")
     new = positional[0]
+    for f in (PLUGIN, CODEX_PLUGIN, README):
+        if not f.exists():
+            fail(f"{f.relative_to(ROOT)} not found — cannot bump a partial checkout")
     old = json.loads(PLUGIN.read_text())["version"]
     if old == new:
         fail(f"version is already {new}")
@@ -64,6 +71,9 @@ def main(argv):
         (PLUGIN, _sub_once(PLUGIN.read_text(),
                            r'("version"\s*:\s*")' + re.escape(old) + r'(")',
                            r"\g<1>" + new + r"\g<2>", "plugin.json version")),
+        (CODEX_PLUGIN, _sub_once(CODEX_PLUGIN.read_text(),
+                           r'("version"\s*:\s*")' + re.escape(old) + r'(")',
+                           r"\g<1>" + new + r"\g<2>", "codex plugin.json version")),
         (README, _sub_once(README.read_text(),
                            r"(badge/version-v)" + re.escape(old) + r"(-)",
                            r"\g<1>" + new + r"\g<2>", "README version pill")),
@@ -87,12 +97,13 @@ def main(argv):
     # verify consistency (what the invariant tests enforce)
     got = {
         "plugin.json": json.loads(PLUGIN.read_text())["version"],
+        "codex plugin.json": json.loads(CODEX_PLUGIN.read_text())["version"],
         "README pill": (re.search(r"badge/version-v([0-9][0-9A-Za-z.\-]*)-", README.read_text()) or [None, None])[1],
     }
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ plugin.json / README pill both at {new}")
+    print(f"\n✓ plugin.json / codex plugin.json / README pill all at {new}")
     print("  AI BOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0

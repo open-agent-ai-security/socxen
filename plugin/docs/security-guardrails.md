@@ -18,7 +18,7 @@ configuration.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
-    <img alt="socxen guardrail bridge: Claude Code talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
+    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
   </picture>
 </p>
 
@@ -83,6 +83,21 @@ Keep expectations honest:
   durable, wider-audience copy. A secret shown on **your own screen** during an investigation is *not*
   redacted, and that's deliberate: you're already authorised to read the underlying log, so it crosses
   no trust boundary the console itself doesn't.
+- **Large results are written to a local file, and it isn't redacted.** When the Exabeam MCP returns a
+  payload too big for the context window — a full case dump, the rule inventory — the harness writes it
+  to a file under `~/.claude/projects/…/tool-results/` so socxen can extract the few fields it needs.
+  That file holds raw telemetry and is *not* run through the redactor. It crosses **no trust boundary the
+  console doesn't** — it lives on the same machine you're signed in to New-Scale from, where you're
+  already authorised to read that data — but unlike scratch it **persists after the session and is not
+  pruned automatically.** socxen itself neither writes nor transmits it (the harness does), but the raw
+  copy is durable: **if the case data is sensitive, delete those files when you're done.**
+
+  **On Codex the location differs, and is harder to clean up.** Codex keeps durable session and thread
+  history under `~/.codex/` — `sessions/`, `archived_sessions/`, and SQLite stores such as
+  `thread_history_*.sqlite` and `logs_*.sqlite` — rather than one file per oversized result. The same
+  caution applies with less recourse: there is no single result file to delete. We have not yet
+  characterised precisely where an oversized MCP result lands on Codex, so until we have, treat the whole
+  of `~/.codex/` as durable and unredacted.
 - Redaction covers **structured** secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
   a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
   personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable
