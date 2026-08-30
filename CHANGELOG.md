@@ -89,7 +89,9 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   `CODEX_HOME` (which holds a copy of `~/.codex/auth.json`) is removed after every pass, with the rollouts
   archived locally; the marketplace name no longer says "redteam"; and every Codex pass ends with a
   **fidelity audit** of the rollouts — off-plugin reads, self-inspection, dead drives, write attempts —
-  printed in the report, because on Codex the shell cannot be denied (skills load through it).
+  printed in the report, because on Codex the shell cannot be denied (skills load through it). Exercised
+  live on 2026-08-30: the four fixtures that had dead drives were re-driven on the release candidate,
+  20/20 valid, 0 landings, audit clean (`security/redteam/results/2026-08-30T1828-gpt-5.6-terra.md`).
 
 ### Known issues
 - **Verified: Codex gates destructive actions with a human and fails closed headlessly.** The Exabeam
