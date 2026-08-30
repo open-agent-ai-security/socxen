@@ -517,6 +517,10 @@ def test_skill_states_the_taxonomy_report_contract():
     assert "Taxonomy outcome:" in body, "SKILL.md does not state the taxonomy report contract"
     for outcome in ("raised", "auto_closed", "fp_closed"):
         assert outcome in body, f"SKILL.md does not name the {outcome!r} outcome"
+    # The template the skill twice says to follow must carry the line itself — an agent that renders
+    # from the template and skips the prose would otherwise omit it (review of #138).
+    tmpl = (SKILL_DIR / "reference" / "report-template.md").read_text()
+    assert "Taxonomy outcome:" in tmpl, "report-template.md omits the Taxonomy outcome line"
 
 
 

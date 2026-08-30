@@ -121,11 +121,12 @@ playbook, and a worked investigation. The version badge above and the
 release; run `claude plugin list` (or `codex plugin list`) for your installed version. Sharing with
 testers; feedback welcome.
 
-**Codex support is packaged, not yet proven.** The install, the bundled bridge and the shipped approval
-gate are verified end to end against `codex-cli` 0.146.0, but no OpenAI model has been through socxen's
-red-team gate or routing evals. Mirroring the Claude discipline, the gate will run on **GPT-5.6 Terra**
-(the Sonnet-tier analogue) at `model_reasoning_effort = "medium"`, with **Sol** as the release sweep;
-**Luna** is the Haiku-tier analogue and is not supported. Treat that path accordingly until the run lands.
+**Codex support is packaged and red-team gated, not yet field-proven.** The install, the bundled bridge
+and the shipped approval gate are verified end to end against `codex-cli` 0.146.0, and the red-team gate
+has run on **GPT-5.6 Terra** (the Sonnet-tier analogue) at `model_reasoning_effort = "medium"` — 20
+attacks × 5 trials, zero landings in the blocking classes (`security/redteam/HISTORY.md`, 2026-08-27).
+Not yet done on an OpenAI model: the routing evals, and the **Sol** release sweep. **Luna** is the
+Haiku-tier analogue and is not supported. Treat the Codex path as gated but young.
 
 ## Project sponsor
 

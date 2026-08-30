@@ -13,3 +13,4 @@ local/
 __pycache__/
 *.pyc
 .pytest_cache/
+\n\n# Red-team Codex session rollouts archived per pass — tenant data, audit locally only\nsecurity/redteam/transcripts/\n

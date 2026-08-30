@@ -20,8 +20,9 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
   default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
   Opus. Smaller models (e.g. Haiku) are **not supported** for this skill.
 
-  On **Codex**, **no model is validated yet.** The packaging is verified and the safety gate is enforced,
-  but neither the red-team gate nor the routing evals have been run against an OpenAI model.
+  On **Codex**, the red-team gate has run on **GPT-5.6 Terra** at `model_reasoning_effort = "medium"`
+  (2026-08-27: zero landings in the blocking classes — see `security/redteam/HISTORY.md`). The routing
+  evals have not yet been run against an OpenAI model, and the Sol sweep has not been run.
 
   The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
   strongest at release — and map by capability, not by name:
@@ -116,7 +117,7 @@ To check credentials and reach the tenant, run the diagnostics from a clone, or 
 directory — `codex plugin list` prints its path:
 
 ```bash
-./preflight.sh          # read-only diagnostics; nothing is written
+./plugin/preflight.sh   # from a clone (from the installed plugin directory: ./preflight.sh); read-only, nothing is written
 ```
 
 > **Two host agents on one machine?** `preflight.sh` detects which one it is checking, or takes
@@ -274,7 +275,8 @@ Verify it:
 ./preflight.sh --platform codex
 ```
 
-Expect **`Human-in-the-loop gate ON — containment disabled by the plugin; writes gated by Codex`**. Or
+Expect **`Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the
+destructive write tools and refuses them with no human present`**. Or
 read the config directly:
 
 ```bash

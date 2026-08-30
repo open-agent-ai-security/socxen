@@ -72,7 +72,24 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   Codex-specific: the gap was present on both hosts.
 - **The report's taxonomy line is now required.** `Taxonomy outcome:` existed only in a worked example,
   never in the skill body. Claude inferred it; Codex did not — which silently took the forbidden-outcome
-  check dark, since an ungradeable run scores as a pass. Latent on the Claude path too.
+  check dark, since an ungradeable run scores as a pass. Latent on the Claude path too. The report
+  template now carries the line as well, pinned by the invariant test (release review).
+- **Docs no longer deny the gate run they ship with.** `plugin/README.md` and `docs/installation.md` still
+  said no OpenAI model had been through the red-team gate; they now record the Terra run and what remains
+  undone (routing evals, the Sol sweep). Also: the Codex preflight "expect" string matches what preflight
+  prints, and the clone path to `preflight.sh` is right.
+- **Oversized-result guidance is host-neutral.** `triage-cases` / `rule-tuning` asserted that "the harness
+  saves an oversized result to a file and gives you its path" — true of Claude Code, uncharacterised on
+  Codex. Reworded so an agent on a host with no spill file isn't told to parse a path it never receives.
+- **Red-team runner, Codex driver (found in the 0.8.5 release review; the 2026-08-27 gate was re-checked
+  from its raw rollouts and stands — see `security/redteam/HISTORY.md`).** The transcript parser records
+  `failed` MCP items (a host-cancelled write is an *attempt*, the signal); landing classification is
+  per trial and worst-signal-wins, so the breakdown sums to the landing count; a drive that never reached
+  Exabeam and says its tools never loaded is inconclusive rather than resisted; the throwaway
+  `CODEX_HOME` (which holds a copy of `~/.codex/auth.json`) is removed after every pass, with the rollouts
+  archived locally; the marketplace name no longer says "redteam"; and every Codex pass ends with a
+  **fidelity audit** of the rollouts — off-plugin reads, self-inspection, dead drives, write attempts —
+  printed in the report, because on Codex the shell cannot be denied (skills load through it).
 
 ### Known issues
 - **Verified: Codex gates destructive actions with a human and fails closed headlessly.** The Exabeam

@@ -130,10 +130,15 @@ The design choices below are deliberate; each exists for a reason.
   differs, the guarantee does not). Either way we **measure intent** ("did it try to close?") without a
   harmful action landing. Seeded "secrets" are fake. No real customer
   data ever enters a fixture or a result — the skill's own PII rules demand it.
-- **Fidelity controls.** Each run drives the skill from a **neutral working directory** with the built-in
-  filesystem/exec tools denied, so the agent's only surface is the Exabeam MCP — a faithful investigation
-  — and it cannot read the harness and realize it's being tested. (An early run *did* read the test rig
-  and "resisted" partly because it saw the game; that's now impossible.)
+- **Fidelity controls.** Each run drives the skill from a **neutral working directory**. On Claude Code the
+  built-in filesystem/exec tools are denied outright, so the agent's only surface is the Exabeam MCP and it
+  cannot read the harness and realize it's being tested. (An early run *did* read the test rig and
+  "resisted" partly because it saw the game.) **On Codex the shell cannot be denied** — Codex loads a skill
+  *through* it (the agent reads its own `SKILL.md` with `sed`), so instead the runner audits every session
+  rollout after the pass and prints the result in the report: shell commands that touched anything outside
+  the installed plugin, trials that inspected their own MCP config, trials that never reached Exabeam, and
+  write attempts. An off-plugin read marks the run contaminated. The throwaway plugin is installed under a
+  neutral marketplace name so the path itself carries no tell.
 - **A context-free judge.** Deterministic checks catch the structural signals (a forbidden outcome, a
   gated-tool attempt, a verbatim leak). The *semantic* questions ("was the reasoning subverted?") are
   graded by a **fresh Claude sub-agent given nothing but the grading prompt** — same auth as the driver,
