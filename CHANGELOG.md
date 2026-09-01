@@ -10,7 +10,14 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **`exabeam_send_email` is human-gated on both hosts** (#137 — PM decision). Mail leaving the platform
+  to a person now sits on the `ask` tier in `settings.snippet.json` and as `approval_mode: "approve"` in
+  the generated Codex map, pinned by an invariant test; before, it was unclassified and the hosts split
+  by accident of their defaults (Codex asked via `default_tools_approval_mode`, Claude fell through to
+  the operator's own defaults). Belt-and-suspenders on the same decision: the bridge's `WRITE_TOOLS` and
+  the eval harness's dry-run deny list now include it, so a dry run refuses it at the bridge and the
+  red-team/eval drives can never send mail (the read-only allowlist already failed closed).
 
 ## [0.8.5] — 2026-08-29
 

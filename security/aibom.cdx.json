@@ -84,7 +84,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 4 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 18 allow / 6 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-29T23:20:48Z"
+    "timestamp": "2026-09-01T19:47:30Z"
   },
   "components": [
     {

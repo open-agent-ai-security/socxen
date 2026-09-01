@@ -152,7 +152,8 @@ def test_non_text_block_passes_through():
 # ---- write-tool coverage (no un-defanged mutating path) ----
 def test_write_tools_cover_all_mutating_tools():
     assert B.WRITE_TOOLS == {"exabeam_update_alert", "exabeam_update_case",
-                             "exabeam_create_case", "exabeam_create_case_notes"}
+                             "exabeam_create_case", "exabeam_create_case_notes",
+                             "exabeam_send_email"}
 
 
 # ---- telemetry tail must never break a completed call (code-review PR #39, finding #2) ----

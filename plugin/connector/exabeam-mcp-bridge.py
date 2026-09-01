@@ -109,7 +109,8 @@ from neutralize_output import neutralize_output
 import observra_logging as telemetry
 
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
-               "exabeam_create_case", "exabeam_create_case_notes"}
+               "exabeam_create_case", "exabeam_create_case_notes",
+               "exabeam_send_email"}    # mail leaving the platform is a write (#137)
 # Free-text write fields a payload can ride in — the ONLY fields we neutralize. IDs / enums / state
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.

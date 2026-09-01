@@ -73,6 +73,8 @@ always the cause.
 ## Act (args under `arg1` — see Calling convention)
 - `exabeam_create_case` — escalate an alert into a case *(allow — escalation is safe)*
 - `exabeam_create_case_notes` — document the investigation *(allow)*
+- `exabeam_send_email` — send mail from the platform to a person *(ask — human-confirmed on **both** hosts,
+  #137; not part of the `arg0`/`arg1` convention above — verify its schema via `list_tools` before first use)*
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
 

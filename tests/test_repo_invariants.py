@@ -183,7 +183,10 @@ def test_governed_tools_are_all_documented_in_tool_map():
     """No governed tool may be undocumented, and no drift between the snippet and the
     tool-map. Every plugin-namespaced allow/ask tool must appear in tool-map.md."""
     canonical = _canonical_tools()
-    assert len(canonical) == 20, f"expected 20 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
+    # 21 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email, which the
+    # remote MCP grew after 0.8.5 and #137 classified onto the ask tier (before that it was ungoverned
+    # and each host fell back to its own default — the exact split #137 closed).
+    assert len(canonical) == 21, f"expected 21 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
     undocumented = sorted(t for t in canonical if t not in TOOL_MAP_MD)
     assert not undocumented, f"governed tools missing from tool-map.md: {undocumented}"
 
@@ -505,6 +508,21 @@ def test_preflight_reports_cannot_verify_separately_from_off():
         body = PREFLIGHT_SH.split(f"{fn}()", 1)[1].split("\n}", 1)[0]
         assert "unknown" in body, f"{fn} has no 'cannot verify' outcome"
 
+
+
+def test_send_email_is_human_gated_on_both_hosts():
+    """#137 (PM decision, Matt, 2026-08-30): mail leaving the platform to a person is a human-confirm
+    action on BOTH hosts — before this it was unclassified, so the split between hosts was an accident
+    of their defaults. Pins: the snippet asks (both prefixes), the generated Codex map says approve,
+    and both dry-run layers treat it as a write."""
+    for prefix in ("mcp__plugin_socxen_exabeam__", "mcp__exabeam__"):
+        assert prefix + "exabeam_send_email" in ASK, f"send_email not on the ask tier under {prefix}"
+    assert not tier_has(ALLOW, "exabeam_send_email") and not tier_has(DENY, "exabeam_send_email")
+    codex = json.loads((ROOT / "plugin" / ".mcp.codex.json").read_text())
+    assert codex["exabeam"]["tools"]["exabeam_send_email"]["approval_mode"] == "approve", (
+        "the generated Codex map does not require a human for send_email")
+    assert "exabeam_send_email" in (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text().split("WRITE_TOOLS")[1][:400]
+    assert "exabeam_send_email" in (ROOT / "evals" / "run.py").read_text().split("WRITE_TOOLS")[1][:400]
 
 
 def test_skill_states_the_taxonomy_report_contract():

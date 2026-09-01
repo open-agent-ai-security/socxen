@@ -104,6 +104,9 @@
       },
       "exabeam_update_case": {
         "approval_mode": "approve"
+      },
+      "exabeam_send_email": {
+        "approval_mode": "approve"
       }
     }
   }
