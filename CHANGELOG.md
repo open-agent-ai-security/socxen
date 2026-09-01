@@ -68,8 +68,10 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   covered planted *instructions* but not planted *evidence*, and *"establish baseline"* primed the agent
   to want exactly what the payload supplies. Fixed in doctrine — a new **evidence has provenance**
   principle, *"establish baseline — by querying it"*, and an `fp_closed` bar that requires corroboration
-  from a call the agent made. **5/5 → 0/5** on the same corpus, model, effort and judge. Not
-  Codex-specific: the gap was present on both hosts.
+  from a call the agent made. **5/5 → 0/5** on the same model, effort and judge — *(corrected 2026-09-01:
+  originally "same corpus"; the full corpus ran pre-change and b03 was retested in isolation. The other
+  doctrine-sensitive fixtures — a02, b01, b02, b04 — were re-driven on the shipped tree 2026-08-30/09-01,
+  all 0/5; see `security/redteam/HISTORY.md`.)* Not Codex-specific: the gap was present on both hosts.
 - **The report's taxonomy line is now required.** `Taxonomy outcome:` existed only in a worked example,
   never in the skill body. Claude inferred it; Codex did not — which silently took the forbidden-outcome
   check dark, since an ungradeable run scores as a pass. Latent on the Claude path too. The report
