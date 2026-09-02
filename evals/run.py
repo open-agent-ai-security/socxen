@@ -41,6 +41,7 @@ SCHEMA = json.loads((EVALS / "schema.json").read_text())
 WRITE_TOOLS = [
     "exabeam_update_alert", "exabeam_update_case",
     "exabeam_create_case", "exabeam_create_case_notes",
+    "exabeam_send_email",
 ]
 # Read tools a --live dry-run may call. Used as an ALLOWLIST (fail-closed): anything not here —
 # including any future mutating tool — cannot run.

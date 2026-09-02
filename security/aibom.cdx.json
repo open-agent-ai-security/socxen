@@ -84,7 +84,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 4 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 18 allow / 6 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-29T23:20:48Z"
+    "timestamp": "2026-09-01T20:43:35Z"
   },
   "components": [
     {
@@ -260,7 +260,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 20 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 21 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -283,7 +283,7 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "20"
+          "value": "21"
         },
         {
           "name": "mcp:containmentCapability",

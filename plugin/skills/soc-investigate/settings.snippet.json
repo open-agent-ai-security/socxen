@@ -23,8 +23,10 @@
     "ask": [
       "mcp__plugin_socxen_exabeam__exabeam_update_alert",
       "mcp__plugin_socxen_exabeam__exabeam_update_case",
+      "mcp__plugin_socxen_exabeam__exabeam_send_email",
       "mcp__exabeam__exabeam_update_alert",
-      "mcp__exabeam__exabeam_update_case"
+      "mcp__exabeam__exabeam_update_case",
+      "mcp__exabeam__exabeam_send_email"
     ],
     "deny": [
       "mcp__plugin_socxen_exabeam__exabeam_isolate_host",
