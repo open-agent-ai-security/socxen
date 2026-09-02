@@ -74,7 +74,11 @@ always the cause.
 - `exabeam_create_case` — escalate an alert into a case *(allow — escalation is safe)*
 - `exabeam_create_case_notes` — document the investigation *(allow)*
 - `exabeam_send_email` — send mail from the platform to a person *(ask — human-confirmed on **both** hosts,
-  #137; not part of the `arg0`/`arg1` convention above — verify its schema via `list_tools` before first use)*
+  #137)*. Schema (verified via `list_tools`, 2026-09-02): `arg1: {` **`recipients`** `: [email…],` **`subject`**
+  `,` **`body`** `}` — `body` is an **HTML fragment** (≤ 8000 chars) rendered as-is into a template, and the MCP
+  restricts it to content produced by an Exabeam read tool. Do not infer recipients: an empty list makes the
+  tool return the subscription's users to choose from. Outbound mail is **not** run through the write-side
+  neutralizer yet (its rules are markdown/formula-shaped; mail is HTML) — see the follow-up issue.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
 
