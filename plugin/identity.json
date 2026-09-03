@@ -1,0 +1,37 @@
+{
+  "_comment": "THE ONE PLACE the plugin's identity lives. Everything that carries it — .claude-plugin/plugin.json, .codex-plugin/plugin.json and the 92 permission rules in skills/soc-investigate/settings.snippet.json — is GENERATED from this file by gen_identity.py; CI fails if they drift. To re-brand or re-key the plugin (e.g. a vendor catalog shipping it under its own name), change `name`/`displayName`/`description` here and run `python3 plugin/gen_identity.py`. `name` is load-bearing: it is the Claude Code plugin key and the skill/MCP namespace prefix (`<name>:<skill>`, `mcp__plugin_<name>_<server>__<tool>`) that the permission gate matches on.",
+  "name": "socxen",
+  "version": "0.8.5",
+  "displayName": "socxen — Agentic SOC Analyst",
+  "shortDescription": "Triage Exabeam New-Scale alerts and cases end to end — evidence, verdict, and a guarded write path.",
+  "description": "socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent's tool-approval rules.",
+  "category": "Security",
+  "author": {
+    "name": "Exabeam",
+    "url": "https://www.exabeam.com/"
+  },
+  "homepage": "https://github.com/open-agent-ai-security/socxen",
+  "repository": "https://github.com/open-agent-ai-security/socxen",
+  "license": "Apache-2.0",
+  "keywords": [
+    "soc",
+    "soc-analyst",
+    "alert-triage",
+    "exabeam",
+    "ai-agent-security",
+    "mcp"
+  ],
+  "hostKeywords": {
+    "claude": [
+      "claude-code"
+    ],
+    "codex": [
+      "codex"
+    ]
+  },
+  "mcpServer": "exabeam",
+  "marketplace": {
+    "repo": "open-agent-ai-security/plugins",
+    "name": "open-agent-ai-security"
+  }
+}
