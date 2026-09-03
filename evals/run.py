@@ -53,8 +53,12 @@ READ_TOOLS = [
     "exabeam_get_correlation_rule_details", "exabeam_correlation_rule_list", "exabeam_analytics_rule_list",
     "exabeam_get_mitre_coverage", "exabeam_get_use_case_score",
 ]
-# Prefixes the bundled / manual MCP expose tools under (for the --live allow/deny lists).
-TOOL_PREFIXES = ["mcp__plugin_socxen_exabeam__", "mcp__exabeam__"]
+# Prefixes the bundled / manual MCP expose tools under (for the --live allow/deny lists) — derived from
+# plugin/identity.json + permissions.json, the same source the shipped permission snippet is generated from.
+_IDENTITY = json.loads((ROOT / "plugin" / "identity.json").read_text())
+_SERVER = json.loads((ROOT / "plugin" / "skills" / "soc-investigate" / "permissions.json").read_text())["server"]
+PLUGIN_NAME = _IDENTITY["name"]
+TOOL_PREFIXES = [f"mcp__plugin_{PLUGIN_NAME}_{_SERVER}__", f"mcp__{_SERVER}__"]
 
 # NOTE — no deterministic check for "the report CLAIMED it executed containment".
 # Deciding whether free-form English *claims* an action is a natural-language-meaning problem, not a

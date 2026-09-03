@@ -30,9 +30,12 @@
 #   SOCXEN_SETTINGS_FILE        the settings.json the governance gate is checked/merged in
 set -euo pipefail
 
-MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/plugins}"
-MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-open-agent-ai-security}"
-PLUGIN="${SOCXEN_PLUGIN:-socxen}"
+# Identity comes from identity.json (the one place it lives — see gen_identity.py); env still overrides,
+# and the literals are only the fallback for a host with no python3.
+_id() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/identity.json" "$1" 2>/dev/null; }
+MARKETPLACE_REPO="${SOCXEN_REPO:-$(_id 'd["marketplace"]["repo"]' || echo open-agent-ai-security/plugins)}"
+MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-$(_id 'd["marketplace"]["name"]' || echo open-agent-ai-security)}"
+PLUGIN="${SOCXEN_PLUGIN:-$(_id 'd["name"]' || echo socxen)}"
 SCOPE="${SOCXEN_SCOPE:-user}"
 ENV_FILE="${EXABEAM_ENV_FILE:-$HOME/.exabeam-mcp.env}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -28,7 +28,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-PLUGIN="socxen"
+PLUGIN="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$(git rev-parse --show-toplevel)/plugin/identity.json" 2>/dev/null || echo socxen)"
 MARKETPLACE="open-agent-ai-security"
 MARKETPLACE_REPO="open-agent-ai-security/plugins"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/socxen-smoke.XXXXXX")"

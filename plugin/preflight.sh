@@ -25,6 +25,12 @@
 # install.sh sources this file for the shared checks; sourcing defines functions and runs
 # nothing. The UI helpers are only defined if the caller has not already defined them.
 
+# Identity from identity.json (generated-artifact source — see gen_identity.py); literal fallback without python3.
+_PF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$_PF_DIR/identity.json" 2>/dev/null || echo socxen)"
+PLUGIN_KEY="$PLUGIN_NAME@$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["marketplace"]["name"])' "$_PF_DIR/identity.json" 2>/dev/null || echo open-agent-ai-security)"
+
+
 # ---- ui (only if the sourcing script has not already provided these) ----
 # Palette as a function, not a one-shot assignment: --no-color is parsed inside preflight_main,
 # which runs AFTER this file loads, so assigning here only would make the documented flag a no-op
@@ -203,7 +209,7 @@ check_gate() {
         on)  ok "Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the destructive write tools and refuses them with no human present" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
-        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
+        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add ${PLUGIN_KEY}" ;;
         *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
       esac ;;
     claude)
@@ -245,7 +251,7 @@ preflight_main() {
   [ -n "$platform" ] || platform="$(detect_platform)"
   _palette          # re-derive now that --no-color has actually been parsed
 
-  printf '\n%s   socxen preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+  printf '\n%s   %s preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$PLUGIN_NAME" "$RST" "$DIM" "$RST"
 
   head2 "Host agent"
   case "$platform" in
