@@ -280,9 +280,10 @@ reviewing every action.</p>
 <p>socxen is an <strong>agentic SOC skill suite</strong> plus the deterministic guardrails and governance that make it
 safe to point at a live tenant. Three skills work <strong>Exabeam New-Scale</strong> through the Exabeam MCP — one case, the
 whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
-database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
-governance gate on (below) the consequential action (dismiss/close) is held back by <strong>two locks</strong> —
-your host agent's tool-approval rules <em>and</em> the skill asking you first — never left to the model alone.
+database, no approval queue: the analyst at the terminal is the human-in-the-loop, and the consequential
+action (dismiss/close) is held back by <strong>two locks out of the box</strong> — a gate the plugin ships and your
+host enforces (a bundled hook on Claude Code, tool-approval policy on Codex) <em>and</em> the skill asking you
+first — never left to the model alone.
 On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
 destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
 there the same as on Claude, <code>codex exec</code> included.</p>
@@ -341,7 +342,9 @@ there the same as on Claude, <code>codex exec</code> included.</p>
 <code>~/.exabeam-mcp.env</code>) and <strong>turn on the governance safety gate</strong>. The setup guide does the lifting:</p>
 <h3 id="full-setup-docsinstallationmd">→ <a href="installation.html">Full setup: docs/installation.md</a></h3>
 <blockquote>
-<p>⚠️ <strong>The governance permission pack is not optional.</strong> Until you merge it, there is <em>no</em> hard gate on
+<p>✅ <strong>The gate ships ON.</strong> On Claude Code a bundled hook asks before dismiss/close and denies containment
+the moment the plugin is enabled; on Codex the same tiers ship as tool-approval policy. The permission
+pack below is <strong>optional</strong> — it makes reads silent and covers a manually wired server. Previously: there was <em>no</em> hard gate on
 dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
 Do not point socxen at alerts you care about until it's on. The
 <strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">setup guide</a></strong> walks you

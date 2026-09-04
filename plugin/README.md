@@ -20,9 +20,10 @@
 socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make it
 safe to point at a live tenant. Three skills work **Exabeam New-Scale** through the Exabeam MCP — one case, the
 whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
-database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
-governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
-your host agent's tool-approval rules *and* the skill asking you first — never left to the model alone.
+database, no approval queue: the analyst at the terminal is the human-in-the-loop, and the consequential
+action (dismiss/close) is held back by **two locks out of the box** — a gate the plugin ships and your
+host enforces (a bundled hook on Claude Code, tool-approval policy on Codex) *and* the skill asking you
+first — never left to the model alone.
 On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
 destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
 there the same as on Claude, `codex exec` included.
@@ -66,7 +67,9 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
-> ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
+> ✅ **The gate ships ON.** On Claude Code a bundled hook asks before dismiss/close and denies containment
+> the moment the plugin is enabled; on Codex the same tiers ship as tool-approval policy. The permission
+> pack below is **optional** — it makes reads silent and covers a manually wired server. Previously: there was *no* hard gate on
 > dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
 > Do not point socxen at alerts you care about until it's on. The
 > **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you

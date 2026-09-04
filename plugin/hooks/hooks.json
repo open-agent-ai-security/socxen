@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__(plugin_[A-Za-z0-9._-]+_exabeam|exabeam)__",
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 20 }
+        ]
+      }
+    ]
+  }
+}
