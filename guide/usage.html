@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Using the skills · socxen Docs</title>
-<meta name="description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place and, on Claude…">
+<meta name="description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/usage.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
 <meta property="og:title" content="Using the skills · socxen Docs">
-<meta property="og:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place and, on Claude…">
+<meta property="og:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
 <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/usage.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Using the skills · socxen Docs">
-<meta name="twitter:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place and, on Claude…">
+<meta name="twitter:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Using the skills", "description": "What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation \u2014 credentials in place and, on Claude\u2026",
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Using the skills", "description": "What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation \u2014 credentials in place. The\u2026",
   "url": "https://open-agent-ai-security.github.io/socxen/guide/usage.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
@@ -266,7 +266,7 @@ img { max-width: 100%; display: block; }
   <main class="docs-main">
     <article class="prose"><h1 id="using-the-skills">Using the skills</h1>
 <p>What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished
-<a href="installation.html">installation</a> — credentials in place and, on Claude Code, the governance gate merged.</p>
+<a href="installation.html">installation</a> — credentials in place. The human-in-the-loop gate ships on, on both hosts.</p>
 <h2 id="the-three-skills-and-how-to-call-them">The three skills, and how to call them</h2>
 <p>You talk to socxen in plain language inside your coding agent (Claude Code or Codex). The right skill
 picks itself up from what you ask; you never invoke one by name unless you want to.</p>
@@ -323,7 +323,8 @@ words — <em>"Dismiss alert X as a false positive? (yes / no)"</em> — and wai
 nothing happens. This is the first lock.</p>
 <p><strong>The host asking.</strong> Independently, your agent's own permission system stops the dismiss/close tool call
 and asks you to approve it. On Claude Code that is the permission prompt for <code>exabeam_update_alert</code> or
-<code>exabeam_update_case</code> (the rules you merged during setup). On Codex it is the tool-approval prompt Codex
+<code>exabeam_update_case</code>, raised by the hook that ships inside the plugin (and by the optional permission
+rules, if you merged them — they agree, so you are asked once). On Codex it is the tool-approval prompt Codex
 shows for a destructive tool — and if there is no human present, for example under <code>codex exec</code>, Codex
 cancels the call. This is the second lock. Both must open for a dismiss or close to happen.</p>
 <p>You will notice Codex also asks before the <em>escalation</em> writes (opening a case, writing notes), where
