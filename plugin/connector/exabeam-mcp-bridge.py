@@ -126,7 +126,7 @@ _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "
 # without any write landing, on either host. Both supported hosts gate writes fail-closed with no human
 # present on their own — Claude Code's `ask` tier refuses under `claude -p`, and Codex requires approval
 # for the destructive-annotated Exabeam tools and cancels them under `codex exec` — but the harness must
-# not depend on that per-host behaviour to
+# not depend on that per-host behavior to
 # stay safe. The bridge is the one shared layer, so the dry run refuses every write here regardless.
 #
 # The refusal is RETURNED, not raised: the agent sees a normal tool result saying the write was refused,
@@ -288,7 +288,7 @@ async def call_tool(name, arguments):
         sys.stderr.write(f"bridge: DRY RUN - refused write {name} (nothing sent to Exabeam)\n")
         # Deliberately minimal, and deliberately mirrors what Claude Code's permission layer returns
         # ("...but you haven't granted it yet"). An earlier draft added "leave the action to a human",
-        # which is coaching: deferring to a human is the exact behaviour a red-team run measures, so
+        # which is coaching: deferring to a human is the exact behavior a red-team run measures, so
         # saying it here would inflate the score and would be text the Claude baseline never saw. State
         # the fact, nothing else. The machine-readable marker lives in the audit record
         # (action.dryRunRefused), not in text the model reads.

@@ -33,7 +33,7 @@ DOCUMENTED RESIDUALS (out of scope, by decision):
   - an ALL-ALPHABETIC value after a BARE LINE BREAK ("Recovered credential\ncorrecthorsebatterystaple")
     is not caught: after a line break, a word with no digit and no delimiter is indistinguishable from
     recommendation prose ("credential\nRotation is required immediately"), and redacting it would eat
-    real analyst text. Labelled (`password: X`), wrapped (`X` / "X"), and markdown-TABLE forms are all
+    real analyst text. Labeled (`password: X`), wrapped (`X` / "X"), and markdown-TABLE forms are all
     caught regardless of shape -- this residual is only the bare-newline-plus-dictionary-word case.
   - FREE-FORM PII (names, home addresses) and DATE-shaped values (DOB) are NOT redacted: a home address
     is not reliably regex-detectable, and a date is indistinguishable from the timestamp on every log
@@ -144,7 +144,7 @@ _TABLE_ROW_SECRET_RE = re.compile(
 # secret. These require a secret-SHAPED core: 12+ chars with a digit AND a letter, the same heuristic
 # _SPACE_SECRET_RE uses for the identical ambiguity. Documented consequence: a purely ALPHABETIC
 # passphrase after a bare line break ("Recovered credential\ncorrecthorsebatterystaple") is NOT caught --
-# a line break genuinely cannot be told from prose. Labelled, quoted, and table forms all are.
+# a line break genuinely cannot be told from prose. Labeled, quoted, and table forms all are.
 _WEAK_SEP_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b"
     r"(\s+(?:is|was)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"

@@ -255,8 +255,8 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - Dates of birth and other date-shaped values are not masked; a date is indistinguishable from the
   timestamps in every log line.
 - A bare, unstructured credential — no recognizable format, no nearby label — is caught on a
-  best-effort basis only; labelled, quoted, backticked, and table-cell credentials are reliably masked.
-- An unlabelled dictionary-word credential sitting directly after a line break is not masked; after a
+  best-effort basis only; labeled, quoted, backticked, and table-cell credentials are reliably masked.
+- An unlabeled dictionary-word credential sitting directly after a line break is not masked; after a
   line break such a value is indistinguishable from analyst prose.
 - Redaction protects what socxen persists (case notes, exports). A secret shown on the operator's own
   screen during a session is not redacted — the operator console is not a trust boundary the guardrail
@@ -419,7 +419,7 @@ gaps, and so nothing stronger is claimed than the docs claim:
   documented reason tuning is propose-only and precision-evidenced.
 - Prompt injection carried in tenant telemetry, planted by whoever generated the logged activity.
 - Leakage of the Exabeam API key, secret, or derived bearer token from the bridge.
-- A secret outside the deterministically masked shapes — free-form PII, or a bare unlabelled credential
+- A secret outside the deterministically masked shapes — free-form PII, or a bare unlabeled credential
   — persisting into a case note or export despite the write-path filter; the documented residual.
 - Governance drift — permission tiers or the containment deny-list quietly diverging from the documented
   posture, or a deployment running with no harness gate at all.
@@ -562,7 +562,7 @@ delete it, before relying on this remit.
    sufficient; no destination allowlist clause is added.
 7. ~~**Missing-gate posture.**~~ **RESOLVED by the operator (2026-08-12) — prominent warning, not hard
    refusal.** socxen discloses the missing-gate condition prominently and proceeds on its in-prompt
-   confirmation. This matches the documented behaviour (`docs/installation.md:130`) and is what the
+   confirmation. This matches the documented behavior (`docs/installation.md:130`) and is what the
    Escalation Rules now require. The residual risk is accepted and stated: with the pack unmerged, the
    soft ask is the only lock.
 8. ~~**Enrichment scope.**~~ **RESOLVED from implementation — out of scope as shipped.** All 18 tools in the

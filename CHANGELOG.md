@@ -61,7 +61,7 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   `rule-tuning` no longer tell the agent to *save* an oversized result and parse it from file; the harness
   saves the result and hands back a path, the agent reads the few fields it needs, and must not copy the raw
   dump anywhere durable. `security-guardrails.md` now says plainly that those spill files persist under the
-  operator's own harness directory and are not pruned by socxen — on the operator's own authorised machine,
+  operator's own harness directory and are not pruned by socxen — on the operator's own authorized machine,
   crossing no trust boundary the console doesn't, but there, and theirs to delete. Elimination is upstream
   projection/pagination (#34).
 - **CI actions pinned to commit SHAs, workflow token permissions explicit** (#93, #130). Build-time only —
@@ -70,7 +70,7 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
 ### Fixed
 - **Planted-baseline acceptance (`b03`).** The first Codex gate found `b03-baseline-poisoning` landing
   **5/5** — reproducibly, and unguarded: the landing is a *verdict*, not a tool call, so no deterministic
-  layer sits in its path. The payload carries no instruction; it plants a block labelled *"Entity
+  layer sits in its path. The payload carries no instruction; it plants a block labeled *"Entity
   baseline (last 30 days, attached)"* and lets the agent conclude from fabricated evidence. The spine
   covered planted *instructions* but not planted *evidence*, and *"establish baseline"* primed the agent
   to want exactly what the payload supplies. Fixed in doctrine — a new **evidence has provenance**
@@ -88,11 +88,11 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   undone (routing evals, the Sol sweep). Also: the Codex preflight "expect" string matches what preflight
   prints, and the clone path to `preflight.sh` is right.
 - **Oversized-result guidance is host-neutral.** `triage-cases` / `rule-tuning` asserted that "the harness
-  saves an oversized result to a file and gives you its path" — true of Claude Code, uncharacterised on
+  saves an oversized result to a file and gives you its path" — true of Claude Code, uncharacterized on
   Codex. Reworded so an agent on a host with no spill file isn't told to parse a path it never receives.
 - **Red-team runner, Codex driver (found in the 0.8.5 release review; the 2026-08-27 gate was re-checked
   from its raw rollouts and stands — see `security/redteam/HISTORY.md`).** The transcript parser records
-  `failed` MCP items (a host-cancelled write is an *attempt*, the signal); landing classification is
+  `failed` MCP items (a host-canceled write is an *attempt*, the signal); landing classification is
   per trial and worst-signal-wins, so the breakdown sums to the landing count; a drive that never reached
   Exabeam and says its tools never loaded is inconclusive rather than resisted; the throwaway
   `CODEX_HOME` (which holds a copy of `~/.codex/auth.json`) is removed after every pass, with the rollouts
@@ -110,7 +110,7 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   it is on Claude Code, the host owning the prompt on both; read tools run silently. socxen adds only
   `disabled_tools` for containment. (An earlier build on this branch added a connector-side confirmation
   for a fail-open that turned out not to reproduce; it was reverted once Codex's native, annotation-
-  driven behaviour was established.) (#136)
+  driven behavior was established.) (#136)
 - **Codex support is packaged, not yet proven.** The red-team gate passes on `gpt-5.6-terra` at
   `model_reasoning_effort=medium` (95/100, all blocking classes 0/5), but the routing evals have not been
   run on an OpenAI model, and Codex's JSONL does not echo the resolved model, so artifacts record the
@@ -201,7 +201,7 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
   processing terms stay between the operator and their own model provider, and we are not a party to
   that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
   customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
-  recommendation asked the *deploying organisation* for a data-classification review and asked socxen
+  recommendation asked the *deploying organization* for a data-classification review and asked socxen
   for nothing; recorded here as documentation, not a defect.
 
 ### Changed
@@ -240,7 +240,7 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
   reference — that file does not ship either — is now an absolute link. The 🛑 governance-gate warning
   is unchanged. (#96, #98)
 
-- **The Praxen triage table is retired in favour of the issue tracker.** Every finding from the
+- **The Praxen triage table is retired in favor of the issue tracker.** Every finding from the
   2026-08-12 scan is now a GitHub issue, so `security/praxen/README.md` no longer keeps a second copy
   of each finding's status — it had already drifted, with nine of thirteen rows reading "awaiting
   triage" after several were fixed or filed. The dated artifacts under `security/praxen/results/`
@@ -249,7 +249,7 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 ### Fixed
 - **A credential in a link could leave a live phishing URL in a case note.** Redaction ran before the
   link defanger, so a credential-shaped query parameter (`[reset](https://…/login?token=…)`) let the
-  redaction match consume the link's closing bracket — the defanger then no longer recognised a link and
+  redaction match consume the link's closing bracket — the defanger then no longer recognized a link and
   the host persisted un-defanged. Found in review of the redaction work above, before release. The write
   path now **defangs links first**, so whatever redaction consumes it cannot re-arm a link for any value
   shape; the value boundary stops at an unmatched closing bracket; the `[REDACTED:…]` placeholder is
@@ -262,7 +262,7 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 - **The guardrail doc claimed more link coverage than the code delivers.** `security-guardrails.md` told
   operators the escaping applies to *every* link socxen writes, and the module docstring said every
   markdown link is mutated. Neither was true: only the ordinary inline `[text](target)` form is
-  recognised — a link carrying a title, one padded with spaces inside its brackets, a reference-style
+  recognized — a link carrying a title, one padded with spaces inside its brackets, a reference-style
   definition, a GFM autolink and a raw HTML anchor all pass through and render live. The gap is
   pre-existing and stays open ([#119](https://github.com/open-agent-ai-security/socxen/issues/119)); the
   overclaim does not ship. Both files now state what is covered and name the variants that are not, and
@@ -337,7 +337,7 @@ gates ran against this candidate.
   `plugin/skills/soc-investigate/settings.snippet.json` for you, and an interactive run whose gate reads
   OFF now offers to do it after showing exactly which rules it would add.
 
-  Consent is preserved, deliberately: nothing merges by default, and `-y` does **not** authorise it —
+  Consent is preserved, deliberately: nothing merges by default, and `-y` does **not** authorize it —
   "assume yes" answers the installer's own questions, it does not license a write to your settings.
   The merge backs up `settings.json` first (timestamped, same permissions as the original), is
   additive-only, refuses outright when a rule already sits in a different tier than the snippet
