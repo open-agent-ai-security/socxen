@@ -25,6 +25,13 @@ governance model (feature → `dev`, release `dev` → `main`).
   silent reads, and the only gate on the manual-MCP path.
 
 ### Changed
+- **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
+  on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
+  documented as *optional*: they make the 18 read tools run without a prompt and are the only gate on a
+  manually wired `exabeam` server. Every place that said the merge was mandatory now says the gate ships
+  ON — the repository README, the plugin README, `docs/installation.md` (section retitled "Governance —
+  the safety gate"), `docs/usage.md`, the docs index, the site's landing page and install card, and the
+  installer's and preflight's own messages. Codex is unchanged.
 - **`exabeam_send_email` is human-gated on both hosts** (#137 — PM decision). Mail leaving the platform
   to a person now sits on the `ask` tier in `settings.snippet.json` and as `approval_mode: "approve"` in
   the generated Codex map, pinned by an invariant test; before, it was unclassified and the hosts split

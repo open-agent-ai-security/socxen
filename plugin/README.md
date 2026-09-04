@@ -63,7 +63,7 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
 ## Setup
 
 With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
-`~/.exabeam-mcp.env`) and **turn on the governance safety gate**. The setup guide does the lifting:
+`~/.exabeam-mcp.env`) and — optionally — **merge the permission rules** so reads run without a prompt. The setup guide does the lifting:
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 

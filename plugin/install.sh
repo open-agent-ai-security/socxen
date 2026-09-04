@@ -510,7 +510,7 @@ else
   read -r reply || reply=""
   case "$reply" in
     [yY]|[yY][eE][sS]) run_merge ;;
-    *) warn "Governance not merged (declined) — the dismiss/close hard-gate stays OFF until you merge settings.snippet.json" ;;
+    *) warn "Permission rules not merged (declined) — the bundled hook still gates dismiss/close; reads will prompt until you merge settings.snippet.json" ;;
   esac
 fi
 
