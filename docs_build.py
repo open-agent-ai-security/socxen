@@ -71,7 +71,7 @@ def render_mermaid_blocks(body):
 
 
 def resolve(src_dir: Path, href: str) -> str:
-    """Repo-relative path a doc's relative link points at (normalised, no '..')."""
+    """Repo-relative path a doc's relative link points at (normalized, no '..')."""
     parts = list((src_dir / href).parts)
     out = []
     for p in parts:
