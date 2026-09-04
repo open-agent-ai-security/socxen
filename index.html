@@ -12,7 +12,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>socxen — Agentic SOC Skill Suite for Exabeam New-Scale</title>
-  <meta name="description" content="socxen is an open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. It investigates alerts, triages the queue, and tunes noisy rules, with a human-in-the-loop gate on every consequential action.">
+  <meta name="description" content="socxen is an open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex, built end to end for the fact that SIEM data is untrusted input: guardrails and write gates in the code, behavior scan, red team and AI-BOM in the process.">
   <meta name="keywords" content="agentic SOC, SOC analyst agent, Exabeam New-Scale, MCP, Claude Code plugin, OpenAI Codex plugin, alert triage, AI SOC, prompt injection guardrails, red team, human in the loop">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/">
@@ -22,7 +22,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="socxen">
   <meta property="og:title" content="socxen — Hunt the real threats. Leave the noise.">
-  <meta property="og:description" content="Open-source agentic SOC skills for Exabeam New-Scale, on Claude Code and Codex. Evidence-first investigation, a human-gated write path, red-team gated releases.">
+  <meta property="og:description" content="Open-source agentic SOC skills for Exabeam New-Scale, on Claude Code and Codex — built with security, not bolted on: guardrails, write gates, red team, behavior scan, AI-BOM.">
   <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/">
   <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
   <meta property="og:image:width" content="1280"><meta property="og:image:height" content="640">
@@ -35,7 +35,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareSourceCode",
     "name": "socxen",
-    "description": "Open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. Investigates alerts and cases to a written verdict, triages the open queue, finds noisy detection rules; human-in-the-loop on dismiss/close, containment recommended never executed, deterministic guardrails, red-team gated releases.",
+    "description": "Open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. Investigates alerts and cases to a written verdict, triages the open queue, finds noisy detection rules. Engineered for untrusted SIEM data: deterministic guardrails on read and write, a human gate on dismiss/close, containment recommended never executed, and a release process of behavior verification, red team, and an AI bill of materials.",
     "url": "https://open-agent-ai-security.github.io/socxen/",
     "codeRepository": "https://github.com/open-agent-ai-security/socxen",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -119,6 +119,14 @@
     .lock h3 { margin: 0 0 8px; font-size: 19px; }
     .lock p { margin: 0; color: var(--muted); font-size: 15px; }
 
+    .layers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .layer { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 18px; }
+    .layer .k { font-family: "Space Grotesk"; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; margin-bottom: 10px; }
+    .layer h3 { font-size: 16.5px; margin: 0 0 8px; line-height: 1.3; }
+    .layer p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+    .layer code { font-family: var(--mono); font-size: 12px; color: var(--gold-2); }
+    @media (max-width: 1100px) { .layers { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 720px) { .layers { grid-template-columns: 1fr; } }
     .explore { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .xcard { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 26px; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
     .xcard:hover { transform: translateY(-5px); border-color: var(--border-hi); background: var(--panel-2); }
@@ -201,16 +209,18 @@
     <section class="hero">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <div class="pill"><span class="dot"></span> Open source · runs in your terminal · human-in-the-loop</div>
+          <div class="pill"><span class="dot"></span> Open source · built with security · human-in-the-loop</div>
           <h1>Hunt the real threats.<br><span class="grad">Leave the noise.</span></h1>
           <p class="lede">
             socxen is an <strong>agentic SOC skill suite</strong> for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.
-            It works an alert to a written verdict, sweeps the queue, and finds the rules wasting your analysts' time —
-            with the one action that matters, dismiss or close, held back for a human every time.
+            It works an alert to a written verdict, sweeps the queue, and finds the rules wasting your analysts' time.
+            Most agent skills are a markdown file. This one is <strong>engineered for the fact that SIEM data is untrusted
+            input</strong>: guardrails around every read and write, a human gate on every consequential action, and a release
+            process that proves it.
           </p>
           <div class="hero-cta">
             <a class="btn btn-primary" href="guide/installation.html">Get started →</a>
-            <a class="btn btn-ghost" href="#guardrails">See the guardrails</a>
+            <a class="btn btn-ghost" href="#built">How it's built</a>
           </div>
         </div>
         <div class="mascot-stage">
@@ -225,7 +235,7 @@
         <div class="section-head">
           <p class="eyebrow">Three skills, one governance gate</p>
           <h2>Analyst. Shift lead. Detection engineer.</h2>
-          <p>Each skill is named for the person whose job it does. They hand off to each other — a single case to the analyst, a noise cluster to the engineer — and share one safety spine.</p>
+          <p>Each skill is named for the person whose job it does. They hand off to each other — a single case to the analyst, a noise cluster to the engineer — and share one safety spine: the same untrusted-data doctrine, the same write gate, the same audit trail.</p>
         </div>
         <div class="pillars">
           <div class="card">
@@ -272,21 +282,39 @@
     <section class="section-pad divider" id="guardrails">
       <div class="wrap">
         <div class="section-head">
-          <p class="eyebrow">Safe to point at a live tenant</p>
-          <h2>Telemetry is hostile input. socxen treats it that way.</h2>
-          <p>A capable model with tool access is not, by itself, something you can let near a SOC queue. These are the layers that make it one.</p>
+          <p class="eyebrow">Built in, not bolted on</p>
+          <h2>SIEM data is untrusted input. Build like it.</h2>
+          <p>An attacker can write to your logs — a user-agent string, a case note, a "baseline" pasted into an alert. If you expose that data to an agent with tools, you need a plan for what happens when it lies. socxen's plan is code you can read and tests you can run, at every layer between the data and an action.</p>
         </div>
         <ul class="checklist cols">
           <li><strong>Two locks on dismiss/close</strong> — <span>the host agent's approval rule stops the call at the harness, and the skill asks you first. Never left to the model alone.</span></li>
-          <li><strong>Containment is recommended, never executed</strong> — <span>isolate, disable, block: the plugin can propose them and cannot perform them. Denied at the harness as defence in depth.</span></li>
-          <li><strong>Evidence has provenance</strong> — <span>a baseline is something the agent queried, not something the alert supplied. Planted "context" does not count.</span></li>
-          <li><strong>Reads are canonicalised</strong> — <span>invisible-character smuggling is stripped before the model reasons about what it read.</span></li>
-          <li><strong>Writes are neutralised</strong> — <span>formulas and clickable links are defanged, secrets and PII redacted, before anything persists to Exabeam. Deterministic code, not a prompt.</span></li>
+          <li><strong>Containment is recommended, never executed</strong> — <span>isolate, disable, block: the plugin can propose them and cannot perform them. Denied at the harness as defense in depth.</span></li>
+          <li><strong>Evidence has provenance</strong> — <span>a baseline is something the agent queried, not something the alert supplied. Planted "context" does not count — the doctrine that closed the one attack no guardrail could catch.</span></li>
+          <li><strong>Reads are canonicalized</strong> — <span>invisible-character smuggling is stripped before the model reasons about what it read.</span></li>
+          <li><strong>Writes are neutralized</strong> — <span>formulas and clickable links are defanged, secrets and PII redacted, before anything persists to Exabeam. Deterministic code at the bridge, not a prompt.</span></li>
           <li><strong>Every call is audited</strong> — <span>a local, metadata-only trail of what was called, when, and with what result. Nothing phones home.</span></li>
         </ul>
+        <p style="text-align:center;margin:26px 0 0;font-size:15px;"><a href="guide/security-guardrails.html">What the code stops, and what it deliberately doesn't →</a></p>
         <div class="locks">
           <div class="lock"><div class="k">Claude Code</div><h3>A permission pack you merge once</h3><p>92 rules across allow / ask / deny tiers, generated from one source and pinned by invariant tests. Ask on dismiss and close; deny on every containment verb.</p></div>
-          <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are cancelled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
+          <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are canceled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-pad divider" id="built">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Five separable layers</p>
+          <h2>A skill is a markdown file. This is a system.</h2>
+          <p>Keeping the layers separate is the point: the model holds the judgment, the code holds the enforcement, and the process proves both — every release.</p>
+        </div>
+        <div class="layers">
+          <div class="layer"><div class="k">01 · Methodology</div><h3>The procedures</h3><p>Entity pivots, baselining by querying, competing hypotheses, an evidence bar, stopping conditions, an action matrix — in <code>SKILL.md</code>, shared across all three skills as one safety spine and enforced by invariant tests.</p></div>
+          <div class="layer"><div class="k">02 · Capability</div><h3>The Exabeam MCP, bundled</h3><p>SIEM search, alerts and cases, threat timelines, rule and MITRE context — reached through a local bridge that ships with the plugin for each host, never wired by hand.</p></div>
+          <div class="layer"><div class="k">03 · Authority</div><h3>Who may do what, enforced by the host</h3><p>Allow, ask, deny — generated from one source, pinned by tests, enforced by Claude Code's permission rules or Codex's tool-approval policy. Not by the model.</p></div>
+          <div class="layer"><div class="k">04 · Guardrails</div><h3>The bridge treats telemetry as hostile</h3><p>Canonicalize on read, neutralize on write, refuse containment outright, and record a metadata-only audit trail of every call. Deterministic Python you can diff.</p></div>
+          <div class="layer"><div class="k">05 · Evidence</div><h3>The process ships with the code</h3><p>A red-team corpus that gates every release, a Praxen behavior scan against a written remit, and a CycloneDX AI bill of materials regenerated with every version and drift-checked in CI.</p></div>
         </div>
       </div>
     </section>
@@ -294,9 +322,9 @@
     <section class="section-pad divider" id="assurance">
       <div class="wrap">
         <div class="section-head">
-          <p class="eyebrow">Every release is gated on both</p>
-          <h2>Red-teamed and behaviour-verified, on the record</h2>
-          <p>Twenty attack fixtures across four classes, five trials each, on the weakest supported model per host — and an independent behaviour scan. Dated artifacts, committed with the release.</p>
+          <p class="eyebrow">The process ships with the code</p>
+          <h2>Scanned, red-teamed, inventoried — every release</h2>
+          <p>Nothing here is a claim. Twenty attack fixtures across four classes, five trials each, on the weakest supported model per host; an independent behavior scan; a machine-readable bill of materials. Dated artifacts, committed with the release.</p>
         </div>
         <div class="explore">
           <a class="xcard" href="guide/red-team-history.html">
@@ -306,16 +334,16 @@
             <div class="stat"><b>0</b><span>landings in the blocking classes · Claude and Codex</span></div>
             <span class="go">Read the ledger <span class="arw">→</span></span>
           </a>
-          <a class="xcard" href="guide/security-guardrails.html">
-            <span class="xtag">Guardrails</span>
-            <h3>What the code stops — and what it doesn't</h3>
-            <p>The deterministic layers around the bridge, explained honestly: canonicalisation on read, neutralisation on write, and the residuals we track as issues rather than hide.</p>
-            <div class="stat"><b>21%</b><span>→ 0% payload persistence, Sonnet leg of the 0.8.0 gate</span></div>
-            <span class="go">See the guardrails <span class="arw">→</span></span>
+          <a class="xcard" href="https://github.com/open-agent-ai-security/socxen/blob/main/security/aibom.cdx.json" target="_blank" rel="noopener">
+            <span class="xtag">AI-BOM</span>
+            <h3>A bill of materials for the agent</h3>
+            <p>CycloneDX: the models, the tool surface, the connector dependencies, and the governance controls — regenerated with every version and drift-checked in CI, so what you install is what the inventory says.</p>
+            <div class="stat"><b>21</b><span>governed Exabeam tools, every one classified</span></div>
+            <span class="go">Read the BOM <span class="arw">→</span></span>
           </a>
           <a class="xcard" href="guide/abv.html">
             <span class="xtag">Praxen ABV</span>
-            <h3>Agent behaviour verification</h3>
+            <h3>Agent behavior verification</h3>
             <p>socxen is scanned by Praxen, its sister project, against a written Worker Remit before each release: zero Critical findings is the bar.</p>
             <div class="stat"><b>3.15</b><span>RAISE score · Established</span></div>
             <span class="go">Read the remit and results <span class="arw">→</span></span>
@@ -366,7 +394,7 @@
 
     <section class="cta-band divider">
       <div class="wrap">
-        <h2>Put a hunter on the queue.</h2>
+        <h2>Put a hunter on the queue — one built for hostile data.</h2>
         <p>Open source, Apache-2.0, built in the open with the Open Agent and AI Security Community.</p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="guide/installation.html">Read the setup guide →</a>
@@ -381,11 +409,11 @@
       <div class="foot-grid">
         <div class="foot-brand">
           <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen" width="125" height="32" style="height:32px;"></a>
-          <p>An agentic SOC skill suite for Exabeam New-Scale, with the deterministic guardrails and governance that make it safe to point at a live tenant.</p>
+          <p>An agentic SOC skill suite for Exabeam New-Scale, built with security end to end — guardrails and write gates in the code, behavior scan, red team and AI-BOM in the process.</p>
         </div>
         <div class="foot-cols">
           <div class="foot-col"><h4>Docs</h4><a href="guide/installation.html">Installation &amp; setup</a><a href="guide/index.html">Operator's guide</a><a href="guide/soc-investigate.html">Methodology</a><a href="guide/security-guardrails.html">Security guardrails</a><a href="guide/logging.html">Audit logging</a></div>
-          <div class="foot-col"><h4>Assurance</h4><a href="guide/red-team.html">Red-team methodology</a><a href="guide/red-team-history.html">Red-team history</a><a href="guide/abv.html">Behaviour verification</a><a href="https://open-agent-ai-security.github.io/praxen/" target="_blank" rel="noopener">Praxen</a></div>
+          <div class="foot-col"><h4>Assurance</h4><a href="guide/red-team.html">Red-team methodology</a><a href="guide/red-team-history.html">Red-team history</a><a href="guide/abv.html">Behavior verification</a><a href="https://open-agent-ai-security.github.io/praxen/" target="_blank" rel="noopener">Praxen</a></div>
           <div class="foot-col"><h4>Project</h4><a href="https://github.com/open-agent-ai-security/socxen" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a><a href="https://www.linkedin.com/company/open-agent-and-ai-security-community/" target="_blank" rel="noopener">Join on LinkedIn</a></div>
         </div>
       </div>
