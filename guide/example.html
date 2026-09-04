@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Security guardrails · socxen Docs</title>
-<meta name="description" content="Why this exists: your log data is not trusted input. Anyone who can get an event into your telemetry — a phishing sender, a malware sample, a probing…">
+<title>Worked example — coordinated credential-access from a single IP · socxen Docs</title>
+<meta name="description" content="A real end-to-end run of soc-investigate against a live Exabeam staging MCP. It shows the craft the skill is meant to apply: a CRITICAL alert that looks…">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/security-guardrails.html">
+<link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/example.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
-<meta property="og:title" content="Security guardrails · socxen Docs">
-<meta property="og:description" content="Why this exists: your log data is not trusted input. Anyone who can get an event into your telemetry — a phishing sender, a malware sample, a probing…">
-<meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/security-guardrails.html">
+<meta property="og:title" content="Worked example — coordinated credential-access from a single IP · socxen Docs">
+<meta property="og:description" content="A real end-to-end run of soc-investigate against a live Exabeam staging MCP. It shows the craft the skill is meant to apply: a CRITICAL alert that looks…">
+<meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/example.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Security guardrails · socxen Docs">
-<meta name="twitter:description" content="Why this exists: your log data is not trusted input. Anyone who can get an event into your telemetry — a phishing sender, a malware sample, a probing…">
+<meta name="twitter:title" content="Worked example — coordinated credential-access from a single IP · socxen Docs">
+<meta name="twitter:description" content="A real end-to-end run of soc-investigate against a live Exabeam staging MCP. It shows the craft the skill is meant to apply: a CRITICAL alert that looks…">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Security guardrails", "description": "Why this exists: your log data is not trusted input. Anyone who can get an event into your telemetry \u2014 a phishing sender, a malware sample, a probing\u2026",
-  "url": "https://open-agent-ai-security.github.io/socxen/guide/security-guardrails.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Worked example \u2014 coordinated credential-access from a single IP", "description": "A real end-to-end run of soc-investigate against a live Exabeam staging MCP. It shows the craft the skill is meant to apply: a CRITICAL alert that looks\u2026",
+  "url": "https://open-agent-ai-security.github.io/socxen/guide/example.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
 <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
@@ -262,114 +262,145 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html" class="active">Security guardrails</a><ul class="docs-subnav"><li><a href="#1-screening-what-socxen-reads-hidden-character-smuggling">1. Screening what socxen reads (hidden-character smuggling)</a></li><li><a href="#2-filtering-what-socxen-writes-de-activating-dangerous-content">2. Filtering what socxen writes (de-activating dangerous content)</a></li><li><a href="#what-these-guardrails-do-not-do">What these guardrails do not do</a></li></ul></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html" class="active">Example investigation</a><ul class="docs-subnav"><li><a href="#the-alert-as-handed-over">The alert as handed over</a></li><li><a href="#orient-what-is-the-detector-actually-claiming">Orient — what is the detector actually claiming?</a></li><li><a href="#gather-evidence-pivot-on-the-correlating-ip">Gather evidence — pivot on the correlating IP</a></li><li><a href="#timeline">Timeline</a></li><li><a href="#assessment">Assessment</a></li><li><a href="#verdict-rationale">Verdict &amp;amp; rationale</a></li><li><a href="#actions">Actions</a></li><li><a href="#why-this-is-a-good-teaching-case">Why this is a good teaching case</a></li></ul></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
   <main class="docs-main">
-    <article class="prose"><h1 id="security-guardrails">Security guardrails</h1>
-<p><strong>Why this exists:</strong> your log data is not trusted input. Anyone who can get an event into your telemetry
-— a phishing sender, a malware sample, a probing attacker — can <em>plant something in it on purpose</em>,
-knowing an analyst (or an AI agent) will later read it. Think of these as <strong>booby traps left in the log
-data</strong>: a hidden instruction smuggled in invisible characters, or a payload that only does damage when a
-report is opened or exported. socxen assumes that hostile content is present and screens for it, purely as
-a <strong>safety measure</strong> — so a bomb someone planted in an alert can't go off in your hands.</p>
-<p>To do that, socxen runs two automatic checks on every Exabeam call. They're always on and need no
-configuration.</p>
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
-    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="https://raw.githubusercontent.com/open-agent-ai-security/socxen/main/plugin/docs/diagram/guardrails-light.png" width="900">
-  </picture>
-</p>
-
-<p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/diagram/README.md"><code>diagram/</code></a>.</sub></p>
-
-<p>This is a safety net, not a replacement for judgment. Your <strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">governance permission gate</a></strong>
-and your own review before you act remain the primary controls.</p>
-<h2 id="1-screening-what-socxen-reads-hidden-character-smuggling">1. Screening what socxen reads (hidden-character smuggling)</h2>
-<p>Text can carry <strong>invisible characters</strong> — zero-width spaces, direction-reversing marks, and other hidden
-control codes. Attackers use them to <em>smuggle</em> instructions past a reader: a line that looks harmless on
-screen can hide extra text, or read one way to a human and another way to software.</p>
-<p>Before socxen reasons over any alert or case, it strips out the obvious smuggling characters and cleans
-up hidden line breaks. What the agent analyzes is the plain, visible text — not a version with hidden
-payloads spliced in. Legitimate text (names in any language, file paths, emoji) is left untouched.</p>
-<h2 id="2-filtering-what-socxen-writes-de-activating-dangerous-content">2. Filtering what socxen writes (de-activating dangerous content)</h2>
-<p>When socxen writes its findings back to Exabeam — a case note, an alert update — it makes sure it never
-<em>re-arms</em> a payload that was sitting in the original alert. Two kinds of content are neutralized:</p>
+    <article class="prose"><h1 id="worked-example-coordinated-credential-access-from-a-single-ip">Worked example — coordinated credential-access from a single IP</h1>
+<p>A real end-to-end run of <code>soc-investigate</code> against a live Exabeam <strong>staging</strong> MCP. It shows the craft the
+skill is meant to apply: a CRITICAL alert that <em>looks</em> like a noisy 800-user rollup turns out to be a
+genuine coordinated campaign once you pivot — and the discipline is to <strong>escalate, not close, and not to
+be impressed by the big number for its own sake.</strong></p>
+<blockquote>
+<p>Identifiers below (users, hostnames, domains, IP) come from a <strong>synthetic staging tenant</strong> — the data
+is fabricated, but every tool call, field name, and query is real and was run as shown.</p>
+</blockquote>
+<hr>
+<h2 id="the-alert-as-handed-over">The alert as handed over</h2>
+<p><code>exabeam_search_alerts</code> with <code>filter: "caseId:null"</code>, <code>orderBy: ["riskScore DESC"]</code> surfaced it at the
+top of the untriaged queue:</p>
 <ul>
-<li><strong>Spreadsheet formulas.</strong> A value like <code>=HYPERLINK(...)</code> looks like data, but if a report is exported
-  to a spreadsheet it can <em>run</em> when the file is opened. socxen prefixes these so they're treated as
-  plain text and never execute — including a known-dangerous formula quoted <em>mid-sentence</em> in a note
-  (unlike a plain web address, a pasted formula re-arms the moment it lands in a spreadsheet cell).</li>
-<li><strong>Clickable links.</strong> Any link written into a note is <strong>escaped</strong> so it can't be clicked or auto-opened
-  — you'll see it rendered as <code>hxxps://example[.]com</code> instead of a live link.</li>
-<li><strong>Secrets and personal identifiers.</strong> If a credential (an API key, token, private key, or a labeled
-  password) or a structured identifier (a Social Security number, a payment-card number) is sitting in
-  the alert data, socxen <strong>masks it before writing</strong> — you'll see <code>[REDACTED:aws-key]</code> or <code>[REDACTED:ssn]</code>
-  in the note instead of the value. The finding is still recorded ("a credential was exposed here"); the
-  secret itself doesn't get copied into a case note or export where a wider audience — or an attacker who
-  can read case notes — could retrieve it. This is deterministic: it doesn't depend on the model
-  remembering to redact. That distinction is measured, not theoretical — in our red-team runs the
-  weakest supported model (Sonnet 4.6) reproduced seeded secrets in its raw output in nearly every
-  trial, and even the strongest (Opus 5) let a raw credential and an SSN through occasionally. The
-  persisted record came out clean <strong>100% of trials on both models</strong> because this filter, not model
-  judgment, is what stands between the alert data and the case note.</li>
+<li><strong>Name:</strong> <em>Abnormal number of password retrievals for this user</em></li>
+<li><strong>alertId:</strong> <code>4cc3c489-4c77-4cfd-9f22-a0561136c6ce</code></li>
+<li><strong>Priority:</strong> CRITICAL · <strong>riskScore:</strong> 99 · <strong>status:</strong> READ · <strong>creationBy:</strong> system</li>
+<li><strong><code>user</code>:</strong> an <strong>array of ~820 users</strong> · <strong>rules:</strong> 1,391 entries across 21 unique rule IDs</li>
+<li><strong>MITRE:</strong> T1078, T1003, T1098, T1133, T1071, T1213 (12 technique mappings)</li>
 </ul>
-<h3 id="why-your-links-look-broken-this-is-intentional">Why your links look "broken" — this is intentional</h3>
-<p>If you see a URL in a socxen note written as <code>hxxps://sso-reset[.]evil[.]example</code> rather than a normal
-clickable link, <strong>that is the safety measure working, not a bug.</strong> socxen defangs the links it writes so
-that a phishing or malware URL buried in an alert can't be clicked by accident — or fire automatically
-when someone opens or exports the report later. The address is still fully readable; you can copy it into
-a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone with a stray
-click.</p>
-<p>This applies to harmless internal links too, not just suspicious ones. socxen can't reliably tell a
-legitimate link from a disguised malicious one, so it treats them the same way — the tiny inconvenience
-of copy-pasting a good link is worth never handing an analyst a live malicious one.</p>
-<h2 id="what-these-guardrails-do-not-do">What these guardrails do <em>not</em> do</h2>
-<p>Keep expectations honest:</p>
+<p><strong>Restated in one sentence:</strong> an aggregate detection is firing across ~820 users for abnormal CyberArk
+password retrievals and a cluster of first-time logins — flagged CRITICAL/99.</p>
+<p><strong>First instinct to resist:</strong> "820 users and 1,391 rules = a noisy rollup, downgrade it." Per the skill's
+Modes rule, <em>aggregation amplifies artifacts</em> — but that cuts both ways. The number alone is neither
+proof nor dismissal. Pivot before you judge.</p>
+<h2 id="orient-what-is-the-detector-actually-claiming">Orient — what is the detector actually claiming?</h2>
+<p><code>exabeam_get_alert_details</code> and <code>exabeam_threat_summary</code> reframed it. The per-detection reasons are
+<em>tiny</em> ("Abnormal number <strong>(4)</strong> of password retrievals for paul.thomas17954"; many "First password
+retrieval from safe USER6403 for …"). Four retrievals is not, by itself, alarming.</p>
+<p>But <code>exabeam_threat_summary</code> (Exabeam's own explainer) named the thread that ties it together:</p>
+<blockquote>
+<p><em>Multiple users … abnormal password retrievals from CyberArk PAM, first-time logins to Cisco Network
+Security and Microsoft 365, and abnormal network activity — all originating from a single external IP
+(</em><em>198.51.100.57</em><em>) … suggesting a coordinated attack.</em></p>
+</blockquote>
+<p>That single-IP claim is the hypothesis worth testing. If true, this isn't 820 unrelated noisy alerts —
+it's <strong>one actor exercising many identities.</strong></p>
+<h2 id="gather-evidence-pivot-on-the-correlating-ip">Gather evidence — pivot on the correlating IP</h2>
+<p><code>exabeam_get_alert_threat_timeline</code> gave the real detection queries (e.g.
+<code>activity_type = "password-checkout" AND source_user_entity_id = "UANpaul.thomas17954@dev.skybridge.com"
+AND NOT safe_value = null</code>). Two pivots settled it.</p>
+<p><strong>Pivot 1 — the IP (<code>exabeam_search_events</code>):</strong></p>
+<pre><code class="language-jsonc">{&quot;arg0&quot;: {&quot;filter&quot;: &quot;src_ip:\&quot;198.51.100.57\&quot;&quot;,
+  &quot;fields&quot;: [&quot;time&quot;,&quot;user&quot;,&quot;activity_type&quot;,&quot;product&quot;,&quot;src_ip&quot;,&quot;dest_host&quot;],
+  &quot;orderBy&quot;: [&quot;time DESC&quot;], &quot;startTime&quot;: &quot;2026-06-01T00:00:00Z&quot;, &quot;endTime&quot;: &quot;2026-06-04T00:00:00Z&quot;, &quot;limit&quot;: 20}}
+</code></pre>
+<p><code>totalRows</code> &gt; 0, and the rows span <strong>many distinct users from one IP</strong>:
+| time | user | activity_type | product |
+|---|---|---|---|
+| 17:39 | <em>(none)</em> | <code>vpn-login</code> | F5 Access Policy Manager |
+| 17:39 | daniel.rodriguez12102 | <code>endpoint-login</code> | Event Viewer – Security |
+| 17:39 | paul.thomas19094 | <code>endpoint-login</code> | Event Viewer – Security |
+| 17:39 | lucas.white11218 | <code>endpoint-login</code> | Event Viewer – Security |</p>
+<p>One IP, VPN in, then endpoint logins as a rotating cast of users. That is the fingerprint of a
+coordinated push, not 800 coincidences.</p>
+<p><strong>Pivot 2 — a representative user (<code>exabeam_search_events</code>):</strong></p>
+<pre><code class="language-jsonc">{&quot;arg0&quot;: {&quot;filter&quot;: &quot;activity_type:\&quot;password-checkout\&quot; AND user:\&quot;paul.thomas17954\&quot;&quot;,
+  &quot;fields&quot;: [&quot;time&quot;,&quot;user&quot;,&quot;activity_type&quot;,&quot;product&quot;,&quot;src_ip&quot;,&quot;dest_host&quot;],
+  &quot;orderBy&quot;: [&quot;time DESC&quot;], &quot;startTime&quot;: &quot;2026-06-01T00:00:00Z&quot;, &quot;endTime&quot;: &quot;2026-06-04T00:00:00Z&quot;, &quot;limit&quot;: 20}}
+</code></pre>
+<p><code>totalRows</code> = 4 — the exact "abnormal (4)" the detector claimed — and <strong>every checkout is from CyberArk
+PAM, sourced from <code>198.51.100.57</code>.</strong> A broader <code>user:"paul.thomas17954"</code> pull shows the same IP driving an
+<code>http-session</code> (Symantec Web Security) and <code>process-create</code> events on internal hosts. The IP is present at
+every stage of this user's activity.</p>
+<h2 id="timeline">Timeline</h2>
+<table>
+<thead>
+<tr>
+<th>Time (UTC, 2026-06-02)</th>
+<th>Event</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>17:03</td>
+<td>4× CyberArk <code>password-checkout</code>, user paul.thomas17954, from 198.51.100.57</td>
+<td>search_events / detection <code>30b3e42b…</code></td>
+</tr>
+<tr>
+<td>17:03–18:31</td>
+<td>"First password retrieval from safe USER6403" across dozens of users</td>
+<td>threat_timeline</td>
+</tr>
+<tr>
+<td>17:39</td>
+<td><code>vpn-login</code> (F5) + <code>endpoint-login</code> (Windows) for many users, all from 198.51.100.57</td>
+<td>search_events (Pivot 1)</td>
+</tr>
+<tr>
+<td>~17:39</td>
+<td><code>http-session</code> to Symantec Web Security for paul.thomas17954 from 198.51.100.57</td>
+<td>search_events (Pivot 2)</td>
+</tr>
+</tbody>
+</table>
+<p>~1h34m, one IP, credential retrieval → login → web/endpoint activity across many identities.</p>
+<h2 id="assessment">Assessment</h2>
+<p><strong>Malicious hypothesis:</strong> a single external host (198.51.100.57) is using or harvesting credentials to
+authenticate as many users — PAM vault checkouts, first-time logins to Cisco NS / M365, endpoint logins —
+a coordinated credential-access + lateral-movement campaign.
+<em>Supported by:</em> the same IP across VPN, endpoint, PAM, and web events for unrelated users; PAM checkouts
+tied to the IP; the explainer's malicious-site note.
+<em>Contradicted by:</em> nothing found — no change ticket, no automation account, no benign single-owner.</p>
+<p><strong>Benign hypothesis:</strong> a shared jump host / NAT egress or a scripted automation legitimately transits
+this IP. <em>Contradicted by:</em> the activity mix (interactive VPN + endpoint logins + PAM retrievals across
+many human users) doesn't match a service automation, and no positive benign owner was found.</p>
+<p><strong>Deciding evidence:</strong> the single IP <code>198.51.100.57</code> appearing as <code>src_ip</code> for password-checkouts <strong>and</strong>
+endpoint/VPN logins across many distinct users — positive malicious correlation, not an aggregation
+artifact.</p>
+<h2 id="verdict-rationale">Verdict &amp; rationale</h2>
+<p><strong>Verdict: Confirmed coordinated threat — escalate.</strong> <strong>Confidence: High</strong> (for "coordinated malicious
+pattern"; individual-account impact still to be scoped by IR). The big user count wasn't the signal; the
+<em>shared source IP</em> was. A positive benign explanation was actively sought and not found, so this is not a
+false positive — and its scale/impact make it a human-owned escalation, not an auto-close.</p>
+<p>Taxonomy outcome: <strong>raised</strong>.</p>
+<h2 id="actions">Actions</h2>
 <ul>
-<li>They protect the <strong>records socxen writes</strong> and the <strong>text socxen analyzes</strong>. They do not sanitize
-  content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
-  In particular, the redaction above protects what socxen <strong>persists</strong> (case notes, exports) — the
-  durable, wider-audience copy. A secret shown on <strong>your own screen</strong> during an investigation is <em>not</em>
-  redacted, and that's deliberate: you're already authorized to read the underlying log, so it crosses
-  no trust boundary the console itself doesn't.</li>
-<li><strong>Large results are written to a local file, and it isn't redacted.</strong> When the Exabeam MCP returns a
-  payload too big for the context window — a full case dump, the rule inventory — the harness writes it
-  to a file under <code>~/.claude/projects/…/tool-results/</code> so socxen can extract the few fields it needs.
-  That file holds raw telemetry and is <em>not</em> run through the redactor. It crosses <strong>no trust boundary the
-  console doesn't</strong> — it lives on the same machine you're signed in to New-Scale from, where you're
-  already authorized to read that data — but unlike scratch it <strong>persists after the session and is not
-  pruned automatically.</strong> socxen itself neither writes nor transmits it (the harness does), but the raw
-  copy is durable: <strong>if the case data is sensitive, delete those files when you're done.</strong></li>
+<li><strong>Taken (in the run):</strong> <code>exabeam_create_case</code> to escalate; <code>exabeam_create_case_notes</code> with this
+  writeup and the two pivots. <em>(No <code>update_alert</code>/<code>update_case</code> close — this is the opposite of a close.)</em></li>
+<li><strong>Recommended containment (analyst approves in EDR/IAM — not an Exabeam-MCP capability):</strong></li>
+<li><strong>Block <code>198.51.100.57</code></strong> at the VPN/edge/firewall.</li>
+<li><strong>Disable / force-reauth</strong> the accounts seen authenticating from it; prioritize any with PAM checkouts.</li>
+<li><strong>Rotate every credential retrieved</strong> from the affected CyberArk safes (esp. safe <code>USER6403</code>) — assume
+    exposed.</li>
+<li>Hunt the IP wider (all <code>src_ip</code>/<code>dest_ip</code>, longer window) for scope beyond this alert.</li>
 </ul>
-<p><strong>On Codex the location differs, and is harder to clean up.</strong> Codex keeps durable session and thread
-  history under <code>~/.codex/</code> — <code>sessions/</code>, <code>archived_sessions/</code>, and SQLite stores such as
-  <code>thread_history_*.sqlite</code> and <code>logs_*.sqlite</code> — rather than one file per oversized result. The same
-  caution applies with less recourse: there is no single result file to delete. We have not yet
-  characterized precisely where an oversized MCP result lands on Codex, so until we have, treat the whole
-  of <code>~/.codex/</code> as durable and unredacted.
-- Redaction covers <strong>structured</strong> secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
-  a deterministic pass can catch without mangling legitimate reports. It does <strong>not</strong> chase free-form
-  personal data such as <strong>names or home addresses</strong>, or <strong>dates of birth</strong> (a date is indistinguishable
-  from the timestamps in every log line). Handle those with the same care you'd give any sensitive case.
-- A credential written as a <strong>plain dictionary word directly after a line break</strong>, with no label, no
-  quotes and no table structure around it, is not masked — after a line break such a value is
-  indistinguishable from the recommendation prose that normally follows ("credential — Rotation is
-  required immediately"), and redacting it would eat real analyst text. Labeled, quoted, backticked and
-  table-cell credentials are all masked regardless of their shape.
-- A <strong>bare, unstructured credential</strong> — a password with no recognizable format, written into the report
-  with no nearby label like "password:" — is caught on a best-effort basis, not guaranteed: with nothing
-  to grip (no format, no label), a deterministic pass can miss it. Labeled and structured credentials
-  are reliably masked; a value that is <em>only</em> a secret because of where it sat is the edge case. Treat a
-  known-exposed password as compromised regardless of what the note shows.
-- A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
-  to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
-- Link escaping covers the ordinary link form. Unusual variants — a link carrying a title, one padded
-  with spaces inside its brackets, a reference-style definition, or a raw HTML anchor — are <strong>not</strong>
-  escaped and will render as live links. Treat any link in a note as unverified regardless of how it
-  is rendered.
-- They reduce the blast radius of hostile content. They do <strong>not</strong> replace the permission gate, your SOC
-  procedures, or your judgment on the verdict itself.</p></article>
-    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/security-guardrails.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
+<h2 id="why-this-is-a-good-teaching-case">Why this is a good teaching case</h2>
+<ul>
+<li><strong>A CRITICAL/99 aggregate is a claim, not a verdict</strong> — the per-user counts were trivial; only the
+  pivot made the case.</li>
+<li><strong>Scale is a distractor until you find the correlator.</strong> The skill's "a number that alarms by its size
+  is a noise hypothesis before it's scale" holds — <em>and</em> the single IP is what turned noise into signal.</li>
+<li><strong>The close bar and the confirm bar are mirrors:</strong> no positive benign explanation → not an FP; positive
+  malicious correlation → confirmed. Both were applied here.</li>
+</ul></article>
+    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
 

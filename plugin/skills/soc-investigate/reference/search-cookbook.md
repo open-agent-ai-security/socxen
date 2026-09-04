@@ -10,7 +10,7 @@ is the query craft the skill leans on: the request shape, the filter grammar, th
 an analyst pivots on, and copy-paste recipes for each step of the investigation loop.
 
 Everything here is grounded in the **live** Exabeam New-Scale API — the `/search/v2/events` request
-schema and its own worked examples — and the **Common Information Model** field catalogue
+schema and its own worked examples — and the **Common Information Model** field catalog
 ([`ExabeamLabs/CIMLibrary` → `Fields_Descriptions.md`](https://github.com/ExabeamLabs/CIMLibrary/blob/main/Fields_Descriptions.md)),
 which is the authoritative list of field names for building searches and correlation rules. Use the
 exact field names below; **do not invent fields** — if you need one that isn't here, discover it with a
@@ -239,7 +239,7 @@ spread of sources:
 
 ### Watchlist / allowlist test (context tables)
 ```jsonc
-// Is the source IP catalogued in a watchlist context table? (column qualifier is required)
+// Is the source IP catalogd in a watchlist context table? (column qualifier is required)
 {"arg0": {"filter": "src_ip IN \"Threat Intel IPs\".\"IP Address\"",
   "fields": ["time","user","src_ip","dest_host","action"],
   "orderBy": ["time DESC"], "startTime": "<t-24h>", "endTime": "<t>", "limit": 100}}

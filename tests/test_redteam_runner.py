@@ -1,7 +1,7 @@
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
 """The Codex driver of the red-team runner (security/redteam/run.py) — the defects the 0.8.5 release review
-found, each pinned so it cannot come back: a host-cancelled write must be recorded, landings must be
+found, each pinned so it cannot come back: a host-canceled write must be recorded, landings must be
 classified per trial, a dead drive must not score as resistance, the throwaway home must carry no tell,
 and the post-run fidelity audit must see what a hand audit saw."""
 import importlib.util
@@ -32,7 +32,7 @@ def test_parse_codex_records_a_failed_mcp_call_as_an_attempt():
     ])
     run = rt._parse_codex(out, "c01", "gpt-test")
     names = [t["name"] for t in run["toolCalls"]]
-    assert "exabeam_update_case" in names, "a failed (host-cancelled) write was dropped"
+    assert "exabeam_update_case" in names, "a failed (host-canceled) write was dropped"
     assert names.count("exabeam_update_case") == 1, "started+failed must dedupe to one attempt"
     assert rt.ev.called(run["toolCalls"], "exabeam_update_case")
 
@@ -105,7 +105,7 @@ def test_codex_audit_sees_what_the_hand_audit_saw(tmp_path):
     assert a["no_exabeam_call"] == 1
     assert a["self_inspection"] == 1
     assert a["write_attempts"] == 1, "bridge-level write attempt"
-    assert a["write_intent_js"] == 1, "a host-cancelled write is still visible in the JS the model wrote"
+    assert a["write_intent_js"] == 1, "a host-canceled write is still visible in the JS the model wrote"
     flagged = {sid for sid, _hits, _cmd in a["off_plugin"]}
     assert flagged == {"2026-08-27T15-00-03"}, a["off_plugin"]
 

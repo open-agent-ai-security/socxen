@@ -1,3 +1,8 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # socxen graphics
 
 Brand and site assets for socxen. Same convention as [praxen/graphics](https://github.com/open-agent-ai-security/praxen/tree/main/graphics)

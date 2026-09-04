@@ -12,6 +12,9 @@ family (same left-nav shell, same theme inlined per page, same SEO/GEO head), wi
 socxen's docs live in several places — the operator guide is plugin/README.md, the guides are
 plugin/docs/*.md, the methodology is each skill's SKILL.md, and the assurance record is security/ —
 so PAGES lists (source path, output name, nav label) and links are rewritten per source directory.
+The guide is USER documentation only: install, use, what happens to your data, the audit trail, and a
+worked example. Methodology (SKILL.md), the red-team program, the Praxen remit and results, the evals and
+the AI BOM are developer/assurance material and stay in the repository (linked from the landing page).
 
     uv run docs_build.py          # regenerate guide/*.html + sitemap.xml
 """
@@ -35,16 +38,12 @@ SITE_NAME = "socxen"
 
 # (source path from repo root, output name in guide/, nav label)
 PAGES = [
-    ("plugin/README.md",                              "index",               "Overview"),
-    ("plugin/docs/installation.md",                   "installation",        "Installation & setup"),
-    ("plugin/skills/soc-investigate/SKILL.md",        "soc-investigate",     "Skill: soc-investigate"),
-    ("plugin/skills/triage-cases/SKILL.md",           "triage-cases",        "Skill: triage-cases"),
-    ("plugin/skills/rule-tuning/SKILL.md",            "rule-tuning",         "Skill: rule-tuning"),
-    ("plugin/docs/security-guardrails.md",            "security-guardrails", "Security guardrails"),
-    ("plugin/docs/logging.md",                        "logging",             "Audit logging"),
-    ("security/redteam/METHODOLOGY.md",               "red-team",            "Red-team methodology"),
-    ("security/redteam/HISTORY.md",                   "red-team-history",    "Red-team history"),
-    ("security/praxen/README.md",                     "abv",                 "Agent behavior verification"),
+    ("plugin/README.md",                                                            "index",               "Overview"),
+    ("plugin/docs/installation.md",                                                 "installation",        "Installation & setup"),
+    ("plugin/docs/usage.md",                                                        "usage",               "Using the skills"),
+    ("plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md", "example",        "Example investigation"),
+    ("plugin/docs/security-guardrails.md",                                          "security-guardrails", "Security guardrails"),
+    ("plugin/docs/logging.md",                                                      "logging",             "Audit logging"),
 ]
 BY_SOURCE = {src: out for src, out, _ in PAGES}
 

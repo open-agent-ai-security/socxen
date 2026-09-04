@@ -179,7 +179,7 @@ if [ "$CHECKS_ONLY" = 0 ]; then
   # stale marketplace metadata can't rule out a newer upstream release.
   MKT_FRESH=1
   # Live pipeline is safe here (unlike the text path below): json.load() drains stdin to EOF
-  # before this can exit, so the CLI is never SIGPIPEd. Exit 3 on any shape we don't recognise
+  # before this can exit, so the CLI is never SIGPIPEd. Exit 3 on any shape we don't recognize
   # -> the `||` fallback runs; "cannot determine" must never render as "absent".
   mkt_state="$(claude plugin marketplace list --json 2>/dev/null | python3 -c '
 import json, re, sys
@@ -190,7 +190,7 @@ try:
 except Exception:
     sys.exit(3)  # no/invalid --json (older CLI) -> caller falls back to the text parse
 if not isinstance(mkts, list):
-    sys.exit(3)  # unrecognised shape -> unknown, not absent
+    sys.exit(3)  # unrecognized shape -> unknown, not absent
 
 def resolves_to(target):
     """True when target is a github.com URL/slug for exactly <repo>."""
@@ -497,7 +497,7 @@ elif [ "$GATE_STATE" = on ]; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
 elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
   # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
-  # "assume yes" answers the installer's own questions, it does not authorise writing to the
+  # "assume yes" answers the installer's own questions, it does not authorize writing to the
   # operator's settings.json. Installation alone must never change that file (#70 non-goal).
   warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json (or re-run with --merge-permissions)"
 else

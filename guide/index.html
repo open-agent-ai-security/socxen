@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#the-three-skills">The three skills</a></li><li><a href="#what-it-does">What it does</a></li><li><a href="#setup">Setup</a></li><li><a href="#documentation">Documentation</a></li><li><a href="#layout">Layout</a></li><li><a href="#how-its-tested">How it&#x27;s tested</a></li><li><a href="#status">Status</a></li><li><a href="#project-sponsor">Project sponsor</a></li><li><a href="#license">License</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="soc-investigate.html">Skill: soc-investigate</a></li><li><a href="triage-cases.html">Skill: triage-cases</a></li><li><a href="rule-tuning.html">Skill: rule-tuning</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="red-team.html">Red-team methodology</a></li><li><a href="red-team-history.html">Red-team history</a></li><li><a href="abv.html">Agent behavior verification</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#the-three-skills">The three skills</a></li><li><a href="#what-it-does">What it does</a></li><li><a href="#setup">Setup</a></li><li><a href="#documentation">Documentation</a></li><li><a href="#layout">Layout</a></li><li><a href="#how-its-tested">How it&#x27;s tested</a></li><li><a href="#status">Status</a></li><li><a href="#project-sponsor">Project sponsor</a></li><li><a href="#license">License</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="socxen">socxen</h1>
 <p><strong>An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.</strong></p>
@@ -346,7 +346,7 @@ dismiss/close — only the skill's soft in-prompt ask stands between the model a
 Do not point socxen at alerts you care about until it's on. The
 <strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">setup guide</a></strong> walks you
 through merging it by hand, or <code>install.sh --merge-permissions</code> will do it for you. Nothing merges by
-default and <code>-y</code> does not authorise it — the flag is the consent. The merge is additive-only, backs
+default and <code>-y</code> does not authorize it — the flag is the consent. The merge is additive-only, backs
 your settings file up first, and refuses if a rule already sits in a different tier.</p>
 </blockquote>
 <p>Then ask it to <em>"investigate alert &lt;id&gt;"</em> (or paste an alert/case) — or <em>"triage the queue"</em> /
@@ -377,7 +377,7 @@ your settings file up first, and refuses if a rule already sits in a different t
 <td>how the layers fit together — methodology, capability, authority, guardrails, evidence — and why they're separate</td>
 </tr>
 <tr>
-<td><strong><a href="soc-investigate.html">Methodology</a></strong></td>
+<td><strong><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/skills/soc-investigate/SKILL.md">Methodology</a></strong></td>
 <td>how it investigates; <code>reference/</code> has the tool map, search cookbook, enrichment playbook, report template, and worked examples (<code>reference/examples/</code>). Regression tests live in the repo's <a href="https://github.com/open-agent-ai-security/socxen/tree/main/evals"><code>evals/</code></a>.</td>
 </tr>
 </tbody>
