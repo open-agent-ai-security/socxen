@@ -10,6 +10,20 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+### Added
+- **The human-in-the-loop gate ships ON for Claude Code — a bundled `PreToolUse` hook** (`plugin/hooks/`,
+  declared in the manifest). Active the moment the plugin is enabled, no merge step: asks before
+  dismiss/close (and `send_email`), denies every containment tool, and asks on any tool this release has
+  not classified — the Codex `approve`-default, on Claude. Its `deny`/`ask` hold even under
+  `--dangerously-skip-permissions`, and headless an *ask* is refused (verified live, 2026-09-04). Reads
+  the same tier file the permission snippet and the Codex map are built from, so the three cannot
+  disagree; keyed on the bare tool name, so it gates the bundled server under any plugin key and a
+  manually wired `exabeam` server alike (#86). Never fails open: an unreadable tier file or malformed
+  event degrades to *ask*. Appends a best-effort decision record to `~/.socxen/gate.jsonl` (#87).
+  Answers the two questions #9 left open — a plugin cannot ship permission rules, but it can ship this —
+  and closes #3's "inert until merged". The permission-rules merge stays as the optional second layer:
+  silent reads, and the only gate on the manual-MCP path.
+
 ### Changed
 - **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
   plugin's name, version, display name, description, keywords and marketplace; both host manifests and

@@ -226,9 +226,14 @@ check_gate() {
     claude)
       state="$(gate_state_claude)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — dismiss/close require approval" ;;
-        off) warn "Gate is OFF — merge it with: install.sh --merge-permissions" ;;
-        *)   warn "Cannot verify the gate (needs python3) — not the same as OFF; check manually" ;;
+        on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;
+        off) if [ -f "$_PF_DIR/hooks/hooks.json" ]; then
+               ok "Human-in-the-loop gate ON via the bundled hook (ships with the plugin; holds even under --dangerously-skip-permissions)"
+               warn "Permission rules not merged — optional: install.sh --merge-permissions adds silent reads and covers a manually wired 'exabeam' server"
+             else
+               fail "Gate is OFF — no bundled hook in this plugin copy and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
+             fi ;;
+        *)   warn "Cannot verify the permission rules (needs python3) — not the same as OFF; the bundled hook still gates dismiss/close" ;;
       esac ;;
     *)
       skip "Gate check skipped — no host agent detected" ;;
