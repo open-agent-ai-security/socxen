@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+
+  socxen landing page. Self-contained like the Praxen and Observra landings: one file, the shared
+  theme linked from assets/socxen-theme.css, vector brand assets under graphics/. Served by GitHub
+  Pages from the repo root on `main`. No Jekyll (.nojekyll), so it is served verbatim.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>socxen — Agentic SOC Skill Suite for Exabeam New-Scale</title>
+  <meta name="description" content="socxen is an open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. It investigates alerts, triages the queue, and tunes noisy rules, with a human-in-the-loop gate on every consequential action.">
+  <meta name="keywords" content="agentic SOC, SOC analyst agent, Exabeam New-Scale, MCP, Claude Code plugin, OpenAI Codex plugin, alert triage, AI SOC, prompt injection guardrails, red team, human in the loop">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/">
+  <link rel="icon" type="image/png" sizes="32x32" href="graphics/web/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="256x256" href="graphics/web/favicon-256.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="graphics/web/favicon-180.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="socxen">
+  <meta property="og:title" content="socxen — Hunt the real threats. Leave the noise.">
+  <meta property="og:description" content="Open-source agentic SOC skills for Exabeam New-Scale, on Claude Code and Codex. Evidence-first investigation, a human-gated write path, red-team gated releases.">
+  <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/">
+  <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
+  <meta property="og:image:width" content="1280"><meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="socxen — Agentic SOC Skill Suite">
+  <meta name="twitter:description" content="Hunt the real threats. Leave the noise.">
+  <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "socxen",
+    "description": "Open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. Investigates alerts and cases to a written verdict, triages the open queue, finds noisy detection rules; human-in-the-loop on dismiss/close, containment recommended never executed, deterministic guardrails, red-team gated releases.",
+    "url": "https://open-agent-ai-security.github.io/socxen/",
+    "codeRepository": "https://github.com/open-agent-ai-security/socxen",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "applicationCategory": "SecurityApplication",
+    "author": { "@id": "https://open-agent-ai-security.github.io/#org", "@type": "Organization", "name": "Open Agent and AI Security Community", "url": "https://open-agent-ai-security.github.io/" },
+    "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" }
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="assets/socxen-theme.css">
+  <style>
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: 24px; }
+    header.nav { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(11,15,26,0.74); border-bottom: 1px solid var(--border); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 66px; }
+    .brand { display: inline-flex; align-items: center; }
+    .brand img.logo { height: 36px; width: auto; display: block; }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a { color: var(--muted); font-weight: 500; font-size: 15px; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta { display: flex; align-items: center; gap: 14px; }
+
+    .hero { position: relative; padding: 36px 0 35px; }
+    .hero::before { content: ""; position: absolute; inset: 0; z-index: -2;
+      background: radial-gradient(820px 580px at 76% 50%, rgba(230,162,60,0.20), transparent 62%),
+                  radial-gradient(700px 500px at 10% 90%, rgba(47,191,159,0.12), transparent 60%),
+                  linear-gradient(180deg, var(--bg), var(--bg-2)); }
+    .hero::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.5;
+      background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 46px 46px; -webkit-mask-image: radial-gradient(circle at 60% 40%, #000 30%, transparent 75%); mask-image: radial-gradient(circle at 60% 40%, #000 30%, transparent 75%); }
+    .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 40px; align-items: center; }
+    .hero h1 { font-size: clamp(38px, 5.4vw, 60px); line-height: 1.04; font-weight: 700; margin: 0 0 22px; }
+    .hero p.lede { font-size: 19px; color: var(--muted); max-width: 540px; margin: 0 0 32px; }
+    .pill { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 26px; padding: 7px 15px 7px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); font-size: 13.5px; color: var(--muted); font-weight: 500; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(103,217,139,0.16); }
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; }
+    .mascot-stage { position: relative; display: flex; justify-content: center; align-items: center; }
+    .mascot-stage::before { content: ""; position: absolute; width: 84%; height: 84%; left: 8%; top: 8%; background: radial-gradient(circle, rgba(230,162,60,0.32), transparent 64%); filter: blur(38px); z-index: 0; }
+    .mascot-stage img { position: relative; z-index: 1; width: 100%; max-width: 520px; filter: drop-shadow(0 28px 42px rgba(0,0,0,0.5)); animation: float 6s ease-in-out infinite; }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    @media (prefers-reduced-motion: reduce) { .mascot-stage img { animation: none; } }
+
+
+    section { position: relative; }
+    .section-pad { padding: 76px 0; }
+    .section-head { max-width: 680px; margin: 0 auto 50px; text-align: center; }
+    .section-head h2 { font-size: clamp(28px, 3.6vw, 40px); margin: 0 0 14px; font-weight: 700; }
+    .section-head p { color: var(--muted); font-size: 18px; margin: 0; }
+    .divider { border-top: 1px solid var(--border); }
+
+    .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 22px; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+    .card:hover { transform: translateY(-4px); border-color: var(--border-hi); background: var(--panel-2); }
+    .card .ic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 18px; background: linear-gradient(135deg, rgba(230,162,60,0.22), rgba(230,162,60,0.06)); border: 1px solid rgba(242,189,92,0.3); }
+    .card .ic svg { width: 23px; height: 23px; stroke: var(--gold-2); fill: none; stroke-width: 1.9; }
+    .card .step { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: var(--muted-2); text-transform: uppercase; }
+    .card h3 { font-size: 19px; margin: 4px 0 9px; font-weight: 600; }
+    .card h3 code { font-family: var(--mono); font-size: 16px; color: var(--gold-2); background: rgba(230,162,60,0.1); padding: 1px 7px; border-radius: 6px; }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .card p + p { margin-top: 10px; }
+    .card .ask { font-size: 13.5px; color: var(--muted-2); font-style: italic; }
+
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; counter-reset: step; }
+    .step-item { position: relative; padding: 30px 24px 26px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--border); }
+    .step-item::before { counter-increment: step; content: counter(step); position: absolute; top: -18px; left: 24px; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-family: "Space Grotesk"; font-weight: 700; font-size: 18px; color: #1a0f06; background: linear-gradient(135deg, var(--gold-2), var(--gold-deep)); box-shadow: 0 6px 18px -5px rgba(230,162,60,0.6); }
+    .step-item h3 { margin: 14px 0 8px; font-size: 18px; }
+    .step-item p { margin: 0; color: var(--muted); font-size: 15px; }
+    .step-item code { color: var(--gold-2); background: rgba(230,162,60,0.1); padding: 1px 6px; border-radius: 5px; font-size: 13px; font-family: var(--mono); }
+
+    ul.checklist { list-style: none; margin: 0; padding: 0; }
+    ul.checklist li { position: relative; padding: 12px 0 12px 38px; border-bottom: 1px solid var(--border); }
+    ul.checklist li:last-child { border-bottom: none; }
+    ul.checklist li strong { color: var(--text); font-weight: 600; }
+    ul.checklist li span { color: var(--muted); }
+    ul.checklist li::before { content: ""; position: absolute; left: 4px; top: 17px; width: 19px; height: 19px; border-radius: 6px; background: rgba(230,162,60,0.14); border: 1px solid rgba(242,189,92,0.4);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2bd5c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"); background-size: 13px; background-repeat: no-repeat; background-position: center; }
+    .checklist.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 48px; }
+    .locks { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
+    .lock { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .lock .k { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; margin-bottom: 8px; }
+    .lock h3 { margin: 0 0 8px; font-size: 19px; }
+    .lock p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .explore { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .xcard { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 26px; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+    .xcard:hover { transform: translateY(-5px); border-color: var(--border-hi); background: var(--panel-2); }
+    .xcard .xtag { align-self: flex-start; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-2); padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border-hi); background: rgba(230,162,60,0.08); margin-bottom: 18px; }
+    .xcard h3 { font-size: 20px; margin: 0 0 10px; font-weight: 600; }
+    .xcard p { margin: 0 0 22px; color: var(--muted); font-size: 15px; flex: 1; }
+    .xcard .stat { display: flex; align-items: baseline; gap: 9px; margin-bottom: 18px; }
+    .xcard .stat b { font-family: "Space Grotesk"; font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; }
+    .xcard .stat span { font-size: 13.5px; color: var(--muted-2); }
+    .xcard .go { font-weight: 600; font-size: 15px; color: var(--gold-2); display: inline-flex; align-items: center; gap: 6px; }
+    .xcard:hover .go .arw { transform: translateX(4px); } .xcard .go .arw { transition: transform .2s ease; }
+
+    .install-card { background: linear-gradient(160deg, rgba(230,162,60,0.07), rgba(255,255,255,0.02)); border: 1px solid var(--border); border-radius: 20px; padding: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+    .install-card h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 12px; }
+    .install-card p { color: var(--muted); margin: 0 0 22px; }
+    .terminal { background: #06090f; border: 1px solid var(--border); border-radius: 13px; overflow: hidden; box-shadow: 0 24px 50px -18px rgba(0,0,0,0.7); }
+    .terminal .bar { display: flex; align-items: center; gap: 7px; padding: 11px 15px; border-bottom: 1px solid var(--border); }
+    .terminal .bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .terminal .bar i:nth-child(1){ background:#ff5f57; } .terminal .bar i:nth-child(2){ background:#febc2e; } .terminal .bar i:nth-child(3){ background:#28c840; }
+    .terminal .bar span { margin-left: 8px; font-size: 12.5px; color: var(--muted-2); }
+    .terminal .tabs { margin-left: auto; display: flex; gap: 6px; }
+    .terminal .tabs button { font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+    .terminal .tabs button.on { color: #1a0f06; background: var(--gold-2); border-color: var(--gold-2); }
+    .terminal pre { margin: 0; padding: 20px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.95; color: #cfe0f2; overflow-x: auto; }
+    .terminal .cmt { color: var(--muted-2); } .terminal .pmt { color: var(--gold); user-select: none; }
+    .copy-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    .copy-ok { color: var(--green); font-size: 13.5px; opacity: 0; transition: opacity .2s; } .copy-ok.show { opacity: 1; }
+
+    .cta-band { text-align: center; padding: 78px 0; position: relative; }
+    .cta-band::before { content:""; position:absolute; inset:0; z-index:-1; background: radial-gradient(700px 300px at 50% 0%, rgba(230,162,60,0.16), transparent 70%); }
+    .cta-band h2 { font-size: clamp(30px, 4vw, 46px); margin: 0 0 16px; max-width: 760px; margin-inline: auto; }
+    .cta-band p { color: var(--muted); font-size: 18px; margin: 0 0 30px; }
+    .cta-band .hero-cta { justify-content: center; }
+
+    footer { border-top: 1px solid var(--border); background: var(--bg-2); padding: 52px 0 32px; }
+    .foot-grid { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; margin-bottom: 40px; }
+    .foot-brand { max-width: 320px; } .foot-brand .brand { margin-bottom: 14px; } .foot-brand p { color: var(--muted); font-size: 14.5px; margin: 0; }
+    .foot-cols { display: flex; gap: 64px; flex-wrap: wrap; }
+    .foot-col h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-2); margin: 0 0 14px; }
+    .foot-col a { display: block; color: var(--muted); font-size: 14.5px; margin-bottom: 10px; } .foot-col a:hover { color: var(--text); }
+    .foot-bottom { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted-2); font-size: 12px; }
+    .footer-community { display: inline-flex; align-items: center; gap: 10px; color: var(--muted-2); opacity: 0.9; } .footer-community:hover { opacity: 1; color: var(--text); } .footer-community img { height: 24px; width: auto; }
+    .logo-on-dark { display: block; } .logo-on-light { display: none; }
+    .sponsor-band { position: relative; overflow: hidden; margin: 0 0 40px; padding: 34px 30px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+    .sponsor-band::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(460px 130px at 50% 118%, rgba(0,107,255,0.16), transparent 70%), radial-gradient(460px 130px at 50% -18%, rgba(0,157,0,0.13), transparent 70%); }
+    .sponsor-band > * { position: relative; z-index: 1; }
+    .sponsor-band .lbl { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+    .exa-logo { height: 32px; width: auto; display: block; opacity: 0.96; }
+    .sponsor-note { max-width: 540px; margin: 2px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+    .prerelease { text-align: center; font-size: 13.5px; color: var(--muted-2); padding: 12px 0 0; }
+    .prerelease b { color: var(--gold-2); }
+
+    @media (max-width: 920px) {
+      .hero-grid { grid-template-columns: 1fr; } .mascot-stage { order: -1; margin-bottom: 8px; } .mascot-stage img { max-width: 380px; }
+      .pillars, .steps, .explore, .locks, .checklist.cols, .install-card { grid-template-columns: 1fr; } .nav-links { display: none; }
+    }
+    @media (max-width: 540px) { body { font-size: 16px; } .nav-cta .btn-ghost { display: none; } .hero { padding: 28px 0 25px; } .section-pad { padding: 56px 0; } }
+  </style>
+  <script data-goatcounter="https://open-agent-ai-security.goatcounter.com/count" async src="assets/count.js"></script>
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen — agentic SOC skill suite" width="141" height="36"></a>
+      <nav class="nav-links">
+        <a href="#skills">The skills</a>
+        <a href="#how">How it works</a>
+        <a href="#guardrails">Guardrails</a>
+        <a href="#assurance">Assurance</a>
+        <a href="guide/index.html">Docs</a>
+      </nav>
+      <div class="nav-cta">
+        <a class="btn btn-ghost" href="https://github.com/open-agent-ai-security/socxen" target="_blank" rel="noopener"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>GitHub</a>
+        <a class="btn btn-primary" href="#install">Install</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <div class="pill"><span class="dot"></span> Open source · runs in your terminal · human-in-the-loop</div>
+          <h1>Hunt the real threats.<br><span class="grad">Leave the noise.</span></h1>
+          <p class="lede">
+            socxen is an <strong>agentic SOC skill suite</strong> for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.
+            It works an alert to a written verdict, sweeps the queue, and finds the rules wasting your analysts' time —
+            with the one action that matters, dismiss or close, held back for a human every time.
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="guide/installation.html">Get started →</a>
+            <a class="btn btn-ghost" href="#guardrails">See the guardrails</a>
+          </div>
+        </div>
+        <div class="mascot-stage">
+          <img src="graphics/leo-hunting.svg" alt="Leo, the socxen lion, examining an alert through a crosshair loupe">
+        </div>
+      </div>
+    </section>
+
+
+    <section class="section-pad divider" id="skills">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Three skills, one governance gate</p>
+          <h2>Analyst. Shift lead. Detection engineer.</h2>
+          <p>Each skill is named for the person whose job it does. They hand off to each other — a single case to the analyst, a noise cluster to the engineer — and share one safety spine.</p>
+        </div>
+        <div class="pillars">
+          <div class="card">
+            <div class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 7v8M7 11h8"/></svg></div>
+            <div class="step">The analyst</div>
+            <h3><code>soc-investigate</code></h3>
+            <p>Takes one alert or case from first look to written verdict: pulls the events, pivots on the entities it finds, weighs the activity against what is normal for them, tests a benign explanation against a malicious one — and writes it up with the evidence behind every line.</p>
+            <p class="ask">"investigate alert 8f67ee43"</p>
+          </div>
+          <div class="card">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6"/><circle cx="18" cy="16" r="3"/><path d="M20.5 18.5 22 20"/></svg></div>
+            <div class="step">The shift lead</div>
+            <h3><code>triage-cases</code></h3>
+            <p>Sweeps the open queue instead of one case — clusters by attack shape, ranks by corroborated signal rather than risk score alone, and hands back a short "start here" list plus the noise worth tuning. Read-only across the sweep; it never closes in bulk.</p>
+            <p class="ask">"triage the queue"</p>
+          </div>
+          <div class="card">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div>
+            <div class="step">The detection engineer</div>
+            <h3><code>rule-tuning</code></h3>
+            <p>Finds the rules quietly wasting analyst attention — noisy, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: there is no rule-write path, and that is deliberate.</p>
+            <p class="ask">"find noisy rules"</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-pad divider" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">In five minutes</p>
+          <h2>Install. Connect. Turn the gate on. Hunt.</h2>
+          <p>No server, no database, no approval queue. The analyst at the terminal is the human-in-the-loop.</p>
+        </div>
+        <div class="steps">
+          <div class="step-item"><h3>Install the plugin</h3><p>One marketplace add and one install, on Claude Code or Codex. The Exabeam MCP bridge comes bundled — nothing else to wire.</p></div>
+          <div class="step-item"><h3>Add credentials</h3><p>A single <code>~/.exabeam-mcp.env</code> with your New-Scale API key. The bridge refreshes the token itself.</p></div>
+          <div class="step-item"><h3>Turn the gate on</h3><p>On Claude Code, one consent-gated merge of the permission pack. On Codex the gate ships inside the package — nothing to merge.</p></div>
+          <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." socxen gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-pad divider" id="guardrails">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Safe to point at a live tenant</p>
+          <h2>Telemetry is hostile input. socxen treats it that way.</h2>
+          <p>A capable model with tool access is not, by itself, something you can let near a SOC queue. These are the layers that make it one.</p>
+        </div>
+        <ul class="checklist cols">
+          <li><strong>Two locks on dismiss/close</strong> — <span>the host agent's approval rule stops the call at the harness, and the skill asks you first. Never left to the model alone.</span></li>
+          <li><strong>Containment is recommended, never executed</strong> — <span>isolate, disable, block: the plugin can propose them and cannot perform them. Denied at the harness as defence in depth.</span></li>
+          <li><strong>Evidence has provenance</strong> — <span>a baseline is something the agent queried, not something the alert supplied. Planted "context" does not count.</span></li>
+          <li><strong>Reads are canonicalised</strong> — <span>invisible-character smuggling is stripped before the model reasons about what it read.</span></li>
+          <li><strong>Writes are neutralised</strong> — <span>formulas and clickable links are defanged, secrets and PII redacted, before anything persists to Exabeam. Deterministic code, not a prompt.</span></li>
+          <li><strong>Every call is audited</strong> — <span>a local, metadata-only trail of what was called, when, and with what result. Nothing phones home.</span></li>
+        </ul>
+        <div class="locks">
+          <div class="lock"><div class="k">Claude Code</div><h3>A permission pack you merge once</h3><p>92 rules across allow / ask / deny tiers, generated from one source and pinned by invariant tests. Ask on dismiss and close; deny on every containment verb.</p></div>
+          <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are cancelled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-pad divider" id="assurance">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Every release is gated on both</p>
+          <h2>Red-teamed and behaviour-verified, on the record</h2>
+          <p>Twenty attack fixtures across four classes, five trials each, on the weakest supported model per host — and an independent behaviour scan. Dated artifacts, committed with the release.</p>
+        </div>
+        <div class="explore">
+          <a class="xcard" href="guide/red-team-history.html">
+            <span class="xtag">Red team</span>
+            <h3>Attack history</h3>
+            <p>Every run since the first, with what landed, what was fixed, and the re-verification. Including the one finding no guardrail could have caught — and how doctrine closed it.</p>
+            <div class="stat"><b>0</b><span>landings in the blocking classes · Claude and Codex</span></div>
+            <span class="go">Read the ledger <span class="arw">→</span></span>
+          </a>
+          <a class="xcard" href="guide/security-guardrails.html">
+            <span class="xtag">Guardrails</span>
+            <h3>What the code stops — and what it doesn't</h3>
+            <p>The deterministic layers around the bridge, explained honestly: canonicalisation on read, neutralisation on write, and the residuals we track as issues rather than hide.</p>
+            <div class="stat"><b>21%</b><span>→ 0% payload persistence, Sonnet leg of the 0.8.0 gate</span></div>
+            <span class="go">See the guardrails <span class="arw">→</span></span>
+          </a>
+          <a class="xcard" href="guide/abv.html">
+            <span class="xtag">Praxen ABV</span>
+            <h3>Agent behaviour verification</h3>
+            <p>socxen is scanned by Praxen, its sister project, against a written Worker Remit before each release: zero Critical findings is the bar.</p>
+            <div class="stat"><b>3.15</b><span>RAISE score · Established</span></div>
+            <span class="go">Read the remit and results <span class="arw">→</span></span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-pad" id="install">
+      <div class="wrap">
+        <div class="install-card">
+          <div>
+            <p class="eyebrow">Get started in minutes</p>
+            <h2>Install the plugin</h2>
+            <p>socxen runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Then add your Exabeam credentials and — on Claude Code — turn on the governance gate.</p>
+            <div class="copy-row">
+              <button class="btn btn-primary" id="copyBtn" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy install command</button>
+              <span class="copy-ok" id="copyOk">Copied ✓</span>
+            </div>
+            <p style="margin-top:18px;font-size:14.5px;">Full guide: <a href="guide/installation.html">Installation &amp; setup</a> · <a href="guide/index.html">Operator's guide</a></p>
+          </div>
+          <div class="terminal">
+            <div class="bar"><i></i><i></i><i></i><span>Terminal</span><span class="tabs"><button class="on" data-host="claude" type="button">Claude Code</button><button data-host="codex" type="button">Codex</button></span></div>
+<pre id="cmd-claude"><span class="cmt"># install socxen in your terminal</span>
+<span class="pmt">$</span> claude plugin marketplace add open-agent-ai-security/plugins
+<span class="pmt">$</span> claude plugin install socxen@open-agent-ai-security
+
+<span class="cmt"># turn the governance gate on (consent-gated, one time)</span>
+<span class="pmt">$</span> git clone https://github.com/open-agent-ai-security/socxen.git
+<span class="pmt">$</span> cd socxen &amp;&amp; ./plugin/install.sh --merge-permissions
+
+<span class="cmt"># then, in Claude Code</span>
+<span class="pmt">&gt;</span> investigate alert 8f67ee43-bfa0-4f84-a5d0-42f97d893aed</pre>
+<pre id="cmd-codex" hidden><span class="cmt"># install socxen in your terminal</span>
+<span class="pmt">$</span> codex plugin marketplace add open-agent-ai-security/plugins
+<span class="pmt">$</span> codex plugin add socxen@open-agent-ai-security
+
+<span class="cmt"># the gate ships inside the package — nothing to merge</span>
+<span class="pmt">$</span> codex plugin list
+
+<span class="cmt"># then, in Codex</span>
+<span class="pmt">&gt;</span> investigate alert 8f67ee43-bfa0-4f84-a5d0-42f97d893aed</pre>
+          </div>
+        </div>
+        <p class="prerelease"><b>Pre-release software, for evaluation.</b> Expect breaking changes between versions; keep a human reviewing every action. <a href="https://open-agent-ai-security.github.io/project-levels/">Incubator</a> project level.</p>
+      </div>
+    </section>
+
+    <section class="cta-band divider">
+      <div class="wrap">
+        <h2>Put a hunter on the queue.</h2>
+        <p>Open source, Apache-2.0, built in the open with the Open Agent and AI Security Community.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="guide/installation.html">Read the setup guide →</a>
+          <a class="btn btn-ghost" href="https://github.com/open-agent-ai-security/socxen" target="_blank" rel="noopener">Star on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen" width="125" height="32" style="height:32px;"></a>
+          <p>An agentic SOC skill suite for Exabeam New-Scale, with the deterministic guardrails and governance that make it safe to point at a live tenant.</p>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col"><h4>Docs</h4><a href="guide/installation.html">Installation &amp; setup</a><a href="guide/index.html">Operator's guide</a><a href="guide/soc-investigate.html">Methodology</a><a href="guide/security-guardrails.html">Security guardrails</a><a href="guide/logging.html">Audit logging</a></div>
+          <div class="foot-col"><h4>Assurance</h4><a href="guide/red-team.html">Red-team methodology</a><a href="guide/red-team-history.html">Red-team history</a><a href="guide/abv.html">Behaviour verification</a><a href="https://open-agent-ai-security.github.io/praxen/" target="_blank" rel="noopener">Praxen</a></div>
+          <div class="foot-col"><h4>Project</h4><a href="https://github.com/open-agent-ai-security/socxen" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a><a href="https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a><a href="https://www.linkedin.com/company/open-agent-and-ai-security-community/" target="_blank" rel="noopener">Join on LinkedIn</a></div>
+        </div>
+      </div>
+      <div class="sponsor-band">
+        <span class="lbl">Proudly sponsored by</span>
+        <a class="exa" href="https://www.exabeam.com/" target="_blank" rel="noopener" aria-label="Exabeam"><img class="exa-logo" src="graphics/exabeam-logo-white.svg" alt="Exabeam" width="187" height="32"></a>
+        <p class="sponsor-note">Exabeam contributed the initial code and continues to provide ongoing support and contributions to socxen — part of its commitment to security in an increasingly agentic world.</p>
+      </div>
+      <div class="foot-bottom">
+        <span class="legal">All use and distribution is governed by the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/LICENSE" target="_blank" rel="noopener">Apache 2.0 License</a> · © 2026 Exabeam, Inc.</span>
+        <a class="footer-community" href="https://open-agent-ai-security.github.io/" target="_blank" rel="noopener" aria-label="Part of the Open Agent AI Security community"><span>Part of the</span><img class="logo-on-dark" src="graphics/brand/community-logo-dark-background.svg" alt="Open Agent AI Security community"><img class="logo-on-light" src="graphics/brand/community-logo-light-background.svg" alt="Open Agent AI Security community"></a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var cmds = { claude: 'claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security && claude plugin list',
+                   codex:  'codex plugin marketplace add open-agent-ai-security/plugins && codex plugin add socxen@open-agent-ai-security && codex plugin list' };
+      var host = 'claude', btn = document.getElementById('copyBtn'), ok = document.getElementById('copyOk');
+      document.querySelectorAll('.terminal .tabs button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          host = b.getAttribute('data-host');
+          document.querySelectorAll('.terminal .tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+          document.getElementById('cmd-claude').hidden = host !== 'claude';
+          document.getElementById('cmd-codex').hidden = host !== 'codex';
+        });
+      });
+      function flash(msg, ms) { if (msg) ok.textContent = msg; ok.classList.add('show'); setTimeout(function () { ok.classList.remove('show'); ok.textContent = 'Copied ✓'; }, ms || 1800); }
+      function fallbackCopy() { var ta = document.createElement('textarea'); ta.value = cmds[host]; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); var c = false; try { c = document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); c ? flash() : flash('Copy failed — paste manually', 2500); }
+      btn.addEventListener('click', function () { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(cmds[host]).then(function () { flash(); }).catch(fallbackCopy); } else { fallbackCopy(); } });
+    })();
+  </script>
+</body>
+</html>

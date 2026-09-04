@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation · socxen Docs</title>
+<meta name="description" content="socxen ships as a portable agent skill suite (skills/) for Claude Code and OpenAI Codex, running against the Exabeam New-Scale MCP. Both hosts load the…">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/installation.html">
+<link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="socxen">
+<meta property="og:title" content="Installation · socxen Docs">
+<meta property="og:description" content="socxen ships as a portable agent skill suite (skills/) for Claude Code and OpenAI Codex, running against the Exabeam New-Scale MCP. Both hosts load the…">
+<meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/installation.html">
+<meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Installation · socxen Docs">
+<meta name="twitter:description" content="socxen ships as a portable agent skill suite (skills/) for Claude Code and OpenAI Codex, running against the Exabeam New-Scale MCP. Both hosts load the…">
+<meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
+<script type="application/ld+json">
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Installation", "description": "socxen ships as a portable agent skill suite (skills/) for Claude Code and OpenAI Codex, running against the Exabeam New-Scale MCP. Both hosts load the\u2026",
+  "url": "https://open-agent-ai-security.github.io/socxen/guide/installation.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
+  "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
+</script>
+<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+/*
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+
+  socxen shared design system — single source of truth for the visual theme.
+  Derived from the Praxen design system (open-agent-ai-security/praxen,
+  assets/praxen-theme.css) so the three project sites read as one family;
+  only the accent hue differs: Praxen orange → socxen lion gold.
+
+  Consumed by two surfaces:
+    - index.html / news.html (the marketing pages) LINK this file.
+    - docs_build.py INLINES this file into every generated guide/*.html.
+
+  NOTE: the @import above is kept on line 1, ahead of this comment, so that when
+  the file is inlined into a report's <style> block the import is the very first
+  token — robust even for non-spec CSS processors (HTML-to-PDF, strict minifiers)
+  that would drop an @import preceded by a comment.
+
+  Structure:
+    1. Fonts (@import — first line, above)
+    2. :root design tokens
+    3. Global base + primitives (used everywhere)
+    4. .report-page — chrome shared by the coverage reports only (scoped so it
+       never leaks onto the landing page, which does not carry that body class)
+*/
+
+/* ---------- 2 · Design tokens ---------- */
+:root {
+  --bg:          #0b0f1a;   /* a hair warmer than Praxen's navy — savanna night */
+  --bg-2:        #0e1320;
+  --panel:       rgba(255, 255, 255, 0.035);
+  --panel-2:     rgba(255, 255, 255, 0.05);
+  --border:      rgba(255, 255, 255, 0.09);
+  --border-hi:   rgba(242,189,92, 0.45);
+  --text:        #e9eff8;
+  --muted:       #9aabc0;
+  --muted-2:     #6f819a;
+  --gold:      #e6a23c;
+  --gold-2:    #f2bd5c;
+  --gold-deep: #c4841c;
+  --accent-2:    #2fbf9f;   /* signal teal — second hue (clean/resisted, terminal green) */
+  --green:       #67d98b;
+  --maxw:        1140px;
+  --radius:      16px;
+  --mono:        ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------- 3 · Global base + primitives ---------- */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+  font-size: 17px;
+  overflow-x: hidden;
+}
+h1, h2, h3, .wordmark { font-family: "Space Grotesk", "Inter", sans-serif; letter-spacing: -0.02em; }
+a { color: var(--gold-2); text-decoration: none; }
+a:hover { color: var(--gold); }
+img { max-width: 100%; display: block; }
+
+.wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+.grad {
+  background: linear-gradient(100deg, var(--gold-2), var(--gold) 55%, var(--gold-deep));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.eyebrow {
+  text-transform: uppercase; letter-spacing: 0.18em; font-size: 12.5px;
+  font-weight: 600; color: var(--gold-2); margin: 0 0 14px;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-weight: 600; font-size: 15px; border-radius: 11px;
+  padding: 11px 20px; border: 1px solid transparent; transition: all .18s ease;
+  font-family: inherit;
+}
+.btn-primary {
+  color: #1a0f06;
+  background: linear-gradient(100deg, var(--gold-2), var(--gold-deep));
+  box-shadow: 0 6px 22px -6px rgba(230,162,60,0.6);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -8px rgba(230,162,60,0.75); color: #1a0f06; }
+.btn-ghost { color: var(--text); border-color: var(--border); background: var(--panel); }
+.btn-ghost:hover { border-color: var(--border-hi); background: var(--panel-2); color: var(--text); }
+
+.badge { font-size: 13px; font-weight: 600; padding: 8px 13px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); }
+.badge.hot { color: var(--gold-2); border-color: var(--border-hi); background: rgba(230,162,60,0.08); }
+
+/* ---------- 4 · Coverage-report chrome (scoped to .report-page) ---------- */
+.report-page .wrap { padding: 30px 24px 60px; max-width: 1120px; }
+
+.report-page header.hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(160deg, rgba(230,162,60,0.10), rgba(255,255,255,0.02));
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 36px 34px; margin-bottom: 28px;
+}
+.report-page header.hero::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(640px 200px at 88% -10%, rgba(230,162,60,0.16), transparent 70%);
+}
+.report-page header.hero > * { position: relative; z-index: 1; }
+.report-page header.hero h1 { margin: 0 0 8px; font-size: 30px; font-weight: 700; }
+.report-page header.hero .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+.report-page .topline { display: flex; gap: 32px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--border); }
+.report-page .stat-block strong { display: block; font-family: "Space Grotesk"; font-size: 26px; font-weight: 700; color: var(--gold-2); line-height: 1.1; }
+.report-page .stat-block span { font-size: 13px; color: var(--muted); }
+
+.report-page section {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 26px; margin-bottom: 22px;
+}
+.report-page section h2 {
+  margin: 0 0 4px; font-size: 20px; font-weight: 600; color: var(--text);
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.report-page section h2 .scope { font-size: 13px; color: var(--muted-2); font-weight: 400; margin-left: 8px; font-family: "Inter"; letter-spacing: 0; }
+.report-page section .intro { color: var(--muted); margin: 14px 0 20px; font-size: 14.5px; }
+
+.report-page code {
+  background: var(--panel-2); color: var(--gold-2);
+  padding: 2px 6px; border-radius: 5px; border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 0.82em;
+}
+
+.report-page footer.foot {
+  margin-top: 30px; padding: 22px 4px 0; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--muted-2); text-align: center;
+}
+.report-page footer.foot a { color: var(--gold-2); }
+.report-page footer.foot a:hover { color: var(--gold); }
+
+/* ---------- 5 · Docs site (scoped to .docs-page) ---------- */
+.docs-page { font-size: 16px; }
+
+/* Top bar */
+.docs-top {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  background: rgba(10, 16, 32, 0.78); border-bottom: 1px solid var(--border);
+}
+.docs-top-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; }
+.docs-brand img { height: 30px; width: auto; display: block; }
+.docs-top-links { display: flex; align-items: center; gap: 18px; }
+.docs-top-links a { color: var(--muted); font-weight: 500; font-size: 14.5px; }
+.docs-top-links a:hover { color: var(--text); }
+.docs-top-links a.btn { color: var(--text); font-weight: 600; font-size: 14px; padding: 8px 14px; gap: 7px; }
+.docs-top-links a.btn:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* Shell: sidebar + content */
+.docs-shell { max-width: 1240px; margin: 0 auto; padding: 0 24px;
+  display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 48px; align-items: start; }
+.docs-sidebar { position: sticky; top: 60px; align-self: start;
+  max-height: calc(100vh - 60px); overflow-y: auto; padding: 30px 0; }
+.docs-nav-title { font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted-2); margin: 0 0 14px; }
+.docs-nav ul { list-style: none; margin: 0; padding: 0; }
+.docs-nav > ul > li > a {
+  display: block; padding: 7px 12px; border-radius: 9px; font-size: 14.5px;
+  color: var(--muted); font-weight: 500; border-left: 2px solid transparent;
+}
+.docs-nav > ul > li > a:hover { color: var(--text); background: var(--panel); }
+.docs-nav > ul > li > a.active { color: var(--gold-2); background: rgba(230,162,60,0.08);
+  border-left-color: var(--gold); font-weight: 600; }
+.docs-subnav { list-style: none; margin: 2px 0 8px; padding: 0; }
+.docs-subnav a { display: block; padding: 4px 12px 4px 22px; font-size: 13px;
+  color: var(--muted-2); border-left: 2px solid var(--border); }
+.docs-subnav a:hover { color: var(--text); border-left-color: var(--border-hi); }
+
+/* Content */
+.docs-main { padding: 38px 0 80px; min-width: 0; }
+.docs-edit { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border);
+  font-size: 13.5px; }
+.prose { max-width: 800px; }
+.prose > :first-child { margin-top: 0; }
+.prose h1 { font-size: clamp(30px, 4vw, 40px); font-weight: 700; line-height: 1.12; margin: 0 0 18px; }
+.prose h2 { font-size: 25px; font-weight: 600; margin: 46px 0 14px; padding-top: 16px;
+  border-top: 1px solid var(--border); scroll-margin-top: 76px; }
+.prose h3 { font-size: 19px; font-weight: 600; margin: 30px 0 10px; scroll-margin-top: 76px; }
+.prose p { color: var(--muted); margin: 0 0 16px; }
+.prose strong { color: var(--text); font-weight: 600; }
+.prose a { font-weight: 500; }
+.prose a:hover { text-decoration: underline; }
+.prose ul, .prose ol { color: var(--muted); margin: 0 0 16px; padding-left: 24px; }
+.prose li { margin: 6px 0; }
+.prose li::marker { color: var(--muted-2); }
+.prose blockquote { margin: 18px 0; padding: 4px 18px; border-left: 3px solid var(--gold);
+  background: rgba(230,162,60,0.05); border-radius: 0 8px 8px 0; color: var(--text); }
+.prose blockquote p { color: var(--text); }
+.prose hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+.prose code { background: var(--panel-2); color: var(--gold-2); padding: 2px 6px;
+  border-radius: 5px; border: 1px solid var(--border); font-family: var(--mono); font-size: 0.85em; }
+.prose pre { background: #06090f; border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 18px; overflow-x: auto; margin: 0 0 18px;
+  box-shadow: 0 16px 36px -20px rgba(0,0,0,0.7); }
+.prose pre code { background: none; border: none; padding: 0; color: #cfe0f2;
+  font-size: 13px; line-height: 1.75; }
+.prose pre.mermaid { background: transparent; border: 0; border-radius: 0; padding: 8px 0;
+  box-shadow: none; overflow-x: auto; text-align: center; line-height: normal; margin: 0 0 22px; }
+.prose pre.mermaid svg { max-width: 100%; height: auto; }
+.prose table { width: 100%; border-collapse: collapse; margin: 4px 0 22px; font-size: 14px; display: block; overflow-x: auto; }
+.prose thead th { background: var(--panel-2); color: var(--text); text-align: left;
+  font-weight: 600; padding: 10px 13px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.prose tbody td { padding: 10px 13px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+.prose tbody tr:hover { background: var(--panel); }
+
+@media (max-width: 860px) {
+  .docs-shell { grid-template-columns: 1fr; gap: 0; }
+  .docs-sidebar { position: static; max-height: none; overflow: visible;
+    padding: 20px 0; border-bottom: 1px solid var(--border); }
+  .docs-main { padding-top: 26px; }
+}
+
+
+/* Report masthead — minimal word-mark header for the hosted coverage pages. */
+.report-page .pmast { display: flex; align-items: center; padding: 16px 0 14px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+.report-page .pmast-brand { display: inline-flex; align-items: center; }
+.report-page .pmast img { height: 26px; width: auto; display: block; }
+</style>
+<script data-goatcounter="https://open-agent-ai-security.goatcounter.com/count" async src="../assets/count.js"></script>
+</head>
+<body class="docs-page">
+<header class="docs-top">
+  <div class="docs-top-inner">
+    <a class="docs-brand" href="../"><img src="../graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen" width="117" height="30"></a>
+    <div class="docs-top-links">
+      <a href="../">Home</a>
+      <a class="btn btn-ghost" href="https://github.com/open-agent-ai-security/socxen" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>GitHub</a>
+    </div>
+  </div>
+</header>
+<div class="docs-shell">
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#claude-code">Claude Code</a></li><li><a href="#openai-codex">OpenAI Codex</a></li><li><a href="#credentials-the-only-manual-step">Credentials (the only manual step)</a></li><li><a href="#governance-turn-on-the-safety-gate-do-not-skip-this">Governance — turn on the safety gate (do not skip this)</a></li><li><a href="#audit-logging-on-by-default">Audit logging (on by default)</a></li><li><a href="#updating">Updating</a></li><li><a href="#any-other-agent">Any other agent</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="soc-investigate.html">Skill: soc-investigate</a></li><li><a href="triage-cases.html">Skill: triage-cases</a></li><li><a href="rule-tuning.html">Skill: rule-tuning</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="red-team.html">Red-team methodology</a></li><li><a href="red-team-history.html">Red-team history</a></li><li><a href="abv.html">Agent behavior verification</a></li></ul></nav></aside>
+  <main class="docs-main">
+    <article class="prose"><h1 id="installation">Installation</h1>
+<p>socxen ships as a portable <strong>agent skill suite</strong> (<code>skills/</code>) for <strong>Claude Code</strong> and <strong>OpenAI Codex</strong>,
+running against the <strong>Exabeam New-Scale MCP</strong>. Both hosts load the same skills and the same guarded
+connector; only the packaging and where the safety gate lives differ. It investigates and triages alerts/cases end to end and produces
+a structured report. It takes no destructive action: containment is <em>recommended</em> for a human, and
+dismiss/close are <em>gated</em> — by permission rules <strong>and</strong> an explicit confirmation the skill asks for.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li><strong>A host agent</strong> — <strong>Claude Code</strong> (the <code>claude</code> CLI) or <strong>OpenAI Codex</strong> (the <code>codex</code> CLI). Both need
+  tool use and multi-step instruction following.</li>
+<li><strong>A supported model.</strong> On <strong>Claude Code</strong>, socxen is validated on <strong>Claude Sonnet 4.6+ or Opus</strong>. Sonnet
+  is the <em>floor</em> — our pre-release red-team gates on the weakest supported model as the conservative
+  default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
+  Opus. Smaller models (e.g. Haiku) are <strong>not supported</strong> for this skill.</li>
+</ul>
+<p>On <strong>Codex</strong>, the red-team gate has run on <strong>GPT-5.6 Terra</strong> at <code>model_reasoning_effort = "medium"</code>
+  (2026-08-27: zero landings in the blocking classes — see <code>security/redteam/HISTORY.md</code>). The routing
+  evals have not yet been run against an OpenAI model, and the Sol sweep has not been run.</p>
+<p>The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
+  strongest at release — and map by capability, not by name:</p>
+<table>
+<thead>
+<tr>
+<th>role</th>
+<th>Claude Code</th>
+<th>Codex</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>release sweep</td>
+<td>Opus</td>
+<td>GPT-5.6 <strong>Sol</strong></td>
+</tr>
+<tr>
+<td><strong>floor — the red-team gate</strong></td>
+<td><strong>Sonnet 4.6+</strong></td>
+<td>GPT-5.6 <strong>Terra</strong></td>
+</tr>
+<tr>
+<td>not supported</td>
+<td>Haiku</td>
+<td>GPT-5.6 <strong>Luna</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Luna is the Haiku-tier analogue, so it is out for the same reason Haiku is. Reasoning effort is pinned
+  at <code>model_reasoning_effort = "medium"</code> — Codex's own default — and the red-team result will be stated
+  at that level. Codex accepts <code>minimal | low | medium | high | xhigh</code>; there is no <code>auto</code>. A run at a
+  different effort is a different result, so quote the effort alongside the number.</p>
+<p>Until that run lands, treat the Codex path as <em>packaged, not proven</em> — the same conservative reading
+  you would give any un-gated release.
+- <strong>An Exabeam New-Scale API key + secret</strong> (OAuth client-credentials), from the New-Scale platform
+  (role-gated; the MCP inherits the key's access level). You wire it up in <em>Connect the Exabeam MCP</em>
+  below — the skill uses read tools to gather evidence and case/alert tools to act.
+- <strong><a href="https://docs.astral.sh/uv/"><code>uv</code></a></strong> — runs the connector's bridge; it auto-installs its own Python
+  dependencies, so there's nothing for you to <code>pip install</code>.
+- <strong>Network access</strong> for your agent's LLM provider during analysis.</p>
+<h2 id="claude-code">Claude Code</h2>
+<p>Install from the plugin marketplace. From your terminal:</p>
+<pre><code class="language-bash">claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install socxen@open-agent-ai-security
+claude plugin list      # confirm: socxen@open-agent-ai-security, enabled
+</code></pre>
+<blockquote>
+<p>socxen is published through the community marketplace
+(<a href="https://github.com/open-agent-ai-security/plugins">open-agent-ai-security/plugins</a>), which
+registers under the name <code>open-agent-ai-security</code> — so the install target is
+<code>socxen@open-agent-ai-security</code> (the part after <code>@</code> is the marketplace name). The same
+marketplace serves every community plugin (praxen is <code>praxen@open-agent-ai-security</code>); one
+<code>marketplace add</code> covers them all.</p>
+</blockquote>
+<p><strong>Upgrading from the pre-marketplace install (<code>socxen@socxen</code>)?</strong> The plugin was briefly
+distributed from a marketplace hosted in this repo. Migrate with:</p>
+<pre><code class="language-bash">claude plugin marketplace remove socxen                        # also uninstalls socxen@socxen
+claude plugin marketplace add open-agent-ai-security/plugins   # re-points in place if already present
+claude plugin install socxen@open-agent-ai-security
+</code></pre>
+<blockquote>
+<p><strong>Remove the old marketplace first — don't just add the new one.</strong> The two marketplaces have
+<em>different</em> names (<code>socxen</code> vs <code>open-agent-ai-security</code>), so adding the new one leaves the old
+one in place and you end up with <strong>two enabled copies of socxen</strong> — the current release and the
+retired one — both registering the <code>soc-investigate</code> skill. Removing a marketplace uninstalls
+the plugins that came from it, which is what you want here, so a separate
+<code>claude plugin uninstall socxen@socxen</code> is unnecessary.</p>
+<p>Already have a marketplace named <code>open-agent-ai-security</code> from praxen? Leave it — the add above
+re-points it to the catalog in place, without disturbing your installed praxen.</p>
+</blockquote>
+<p>The skill registers as <code>soc-investigate</code>. The in-session equivalents — <code>/plugin marketplace add …</code>,
+<code>/plugin install …</code>, <code>/plugin list</code> — do the same thing; if you install from within a session, run
+<code>/reload-plugins</code> (or restart) to activate the skill. Prefer the terminal <code>claude plugin …</code> form when
+scripting — it's argument-driven and runs the same way on every interface.</p>
+<p>Or use the guided installer — it wraps the same commands with preflight checks (CLI, <code>uv</code>,
+credentials), a live MCP connectivity test, and a governance-gate check. Idempotent; safe to re-run
+(re-running also picks up updates):</p>
+<pre><code class="language-bash">git clone https://github.com/open-agent-ai-security/socxen.git
+cd socxen &amp;&amp; ./plugin/install.sh
+</code></pre>
+<h2 id="openai-codex">OpenAI Codex</h2>
+<p>Codex reads the <strong>same community marketplace</strong> as the Claude Code path — the catalog manifest and its
+<code>main</code>-branch pin are shared, so the plugin key is the same shape. From your terminal:</p>
+<pre><code class="language-bash">codex plugin marketplace add open-agent-ai-security/plugins
+codex plugin add socxen@open-agent-ai-security
+codex plugin list      # confirm: socxen@open-agent-ai-security, installed, enabled
+</code></pre>
+<p>That's the whole install. <strong>There is no installer script and no permissions merge on Codex</strong> — Codex
+requires human approval for its destructive-annotated write tools and refuses them when nobody is present, so the gate
+needs nothing merged. See Governance below.</p>
+<p>The bundled connector registers as <code>exabeam</code> and the three skills are available to every Codex session.
+To check credentials and reach the tenant, run the diagnostics from a clone, or from the installed plugin
+directory — <code>codex plugin list</code> prints its path:</p>
+<pre><code class="language-bash">./plugin/preflight.sh   # from a clone (from the installed plugin directory: ./preflight.sh); read-only, nothing is written
+</code></pre>
+<blockquote>
+<p><strong>Two host agents on one machine?</strong> <code>preflight.sh</code> detects which one it is checking, or takes
+<code>--platform claude|codex</code>. Installing on both is supported, but each host keeps its own plugin copy
+and its own gate — verify them separately.</p>
+</blockquote>
+<h2 id="credentials-the-only-manual-step">Credentials (the only manual step)</h2>
+<p>socxen <strong>bundles</strong> the Exabeam connection: installing the plugin auto-registers a server named
+<code>exabeam</code> — a small local bridge that <strong>refreshes the OAuth token automatically</strong>, so you never deal
+with expiring tokens. No <code>claude mcp add</code>, no clone. The only thing you supply is your key + secret,
+in <code>~/.exabeam-mcp.env</code>:</p>
+<pre><code class="language-bash">cat &gt; ~/.exabeam-mcp.env &lt;&lt;'EOF'
+EXABEAM_MCP_URL=https://api.&lt;region&gt;.exabeam.cloud/mcp
+EXABEAM_API_KEY=your-key
+EXABEAM_API_SECRET=your-secret
+EOF
+chmod 600 ~/.exabeam-mcp.env
+</code></pre>
+<p>Requires <a href="https://docs.astral.sh/uv/"><code>uv</code></a> (it runs the bundled bridge). Restart your host agent (on
+Claude Code, <code>/reload-plugins</code>); confirm with <code>claude mcp list</code> → <code>exabeam ✔ Connected</code>, or on Codex
+<code>codex mcp get exabeam</code>. Regions: <code>us-west</code>,
+<code>us-east</code>, <code>ca</code>, <code>eu</code>, <code>sa</code>, <code>sg</code>, <code>ch</code>, <code>jp</code>, <code>au</code>.</p>
+<details><summary>Advanced — wire it manually (no auto-refresh)</summary>
+
+If you'd rather not use the bundled bridge, register the remote MCP directly — but the bearer token
+expires in ~4h and you'll have to re-add it each time:
+
+
+<pre><code class="language-bash">TOK=$(curl -s https://api.&lt;region&gt;.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \
+  -d '{&quot;grant_type&quot;:&quot;client_credentials&quot;,&quot;client_id&quot;:&quot;&lt;KEY&gt;&quot;,&quot;client_secret&quot;:&quot;&lt;SECRET&gt;&quot;}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)[&quot;access_token&quot;])')
+claude mcp add --transport http exabeam https://api.&lt;region&gt;.exabeam.cloud/mcp \
+  --header &quot;Authorization: Bearer $TOK&quot;
+</code></pre>
+
+</details>
+
+<p>The bundled server registers as <code>exabeam</code>; the governance rules match its plugin-namespaced tools
+(<code>mcp__plugin_socxen_exabeam__…</code> — see Governance below).</p>
+<h2 id="governance-turn-on-the-safety-gate-do-not-skip-this">Governance — turn on the safety gate (do not skip this)</h2>
+<blockquote>
+<p>🛑 <strong>On Claude Code this is the most important step on the page. Install the permissions pack before you
+point socxen at anything real.</strong> It is the <em>only</em> hard, harness-enforced lock on dismiss/close. Skip it
+and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
+as mandatory, not "recommended."</p>
+<p><strong>On Codex there is nothing to merge — Codex requires approval for the destructive write tools and
+refuses them when no human is present.</strong> Skip to
+<a href="#verifying-the-gate-on-codex">Verifying the gate on Codex</a>.</p>
+</blockquote>
+<h3 id="claude-code_1">Claude Code</h3>
+<p>This is the control that makes socxen safe to point at real alerts. Merge the <code>permissions</code> block from
+<code>skills/soc-investigate/settings.snippet.json</code> — inside the installed plugin, or
+<code>plugin/skills/soc-investigate/settings.snippet.json</code> from a clone — into the settings file Claude Code
+reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-settings-file">Which settings file?</a> below):</p>
+<ul>
+<li><strong>allow</strong> the read + escalation tools,</li>
+<li><strong><code>ask</code></strong> on <code>update_alert</code> / <code>update_case</code> (dismiss/close — where a wrong verdict does the most harm),</li>
+<li><strong><code>deny</code></strong> the 17 containment tools (defense-in-depth; the MCP exposes none today).</li>
+</ul>
+<p>Merged, this is a <strong>hard, harness-enforced gate</strong>: Claude Code prompts you before a dismiss/close runs
+and will not execute it without your approval, and deterministically hard-blocks the containment tools.
+<strong>Until it's merged there is no permission-layer gate</strong> — only the skill's in-prompt ask (softer). The
+rules use the <strong>bundled</strong> MCP's tool names (<code>mcp__plugin_socxen_exabeam__…</code>); for the advanced manual
+<code>claude mcp add exabeam</code> path instead, use <code>mcp__exabeam__…</code>.</p>
+<h3 id="let-the-installer-merge-it-for-you">Let the installer merge it for you</h3>
+<p>From a clone, <code>plugin/install.sh</code> can perform the merge instead of you hand-editing JSON:</p>
+<pre><code class="language-bash">./plugin/install.sh --merge-permissions   # merge, then verify the gate reads ON
+</code></pre>
+<p><code>--checks-only</code> outranks it: diagnostics promise to change nothing, so the two together skip the merge
+and say so.</p>
+<p>It is <strong>opt-in and never silent</strong>. Installing without the flag still only <em>warns</em> that the gate is
+off — and <code>-y</code> does not stand in for consent here, because installation alone must never rewrite your
+settings. Run interactively without the flag and, if the gate is off, the installer shows you exactly
+which rules it would add and asks a plain <code>y/N</code> first.</p>
+<p>What it guarantees:</p>
+<ul>
+<li><strong>Backs up first</strong> — a timestamped copy of <code>settings.json</code> beside the original, before any write.</li>
+<li><strong>Additive only</strong> — your existing rules are never removed, reordered, or retiered; ours are appended.</li>
+<li><strong>Stops on a tier conflict</strong> — if one of these tools already sits in a <em>different</em> tier than the
+  snippet specifies, that's your decision (or a mis-merge worth a look), so it writes <strong>nothing</strong> and
+  tells you which entries to resolve.</li>
+<li><strong>Idempotent</strong> — re-running is safe; already-merged rules are left alone. Worth re-running even when
+  the gate reads ON: a hand-merge of just the two <code>ask</code> lines leaves the containment <code>deny</code> list missing.</li>
+<li><strong>Fails honestly</strong> — no <code>python3</code>, or a snippet it can't find, means "cannot merge, here's the manual
+  path," never a false green. A failed write is restored from the backup.</li>
+</ul>
+<p>The merge itself is <code>skills/soc-investigate/merge_permissions.py</code> (<code>plugin/skills/…</code> from a clone),
+which you can also run directly —
+add <code>--dry-run</code> to see the exact changes without writing anything.</p>
+<h3 id="which-settings-file">Which settings file?</h3>
+<p>The one Claude Code will actually read: <code>SOCXEN_SETTINGS_FILE</code> if you set it,
+otherwise <code>$CLAUDE_CONFIG_DIR/settings.json</code> if your config dir is relocated, otherwise
+<code>~/.claude/settings.json</code>. Every message names the resolved path, so you can always see which file was
+checked or written.</p>
+<blockquote>
+<p>⚠️ <strong>Do not run socxen with <code>--dangerously-skip-permissions</code></strong>, bypass-permissions, or auto-accept
+modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
+soft ask. Keep permissions on.</p>
+</blockquote>
+<p>Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
+it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in
+what it writes back. See <strong><a href="security-guardrails.html">Security guardrails</a></strong> for what to expect.</p>
+<h3 id="verifying-the-gate-on-codex">Verifying the gate on Codex</h3>
+<p>Codex lets a plugin declare tool-approval policy for its own bundled MCP server, so socxen ships the gate
+rather than asking you to merge it. There is no snippet and no merge step: in an <strong>interactive</strong> Codex
+session the gate is on from the moment you install.</p>
+<p><strong>Codex requires a human before any destructive action, and refuses it when there is no human.</strong> The
+Exabeam MCP annotates its four write tools — <code>update_alert</code>, <code>update_case</code>, <code>create_case</code>,
+<code>create_case_notes</code> — with <code>destructiveHint: true</code>, and Codex requires approval for a destructive-
+annotated tool in <em>every</em> approval mode (read-only tools run silently). Under <code>codex exec</code>, or any run
+with nobody at the keyboard, there is no one to approve, so Codex cancels the call: verified against
+<code>codex-cli</code> 0.146.0, a headless <code>exabeam_update_case</code> returns <code>user cancelled MCP tool call</code> and never
+reaches the tenant. An action that needs a human, run without one, fails — the correct default.</p>
+<p>So on Codex the host owns the approval prompt, exactly as Claude Code's permission layer does. socxen
+adds one thing on top: the containment tools ship in <code>disabled_tools</code>, removed from the model's view
+entirely. One difference from Claude worth knowing: because Exabeam marks <em>all four</em> write tools
+destructive, Codex also prompts for escalation (<code>create_case</code>, <code>create_case_notes</code>) where Claude runs
+those silently. Noisier, not less safe — and it is Exabeam's annotation, not a socxen setting, so it
+cannot be quieted from config.</p>
+<p>The same three tiers, expressed as Codex approval modes in <code>.mcp.codex.json</code>:</p>
+<ul>
+<li><strong><code>approval_mode: "auto"</code></strong> on the read + escalation tools,</li>
+<li><strong><code>approval_mode: "approve"</code></strong> on <code>update_alert</code> / <code>update_case</code> (dismiss/close),</li>
+<li><strong><code>disabled_tools</code></strong> for the containment tools — Codex applies this <em>after</em> any allowlist, so they
+  cannot be re-enabled at runtime and never reach the model at all.</li>
+</ul>
+<p><code>default_tools_approval_mode</code> is <code>approve</code>, which makes the Codex gate slightly stricter than the Claude
+one in one deliberate place: a tool the Exabeam MCP grows that socxen has not classified asks you rather
+than inheriting a permissive default.</p>
+<p>Verify it:</p>
+<pre><code class="language-bash">./preflight.sh --platform codex
+</code></pre>
+<p>Expect <strong><code>Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the
+destructive write tools and refuses them with no human present</code></strong>. Or
+read the config directly:</p>
+<pre><code class="language-bash">codex mcp get exabeam    # expect default_tools_approval_mode: approve, and a disabled_tools list
+</code></pre>
+<blockquote>
+<p><strong>If no <code>exabeam</code> server resolves</strong>, that is not the same as the gate being off — Codex drops a bundled
+server entirely if any part of its config is invalid, and <code>codex plugin add</code> still reports success.
+Reinstall with <code>codex plugin add socxen@open-agent-ai-security</code> and check again.</p>
+</blockquote>
+<p>You can tighten socxen's defaults further in <code>~/.codex/config.toml</code> under
+<code>[plugins."socxen@open-agent-ai-security".mcp_servers.exabeam]</code> — for example moving more tools to
+<code>approve</code>. Overrides there win over what the plugin ships.</p>
+<h2 id="audit-logging-on-by-default">Audit logging (on by default)</h2>
+<p>socxen keeps a <strong>structured audit log out of the box</strong> — a machine-parseable record of every tool call,
+the gated action taken (which alert/case, to what disposition), and when the guardrails fired. It needs
+<strong>no setup</strong>: it writes newline-delimited JSON to a local, rotating file at <strong><code>~/.socxen/telemetry.jsonl</code></strong>
+(bounded to ~60 MB), with no network egress.</p>
+<p>When you're ready to do more with it, you can point it elsewhere or turn it off — route events to
+Exabeam, an OpenTelemetry collector, or a webhook, tune the rotation size, or disable it entirely with
+<code>SOCXEN_OBSERVRA=off</code>. See <strong><a href="logging.html">Logging</a></strong> for exactly what is (and isn't) recorded, where to
+find and read the file, and every control knob.</p>
+<h2 id="updating">Updating</h2>
+<pre><code class="language-bash">claude plugin marketplace update open-agent-ai-security     # refresh the catalog
+claude plugin update socxen@open-agent-ai-security          # install the latest
+</code></pre>
+<p>Both steps matter: without the first, <code>plugin update</code> only sees your local (possibly stale) catalog
+cache. Restart or <code>/reload-plugins</code> to apply.</p>
+<h3 id="auto-update-fleet-config-claude-code">Auto-update / fleet config (Claude Code)</h3>
+<p>Auto-update is per-marketplace and off by default for third-party marketplaces. Enable it
+interactively: <code>/plugin</code> → <strong>Marketplaces</strong> → <code>open-agent-ai-security</code> → <strong>enable auto-update</strong>.
+Or fleet-wide in managed <code>settings.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;extraKnownMarketplaces&quot;: {
+    &quot;open-agent-ai-security&quot;: {
+      &quot;source&quot;: { &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;open-agent-ai-security/plugins&quot; },
+      &quot;autoUpdate&quot;: true
+    }
+  }
+}
+</code></pre>
+<h3 id="openai-codex_1">OpenAI Codex</h3>
+<pre><code class="language-bash">codex plugin marketplace upgrade open-agent-ai-security
+codex plugin add socxen@open-agent-ai-security
+</code></pre>
+<h2 id="any-other-agent">Any other agent</h2>
+<p>socxen is just a skill folder in the repo — any capable coding agent can fetch and run it:</p>
+<blockquote>
+<p>Clone <code>https://github.com/open-agent-ai-security/socxen</code> and follow its <code>soc-investigate</code> skill to
+investigate Exabeam alert &lt;id&gt;, using the Exabeam New-Scale MCP.</p>
+</blockquote>
+<h2 id="uninstalling">Uninstalling</h2>
+<pre><code class="language-bash">claude plugin uninstall socxen@open-agent-ai-security
+claude plugin marketplace remove open-agent-ai-security   # optional — see note
+</code></pre>
+<p>The marketplace is removed by its registered name (<code>open-agent-ai-security</code>). Skip that step if
+you use other community plugins from it (e.g. praxen) — removing a marketplace also uninstalls
+every plugin that was installed from it.</p>
+<p>On <strong>Codex</strong>:</p>
+<pre><code class="language-bash">codex plugin remove socxen@open-agent-ai-security
+codex plugin marketplace remove open-agent-ai-security   # optional — same caveat as above
+</code></pre>
+<p>Removing the plugin also removes the gate it shipped, since the two are the same artifact. Neither
+command touches <code>~/.exabeam-mcp.env</code> — delete that yourself if you are done with the credentials.</p></article>
+    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/installation.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
+  </main>
+</div>
+
+</body>
+</html>
