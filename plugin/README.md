@@ -71,7 +71,7 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 > Do not point socxen at alerts you care about until it's on. The
 > **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you
 > through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
-> default and `-y` does not authorise it — the flag is the consent. The merge is additive-only, backs
+> default and `-y` does not authorize it — the flag is the consent. The merge is additive-only, backs
 > your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /

@@ -70,7 +70,7 @@ step. The rest of this section is the **Claude Code** gate:
 > cd socxen && ./plugin/install.sh --merge-permissions
 > ```
 >
-> The flag is the consent: nothing merges by default and `-y` doesn't authorise it. To merge by hand
+> The flag is the consent: nothing merges by default and `-y` doesn't authorize it. To merge by hand
 > instead, and to supply your Exabeam credentials (the only other setup step), follow
 > **[the setup guide](plugin/docs/installation.md)**.
 

@@ -48,7 +48,7 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   (unlike a plain web address, a pasted formula re-arms the moment it lands in a spreadsheet cell).
 - **Clickable links.** Any link written into a note is **escaped** so it can't be clicked or auto-opened
   — you'll see it rendered as `hxxps://example[.]com` instead of a live link.
-- **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labelled
+- **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labeled
   password) or a structured identifier (a Social Security number, a payment-card number) is sitting in
   the alert data, socxen **masks it before writing** — you'll see `[REDACTED:aws-key]` or `[REDACTED:ssn]`
   in the note instead of the value. The finding is still recorded ("a credential was exposed here"); the
@@ -81,14 +81,14 @@ Keep expectations honest:
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen **persists** (case notes, exports) — the
   durable, wider-audience copy. A secret shown on **your own screen** during an investigation is *not*
-  redacted, and that's deliberate: you're already authorised to read the underlying log, so it crosses
+  redacted, and that's deliberate: you're already authorized to read the underlying log, so it crosses
   no trust boundary the console itself doesn't.
 - **Large results are written to a local file, and it isn't redacted.** When the Exabeam MCP returns a
   payload too big for the context window — a full case dump, the rule inventory — the harness writes it
   to a file under `~/.claude/projects/…/tool-results/` so socxen can extract the few fields it needs.
   That file holds raw telemetry and is *not* run through the redactor. It crosses **no trust boundary the
   console doesn't** — it lives on the same machine you're signed in to New-Scale from, where you're
-  already authorised to read that data — but unlike scratch it **persists after the session and is not
+  already authorized to read that data — but unlike scratch it **persists after the session and is not
   pruned automatically.** socxen itself neither writes nor transmits it (the harness does), but the raw
   copy is durable: **if the case data is sensitive, delete those files when you're done.**
 
@@ -96,7 +96,7 @@ Keep expectations honest:
   history under `~/.codex/` — `sessions/`, `archived_sessions/`, and SQLite stores such as
   `thread_history_*.sqlite` and `logs_*.sqlite` — rather than one file per oversized result. The same
   caution applies with less recourse: there is no single result file to delete. We have not yet
-  characterised precisely where an oversized MCP result lands on Codex, so until we have, treat the whole
+  characterized precisely where an oversized MCP result lands on Codex, so until we have, treat the whole
   of `~/.codex/` as durable and unredacted.
 - Redaction covers **structured** secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
   a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
@@ -105,11 +105,11 @@ Keep expectations honest:
 - A credential written as a **plain dictionary word directly after a line break**, with no label, no
   quotes and no table structure around it, is not masked — after a line break such a value is
   indistinguishable from the recommendation prose that normally follows ("credential — Rotation is
-  required immediately"), and redacting it would eat real analyst text. Labelled, quoted, backticked and
+  required immediately"), and redacting it would eat real analyst text. Labeled, quoted, backticked and
   table-cell credentials are all masked regardless of their shape.
 - A **bare, unstructured credential** — a password with no recognizable format, written into the report
   with no nearby label like "password:" — is caught on a best-effort basis, not guaranteed: with nothing
-  to grip (no format, no label), a deterministic pass can miss it. Labelled and structured credentials
+  to grip (no format, no label), a deterministic pass can miss it. Labeled and structured credentials
   are reliably masked; a value that is *only* a secret because of where it sat is the edge case. Treat a
   known-exposed password as compromised regardless of what the note shows.
 - A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
