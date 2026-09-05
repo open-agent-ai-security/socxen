@@ -28,7 +28,7 @@ a{color:#0a7d99}
 <body>
 <header><div class="wrap">
   <h1><span class="sc">socxen</span> — AI Bill of Materials</h1>
-  <p class="tag">socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent&#x27;s tool-approval rules.</p>
+  <p class="tag">socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.</p>
   <div class="badges"><span class="badge">v0.8.5</span><span class="badge">CycloneDX 1.6</span><span class="badge">Apache-2.0</span><span class="badge">serial 2333b841…</span></div>
 </div></header>
 <div class="wrap">
@@ -36,7 +36,7 @@ a{color:#0a7d99}
   hosted foundation model (Claude) it does not ship, and its substance is a <b>prompt/methodology</b>
   plus a small <b>MCP connector</b>. The inventory below is generated deterministically from the repo's
   own sources by <code>security/gen_aibom.py</code>.</p>
-  <p class="meta">Supplier: Open Agent AI Security · Generated: 2026-09-06T17:40:39Z · Serial: <code>urn:uuid:2333b841-89d2-58be-8728-f3371e8bffdf</code></p>
+  <p class="meta">Supplier: Open Agent AI Security · Generated: 2026-09-05T20:17:49Z · Serial: <code>urn:uuid:2333b841-89d2-58be-8728-f3371e8bffdf</code></p>
 
   <h2>Components</h2>
   <table><tbody><tr><td class="cat" colspan="2">Foundation model</td></tr>
@@ -59,7 +59,7 @@ a{color:#0a7d99}
   <div class="prop"><b>foundationModel</b> — Claude (Anthropic), external hosted API</div><div class="prop"><b>humanInTheLoop</b> — required for dismiss/close (update_alert/update_case)</div><div class="prop"><b>autonomousActions</b> — read/search + create_case/case_notes (escalation)</div><div class="prop"><b>containmentCapability</b> — none — recommend-only, performed by a human in EDR/IAM</div><div class="prop"><b>guardrails</b> — permission tiers 18 allow / 6 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop</div><div class="prop"><b>secretsHandling</b> — Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged</div>
 
   <h2>Provenance</h2>
-  <ul><li><a href="https://github.com/open-agent-ai-security/socxen">vcs</a> — https://github.com/open-agent-ai-security/socxen</li><li><a href="https://github.com/open-agent-ai-security/socxen">website</a> — https://github.com/open-agent-ai-security/socxen</li><li><a href="https://github.com/open-agent-ai-security/plugins">distribution</a> — https://github.com/open-agent-ai-security/plugins</li></ul>
+  <ul><li><a href="https://github.com/open-agent-ai-security/socxen">vcs</a> — https://github.com/open-agent-ai-security/socxen</li><li><a href="https://github.com/open-agent-ai-security/socxen">website</a> — https://github.com/open-agent-ai-security/socxen</li><li><a href="https://github.com/open-agent-ai-security/plugins">distribution</a> — https://github.com/open-agent-ai-security/plugins</li><li><a href="sbom.cdx.json">bom</a> — sbom.cdx.json</li></ul>
 
   <footer>CycloneDX 1.6 · urn:uuid:2333b841-89d2-58be-8728-f3371e8bffdf<br>
   Regenerate with <code>uv run security/gen_aibom.py</code>. Raw BOM: <code>security/aibom.cdx.json</code>.</footer>

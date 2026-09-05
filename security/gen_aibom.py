@@ -106,6 +106,8 @@ def build_bom(timestamp):
             {"type": "vcs", "url": repo},
             {"type": "website", "url": plugin["homepage"]},
             {"type": "distribution", "url": marketplace_url, "comment": f"Claude Code plugin marketplace: {marketplace_key}"},
+{"type": "bom", "url": "sbom.cdx.json",
+             "comment": "The software bill of materials for the same release — the bridge's full locked dependency tree with artifact hashes (security/gen_sbom.py)"},
         ],
         "properties": [
             {"name": "ai:systemType", "value": "agent"},

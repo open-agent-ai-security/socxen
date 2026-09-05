@@ -9,7 +9,7 @@
       "type": "application",
       "name": "socxen",
       "version": "0.8.5",
-      "description": "socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent's tool-approval rules.",
+      "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
       "licenses": [
         {
           "license": {
@@ -37,6 +37,11 @@
           "type": "distribution",
           "url": "https://github.com/open-agent-ai-security/plugins",
           "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"
+        },
+        {
+          "type": "bom",
+          "url": "sbom.cdx.json",
+          "comment": "The software bill of materials for the same release — the bridge's full locked dependency tree with artifact hashes (security/gen_sbom.py)"
         }
       ],
       "properties": [
@@ -95,7 +100,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-06T17:40:39Z"
+    "timestamp": "2026-09-05T20:17:49Z"
   },
   "components": [
     {

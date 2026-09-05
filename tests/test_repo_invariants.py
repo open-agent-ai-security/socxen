@@ -586,5 +586,27 @@ def test_docs_describe_the_gate_that_ships():
     assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
 
 
+def test_sbom_is_current_and_mirrors_the_lockfile():
+    """The SBOM is derived from the bridge's uv lockfile and nothing else: every locked package is a
+    component with its version and at least one artifact hash, the direct dependencies are exactly the
+    lock manifest's, the root references the AI BOM and the AI BOM references it back, and the
+    committed copy is not stale (the same --check CI runs)."""
+    import subprocess, sys, tomllib
+    r = subprocess.run(["uv", "run", str(ROOT / "security" / "gen_sbom.py"), "--check"], capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode == 0, r.stdout + r.stderr
+    lock = tomllib.loads((ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py.lock").read_text())
+    sbom = json.loads((ROOT / "security" / "sbom.cdx.json").read_text())
+    comps = {(c["name"], c["version"]): c for c in sbom["components"]}
+    assert comps.keys() == {(p["name"], p["version"]) for p in lock["package"]}, "SBOM components != locked packages"
+    assert all(c["hashes"] and c["purl"] == f"pkg:pypi/{n}@{v}" for (n, v), c in comps.items())
+    direct = {c["name"] for c in sbom["components"] if any(p["value"] == "direct" for p in c["properties"])}
+    assert direct == {r["name"] for r in lock["manifest"]["requirements"]}
+    root = sbom["metadata"]["component"]
+    assert any(x["type"] == "bom" and x["url"] == "aibom.cdx.json" for x in root["externalReferences"])
+    aibom = json.loads((ROOT / "security" / "aibom.cdx.json").read_text())
+    assert any(x["type"] == "bom" and x["url"] == "sbom.cdx.json" for x in aibom["metadata"]["component"]["externalReferences"])
+    assert root["bom-ref"] == aibom["metadata"]["component"]["bom-ref"], "both BOMs describe the same release"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

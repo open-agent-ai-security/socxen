@@ -59,6 +59,11 @@ jobs:
       - name: Codex approval map is generated from the permission snippet (no drift)
         run: uv run scripts/gen_codex_mcp.py --check
 
+      - name: SBOM is current with the lockfile
+        # Fails if security/sbom.cdx.json drifts from the bridge's uv lockfile — regenerate with
+        # `uv run security/gen_sbom.py` (bump_version.py does it for you on a release).
+        run: uv run security/gen_sbom.py --check
+
   security:
     name: Security lint + dependency audit
     runs-on: ubuntu-latest
@@ -87,3 +92,20 @@ jobs:
         run: |
           uv export --script plugin/connector/exabeam-mcp-bridge.py --format requirements-txt --no-hashes -q > /tmp/bridge-requirements.txt
           uv run --with pip-audit pip-audit -r /tmp/bridge-requirements.txt --strict --progress-spinner off
+
+      - name: Build the SBOM from the lockfile
+        # Regenerated on every run (not just committed) so the artifact below is always the tree that
+        # was audited one step up, whatever the state of the checked-in copy.
+        run: uv run security/gen_sbom.py
+
+      - name: Publish the SBOM as a build artifact
+        # CycloneDX 1.6 JSON + the HTML render, attached to this workflow run (90 days). Consumers who
+        # want the SBOM for a given commit take it from here; the committed copy is the reviewed one.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: socxen-sbom-${{ github.sha }}
+          path: |
+            security/sbom.cdx.json
+            security/sbom.html
+          retention-days: 90
+          if-no-files-found: error

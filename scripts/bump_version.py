@@ -36,6 +36,7 @@ GEN_IDENTITY = ROOT / "plugin/gen_identity.py"
 CODEX_PLUGIN = ROOT / "plugin/.codex-plugin/plugin.json"
 README = ROOT / "plugin" / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
+GEN_SBOM = ROOT / "security/gen_sbom.py"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
@@ -93,6 +94,11 @@ def main(argv):
         subprocess.run([sys.executable, str(GEN_AIBOM)], check=True, cwd=str(ROOT))
     else:
         print("  note: security/gen_aibom.py not present — skipped AI BOM regen", file=sys.stderr)
+    if GEN_SBOM.exists():
+        # the SBOM's root component carries the version and its serial is version-derived
+        subprocess.run(["uv", "run", str(GEN_SBOM)], check=True, cwd=str(ROOT))
+    else:
+        print("  note: security/gen_sbom.py not present — skipped SBOM regen", file=sys.stderr)
 
     # verify consistency (what the invariant tests enforce)
     got = {

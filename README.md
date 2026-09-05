@@ -96,7 +96,7 @@ access is not, by itself, something you can let near a SOC queue.
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) · [`.mcp.codex.json`](plugin/.mcp.codex.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context — bundled for each host |
 | **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: on Claude Code a bundled hook reads these tiers (the permission pack is an optional second lock); Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
-| **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
+| **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM and the SBOM, and the regression harness in `evals/` |
 
 ## Documentation
 
