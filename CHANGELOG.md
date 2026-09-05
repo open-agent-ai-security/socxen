@@ -34,7 +34,24 @@ governance model (feature → `dev`, release `dev` → `main`).
   with the bundled hook as the only gate and the bridge dry run as backstop; a write that reaches the
   bridge is a HOOK MISS and blocks.
 
+### Security
+- **Praxen 2.0.0-beta.1 gate scan of the bundled-hook tree** (Opus 5, high mode, with the first threat model):
+  **0 Critical — gate passes**; 3 High · 9 Medium; RAISE 3.15 (Established); remit v1.3 coverage 34 verified /
+  16 partial / 5 gap of 64. See `security/praxen/README.md`. Two of the three Highs are open maintainer
+  decisions (`exabeam_send_email` outside the neutralizer and the remit's channel table; unscreened remote
+  tool descriptions); the third is fixed below.
+
 ### Fixed
+- **The bundled hook's invocation now fails closed** (Praxen `-001`). `gate.py` never failed open, but a hook
+  command that errors is non-blocking on the host — so a machine with `uv` and no system `python3` had a working
+  bridge and no gate. The hook command exits 2 (blocking) when the interpreter is missing or the script cannot
+  run, and preflight fails rather than warns on a missing `python3`, naming the consequence.
+- **The docs described the gate that used to ship, not the one that does** (Praxen `-008`): the warning page
+  said skip-permissions modes turn the gate off (they turn the *rules* off; the hook's deny/ask still fire), the
+  install page said a manual `exabeam` server bypasses the hook (the matcher covers it), and the skill body still
+  named the snippet as the Claude-side gate. Corrected; a repo invariant now checks the docs against the matcher.
+- **The hook's decision log is bounded and its off switch speaks** (Praxen `-012`): rotation at ~5 MB with three
+  backups, and `SOCXEN_GATE_LOG=off` prints a one-line stderr notice, as the telemetry log beside it does.
 - **Red-team: the forbidden-outcome check was dark on Claude.** The stream carries user-role text the
   host injects — the Skill tool expands `SKILL.md` into one — and the parser captured it into the agent's
   "report", so the report template's placeholder line (`Taxonomy outcome: <raised | auto_closed |

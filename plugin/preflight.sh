@@ -81,7 +81,7 @@ check_toolchain() {
   if command -v python3 >/dev/null 2>&1; then
     ok "python3 present"
   else
-    warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
+    fail "python3 not found — the bundled dismiss/close gate (hooks/gate.py) cannot execute. The hook is wired to fail closed (every gated call is refused until python3 is on PATH), so install python3: https://www.python.org/downloads/"
   fi
 }
 

@@ -38,7 +38,52 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — dev @ `1a93c22` (the 0.8.0 gate scan)
+## Current status — `gate/bundled-hook` @ `a6a3ffe` (the bundled-hook release candidate)
+
+| | |
+|---|---|
+| Scanned | **`gate/bundled-hook`** (`a6a3ffe`), 2026-09-05 — the tree that ships the gate as a bundled hook, on top of `dev` + the site branch |
+| Scanner | **Praxen 2.0.0-beta.1** (first scan on the 2.0 beta), Claude Opus 5, **high thinking mode**, **+ threat model** |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 3 High · 9 Medium · 0 Low (13 raw; 1 Medium killed by the audit as UNSUPPORTED) |
+| Weighted RAISE posture | **3.15 / 5** (Established) — unchanged from 0.8.0 (scores are not comparable scan-for-scan across scanner versions) |
+| Remit coverage | Remit **v1.3** · 64 rules — 34 verified · 16 partial · 5 gap · 9 not enforceable in code |
+| Independent audit | 12 / 12 surviving findings CONFIRMED · 1 UNSUPPORTED (removed) · 0 remit defects |
+| Threat model | 24 nodes · 35 edges · 10 trust boundaries · 28 threats (12 confirmed / 4 potential / 5 partial / 7 mitigated) · 3 attack paths — [`-threatmodel.html`](results/2026-09-05-socxen-0.8.5-bundled-hook-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 3 · Manage
+Your Supply Chain 3 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+**This scan is the gate artifact for the release that ships the bundled hook.** All six enforcement
+questions in `SCAN_INSTRUCTIONS.md` were resolved in code: the gate ships ON and fails closed on unreadable
+tiers and malformed events; the 17-tool containment deny is enforced on install, not only in the unmerged
+snippet; both connector guardrails are wired, not inert; no credential leakage; audit logging is default-on,
+local, rotating, no egress; the model floor is documentation only (the auditor then killed the finding built
+on that — the remit's rule is a presentation obligation the docs discharge). The gate's rule (no open Critical)
+is satisfied. Artifacts: [report](results/2026-09-05-socxen-0.8.5-bundled-hook.html) ·
+[findings JSON](results/2026-09-05-socxen-0.8.5-bundled-hook.json) ·
+[audit](results/2026-09-05-socxen-0.8.5-bundled-hook-audit.md) ·
+[threat model](results/2026-09-05-socxen-0.8.5-bundled-hook-threatmodel.html).
+
+**The three Highs, and their disposition:**
+
+| Finding | Disposition |
+|---|---|
+| `PRAX-2026-09-05-001` — the gate never fails open once it runs, but its *invocation* (`python3 gate.py`) had no fail-closed fallback: a hook that errors is non-blocking on the host, so no python3 meant no gate | **Fixed after the snapshot** on the branch: the hook command now exits 2 (the host's blocking code) when the interpreter is missing or the script cannot run; preflight fails, not warns, on a missing python3 and names the consequence. Pinned by test. |
+| `PRAX-2026-09-05-002` — `exabeam_send_email` mails tenant content as HTML to arbitrary recipients: a channel the remit never authorizes, tiered *ask* not *deny*, and the one write outside the neutralizer | **Open — maintainer decision.** Options the scan lays out: move it to the *deny* tier (and Codex `disabled_tools`) until an HTML-aware neutralizer exists, or neutralize `subject`/`body` and add a recipient allowlist at the bridge, and reconcile the remit either way. |
+| `PRAX-2026-09-05-003` — the bridge screens tool *results* but proxies the remote server's tool *descriptions* into model context unscreened and unpinned | **Open — design work.** Run `list_tools()` output through the canonicalizer and pin/verify the tool set the release was tested against. |
+
+**Also fixed after the snapshot** (Medium): `-008` the docs contradicted the shipped gate (one page said the
+hook holds under `--dangerously-skip-permissions`, another that those modes turn the gate off; one said a
+manual `exabeam` server bypasses the hook when the matcher covers it; the skill body still named the snippet
+as the Claude-side gate) — corrected, with a repo invariant that checks the docs against the compiled matcher;
+`-012` the hook's decision log grew without bound and its off switch was silent — bounded rotation and a
+stderr disclosure, matching the telemetry log beside it. The remaining Mediums (`-004` sweep read-only rule
+is prompt-only, `-005` free-text overwrite on the gated writes, `-006` kept joiners never flagged, `-007`
+operator disclosures to stderr, `-009` oversized results spill to an unredacted file, `-010` allowlist
+perimeters, `-013` no `allowed-tools` on the skills) triage into issues per the policy above.
+
+## Previous — 0.8.0 gate (dev @ `1a93c22`)
 
 | | |
 |---|---|

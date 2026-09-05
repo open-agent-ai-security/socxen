@@ -67,13 +67,34 @@ def decide(tool_name: str, tiers) -> tuple[str, str]:
     return "ask", f"socxen gate: {name} is not classified in this release's permission tiers, so it asks rather than inheriting the session default."
 
 
+LOG_MAX_BYTES = 5_000_000   # rotate at ~5 MB, keep 3 backups — bounded like the telemetry log beside it
+LOG_BACKUPS = 3
+
+
+def _rotate(path: Path) -> None:
+    """gate.jsonl → gate.jsonl.1 → .2 → .3 (oldest dropped). Best-effort, like the write itself."""
+    for i in range(LOG_BACKUPS, 0, -1):
+        src = path if i == 1 else path.with_name(f"{path.name}.{i - 1}")
+        if src.exists():
+            src.replace(path.with_name(f"{path.name}.{i}"))
+
+
 def log_decision(record: dict) -> None:
     target = os.environ.get("SOCXEN_GATE_LOG", "").strip()
     if target.lower() == "off":
+        # The off switch discloses itself, as the telemetry shim's does — a silent switch is how a
+        # forensic record disappears without anyone noticing.
+        print("socxen gate: decision log is OFF (SOCXEN_GATE_LOG=off) — this decision is not recorded", file=sys.stderr)
         return
     path = Path(target).expanduser() if target else Path.home() / ".socxen" / "gate.jsonl"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            limit = int(os.environ.get("SOCXEN_GATE_LOG_MAX_BYTES", LOG_MAX_BYTES))
+        except ValueError:
+            limit = LOG_MAX_BYTES
+        if path.exists() and path.stat().st_size >= limit:
+            _rotate(path)
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception:  # noqa: BLE001 — logging must never change the decision
