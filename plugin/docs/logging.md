@@ -164,7 +164,7 @@ Off means *off*: no file, and observra is never imported.
 ## Known limitation
 
 The trail records the **gated action and its disposition deterministically at the write sink**, and in the
-[supported governance posture](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this) an
+[supported governance posture](installation.md#governance--the-safety-gate) an
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
 event is evidence the approval happened. It does **not** yet capture a distinct *approver-identity* event
 (who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —

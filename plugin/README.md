@@ -63,16 +63,15 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
 ## Setup
 
 With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
-`~/.exabeam-mcp.env`) and, only if you wire the Exabeam server by hand under a name other than `exabeam`, **merge the permission rules**. The setup guide does the lifting:
+`~/.exabeam-mcp.env`) and, optionally, **merge the permission rules** as a second lock. The setup guide does the lifting:
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
 > ✅ **The gate ships ON.** On Claude Code a bundled hook asks before dismiss/close and denies containment
-> the moment the plugin is enabled; on Codex the same tiers ship as tool-approval policy. The permission
-> pack below is **optional** — it makes reads silent and covers a manually wired server. Previously: there was *no* hard gate on
-> dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-> Do not point socxen at alerts you care about until it's on. The
-> **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you
+> the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
+> ship as tool-approval policy. The permission pack below is **optional** — a second lock that does not
+> depend on the hook. The
+> **[setup guide](docs/installation.md#governance--the-safety-gate)** walks you
 > through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
 > default and `-y` does not authorize it — the flag is the consent. The merge is additive-only, backs
 > your settings file up first, and refuses if a rule already sits in a different tier.

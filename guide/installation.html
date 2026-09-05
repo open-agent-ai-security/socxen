@@ -424,14 +424,17 @@ tool outright, and <strong>asks</strong> on any tool this release hasn't classif
 <code>--dangerously-skip-permissions</code>, and when no human is present (<code>claude -p</code>, CI) an <em>ask</em> is refused.
 On <strong>Codex</strong> the same tiers ship inside the package as tool-approval policy, and Codex cancels a
 destructive tool when nobody is there to approve it. Nothing to merge on either host.</p>
-<p>The hook is <em>stricter</em> than the permission rules below in one way: it cannot grant silent reads.
-Without the rules, Claude Code will ask you before each read tool the first time. Merging the rules is
-the <strong>optional</strong> step that makes the 18 reads frictionless — and it is the only gate on a manually
-wired <code>exabeam</code> server (<code>claude mcp add</code>), which does not go through the plugin's hook.</p>
+<p>The hook also grants the reads: its <em>allow</em> on the 16 read tools and the two escalation writes
+bypasses the prompt, so with nothing merged a read runs silently (verified headless in default
+permission mode, 2026-09-05). It covers the bundled server and a manually wired server <em>named</em>
+<code>exabeam</code> (<code>claude mcp add exabeam …</code> — its matcher includes <code>mcp__exabeam__</code>). If you wire the server
+by hand, <strong>name it <code>exabeam</code></strong>: neither the hook nor the permission rules below recognize any other
+name. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
+Windows) and <code>python3</code> 3.7+ on <code>PATH</code>; without <code>python3</code> every gated call is refused, not allowed.</p>
 </blockquote>
 <h3 id="claude-code-the-optional-permission-rules">Claude Code — the optional permission rules</h3>
-<p>These make reads frictionless and cover the manual-MCP path; they are the <em>second</em> lock on dismiss/close,
-behind the bundled hook. Merge the <code>permissions</code> block from
+<p>You do not need these. They are a second lock on dismiss/close that does not depend on the hook (the
+same tiers, enforced by Claude Code's own permission system), and nothing more. Merge the <code>permissions</code> block from
 <code>skills/soc-investigate/settings.snippet.json</code> — inside the installed plugin, or
 <code>plugin/skills/soc-investigate/settings.snippet.json</code> from a clone — into the settings file Claude Code
 reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-settings-file">Which settings file?</a> below):</p>
@@ -475,9 +478,11 @@ otherwise <code>$CLAUDE_CONFIG_DIR/settings.json</code> if your config dir is re
 <code>~/.claude/settings.json</code>. Every message names the resolved path, so you can always see which file was
 checked or written.</p>
 <blockquote>
-<p>⚠️ <strong>Do not run socxen with <code>--dangerously-skip-permissions</code></strong>, bypass-permissions, or auto-accept
-modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
-soft ask. Keep permissions on.</p>
+<p>⚠️ <strong>Keep permissions on.</strong> <code>--dangerously-skip-permissions</code>, bypass-permissions and auto-accept modes
+turn the <em>permission rules</em> off — but <strong>not the bundled hook</strong>: its <em>deny</em> on containment and its <em>ask</em>
+on dismiss/close still fire in those modes, and with nobody there to answer, an <em>ask</em> is refused
+(verified live, 2026-09-04). What you lose in those modes is the second lock — the rules, if you
+merged them. Do not rely on that.</p>
 </blockquote>
 <p>Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in

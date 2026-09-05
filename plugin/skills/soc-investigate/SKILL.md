@@ -157,7 +157,7 @@ context. Ask whether the triggering activity is normal for it. Enrich the entity
 mapping, watchlists — this is where "is this normal?" becomes a *positive* benign or malicious explanation.
 
 **3 — Gather evidence (read-only, run freely).** Use the Exabeam read surface, not generic intuition
-(see `reference/tool-map.md` for all 20 tools): pivot on the central entity with `exabeam_search_events`
+(see `reference/tool-map.md` for all 21 tools): pivot on the central entity with `exabeam_search_events`
 (raw SIEM logs by user/host/IP/time — the workhorse) and `exabeam_search_alerts` /
 `exabeam_search_cases` for related activity; pull `exabeam_get_*_threat_timeline` and
 `exabeam_threat_summary`; read `exabeam_get_correlation_rule_details` to see exactly what the rule
@@ -249,7 +249,7 @@ spreadsheet, ticket, or email). Before quoting a value, defang it:
 
 ## Tool names
 
-`reference/tool-map.md` lists the **real 20 tools** this MCP exposes (confirmed via `list_tools`),
+`reference/tool-map.md` lists the **real 21 tools** this MCP exposes (confirmed via `list_tools`),
 grouped by investigation phase, **with each tool's argument shape**. Use those exact names.
 
 **Calling convention** (saves a wasted first call): read / get / search tools wrap their args under

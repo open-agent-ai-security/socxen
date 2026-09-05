@@ -109,12 +109,42 @@ def test_gate_log_rotates_at_a_ceiling_and_the_off_switch_discloses_itself(tmp_p
     log = tmp_path / "gate.jsonl"
     log.write_text("x" * 100)
     env = dict(os.environ, SOCXEN_GATE_LOG=str(log), SOCXEN_GATE_LOG_MAX_BYTES="50", CLAUDE_PLUGIN_ROOT=str(PLUGIN))
-    subprocess.run(["python3", str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}',
+    subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}',
                    capture_output=True, text=True, env=env, check=True)
     assert (tmp_path / "gate.jsonl.1").read_text() == "x" * 100, "the full log was not rotated aside"
     assert log.read_text().count("\n") == 1 and "search_alerts" in log.read_text()
     env["SOCXEN_GATE_LOG"] = "off"
-    proc = subprocess.run(["python3", str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}',
+    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}',
                           capture_output=True, text=True, env=env, check=True)
     assert "decision log is OFF" in proc.stderr
     assert "permissionDecision" in proc.stdout          # the decision itself is unaffected
+
+
+def test_the_exact_hook_command_runs_with_python3_present(tmp_path):
+    """The command string in hooks.json, run by /bin/sh as the host runs it: exit 0 and one JSON decision."""
+    import subprocess, json as _json, os
+    cmd = _json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN), SOCXEN_GATE_LOG="off")
+    proc = subprocess.run(["/bin/sh", "-c", cmd], input='{"tool_name":"mcp__exabeam__exabeam_update_alert"}', capture_output=True, text=True, env=env)
+    assert proc.returncode == 0
+    assert _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_gate_never_crashes_on_a_bad_log_path(tmp_path):
+    """A bad SOCXEN_GATE_LOG ('~nosuchuser') used to raise outside the guard: no JSON, exit 1, and via
+    `|| exit 2` every gated call blocked. Logging must never change the decision."""
+    import subprocess, json as _json, os
+    env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN), SOCXEN_GATE_LOG="~nosuchuser_zz/gate.jsonl")
+    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}', capture_output=True, text=True, env=env)
+    assert proc.returncode == 0 and _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_preflight_reports_the_hook_when_no_rules_are_merged(tmp_path):
+    """The branch's own happy path: rules not merged (the documented default) must report the hook ON,
+    not die on an unbound variable (review 2026-09-05: _PF_DIR was never defined under set -u)."""
+    import subprocess, os
+    settings = tmp_path / "settings.json"; settings.write_text('{"permissions": {}}')
+    env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), SOCXEN_PLATFORM="claude", HOME=str(tmp_path))
+    proc = subprocess.run(["bash", str(PLUGIN / "preflight.sh"), "--skip-connectivity"], capture_output=True, text=True, env=env)
+    assert "unbound variable" not in proc.stderr + proc.stdout
+    assert "gate ON via the bundled hook" in proc.stdout

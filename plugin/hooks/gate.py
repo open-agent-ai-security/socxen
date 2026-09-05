@@ -32,6 +32,8 @@ attempts that never reached the bridge (#87).
 
 Stdlib only. Exit 0 always; the decision is the JSON on stdout.
 """
+from __future__ import annotations   # `tuple[str, str]` must not be evaluated on an old system python3
+
 import datetime
 import json
 import os
@@ -72,11 +74,16 @@ LOG_BACKUPS = 3
 
 
 def _rotate(path: Path) -> None:
-    """gate.jsonl → gate.jsonl.1 → .2 → .3 (oldest dropped). Best-effort, like the write itself."""
+    """gate.jsonl → gate.jsonl.1 → .2 → .3 (oldest dropped). Best-effort, like the write itself. Two
+    concurrent hook invocations can both see the ceiling; the loser's replace() finds the file already
+    moved — swallow that, the decision is unaffected and this record still appends below."""
     for i in range(LOG_BACKUPS, 0, -1):
         src = path if i == 1 else path.with_name(f"{path.name}.{i - 1}")
-        if src.exists():
-            src.replace(path.with_name(f"{path.name}.{i}"))
+        try:
+            if src.exists():
+                src.replace(path.with_name(f"{path.name}.{i}"))
+        except FileNotFoundError:
+            pass
 
 
 def log_decision(record: dict) -> None:
@@ -86,8 +93,10 @@ def log_decision(record: dict) -> None:
         # forensic record disappears without anyone noticing.
         print("socxen gate: decision log is OFF (SOCXEN_GATE_LOG=off) — this decision is not recorded", file=sys.stderr)
         return
-    path = Path(target).expanduser() if target else Path.home() / ".socxen" / "gate.jsonl"
     try:
+        # Inside the guard: expanduser() on "~nosuchuser" and Path.home() with no HOME / unknown uid both
+        # raise, and a crash here would turn "logging failed" into "every call blocked" via `|| exit 2`.
+        path = Path(target).expanduser() if target else Path.home() / ".socxen" / "gate.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             limit = int(os.environ.get("SOCXEN_GATE_LOG_MAX_BYTES", LOG_MAX_BYTES))
