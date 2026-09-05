@@ -90,6 +90,15 @@ governance model (feature → `dev`, release `dev` → `main`).
   removes the tool from the model's view, exactly like Codex's deny-list; corrected, and the hook leg named
   as the leg that makes attempts observable.
 
+- **CI: a security lint and a dependency audit, both gating on the shipped plugin** (#71, #100, #131).
+  `ruff --select S` (the flake8-bandit ruleset) over `plugin/` is required, with each deliberate
+  exception-swallow carrying a `# noqa: S110` and its reason; the same lint over build-time code is
+  advisory. `pip-audit` checks every package in the bridge's hash-pinned lockfile against the OSV / PyPI
+  advisory databases on every push — #71's last rung. Dependabot keeps the SHA-pinned actions current
+  weekly and rewrites the version comments with them, and the repository now **requires** actions to be
+  pinned to a full commit SHA. `actions/checkout` moves to v7.0.1 and `astral-sh/setup-uv` to v10.0.1,
+  both off the deprecated Node 20 runtime.
+
 ### Changed
 - **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
   plugin's name, version, display name, description, keywords and marketplace; both host manifests and
