@@ -210,6 +210,7 @@ def session_start(**config):
     data = {"telemetry_backend": _state.get("backend") or "",
             "telemetry_destination": _state.get("destination") or ""}
     data.update(config)                       # a caller's key wins; never a TypeError on collision
+    data.pop("event_type", None)              # the one key _emit owns
     _emit("mcp_session_start", **data)
 
 
