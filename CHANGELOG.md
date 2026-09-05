@@ -105,6 +105,13 @@ governance model (feature → `dev`, release `dev` → `main`).
   upstream plugin after a re-key; the release smoke, the AI-BOM's distribution reference, the Codex
   red-team leg and the invariants test follow the identity too; `mcpServer` is cross-checked against
   `permissions.json` and the `.mcp*.json` server key instead of sitting unread.
+- **Worker Remit v1.5 — the #121 tune-ups, before the dev RC scan.** Closure rules on the tool inventory
+  and the channel table (anything outside them is out of policy); the three disclosure rules name their
+  channel (the audit trail's session record and startup line; stderr for the one case where the trail is
+  unavailable); Declared Redaction Limits now carry the markdown link-form residual (#119), the HTML
+  `href`/`src` residual in mail (#147) and the host's spill file for oversized results (resolved as Open
+  Question 9: the host's copy, not a socxen write). The dependency-pinning split is moot — the lockfile
+  is honored automatically.
 - **Outbound email is a declared channel.** The Praxen Worker Remit (v1.4) now authorizes `exabeam_send_email`
   as a human-confirmed channel to active users of the operator's own subscription, and the docs
   (`security-guardrails.md`, `usage.md`, the tool map) say what the platform enforces: the Exabeam MCP
