@@ -91,18 +91,30 @@ def rewrite_links(body: str, src: str) -> str:
         path, _, frag = href.partition("#")
         target = resolve(src_dir, path) if path else src
         if target in BY_SOURCE:
+            # GitHub's heading slug keeps a hyphen run where punctuation was dropped ("governance--turn-on");
+            # python-markdown's toc collapses the run. The sources are written for GitHub; the site is not.
+            frag = re.sub(r"-{2,}", "-", frag)
             return BY_SOURCE[target] + ".html" + (("#" + frag) if frag else "")
         return f"{REPO}/blob/main/{target}" + (("#" + frag) if frag else "")
     def repl_a(m):
         q, href = m.group(1), m.group(2)
         return f"href={q}{fix(href)}{q}"
+    def raw_url(srcv):
+        srcv = srcv.strip()
+        if not srcv or urlparse(srcv).scheme or srcv.startswith("//"):
+            return srcv
+        return f"{RAW}/{resolve(src_dir, srcv)}"
     def repl_img(m):
-        q, srcv = m.group(1), m.group(2)
-        if urlparse(srcv).scheme or srcv.startswith("//"):
-            return m.group(0)
-        return f"src={q}{RAW}/{resolve(src_dir, srcv)}{q}"
+        attr, q, val = m.group(1), m.group(2), m.group(3)
+        if attr == "srcset":                                  # "url [descriptor], url [descriptor]"
+            cands = []
+            for cand in val.split(","):
+                url, _, desc = cand.strip().partition(" ")
+                cands.append((raw_url(url) + " " + desc).strip())
+            return f"srcset={q}{', '.join(cands)}{q}"
+        return f"src={q}{raw_url(val)}{q}"
     body = re.sub(r"""href=(["'])(.*?)\1""", repl_a, body)
-    body = re.sub(r"""src=(["'])(.*?)\1""", repl_img, body)
+    body = re.sub(r"""\b(src|srcset)=(["'])(.*?)\2""", repl_img, body)
     return body
 
 
@@ -114,7 +126,7 @@ def onpage_toc(toc_tokens):
             collect(t.get("children") or [])
     collect(toc_tokens)
     if not items: return ""
-    return '<ul class="docs-subnav">' + "".join(f'<li><a href="#{t["id"]}">{html.escape(t["name"])}</a></li>' for t in items) + "</ul>"
+    return '<ul class="docs-subnav">' + "".join(f'<li><a href="#{t["id"]}">{t["name"]}</a></li>' for t in items) + "</ul>"
 
 
 TAG_RE = re.compile(r"<[^>]+>"); WS = re.compile(r"\s+")
@@ -210,6 +222,8 @@ def build():
         body, has_mermaid = render_mermaid_blocks(body)
         m = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.DOTALL)
         title = html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else label
+        if title.lower() == "socxen":                        # the Overview h1 is the site name itself
+            title = label
         nav = left_nav(out_name, onpage_toc(md.toc_tokens))
         (OUT_DIR / f"{out_name}.html").write_text(
             page_html(theme_css, title, nav, body, src, out_name, meta_description(body, label), MERMAID_SCRIPT if has_mermaid else ""),

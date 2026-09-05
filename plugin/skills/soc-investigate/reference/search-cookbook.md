@@ -239,7 +239,7 @@ spread of sources:
 
 ### Watchlist / allowlist test (context tables)
 ```jsonc
-// Is the source IP catalogd in a watchlist context table? (column qualifier is required)
+// Is the source IP cataloged in a watchlist context table? (column qualifier is required)
 {"arg0": {"filter": "src_ip IN \"Threat Intel IPs\".\"IP Address\"",
   "fields": ["time","user","src_ip","dest_host","action"],
   "orderBy": ["time DESC"], "startTime": "<t-24h>", "endTime": "<t>", "limit": 100}}

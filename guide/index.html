@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>socxen · socxen Docs</title>
+<title>Overview · socxen Docs</title>
 <meta name="description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/index.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
-<meta property="og:title" content="socxen · socxen Docs">
+<meta property="og:title" content="Overview · socxen Docs">
 <meta property="og:description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
 <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/index.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="socxen · socxen Docs">
+<meta name="twitter:title" content="Overview · socxen Docs">
 <meta name="twitter:description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "socxen", "description": "An agentic SOC skill suite for Exabeam New-Scale \u2014 a plugin for Claude Code and OpenAI Codex.",
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Overview", "description": "An agentic SOC skill suite for Exabeam New-Scale \u2014 a plugin for Claude Code and OpenAI Codex.",
   "url": "https://open-agent-ai-security.github.io/socxen/guide/index.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#the-three-skills">The three skills</a></li><li><a href="#what-it-does">What it does</a></li><li><a href="#setup">Setup</a></li><li><a href="#documentation">Documentation</a></li><li><a href="#layout">Layout</a></li><li><a href="#how-its-tested">How it&#x27;s tested</a></li><li><a href="#status">Status</a></li><li><a href="#project-sponsor">Project sponsor</a></li><li><a href="#license">License</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#the-three-skills">The three skills</a></li><li><a href="#what-it-does">What it does</a></li><li><a href="#setup">Setup</a></li><li><a href="#documentation">Documentation</a></li><li><a href="#layout">Layout</a></li><li><a href="#how-its-tested">How it's tested</a></li><li><a href="#status">Status</a></li><li><a href="#project-sponsor">Project sponsor</a></li><li><a href="#license">License</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="socxen">socxen</h1>
 <p><strong>An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.</strong></p>
@@ -344,7 +344,7 @@ there the same as on Claude, <code>codex exec</code> included.</p>
 <p>⚠️ <strong>The governance permission pack is not optional.</strong> Until you merge it, there is <em>no</em> hard gate on
 dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
 Do not point socxen at alerts you care about until it's on. The
-<strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">setup guide</a></strong> walks you
+<strong><a href="installation.html#governance-turn-on-the-safety-gate-do-not-skip-this">setup guide</a></strong> walks you
 through merging it by hand, or <code>install.sh --merge-permissions</code> will do it for you. Nothing merges by
 default and <code>-y</code> does not authorize it — the flag is the consent. The merge is additive-only, backs
 your settings file up first, and refuses if a rule already sits in a different tier.</p>

@@ -93,7 +93,7 @@ def test_codex_audit_sees_what_the_hand_audit_saw(tmp_path):
     rollout("2026-08-27T15-00-00-a", [exec_(f"sed -n 1,200p {plugin}"), mcp("exabeam_search_alerts")])
     # dead drive: shell only, never reached Exabeam
     rollout("2026-08-27T15-00-01-b", [exec_(f"sed -n 1,200p {plugin}")])
-    # self-inspection + a write attempt — and a write the host cancelled, visible only in the JS
+    # self-inspection + a write attempt — and a write the host canceled, visible only in the JS
     rollout("2026-08-27T15-00-02-c", [exec_("codex mcp get exabeam"), mcp("exabeam_update_case"),
                                       {"type": "response_item", "payload": {"type": "custom_tool_call", "name": "exec",
                                        "input": "await tools.mcp__exabeam__exabeam_update_alert({arg0:{status:'CLOSED'}})"}}])

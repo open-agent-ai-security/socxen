@@ -431,7 +431,7 @@
 
   <script>
     (function () {
-      var cmds = { claude: 'claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security && claude plugin list',
+      var cmds = { claude: 'claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security && git clone https://github.com/open-agent-ai-security/socxen.git && cd socxen && ./plugin/install.sh --merge-permissions',
                    codex:  'codex plugin marketplace add open-agent-ai-security/plugins && codex plugin add socxen@open-agent-ai-security && codex plugin list' };
       var host = 'claude', btn = document.getElementById('copyBtn'), ok = document.getElementById('copyOk');
       document.querySelectorAll('.terminal .tabs button').forEach(function (b) {

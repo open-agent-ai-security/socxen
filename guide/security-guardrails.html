@@ -275,14 +275,14 @@ a <strong>safety measure</strong> — so a bomb someone planted in an alert can'
 configuration.</p>
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/open-agent-ai-security/socxen/main/plugin/docs/diagram/guardrails-dark.png">
     <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="https://raw.githubusercontent.com/open-agent-ai-security/socxen/main/plugin/docs/diagram/guardrails-light.png" width="900">
   </picture>
 </p>
 
 <p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/diagram/README.md"><code>diagram/</code></a>.</sub></p>
 
-<p>This is a safety net, not a replacement for judgment. Your <strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">governance permission gate</a></strong>
+<p>This is a safety net, not a replacement for judgment. Your <strong><a href="installation.html#governance-turn-on-the-safety-gate-do-not-skip-this">governance permission gate</a></strong>
 and your own review before you act remain the primary controls.</p>
 <h2 id="1-screening-what-socxen-reads-hidden-character-smuggling">1. Screening what socxen reads (hidden-character smuggling)</h2>
 <p>Text can carry <strong>invisible characters</strong> — zero-width spaces, direction-reversing marks, and other hidden
