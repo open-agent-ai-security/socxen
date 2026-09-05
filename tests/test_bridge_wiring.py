@@ -186,3 +186,15 @@ def test_audit_fields_cap_long_strings_inside_list_values():
     out = B._audit_fields({"arg1": {"useCases": [long, "ok"], "alertId": "y" * 500}})
     assert out["alertId"] == "y" * 80                       # scalar capped
     assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped
+
+
+def test_mail_subject_and_body_are_neutralized_for_secrets_and_formulas():
+    """exabeam_send_email carries tenant content to a person as HTML. Its subject and body go through the
+    same neutralizer as a case note (Praxen PRAX-2026-09-05-002): a seeded credential is masked and a
+    formula is neutralized. What this does NOT assert — and must not, until #147 decides it — is that a
+    link inside an HTML attribute is de-fanged; that is the neutralizer's documented residual."""
+    out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE",
+                                   "body": "<td>=HYPERLINK(\"https://evil.example\",\"x\")</td>"}})
+    assert "AKIAIOSFODNN7EXAMPLE" not in out["arg1"]["subject"] and "REDACTED" in out["arg1"]["subject"]
+    assert out["arg1"]["body"].startswith("<td>'=HYPERLINK(") and "hxxps://evil[.]example" in out["arg1"]["body"]
+    assert out["arg1"]["recipients"] == ["a@example.com"]      # identifiers are never touched

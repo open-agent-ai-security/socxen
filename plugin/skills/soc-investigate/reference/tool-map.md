@@ -79,8 +79,10 @@ always the cause.
   restricts it to content produced by an Exabeam read tool. Do not infer recipients: an empty list makes the
   tool return the subscription's users to choose from. **Recipients are scoped by the MCP service to active
   users of the operator's own subscription** — any other address is rejected (with suggestions), so mail
-  cannot leave the tenant's user base. Outbound mail is **not** run through the write-side neutralizer yet
-  (its rules are markdown/formula-shaped; mail is HTML) — see the follow-up issue.
+  cannot leave the tenant's user base. `subject` and `body` run through the write-side neutralizer
+  (secrets masked, formulas and markdown links de-fanged), but links carried in HTML attributes (`href`,
+  `src`) are **not** de-fanged — an HTML-aware pass is a product decision, see #147. Review the body before
+  approving a send.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
 
