@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate&#x27;s own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="logging-structured-audit-trail-on-by-default">Logging (structured audit trail) — on by default</h1>
 <p><strong>What it is:</strong> a structured, durable, machine-parseable record of what the agent did on every
@@ -461,7 +461,7 @@ counted, not announced. The security guardrails are independent and keep running
 <p>Off means <em>off</em>: no file, and observra is never imported.</p>
 <h2 id="known-limitation">Known limitation</h2>
 <p>The trail records the <strong>gated action and its disposition deterministically at the write sink</strong>, and in the
-<a href="installation.html#governance-the-safety-gate">supported governance posture</a> an
+<a href="installation.html#governance--the-safety-gate">supported governance posture</a> an
 <code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human approves it — so the write
 event is evidence the approval happened. It does <strong>not</strong> yet capture a distinct <em>approver-identity</em> event
 (who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —

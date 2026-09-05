@@ -46,8 +46,15 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   to a spreadsheet it can *run* when the file is opened. socxen prefixes these so they're treated as
   plain text and never execute — including a known-dangerous formula quoted *mid-sentence* in a note
   (unlike a plain web address, a pasted formula re-arms the moment it lands in a spreadsheet cell).
-- **Clickable links.** Any link written into a note is **escaped** so it can't be clicked or auto-opened
-  — you'll see it rendered as `hxxps://example[.]com` instead of a live link.
+- **Clickable links.** A link written into a note or an email is **escaped** so it can't be clicked or
+  auto-opened — you'll see it rendered as `hxxps://example[.]com` instead of a live link — **unless it
+  points into your own Exabeam tenant.** Clickable is decided by *destination*, not by who wrote the
+  link: a URL to your own console is verifiable against the bridge's configuration; anything else is
+  not, so anything else is de-fanged. That covers every link form — markdown in all its shapes, HTML
+  `href` and `src`, image `srcset`, CSS `url()` — plus the things nobody wants in a mail: tracking
+  pixels, `javascript:` and `data:` targets, event handlers, scripts, iframes and forms are removed or
+  made inert. Legitimate formatting (the mail template's tables, badges and inline styles) passes
+  through untouched.
 - **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labeled
   password) or a structured identifier (a Social Security number, a payment-card number) is sitting in
   the alert data, socxen **masks it before writing** — you'll see `[REDACTED:aws-key]` or `[REDACTED:ssn]`
@@ -62,16 +69,23 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
 
 ### Why your links look "broken" — this is intentional
 
-If you see a URL in a socxen note written as `hxxps://sso-reset[.]evil[.]example` rather than a normal
-clickable link, **that is the safety measure working, not a bug.** socxen defangs the links it writes so
-that a phishing or malware URL buried in an alert can't be clicked by accident — or fire automatically
-when someone opens or exports the report later. The address is still fully readable; you can copy it into
-a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone with a stray
-click.
+If you see a URL in a socxen note or email written as `hxxps://sso-reset[.]evil[.]example` rather than a
+normal clickable link, **that is the safety measure working, not a bug.** socxen defangs the links it
+writes so that a phishing or malware URL buried in an alert can't be clicked by accident — or fire
+automatically when someone opens or exports the report later. The address is still fully readable; you
+can copy it into a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone
+with a stray click.
 
-This applies to harmless internal links too, not just suspicious ones. socxen can't reliably tell a
-legitimate link from a disguised malicious one, so it treats them the same way — the tiny inconvenience
-of copy-pasting a good link is worth never handing an analyst a live malicious one.
+**The one exception is your own tenant.** A link to a case or alert in your own Exabeam console — the
+hosts under the region in your configured MCP URL — stays clickable, because that destination can be
+verified and it is the reason to send someone a case link at all. So *the only clickable links in a
+socxen email point back into the system the recipient already signs in to.* An attacker-supplied URL can
+never qualify: by construction it is not your tenant's host. socxen cannot reliably tell a legitimate
+third-party link from a disguised malicious one, so every other link is treated the same way — the small
+inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
+
+One residual, stated rather than solved: an open redirect *on your tenant host* would pass this rule. That
+is the same trust you already extend to the console itself.
 
 ## What these guardrails do *not* do
 
@@ -80,12 +94,11 @@ Keep expectations honest:
 - **Email.** `exabeam_send_email` lets socxen mail Exabeam tool output to a person, and it is
   human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to **active users of your
   own subscription** — any other address is rejected — so mail cannot leave your tenant's user base. The
-  subject and body pass through the neutralizer below, so secrets are masked and formulas and
-  markdown-style links de-fanged; but a link written as an HTML `href` or `src` is **not** de-fanged yet
-  (that is a product decision, tracked in #147), so read the body before you approve the send. One
-  side effect to know: the formula rule de-fangs every link on the *line* the formula sits on, and an
-  HTML body is often one line — a planted formula therefore disables every link in that mail, including
-  legitimate ones. That is the safety measure working; the mail is still readable.
+  subject and body pass through the neutralizer below in **mail mode**: secrets masked, formulas quoted,
+  every link form de-fanged — HTML `href`/`src` included, and even a bare URL in the text, since mail
+  clients turn those into links — scripts, iframes, forms and event handlers removed, and the one kind of
+  link that stays clickable is a link into your own tenant. You still approve every send; read the body
+  as you would any outbound mail.
 - **They live in the bundled bridge.** A server you register by hand against the remote Exabeam MCP
   (the "wire it manually" path in the install guide) bypasses all three — no screening, no neutralizer,
   no audit trail. Only the permission layer survives there — the dismiss/close gate and the deny tier for

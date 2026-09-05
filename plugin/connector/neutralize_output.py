@@ -11,10 +11,19 @@ narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-c
 
   1. FORMULA cells (=HYPERLINK(...), @SUM(...), =cmd|'..'!A0): quote-prefixed inert, and any URL on the
      formula's line is defanged. Stops CSV / formula injection on spreadsheet export.
-  2. MARKDOWN LINKS in the standard inline form [text](target): the target is defanged (host -> [.],
-     scheme -> hxxp, javascript: -> [:]). Stops a clickable phishing link. Legitimate links are mutated
-     too -- the accepted compromise, since a deterministic pass cannot tell a legit link from a
-     malicious one. Other link forms are NOT covered; see the residuals below.
+  2. LINKS -- markdown in every CommonMark/GFM form (inline [text](target) with or without a title or
+     padding, reference definitions [ref]: target, autolinks <target>) and HTML (href/src/action/...
+     attributes, srcset, CSS url() in style attributes and <style> blocks): the target is defanged
+     (host -> [.], scheme -> hxxp, javascript: -> [:]) UNLESS it points into the operator's own tenant.
+     "Clickable is decided by destination, not authorship" (#147): the model writes the text, so
+     "socxen wrote this link" carries no trust; a URL to the operator's own console is verifiable
+     against config, anything else is not. The allowlist is derived from EXABEAM_MCP_URL by the bridge
+     (tenant_hosts_from_url) -- never curated, never model-influenced -- and defaults to EMPTY, so with
+     no config every link is defanged (the safe default the red-team harness grades under).
+  2b. ACTIVE HTML that is never a link anyone wants: script/iframe/object/embed/svg/math elements are
+     removed, form/meta/base/link tags are made inert, on*= event handlers are dropped, and in a MAIL
+     body (mail=True) even a bare URL in text is defanged because mail clients auto-link it. The mail
+     template's inline styles, bgcolor and entities pass through untouched (do-no-harm corpus in tests).
   3. SECRETS / STRUCTURED PII (the class-D redaction fix, #88 / assessment F-04): a credential or
      structured government identifier planted in telemetry must not survive verbatim into a persisted
      case note / export -- a durable, broader-audience artifact. Prompt-only redaction was measured
@@ -26,10 +35,11 @@ narrow -- "do no harm; stop the obvious; document the exotic" -- to two ACTIVE-c
 DOCUMENTED RESIDUALS (out of scope, by decision):
   - a BARE URL typed in prose (not a markdown link, not on a formula line) is left UNTOUCHED -- defanging
     every URL would mangle the legit reference links analysts write in notes (do harm).
-  - LINK FORMS OTHER THAN THE STANDARD INLINE ONE are not defanged: a CommonMark title
-    ([t](url "title")), whitespace padding inside the parens, reference-style definitions
-    ([ref]: url), GFM autolinks (<url>), and raw HTML anchors. Tracked in #119. The matcher covers
-    the form a model overwhelmingly writes; the rest are a known gap, not a claim.
+  - an OPEN REDIRECT on the tenant host would pass the allowlist. That is the same trust already
+    extended to the console itself; chasing it means URL-path analysis and is not worth it (#147).
+  - HTML is neutralized by a tag-and-attribute pass, not a full parser: a '>' inside a quoted attribute
+    value is handled, but malformed markup that a lenient renderer "fixes" into something different
+    (unclosed quotes spanning tags) is escaped conservatively rather than reasoned about.
   - an ALL-ALPHABETIC value after a BARE LINE BREAK ("Recovered credential\ncorrecthorsebatterystaple")
     is not caught: after a line break, a word with no digit and no delimiter is indistinguishable from
     recommendation prose ("credential\nRotation is required immediately"), and redacting it would eat
@@ -44,9 +54,11 @@ DOCUMENTED RESIDUALS (out of scope, by decision):
 Redaction is HIGH-SPECIFICITY only -- format/prefix/checksum/label-anchored, never blind entropy -- so a
 hash, UUID, IP, or hostname in a legitimate report passes through untouched (see the FP corpus in tests).
 """
+import html as _html
 import re
+from urllib.parse import urlsplit
 
-__all__ = ["neutralize_output", "redact_secrets"]
+__all__ = ["neutralize_output", "redact_secrets", "tenant_hosts_from_url", "is_allowed_host"]
 
 # --- secret / structured-PII redaction (#88) ----------------------------------------------------------
 # Each entry: (kind, compiled regex). Order matters only for overlapping matches (private-key blocks
@@ -266,11 +278,78 @@ _MID_LINE_FORMULA_RE = re.compile(
 _DDE_RE = re.compile(r"\|\S[^|!]*!")                                # DDE channel ref: cmd|'/C calc'!A0
 _QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')            # a quoted field value: "=HYPERLINK(...)"
 _MD_CELL_RE = re.compile(r"(\|[ \t]*)([^|\n]*)")                    # a markdown-table cell
-_MD_LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)\s]+)(\))")            # a markdown link: [text](target)
+# A markdown link in every inline shape CommonMark accepts (#119): one level of balanced brackets in the
+# text ([see [1]](url)), whitespace padding inside the parens, an optional title ("t" / 't' / (t)), and
+# the <target> angle form. Group 2 is the target, with or without its angle brackets.
+_MD_LINK_RE = re.compile(
+    r"(\[(?:[^\[\]]|\[(?:[^\[\]]|\[(?:[^\[\]]|\[[^\[\]]*\])*\])*\])*\]\(\s*)"
+    r"(<[^<>\s]*>|[^\s()]+(?:\([^\s()]*\)[^\s()]*)*)"
+    r"((?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\s*\))")
+# A link-reference definition ([ref]: target "title"), up to three leading spaces, at line start.
+# CommonMark lets the destination sit on the NEXT line after "[ref]:" -- allow one line break.
+_MD_REF_DEF_RE = re.compile(r"(?m)^([ ]{0,3}\[[^\]\n]+\]:[ \t]*\n?[ \t]*)(<[^<>\s]*>|\S+)")
+# A GFM autolink: <https://…> / <www.…>. Kept in its angle brackets; the inside is defanged.
+_MD_AUTOLINK_RE = re.compile(r"<((?:https?|ftps?)://[^\s<>]+|www\.[^\s<>]+)>", re.IGNORECASE)
 _URL_RE = re.compile(r"(?P<scheme>(?:https?|ftps?)://|www\.)(?P<rest>[^\s<>\"'\)\]}]+)", re.IGNORECASE)
 _DANGER_SCHEME_RE = re.compile(
     r"(?i)(?<![a-z0-9])(javascript|vbscript|data|file)(?:\s|&#?\w+;)*(?::|&#0*58;|&#x0*3a;|&colon;)")
 _HOST_RE = re.compile(r"^(//)?([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)
+
+
+# --- the tenant allowlist (#147: "clickable is decided by destination, not authorship") --------------------
+
+def tenant_hosts_from_url(url):
+    """The operator's own tenant hosts, derived from EXABEAM_MCP_URL (https://api.<region>.exabeam.cloud/mcp)
+    and nothing else: the API host itself, and every host under its parent domain -- the console the
+    analyst clicks into is a sibling of the API host under <region>.exabeam.cloud. Returned as a frozenset
+    of allow entries: an exact host, plus "*.<parent>" meaning the parent itself or any host under it.
+    Safe by construction: a host with fewer than three labels (no region) yields the exact host only, and
+    a missing/unparseable URL yields the EMPTY set, under which every link is defanged."""
+    try:
+        h = (urlsplit(url.strip()).hostname or "").lower().rstrip(".")
+    except (ValueError, AttributeError):
+        return frozenset()
+    if not h or not re.fullmatch(r"[a-z0-9.-]+", h):
+        return frozenset()
+    labels = h.split(".")
+    if len(labels) < 3 or re.fullmatch(r"[\d.]+", h):        # no region label, or an IP literal: exact only
+        return frozenset({h})
+    return frozenset({h, "*." + ".".join(labels[1:])})
+
+
+def is_allowed_host(host, allowed):
+    h = (host or "").lower().rstrip(".")
+    if not h:
+        return False
+    for a in allowed:
+        if a.startswith("*."):
+            d = a[2:]
+            if h == d or h.endswith("." + d):
+                return True
+        elif h == a:
+            return True
+    return False
+
+
+def _url_allowed(url, allowed):
+    """Is this URL, as a renderer would see it, a live link we keep? Only http(s) to an allowed host, with
+    no userinfo trick (https://tenant@evil.example), no backslash / whitespace / control-character
+    smuggling, and no other scheme at all -- mailto:, tel:, ftp: are defanged like everything else."""
+    if not allowed or not url:
+        return False
+    u = url.strip()
+    if re.search(r"[\\\s\x00-\x1f\x7f]", u):
+        return False
+    m = re.match(r"^(?:(https?)://|//)", u, re.IGNORECASE)
+    if not m:
+        return False
+    try:
+        p = urlsplit(u if m.group(1) else "https:" + u)
+        if p.username is not None or p.password is not None:
+            return False
+        return is_allowed_host(p.hostname, allowed)
+    except ValueError:
+        return False
 
 
 def _defang_url(m):
@@ -282,24 +361,35 @@ def _defang_url(m):
     return scheme + host.replace(".", "[.]") + tail
 
 
-def _defang(s):
-    """Defang dangerous schemes + scheme/www URLs in a string. Applied ONLY to markdown-link targets and
-    formula-carrying lines -- never to bare prose (the documented residual)."""
+# A special scheme with its slashes missing or halved ("https:evil.example", "https:/evil.example") is
+# REPAIRED to "https://evil.example" by every browser's URL parser, so it is a live link. Normalize it
+# before deciding, so the defanger sees what the renderer will see.
+_SLASHLESS_SCHEME_RE = re.compile(r"(?i)\b(https?|ftps?):(?!//)/?(?=[A-Za-z0-9\[])")
+
+
+def _defang(s, allowed=frozenset()):
+    """Defang dangerous schemes + scheme/www URLs in a string, leaving URLs into the allowed tenant hosts
+    live. Applied to link targets, formula-carrying lines, HTML attribute values and (in mail) text --
+    never to bare prose in a case note (the documented residual)."""
+    s = _SLASHLESS_SCHEME_RE.sub(lambda m: m.group(1) + "://", s)
     s = _DANGER_SCHEME_RE.sub(lambda m: m.group(1) + "[:]", s)
-    return _URL_RE.sub(_defang_url, s)
+    return _URL_RE.sub(lambda m: m.group(0) if _url_allowed(m.group(0), allowed) else _defang_url(m), s)
 
 
-def _defang_target(t):
+def _defang_target(t, allowed=frozenset()):
     """Defang a markdown-link target: a scheme URL / dangerous scheme, or a scheme-less dotted host (which
-    a renderer linkifies). A relative path / anchor with no dotted host is left alone."""
-    d = _defang(t)
-    if d != t:
-        return d
-    m = _HOST_RE.match(t)
-    if m:
-        slashes, host, tail = m.groups()
-        return (slashes or "") + host.replace(".", "[.]") + tail
-    return t
+    a renderer linkifies). A relative path / anchor with no dotted host is left alone. A target into the
+    allowed tenant hosts stays live."""
+    core = t[1:-1] if len(t) > 1 and t[0] == "<" and t[-1] == ">" else t
+    if _url_allowed(core, allowed) or _url_allowed("https://" + core, allowed) and _HOST_RE.match(core):
+        return t
+    d = _defang(core, allowed)
+    if d == core:
+        m = _HOST_RE.match(core)
+        if m:
+            slashes, host, tail = m.groups()
+            d = (slashes or "") + host.replace(".", "[.]") + tail
+    return ("<" + d + ">") if core is not t else d
 
 
 def _is_formula(cell):
@@ -315,7 +405,7 @@ def _is_formula(cell):
     return bool(_FORMULA_CALL_RE.match(s) or _DDE_RE.search(s))
 
 
-def _neutralize_formulas(text, notes):
+def _neutralize_formulas(text, notes, allowed=frozenset()):
     out = []
     for line in text.splitlines(keepends=True):
         core, nl = (line[:-1], line[-1:]) if line.endswith("\n") else (line, "")
@@ -359,12 +449,177 @@ def _neutralize_formulas(text, notes):
         core = _MID_LINE_FORMULA_RE.sub(_mid, core)
 
         if found:                                           # this line carries a formula -> defang its URL(s)
-            core = _defang(core)
+            core = _defang(core, allowed)
         out.append(core + nl)
     return "".join(out)
 
 
-def neutralize_output(text):
+# --- HTML (#147 / #119 item 3) -----------------------------------------------------------------------------
+# A tag-and-attribute pass, not a DOM: it rewrites what a mail client or a renderer would act on and leaves
+# everything else byte-identical. Order inside the pass: elements that execute are removed or made inert,
+# then event handlers, then every URL-bearing attribute, then CSS url() in style attributes and blocks.
+
+# Elements whose CONTENT is code, not text: removed with their content. An unclosed opener is made inert
+# (its '<' escaped) rather than reasoned about -- a browser would treat the rest of the document as script.
+_HTML_EXEC_ELEMENTS = r"script|iframe|object|embed|applet|svg|math|frameset|frame|noscript|template"
+_HTML_EXEC_BLOCK_RE = re.compile(
+    r"<\s*(" + _HTML_EXEC_ELEMENTS + r")\b[^>]*>.*?<\s*/\s*\1\s*>", re.IGNORECASE | re.DOTALL)
+# Tags that are never content but change what a link/fetch means: made inert in place, inner text kept.
+_HTML_INERT_TAGS = r"form|meta|base|link|input|button|select|textarea|" + _HTML_EXEC_ELEMENTS
+_HTML_INERT_TAG_RE = re.compile(r"<(?=\s*/?\s*(?:" + _HTML_INERT_TAGS + r")\b)", re.IGNORECASE)
+# A tag with its attribute region; quoted values may contain '>' without ending the tag.
+_HTML_TAG_RE = re.compile(r"<(/?)([a-zA-Z][\w:.-]*)((?:\"[^\"]*\"|'[^']*'|[^'\">])*)>")
+_HTML_HANDLER_RE = re.compile(r"""[\s/]+on[\w-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+_HTML_URL_ATTRS = (r"href|src|action|formaction|poster|background|ping|cite|longdesc|usemap|data|"
+                   r"xlink:href|dynsrc|lowsrc|manifest|codebase|classid|srcdoc|srcset|style")
+_HTML_URL_ATTR_RE = re.compile(
+    r"""(?P<lead>[\s/]+)(?P<name>""" + _HTML_URL_ATTRS + r""")(?P<eq>\s*=\s*)(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]+))""",
+    re.IGNORECASE | re.DOTALL)
+_INERT_SCHEMES = {"hxxp", "hxxps", "fxp", "fxps"}          # our own output; never re-defanged (idempotency)
+_CSS_URL_RE = re.compile(r"""(url\(\s*(['"]?))([^)'"]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)""", re.IGNORECASE)
+_STYLE_BLOCK_RE = re.compile(r"(<\s*style\b[^>]*>)(.*?)(<\s*/\s*style\s*>)", re.IGNORECASE | re.DOTALL)
+_ANY_SCHEME_RE = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.-]*):")
+
+
+def _defang_attr_value(decoded, allowed, notes, kind, keep_relative=True):
+    """Decide one URL-ish attribute value AFTER entity decoding. Returns the value to write back (already
+    defanged, still decoded -- caller re-escapes), or None when it stays as written."""
+    # Browsers strip tab / newline / CR and leading-trailing C0 controls out of a URL before parsing, so
+    # "java\tscript:" IS javascript: to the renderer. Decide on the stripped form and, if anything was
+    # stripped, write the stripped form back so the smuggled bytes are gone too.
+    v = re.sub(r"[\t\n\r\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", decoded).strip()
+    smuggled = v != decoded.strip()
+    if not v or (keep_relative and not smuggled and not _ANY_SCHEME_RE.match(v) and not v.startswith("//")
+                 and not re.match(r"^www\.", v, re.IGNORECASE) and not _HOST_RE.match(v)):
+        return None                                     # relative path / fragment: nothing to fetch
+    if _url_allowed(v, allowed):
+        return None
+    d = _defang(v, allowed)
+    if d == v:
+        m = _ANY_SCHEME_RE.match(v)                     # mailto:, tel:, ms-word:, ... -- not a link we keep
+        if m and m.group(1).lower() in _INERT_SCHEMES:
+            return None if not smuggled else v
+        if m and m.group(1).lower() not in ("http", "https", "ftp", "ftps"):
+            d = v[:m.start(1)] + m.group(1) + "[:]" + v[m.end():]
+        else:
+            m = _HOST_RE.match(v)                       # protocol-relative or bare dotted host
+            if m:
+                slashes, host, tail = m.groups()
+                d = (slashes or "") + host.replace(".", "[.]") + tail
+    if d != v or smuggled:
+        notes.append({"type": kind, "original": v[:60]})
+        return d
+    return None
+
+
+def _neutralize_css(css, allowed, notes):
+    def _u(m):
+        if m.group(1):                                   # url(...)
+            target = m.group(3)
+            d = _defang_attr_value(target, allowed, notes, "html_css")
+            return m.group(0) if d is None else m.group(1) + d + m.group(4)
+        target = m.group(7)                              # @import
+        d = _defang_attr_value(target, allowed, notes, "html_css")
+        return m.group(0) if d is None else m.group(5) + d
+    css = _CSS_URL_RE.sub(_u, css)
+    # expression() and -moz-binding are script vectors in legacy engines; make them inert
+    return re.sub(r"(?i)\b(expression|-moz-binding)\s*\(", r"\1[(]", css)
+
+
+def _neutralize_tag(m, allowed, notes):
+    slash, name, attrs = m.group(1), m.group(2), m.group(3)
+    if not attrs:
+        return m.group(0)
+    before = attrs
+
+    def _handler(h):
+        notes.append({"type": "html_handler", "original": h.group(0).strip()[:60]})
+        return ""
+    attrs = _HTML_HANDLER_RE.sub(_handler, attrs)
+
+    def _attr(a):
+        aname = a.group("name").lower()
+        raw = a.group("dq") if a.group("dq") is not None else (a.group("sq") if a.group("sq") is not None else a.group("uq"))
+        q = '"' if a.group("dq") is not None else ("'" if a.group("sq") is not None else "")
+        decoded = _html.unescape(raw)
+        if aname == "style":
+            new = _neutralize_css(decoded, allowed, notes)
+            if new == decoded:
+                return a.group(0)
+        elif aname == "srcset":
+            parts = []
+            changed = False
+            for cand in decoded.split(","):
+                cand = cand.strip()
+                if not cand:
+                    continue
+                url, _, desc = cand.partition(" ")
+                d = _defang_attr_value(url, allowed, notes, "html_src")
+                if d is not None:
+                    changed = True
+                    url = d
+                parts.append((url + " " + desc).strip())
+            if not changed:
+                return a.group(0)
+            new = ", ".join(parts)
+        elif aname == "srcdoc":
+            notes.append({"type": "html_strip", "original": "srcdoc"})
+            return ""                                    # an inline document is an iframe by another name
+        else:
+            kind = "html_link" if aname in ("href", "xlink:href", "cite", "longdesc") else "html_src"
+            d = _defang_attr_value(decoded, allowed, notes, kind, keep_relative=aname not in ("action", "formaction"))
+            if d is None:
+                return a.group(0)
+            new = d
+        q = q or '"'
+        # Re-escape only what the attribute needs: & < > and the delimiting quote. Escaping the OTHER
+        # quote would rewrite CSS like url( 'x' ) inside a double-quoted style attribute for no reason.
+        esc = _html.escape(new, quote=False).replace(q, "&quot;" if q == '"' else "&#x27;")
+        return a.group("lead") + a.group("name") + a.group("eq") + q + esc + q
+    attrs = _HTML_URL_ATTR_RE.sub(_attr, attrs)
+    return m.group(0) if attrs == before else "<" + slash + name + attrs + ">"
+
+
+def _neutralize_html(text, notes, allowed=frozenset(), mail=False):
+    if "<" not in text and not mail:
+        return text
+    def _block(m):
+        notes.append({"type": "html_strip", "original": m.group(1).lower()})
+        return ""
+    text = _HTML_EXEC_BLOCK_RE.sub(_block, text)
+
+    def _style(m):
+        return m.group(1) + _neutralize_css(m.group(2), allowed, notes) + m.group(3)
+    text = _STYLE_BLOCK_RE.sub(_style, text)
+
+    def _inert(m):
+        notes.append({"type": "html_strip", "original": "inert tag"})
+        return "&lt;"
+    text = _HTML_INERT_TAG_RE.sub(_inert, text)
+
+    text = _HTML_TAG_RE.sub(lambda m: _neutralize_tag(m, allowed, notes), text)
+
+    if mail:
+        # A mail client auto-links a bare URL in text, so in a mail body bare is clickable: defang every
+        # URL outside a tag that is not into the tenant. Entities are decoded for the decision and the
+        # segment is re-escaped only when something changed, so untouched text stays byte-identical.
+        parts = re.split(r"(<[^>]*>)", text)
+        for i in range(0, len(parts), 2):
+            seg = parts[i]
+            if not seg:
+                continue
+            decoded = _html.unescape(seg)
+            if not re.search(r"(?i)(?:https?|ftps?):|www\.", decoded):
+                continue
+            d = _defang(decoded, allowed)
+            if d != decoded:
+                notes.append({"type": "mail_url", "original": "bare url in mail text"})
+                parts[i] = _html.escape(d, quote=False)
+        text = "".join(parts)
+    return text
+
+
+def neutralize_output(text, allowed_hosts=frozenset(), mail=False):
     """Defang markdown-link targets, redact secrets/structured-PII, then quote-prefix executable formulas
     (+ defang URLs on those lines). Bare URLs and free-form PII in prose are out of scope (documented
     residuals). Pure and deterministic. Link defang runs FIRST -- see the ordering note in the body: with
@@ -372,6 +627,26 @@ def neutralize_output(text):
     if not text:
         return text, []
     notes = []
+    allowed = frozenset(allowed_hosts or ())
+
+    # HTML first: it works on tags and attributes and never on markdown syntax, and the autolink pass
+    # must run before the tag pass so <https://x> is read as a link, not a tag named "https".
+    def _auto(m):
+        inner = m.group(1)
+        d = _defang_target(inner, allowed)
+        if d != inner:
+            notes.append({"type": "link", "original": inner[:60]})
+        return "<" + d + ">"
+    text = _MD_AUTOLINK_RE.sub(_auto, text)
+    text = _neutralize_html(text, notes, allowed, mail)
+
+    def _refdef(m):
+        target = m.group(2)
+        d = _defang_target(target, allowed)
+        if d != target:
+            notes.append({"type": "link", "original": target[:60]})
+        return m.group(1) + d
+    text = _MD_REF_DEF_RE.sub(_refdef, text)
 
     # ORDER MATTERS. Link defang runs BEFORE redaction, not after. A credential-shaped query parameter
     # (`[reset](https://evil/login?token=abc123).`) puts both controls on one span, and whichever runs
@@ -383,7 +658,7 @@ def neutralize_output(text):
     # rewrites the scheme and host, never the query string), so nothing is lost.
     def _link(m):
         target = m.group(2)
-        d = _defang_target(target)
+        d = _defang_target(target, allowed)
         if d != target:
             notes.append({"type": "link", "original": target[:60]})
         return m.group(1) + d + m.group(3)
@@ -391,5 +666,5 @@ def neutralize_output(text):
 
     text = redact_secrets(text, notes)
 
-    text = _neutralize_formulas(text, notes)
+    text = _neutralize_formulas(text, notes, allowed)
     return text, notes

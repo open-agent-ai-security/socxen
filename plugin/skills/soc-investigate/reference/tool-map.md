@@ -82,8 +82,14 @@ always the cause.
   #137)*. Schema (verified via `list_tools`, 2026-09-02): `arg1: {` **`recipients`** `: [email…],` **`subject`**
   `,` **`body`** `}` — `body` is an **HTML fragment** (≤ 8000 chars) rendered as-is into a template, and the MCP
   restricts it to content produced by an Exabeam read tool. Do not infer recipients: an empty list makes the
-  tool return the subscription's users to choose from. Outbound mail is **not** run through the write-side
-  neutralizer yet (its rules are markdown/formula-shaped; mail is HTML) — see the follow-up issue.
+  tool return the subscription's users to choose from. **Recipients are scoped by the MCP service to active
+  users of the operator's own subscription** — any other address is rejected (with suggestions), so mail
+  cannot leave the tenant's user base. `subject` and `body` run through the write-side neutralizer in
+  **mail mode** (#147): secrets masked, formulas quoted, every link form de-fanged — markdown, HTML
+  `href`/`src`/`srcset`, CSS `url()`, and bare URLs in the text — scripts/iframes/forms/handlers removed;
+  **links into the operator's own tenant stay clickable** (derived from `EXABEAM_MCP_URL`, nothing else).
+  Write the case link as the tenant console URL and it survives; write anything else and it renders
+  de-fanged. Review the body before approving a send.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
 

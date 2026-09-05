@@ -127,7 +127,7 @@ gate staying real.
 |---------|---------|------------------|-------|
 | Exabeam New-Scale MCP, reached through an operator-configured registration | Yes | No for read tools; yes for a dismiss/close write | socxen MUST reach the SOC platform only through an operator-configured Exabeam New-Scale MCP endpoint, by one of the two documented registrations (the bundled bridge, or the documented advanced manual registration). Input screening, output neutralization, and the audit trail live in the bundled bridge, so a direct registration MUST be disclosed as forgoing them. |
 | Interactive terminal session with the human analyst (the host agent: Claude Code or Codex) | Yes | No | The only channel for reporting **to the human analyst** — verdicts, triage summaries, tuning proposals, containment recommendations, and approval requests; socxen MUST NOT seek approval through any other channel. (Recording the same conclusion into a case note is separately authorized.) |
-| Email to users of the operator's own Exabeam subscription, sent by the platform through the MCP `exabeam_send_email` tool | Yes | Yes — explicit analyst request, human-confirmed on both hosts | Recipients MUST be limited to active users of the operator's own subscription: the Exabeam MCP service enforces this by rejecting any address that is not a subscription member, and socxen MUST NOT infer, invent, or auto-complete a recipient. The mail body MUST consist only of Exabeam tool output socxen produced in the session, and MUST pass through the same write-side neutralization as a case note (secrets masked, formulas and markdown links de-fanged) before it leaves; links carried in HTML attributes are not yet de-fanged, so the analyst MUST review the body at the approval prompt before the send. |
+| Email to users of the operator's own Exabeam subscription, sent by the platform through the MCP `exabeam_send_email` tool | Yes | Yes — explicit analyst request, human-confirmed on both hosts | Recipients MUST be limited to active users of the operator's own subscription: the Exabeam MCP service enforces this by rejecting any address that is not a subscription member, and socxen MUST NOT infer, invent, or auto-complete a recipient. The mail body MUST consist only of Exabeam tool output socxen produced in the session, and MUST pass through write-side neutralization in mail mode before it leaves: secrets masked, formulas quoted, every link form de-fanged (markdown, HTML `href`/`src`/`srcset`, CSS `url()`, bare URLs in text), executing and navigating HTML elements removed or made inert. The only links that MAY remain clickable are those into the operator's own tenant hosts, derived from the configured MCP URL and never from a curated or model-supplied list. |
 | Local audit-log file on the operator's host | Yes | No | Append-with-rotation operational record; see Data Boundaries for what it may and may not contain. |
 | Off-host telemetry destination (platform, OpenTelemetry collector, or webhook) | Yes | Yes — explicit operator configuration | MUST be disabled by default, and when enabled the destination MUST be disclosed to the operator — on the audit trail's session record (backend and resolved endpoint) and on the bridge's startup line — rather than routed silently. |
 
@@ -289,13 +289,16 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - Redaction protects what socxen persists (case notes, exports). A secret shown on the operator's own
   screen during a session is not redacted — the operator console is not a trust boundary the guardrail
   claims to cover.
-- The write-path link de-fanger recognizes the standard inline markdown form `[text](target)` (and
-  formulas). A CommonMark title, whitespace padding inside the parentheses, a reference-style
-  definition, a GFM autolink, and a raw HTML anchor pass through and render as live links (#119). A bare
-  URL in prose is a documented residual (a mention is inert).
-- Outbound mail bodies are HTML. The neutralizer masks secrets and de-fangs formulas and markdown links
-  in them; links carried in HTML `href` / `src` attributes are not de-fanged (#147). The analyst reviews
-  the body at the approval prompt before the send.
+- A bare URL in prose in a case note is a documented residual (a mention is inert in the note viewer;
+  in mail, where a client would auto-link it, it is de-fanged).
+- Clickable links are decided by destination, not authorship (#147): a link into the operator's own
+  tenant hosts (derived from the configured MCP URL) stays live in notes and mail; every other link, in
+  every form, is de-fanged. Residual, stated: an **open redirect on the tenant host** would pass that
+  rule — the same trust already extended to the console itself; chasing it would mean URL-path analysis
+  and is out of scope.
+- The HTML pass is a tag-and-attribute rewrite, not a browser: markup a lenient renderer would "repair"
+  into something different (an unclosed quote spanning tags) is escaped conservatively rather than
+  reasoned about, and a bare URL in a case note (not mail) remains the documented residual above.
 - A tool result too large for the model's context may be spilled by the host agent to a local working
   file that socxen then reads selectively. That file is the host's copy of raw tenant content: it is not
   passed through the write-path neutralizer, and its location and lifecycle are the host's, disclosed in
