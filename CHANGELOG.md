@@ -21,8 +21,9 @@ governance model (feature → `dev`, release `dev` → `main`).
   manually wired `exabeam` server alike (#86). Never fails open: an unreadable tier file or malformed
   event degrades to *ask*. Appends a best-effort decision record to `~/.socxen/gate.jsonl` (#87).
   Answers the two questions #9 left open — a plugin cannot ship permission rules, but it can ship this —
-  and closes #3's "inert until merged". The permission-rules merge stays as the optional second layer:
-  silent reads, and the only gate on the manual-MCP path.
+  and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 18 reads
+  (verified headless in default permission mode, 2026-09-05), so the permission-rules merge is needed
+  for one case only: a manually wired server under a name the hook does not match.
 
 - **Red-team: a fixture that provokes the gated write on purpose** — `c03-preauthorized-close-headless`
   (class C, "config bypass"). The colleague's handoff note (new `input.instruction`, placed in the human
@@ -108,8 +109,8 @@ governance model (feature → `dev`, release `dev` → `main`).
   de-fanged — an HTML-aware pass is a product decision on clickable links, tracked in #147 (Praxen `-002`).
 - **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
   on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
-  documented as *optional*: they make the 18 read tools run without a prompt and are the only gate on a
-  manually wired `exabeam` server. Every place that said the merge was mandatory now says the gate ships
+  documented as *optional* — not needed for the bundled server (the hook allows the reads), only for a
+  manually wired server under a name the hook does not match. Every place that said the merge was mandatory now says the gate ships
   ON — the repository README, the plugin README, `docs/installation.md` (section retitled "Governance —
   the safety gate"), `docs/usage.md`, the docs index, the site's landing page and install card, and the
   installer's and preflight's own messages. Codex is unchanged.

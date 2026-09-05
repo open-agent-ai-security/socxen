@@ -508,7 +508,7 @@ elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
   # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
   # "assume yes" answers the installer's own questions, it does not authorize writing to the
   # operator's settings.json. Installation alone must never change that file (#70 non-goal).
-  warn "Permission rules not merged — the bundled hook already gates dismiss/close and blocks containment; merging adds silent reads and covers a manually wired 'exabeam' server (re-run with --merge-permissions)"
+  warn "Permission rules not merged — not needed: the bundled hook gates dismiss/close, blocks containment and allows the reads. Merge only for a manually wired server under a name other than 'exabeam' (re-run with --merge-permissions)"
 else
   # Gate is OFF, we're interactive, and we can do something about it — offer, showing exactly what
   # would change first. Declining leaves the original warning, unchanged from previous releases.

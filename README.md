@@ -61,8 +61,9 @@ codex plugin add socxen@open-agent-ai-security
 On Codex that's the whole install — the approval gate travels inside the package, so there is no merge
 step. The rest of this section is the **Claude Code** gate:
 
-> The gate ships ON. **Optionally** merge the permission pack too — it lets the 18 read tools run
-> without a prompt each, and it is the only gate on a manually wired `exabeam` server:
+> The gate ships ON, and the reads run without a prompt — the hook allows them. You do **not** need to
+> merge the permission pack. It exists for one case: a manually wired server under a name the hook does
+> not match (the hook covers the bundled server and one named `exabeam`):
 >
 > ```bash
 > git clone https://github.com/open-agent-ai-security/socxen.git
