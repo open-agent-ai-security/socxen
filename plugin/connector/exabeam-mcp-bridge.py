@@ -108,17 +108,21 @@ from neutralize_output import neutralize_output
 # telemetry fault never affects an investigation.
 import observra_logging as telemetry
 
-# send_email is a member for GATING and DRY-RUN purposes (refused under SOCXEN_DRY_RUN, attempt recorded
-# in the audit trail) — its content is NOT neutralized: _DEFANG_FIELDS names case/alert fields only, and
-# no mail field is added until the tool's schema is confirmed. Membership here must not be read as
-# link/formula coverage for outbound mail. (#137 review; follow-up issue tracks the schema decision.)
+# send_email is gated (ask on both hosts), refused under SOCXEN_DRY_RUN, and audited like every write.
+# Its schema is confirmed (list_tools, 2026-09-02): arg1.{recipients, subject, body}; body is an HTML
+# fragment. `subject` and `body` ARE neutralized (below) — secrets masked, formulas and markdown links
+# de-fanged. What that does NOT cover: URLs inside HTML attributes (href/src), javascript:/data: targets
+# and on* handlers — the neutralizer is markdown-shaped and those are its documented residual. An
+# HTML-aware pass is a product decision (clickable links in mail), tracked in #147. Recipients are scoped
+# server-side to the subscription's active users (Exabeam/exa-mcp-proxy, EmailTools.java).
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes",
                "exabeam_send_email"}    # mail leaving the platform is a write (#137)
 # Free-text write fields a payload can ride in — the ONLY fields we neutralize. IDs / enums / state
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
-_DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags"}
+_DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags",
+                  "subject", "body"}     # subject/body: exabeam_send_email (#147 for the HTML residual)
 
 # DRY RUN — refuse every write at the bridge instead of forwarding it to the tenant.
 #
