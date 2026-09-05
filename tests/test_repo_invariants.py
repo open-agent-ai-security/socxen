@@ -567,5 +567,20 @@ def test_skill_states_the_taxonomy_report_contract():
 
 
 
+def test_docs_describe_the_gate_that_ships():
+    """Praxen PRAX-2026-09-05-008: the docs contradicted the shipped gate — one page said the hook holds under
+    --dangerously-skip-permissions, another that those modes turn the gate off; one said a manual `exabeam`
+    server bypasses the hook when the matcher covers it; the skill body still named the snippet as the gate."""
+    inst = (ROOT / "plugin" / "docs" / "installation.md").read_text()
+    assert "does not go through the plugin's hook" not in inst
+    assert "turn the hard gate off" not in inst
+    assert "not the bundled hook" in inst
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "hooks/gate.py" in body, "the skill body must name the bundled hook as the Claude-side gate"
+    hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())
+    matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
+    assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

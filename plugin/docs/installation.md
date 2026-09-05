@@ -174,13 +174,14 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 >
 > The hook is *stricter* than the permission rules below in one way: it cannot grant silent reads.
 > Without the rules, Claude Code will ask you before each read tool the first time. Merging the rules is
-> the **optional** step that makes the 18 reads frictionless — and it is the only gate on a manually
-> wired `exabeam` server (`claude mcp add`), which does not go through the plugin's hook.
+> the **optional** step that makes the 18 reads frictionless. The hook also covers a manually wired
+> server *named* `exabeam` (`claude mcp add exabeam …` — its matcher includes `mcp__exabeam__`); the
+> rules are the only gate on a manual server under any **other** name.
 
 ### Claude Code — the optional permission rules
 
-These make reads frictionless and cover the manual-MCP path; they are the *second* lock on dismiss/close,
-behind the bundled hook. Merge the `permissions` block from
+These make reads frictionless and cover a manual server under a name the hook does not match; they are
+the *second* lock on dismiss/close, behind the bundled hook. Merge the `permissions` block from
 `skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
 `plugin/skills/soc-investigate/settings.snippet.json` from a clone — into the settings file Claude Code
 reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
@@ -233,9 +234,11 @@ otherwise `$CLAUDE_CONFIG_DIR/settings.json` if your config dir is relocated, ot
 `~/.claude/settings.json`. Every message names the resolved path, so you can always see which file was
 checked or written.
 
-> ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
-> modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
-> soft ask. Keep permissions on.
+> ⚠️ **Keep permissions on.** `--dangerously-skip-permissions`, bypass-permissions and auto-accept modes
+> turn the *permission rules* off — but **not the bundled hook**: its *deny* on containment and its *ask*
+> on dismiss/close still fire in those modes, and with nobody there to answer, an *ask* is refused
+> (verified live, 2026-09-04). What you lose in those modes is the second lock — the rules — and every
+> prompt on a manual server the hook does not match. Do not rely on that.
 
 Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in

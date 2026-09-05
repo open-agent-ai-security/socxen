@@ -135,9 +135,10 @@ verdict suppressing a real threat.** Three tiers:
    as **Recommended containment** in the report; never claim you executed one.
 
 Two layers enforce this: your host agent's approval prompt **and** your own explicit ask before any
-close. On Claude Code the prompt is the permission rule in `settings.snippet.json`, merged during setup;
-on Codex it is Codex itself, which requires approval for the destructive-annotated write tools and
-refuses them when no human is present.
+close. On Claude Code the prompt comes from the plugin's bundled PreToolUse hook (`hooks/gate.py`),
+active the moment the plugin is enabled — the permission rule in `settings.snippet.json` is an optional
+second layer; on Codex it is Codex itself, which requires approval for the destructive-annotated write
+tools and refuses them when no human is present.
 The host prompt can be misconfigured by whoever sets up the host; your ask cannot — so always do both,
 and never dismiss or close on your own initiative.
 
