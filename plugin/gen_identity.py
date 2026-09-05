@@ -53,6 +53,10 @@ def prefixes(identity, server):
 def build(identity, perms):
     common = {k: identity[k] for k in ("name", "version", "description", "author", "homepage", "repository", "license")}
     claude = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["claude"], "skills": "./skills/"}
+    # The bundled PreToolUse hook (gate/bundled-hook, #148) is declared here when it ships in the tree, so a
+    # regeneration can never silently unregister the gate and --check stays green in either merge order.
+    if (HERE / "hooks" / "hooks.json").is_file():
+        claude["hooks"] = "./hooks/hooks.json"
     codex = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["codex"], "skills": "./skills/",
              "mcpServers": "./.mcp.codex.json",
              "interface": {"displayName": identity["displayName"], "shortDescription": identity["shortDescription"],
