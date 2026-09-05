@@ -75,6 +75,12 @@ governance model (feature → `dev`, release `dev` → `main`).
   as the leg that makes attempts observable.
 
 ### Changed
+- **Outbound email is a declared channel.** The Praxen Worker Remit (v1.4) now authorizes `exabeam_send_email`
+  as a human-confirmed channel to active users of the operator's own subscription, and the docs
+  (`security-guardrails.md`, `usage.md`, the tool map) say what the platform enforces: the Exabeam MCP
+  service rejects any recipient who is not a subscription member, so mail cannot leave the tenant's user
+  base. The remit also requires the mail body to pass the write-side neutralizer, which it does not yet —
+  that remains an open item (Praxen `-002`).
 - **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
   on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
   documented as *optional*: they make the 18 read tools run without a prompt and are the only gate on a

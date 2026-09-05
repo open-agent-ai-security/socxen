@@ -77,6 +77,11 @@ of copy-pasting a good link is worth never handing an analyst a live malicious o
 
 Keep expectations honest:
 
+- **Email.** `exabeam_send_email` lets socxen mail Exabeam tool output to a person, and it is
+  human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to **active users of your
+  own subscription** — any other address is rejected — so mail cannot leave your tenant's user base. The
+  body is HTML built from tool output and does not yet pass through the link and secret neutralizer below,
+  so read it before you approve the send.
 - They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen **persists** (case notes, exports) — the
