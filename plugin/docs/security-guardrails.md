@@ -76,16 +76,21 @@ automatically when someone opens or exports the report later. The address is sti
 can copy it into a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone
 with a stray click.
 
-**The one exception is your own tenant.** A link to a case or alert in your own Exabeam console — the
-hosts under the region in your configured MCP URL — stays clickable, because that destination can be
-verified and it is the reason to send someone a case link at all. So *the only clickable links in a
-socxen email point back into the system the recipient already signs in to.* An attacker-supplied URL can
-never qualify: by construction it is not your tenant's host. socxen cannot reliably tell a legitimate
+**The one exception is your own tenant.** A link to a case or alert in your own Exabeam console stays
+clickable, because that destination can be verified and it is the reason to send someone a case link at
+all. So *the only clickable links in a socxen email point back into the system the recipient already
+signs in to.* The rule is mechanical: the allowed hosts are the API host in your configured
+`EXABEAM_MCP_URL` and the hosts under its region domain (for `api.us-west.exabeam.cloud` that is
+`*.us-west.exabeam.cloud`) — nothing the model says, nothing in tenant content, can widen it. An
+attacker-supplied URL on any other host can never qualify. socxen cannot reliably tell a legitimate
 third-party link from a disguised malicious one, so every other link is treated the same way — the small
 inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
 
-One residual, stated rather than solved: an open redirect *on your tenant host* would pass this rule. That
-is the same trust you already extend to the console itself.
+Two residuals, stated rather than solved: an open redirect *on an allowed host* passes this rule (the
+same trust you already extend to the console), and "the region domain" is wider than "your tenant" —
+any Exabeam-operated host in that region is allowed, which is the trust the console URL itself carries.
+If you point the bridge at a self-hosted proxy, its parent domain is what gets allowed; choose that host
+accordingly.
 
 ## What these guardrails do *not* do
 
@@ -141,9 +146,10 @@ Keep expectations honest:
   known-exposed password as compromised regardless of what the note shows.
 - A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
   to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
-- Link escaping covers the ordinary link form. Unusual variants — a link carrying a title, one padded
-  with spaces inside its brackets, a reference-style definition, or a raw HTML anchor — are **not**
-  escaped and will render as live links. Treat any link in a note as unverified regardless of how it
-  is rendered.
+- Link escaping covers every markdown and HTML link form socxen knows how to read. What remains: a bare
+  URL typed into a note as plain text is left as written (a note viewer does not auto-link it; a mail
+  client does, so in mail it is escaped too); markup too broken for any renderer to act on is made
+  literal text rather than reasoned about; and an open redirect on your own tenant host passes the
+  tenant rule. Treat any link in a note as unverified regardless of how it is rendered.
 - They reduce the blast radius of hostile content. They do **not** replace the permission gate, your SOC
   procedures, or your judgment on the verdict itself.

@@ -43,7 +43,7 @@ governance model (feature → `dev`, release `dev` → `main`).
   **0 Critical — gate passes**; 3 High · 9 Medium; RAISE 3.15 (Established); remit v1.3 coverage 34 verified /
   16 partial / 5 gap of 64. See `security/praxen/README.md`. Of the three Highs: the hook's invocation
   (`-001`) is fixed below; `exabeam_send_email` (`-002`) is addressed after the snapshot — subject/body
-  neutralized, the channel declared in remit v1.4, the HTML `href`/`src` residual is Matt's call in #147;
+  neutralized, the channel declared in remit v1.4, and the HTML `href`/`src` pass landed under #147's ruling;
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
@@ -148,17 +148,17 @@ governance model (feature → `dev`, release `dev` → `main`).
 - **Worker Remit v1.5 — the #121 tune-ups, before the dev RC scan.** Closure rules on the tool inventory
   and the channel table (anything outside them is out of policy); the three disclosure rules name their
   channel (the audit trail's session record and startup line; stderr for the one case where the trail is
-  unavailable); Declared Redaction Limits now carry the markdown link-form residual (#119), the HTML
-  `href`/`src` residual in mail (#147) and the host's spill file for oversized results (resolved as Open
-  Question 9: the host's copy, not a socxen write). The dependency-pinning split is moot — the lockfile
+  unavailable); Declared Redaction Limits now carry the bare-URL-in-a-note residual, the open-redirect
+  residual of the tenant link rule (#147, #119) and the host's spill file for oversized results (resolved
+  as Open Question 9: the host's copy, not a socxen write). The dependency-pinning split is moot — the lockfile
   is honored automatically.
 - **Outbound email is a declared channel.** The Praxen Worker Remit (v1.4) now authorizes `exabeam_send_email`
   as a human-confirmed channel to active users of the operator's own subscription, and the docs
   (`security-guardrails.md`, `usage.md`, the tool map) say what the platform enforces: the Exabeam MCP
   service rejects any recipient who is not a subscription member, so mail cannot leave the tenant's user
   base. The bridge now runs the mail `subject` and `body` through the write-side neutralizer (secrets
-  masked, formulas and markdown links de-fanged); links carried in HTML `href`/`src` attributes are not
-  de-fanged — an HTML-aware pass is a product decision on clickable links, tracked in #147 (Praxen `-002`).
+  masked, formulas and markdown links de-fanged); the HTML-aware pass under #147's ruling (see Security,
+  above) then closed the `href`/`src` gap Praxen `-002` named.
 - **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
   on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
   documented as *optional* — a second lock that does not depend on the hook; the hook already allows the

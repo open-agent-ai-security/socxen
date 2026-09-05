@@ -454,39 +454,72 @@ def _neutralize_formulas(text, notes, allowed=frozenset()):
     return "".join(out)
 
 
+# A link destination: no whitespace, parens balanced. Nested to six levels in C (deeper falls back to a
+# bounded Python walk). Both are capped at _MD_DEST_MAX chars so a page of `](` costs linear time, not
+# quadratic -- a destination longer than that with no closing paren is not a link anyone renders.
+_MD_DEST_MAX = 2048
+_MD_DEEP_MAX = 16                                        # Python-walked deep destinations per call
+
+
+def _nest(d):
+    # Every loop iteration starts with '(' so a run of plain characters has one parse: no catastrophic
+    # backtracking when an inner ')' is missing.
+    return r"[^\s()]*" if d == 0 else r"[^\s()]*(?:\(" + _nest(d - 1) + r"\)[^\s()]*)*"
+_MD_DEST_RE = re.compile(_nest(6))
+_MD_RUN_RE = re.compile(r"[^\s]*")
+
+
+def _md_dest_end(text, k, n, state):
+    """End of a paren-balanced destination starting at k, or -1 when there is none within the cap. After
+    _MD_DEEP_MAX deep (7+ level) destinations in one text the walk is skipped and the run is taken whole:
+    over-defanged rather than reasoned about, and never quadratic."""
+    lim = min(n, k + _MD_DEST_MAX)
+    e = _MD_DEST_RE.match(text, k, lim).end()
+    if e < lim and text[e] == "(":                       # deeper than the regex: walk it, bounded
+        state[0] += 1
+        if state[0] > _MD_DEEP_MAX:
+            return _MD_RUN_RE.match(text, k, lim).end()
+        depth, e = 0, k
+        while e < lim:
+            c = text[e]
+            if c in " \t\n":
+                break
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            e += 1
+        if depth != 0:
+            return -1
+    return e
+
+
 def _defang_md_inline_links(text, allowed, notes):
     """Every inline link / image `[text](dest "title")` whatever the bracket depth of the text or the paren
     depth of the destination (CommonMark allows both to be arbitrary, so a fixed-depth regex is a bypass --
-    found in review). Scans for `](`, walks the destination with paren balance, then rewrites it."""
+    found in review). Scans for `](`, reads the destination, then rewrites it."""
     out, pos, i = [], 0, 0
     n = len(text)
+    state = [0]
     while True:
         j = text.find("](", i)
         if j == -1:
             break
+        i = j + 2
         k = j + 2                                        # first char of the destination region
         while k < n and text[k] in " \t":
             k += 1
         if k < n and text[k] == "<":                     # <dest>
-            e = text.find(">", k)
+            e = text.find(">", k, k + _MD_DEST_MAX)
             if e == -1 or "\n" in text[k:e]:
-                i = j + 2; continue
+                continue
             dest_s, dest_e = k, e + 1
         else:
-            depth, e = 0, k
-            while e < n:
-                c = text[e]
-                if c in " \t\n":
-                    break
-                if c == "(":
-                    depth += 1
-                elif c == ")":
-                    if depth == 0:
-                        break
-                    depth -= 1
-                e += 1
-            if depth != 0 or e == k:
-                i = j + 2; continue
+            e = _md_dest_end(text, k, n, state)
+            if e <= k:
+                continue
             dest_s, dest_e = k, e
         # optional title, then the closing paren
         t = dest_e
@@ -494,14 +527,14 @@ def _defang_md_inline_links(text, allowed, notes):
             t += 1
         if t < n and text[t] in "\"'(":
             close = {"\"": "\"", "'": "'", "(": ")"}[text[t]]
-            te = text.find(close, t + 1)
+            te = text.find(close, t + 1, t + 1 + _MD_DEST_MAX)
             if te == -1:
-                i = j + 2; continue
+                continue
             t = te + 1
             while t < n and text[t] in " \t\n":
                 t += 1
         if t >= n or text[t] != ")":
-            i = j + 2; continue
+            continue
         target = text[dest_s:dest_e]
         d = _defang_target(target, allowed)
         if d != target:
@@ -520,13 +553,42 @@ def _defang_md_inline_links(text, allowed, notes):
 # Elements whose CONTENT is code, not text: removed with their content. An unclosed opener is made inert
 # (its '<' escaped) rather than reasoned about -- a browser would treat the rest of the document as script.
 _HTML_EXEC_ELEMENTS = r"script|iframe|object|embed|applet|svg|math|frameset|frame|noscript|template"
-_HTML_EXEC_BLOCK_RE = re.compile(
-    r"<\s*(" + _HTML_EXEC_ELEMENTS + r")\b[^>]*>.*?<\s*/\s*\1\s*>", re.IGNORECASE | re.DOTALL)
+_HTML_BLOCK_OPEN_RE = re.compile(r"<\s*(" + _HTML_EXEC_ELEMENTS + r"|style)\b[^>]*>", re.IGNORECASE)
+
+
+def _strip_code_blocks(text, notes, allowed):
+    """Remove every exec element with its content; run <style> content through the CSS pass. One forward
+    pass: an opener with no closer means every later opener of that element has none either, so the
+    search is never repeated (a page of bare `<script>` openers was quadratic through `.*?`)."""
+    out, pos, dead = [], 0, set()
+    i = 0
+    n = len(text)
+    while i < n:
+        m = _HTML_BLOCK_OPEN_RE.search(text, i)
+        if not m:
+            break
+        name = m.group(1).lower()
+        if name in dead:
+            i = m.end(); continue
+        c = re.compile(r"<\s*/\s*" + name + r"\s*>", re.IGNORECASE).search(text, m.end())
+        if not c:
+            dead.add(name); i = m.end(); continue
+        out.append(text[pos:m.start()])
+        if name == "style":
+            out.append(m.group(0) + _neutralize_css(text[m.end():c.start()], allowed, notes) + c.group(0))
+        else:
+            notes.append({"type": "html_strip", "original": name})
+        pos = i = c.end()
+    out.append(text[pos:])
+    return "".join(out)
 # Tags that are never content but change what a link/fetch means: made inert in place, inner text kept.
 _HTML_INERT_TAGS = r"form|meta|base|link|input|button|select|textarea|" + _HTML_EXEC_ELEMENTS
 _HTML_INERT_TAG_RE = re.compile(r"<(?=\s*/?\s*(?:" + _HTML_INERT_TAGS + r")\b)", re.IGNORECASE)
-# A tag with its attribute region; quoted values may contain '>' without ending the tag.
-_HTML_TAG_RE = re.compile(r"<(/?)([a-zA-Z][\w:.-]*)((?:\"[^\"]*\"|'[^']*'|[^'\">])*)>")
+# A tag with its attribute region; quoted values may contain '>' without ending the tag. A '<' is never
+# admitted, even inside quotes: it bounds every match at the next opener, which keeps the pass linear on
+# hostile input (a page of `<a "` was quadratic). A tag that really carries '<' in a quoted value is
+# escaped to text by _escape_broken_openers -- rendered literally, never live.
+_HTML_TAG_RE = re.compile(r"<(/?)([a-zA-Z][\w:.-]*)((?:\"[^\"<]*\"|'[^'<]*'|[^'\"<>])*)>")
 # A tag opener whose attribute region opens a quote it never closes before the next '>' -- to an HTML5
 # tokenizer the quoted value runs on until the NEXT quote in the document, swallowing the '>' and whatever
 # follows, so `<img src="https://evil.example/x?a=1><p>host "acme"` becomes a live fetch with the rest of
@@ -537,28 +599,54 @@ _HTML_BROKEN_OPENER_RE = re.compile(r"<(?=[a-zA-Z])")
 
 
 def _escape_broken_openers(text, notes):
+    """Escape every tag opener _HTML_TAG_RE could not read that a tokenizer would still act on: an opener
+    whose region (up to the next '>') holds an unbalanced quote, or a '<' inside a quoted value. Runs
+    AFTER the tag pass, so every well-formed tag is already rewritten and left alone here."""
+    openers = [m.start() for m in _HTML_BROKEN_OPENER_RE.finditer(text)]
+    if not openers:
+        return text
+    # Quote parity from each opener to the next '>' -- one pass from the right, not a scan per opener.
+    dq = sq = 0
+    odd = {}
+    oi = len(openers) - 1
+    for p in range(len(text) - 1, -1, -1):
+        c = text[p]
+        if c == ">":
+            dq = sq = 0
+        elif c == '"':
+            dq += 1
+        elif c == "'":
+            sq += 1
+        while oi >= 0 and openers[oi] == p:
+            odd[p] = bool((dq & 1) or (sq & 1))
+            oi -= 1
     out, pos = [], 0
-    for m in _HTML_BROKEN_OPENER_RE.finditer(text):
-        i = m.start()
+    for i in openers:
         if i < pos:
             continue
-        if _HTML_TAG_RE.match(text, i):                  # a well-formed tag: leave it
+        m = _HTML_TAG_RE.match(text, i)
+        if m:                                            # a well-formed tag: leave it
             continue
-        end = text.find(">", i)
-        region = text[i:end if end != -1 else len(text)]
-        if region.count('"') % 2 == 1 or region.count("'") % 2 == 1:
+        gt = text.find(">", i, i + 65536)
+        if gt == -1:
+            continue                                     # never closes: not a tag to any tokenizer
+        if odd[i] or "<" in text[i + 1:gt]:
             notes.append({"type": "html_strip", "original": "unbalanced quote in tag"})
             out.append(text[pos:i]); out.append("&lt;"); pos = i + 1
     out.append(text[pos:])
     return "".join(out)
 
 
-_HTML_HANDLER_RE = re.compile(r"""[\s/]+on[\w-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
-_HTML_URL_ATTRS = (r"href|src|action|formaction|poster|background|ping|cite|longdesc|usemap|data|"
-                   r"xlink:href|dynsrc|lowsrc|manifest|codebase|classid|srcdoc|srcset|style")
-_HTML_URL_ATTR_RE = re.compile(
-    r"""(?P<lead>[\s/]+)(?P<name>""" + _HTML_URL_ATTRS + r""")(?P<eq>\s*=\s*)(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]+))""",
-    re.IGNORECASE | re.DOTALL)
+# One attribute, the way the WHATWG tokenizer reads it: a name runs to whitespace, '/', '>' or '=', and a
+# quoted value may be followed directly by the next name (`"x"href=` is a parse error that still creates
+# both attributes). Decisions are made per attribute BY NAME -- a substring search for ` on…=` matched
+# inside a quoted value and a regex that required a space before the name missed the adjacent form
+# (found in review).
+_HTML_ATTR_RE = re.compile(
+    r"""(?P<lead>[\s/]*)(?P<name>[^\s/>="'][^\s/>=]*|=[^\s/>=]*)"""
+    r"""(?P<eq>\s*=\s*(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]*)))?""", re.DOTALL)
+_HTML_URL_ATTRS = frozenset(("href|src|action|formaction|poster|background|ping|cite|longdesc|usemap|data|"
+                             "xlink:href|dynsrc|lowsrc|manifest|codebase|classid|srcdoc|srcset|style").split("|"))
 _INERT_SCHEMES = {"hxxp", "hxxps", "fxp", "fxps"}          # our own output; never re-defanged (idempotency)
 _CSS_URL_RE = re.compile(
     r"""(url\(\s*(['"]?))([^)'"]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)|((?:-webkit-)?image-set\(\s*(['"]))([^'"]+)(\9)""",
@@ -576,7 +664,31 @@ def _css_unescape(css):
                 return ""
         return m.group(2)
     return _CSS_ESCAPE_RE.sub(_u, css)
-_STYLE_BLOCK_RE = re.compile(r"(<\s*style\b[^>]*>)(.*?)(<\s*/\s*style\s*>)", re.IGNORECASE | re.DOTALL)
+_MAIL_MARKUP_RE = re.compile(
+    r"(<[a-zA-Z][\w:.-]*(?:\"[^\"<]*\"|'[^'<]*'|[^'\"<>])*>|</[^>]*>|<[!?][^>]*>)", re.DOTALL)
+
+
+def _split_mail_markup(text):
+    """[text, markup, text, markup, ...]: comments first by find() (an unterminated one runs to the end of
+    the document, as in a renderer), then tags, end tags and <!…>/<?…> bogus comments."""
+    parts = []
+    i = 0
+    while True:
+        a = text.find("<!--", i)
+        if a == -1:
+            seg, i, comment = text[i:], len(text), None
+        else:
+            b = text.find("-->", a + 4)
+            seg = text[i:a]
+            comment, i = (text[a:], len(text)) if b == -1 else (text[a:b + 3], b + 3)
+        sub = _MAIL_MARKUP_RE.split(seg)
+        if parts:
+            parts[-1] += sub[0]; sub = sub[1:]
+        parts.extend(sub)
+        if comment is None:
+            break
+        parts.append(comment); parts.append("")
+    return parts
 _ANY_SCHEME_RE = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.-]*):")
 
 
@@ -619,15 +731,16 @@ def _neutralize_css(css, allowed, notes):
         css = dec
 
     def _u(m):
+        # The argument is decoded too: url(//evil\2e example/x) is url(//evil.example/x) to the tokenizer.
         if m.group(1):                                   # url(...)
-            target = m.group(3)
+            target = _css_unescape(m.group(3))
             d = _defang_attr_value(target, allowed, notes, "html_css")
             return m.group(0) if d is None else m.group(1) + d + m.group(4)
         if m.group(5):                                   # @import
-            target = m.group(7)
+            target = _css_unescape(m.group(7))
             d = _defang_attr_value(target, allowed, notes, "html_css")
             return m.group(0) if d is None else m.group(5) + d
-        target = m.group(10)                             # image-set('...')
+        target = _css_unescape(m.group(10))              # image-set('...')
         d = _defang_attr_value(target, allowed, notes, "html_css")
         return m.group(0) if d is None else m.group(8) + d + m.group(11)
     css = _CSS_URL_RE.sub(_u, css)
@@ -639,25 +752,31 @@ def _neutralize_tag(m, allowed, notes):
     slash, name, attrs = m.group(1), m.group(2), m.group(3)
     if not attrs:
         return m.group(0)
-    before = attrs
-
-    def _handler(h):
-        notes.append({"type": "html_handler", "original": h.group(0).strip()[:60]})
-        return ""
-    attrs = _HTML_HANDLER_RE.sub(_handler, attrs)
-
-    def _attr(a):
+    out, pos, changed = [], 0, False
+    i, n = 0, len(attrs)
+    while i < n:
+        a = _HTML_ATTR_RE.match(attrs, i)
+        if not a or a.end() == i:
+            i += 1                                       # stray byte: kept verbatim
+            continue
+        i = a.end()
         aname = a.group("name").lower()
+        if aname.startswith("on") and len(aname) > 2:
+            notes.append({"type": "html_handler", "original": a.group(0).strip()[:60]})
+            out.append(attrs[pos:a.start()]); pos = a.end(); changed = True
+            continue
+        if aname not in _HTML_URL_ATTRS or a.group("eq") is None:
+            continue
         raw = a.group("dq") if a.group("dq") is not None else (a.group("sq") if a.group("sq") is not None else a.group("uq"))
         q = '"' if a.group("dq") is not None else ("'" if a.group("sq") is not None else "")
         decoded = _html.unescape(raw)
         if aname == "style":
             new = _neutralize_css(decoded, allowed, notes)
             if new == decoded:
-                return a.group(0)
+                continue
         elif aname == "srcset":
             parts = []
-            changed = False
+            hit = False
             for cand in decoded.split(","):
                 cand = cand.strip()
                 if not cand:
@@ -665,41 +784,39 @@ def _neutralize_tag(m, allowed, notes):
                 url, _, desc = cand.partition(" ")
                 d = _defang_attr_value(url, allowed, notes, "html_src")
                 if d is not None:
-                    changed = True
+                    hit = True
                     url = d
                 parts.append((url + " " + desc).strip())
-            if not changed:
-                return a.group(0)
+            if not hit:
+                continue
             new = ", ".join(parts)
         elif aname == "srcdoc":
             notes.append({"type": "html_strip", "original": "srcdoc"})
-            return ""                                    # an inline document is an iframe by another name
+            out.append(attrs[pos:a.start()]); pos = a.end(); changed = True
+            continue                                     # an inline document is an iframe by another name
         else:
             kind = "html_link" if aname in ("href", "xlink:href", "cite", "longdesc") else "html_src"
             d = _defang_attr_value(decoded, allowed, notes, kind, keep_relative=aname not in ("action", "formaction"))
             if d is None:
-                return a.group(0)
+                continue
             new = d
         q = q or '"'
         # Re-escape only what the attribute needs: & < > and the delimiting quote. Escaping the OTHER
         # quote would rewrite CSS like url( 'x' ) inside a double-quoted style attribute for no reason.
         esc = _html.escape(new, quote=False).replace(q, "&quot;" if q == '"' else "&#x27;")
-        return a.group("lead") + a.group("name") + a.group("eq") + q + esc + q
-    attrs = _HTML_URL_ATTR_RE.sub(_attr, attrs)
-    return m.group(0) if attrs == before else "<" + slash + name + attrs + ">"
+        eq = re.match(r"\s*=\s*", a.group("eq")).group(0)
+        out.append(attrs[pos:a.start()]); out.append((a.group("lead") or " ") + a.group("name") + eq + q + esc + q)
+        pos = a.end(); changed = True
+    if not changed:
+        return m.group(0)
+    out.append(attrs[pos:])
+    return "<" + slash + name + "".join(out) + ">"
 
 
 def _neutralize_html(text, notes, allowed=frozenset(), mail=False):
     if "<" not in text and not mail:
         return text
-    def _block(m):
-        notes.append({"type": "html_strip", "original": m.group(1).lower()})
-        return ""
-    text = _HTML_EXEC_BLOCK_RE.sub(_block, text)
-
-    def _style(m):
-        return m.group(1) + _neutralize_css(m.group(2), allowed, notes) + m.group(3)
-    text = _STYLE_BLOCK_RE.sub(_style, text)
+    text = _strip_code_blocks(text, notes, allowed)
 
     def _inert(m):
         notes.append({"type": "html_strip", "original": "inert tag"})
@@ -713,7 +830,10 @@ def _neutralize_html(text, notes, allowed=frozenset(), mail=False):
         # A mail client auto-links a bare URL in text, so in a mail body bare is clickable: defang every
         # URL outside a tag that is not into the tenant. Entities are decoded for the decision and the
         # segment is re-escaped only when something changed, so untouched text stays byte-identical.
-        parts = re.split(r"(<[^>]*>)", text)
+        # Split on what a renderer reads as markup (tags, end tags, comments, <! and <? bogus comments).
+        # A stray '<' in prose ("risk < 50 ... > 3pm") is text, and the URL between two of them must not
+        # hide from this pass (found in review).
+        parts = _split_mail_markup(text)
         for i in range(0, len(parts), 2):
             seg = parts[i]
             if not seg:

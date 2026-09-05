@@ -12,6 +12,7 @@ Run:  uv run --with pytest pytest -q tests/test_neutralize_html.py
 """
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -211,7 +212,9 @@ def test_css_url_into_the_tenant_stays():
 def test_srcdoc_is_dropped_it_is_an_iframe_by_another_name():
     out, _ = neut('<iframe srcdoc="<script>x()</script>"></iframe>')
     assert out == ""
-    out, _ = neut('<x srcdoc="<b>y</b>">')          # on a non-iframe tag too
+    out, _ = neut('<x srcdoc="<b>y</b>">')          # on a non-iframe tag too: the '<' in the value makes the
+    assert not out.startswith("<x")                  # opener unreadable, so the whole tag is escaped to text
+    out, _ = neut('<x srcdoc="&lt;b&gt;y&lt;/b&gt;">')
     assert "srcdoc" not in out
 
 
@@ -445,3 +448,100 @@ def test_css_escapes_and_image_set_are_covered(raw, present):
 def test_ordinary_css_escapes_are_left_alone():
     raw = '<span style="font-family:\\5FAE\\8F6F\\96C5\\9ED1;content:\\201C">q</span>'
     assert neut(raw, mail=True)[0] == raw
+
+
+# --- review round 2 (2026-09-05): attribute tokenizer, mail splitter, CSS argument escapes, cost bounds ----
+
+@pytest.mark.parametrize("raw", [
+    '<a title="x"href="https://evil.example/x">y</a>',        # quoted value directly followed by the next name
+    "<a title='x'href='https://evil.example/x'>y</a>",
+    '<a href="https://evil.example/x"title="x">y</a>',
+    '<a href="https://evil.example/login?x= onclick=1">Reset</a>',   # ` on…=` INSIDE the value is not a handler
+])
+def test_adjacent_attributes_are_still_attributes(raw):
+    out, notes = neut(raw)
+    assert "https://evil.example" not in out and "hxxps://evil[.]example" in out
+    assert not re.search(r"(?i)\bon\w+\s*=", out) or "onclick=1" in out   # value text may survive, escaped
+    assert any(n["type"] == "html_link" for n in notes)
+
+
+@pytest.mark.parametrize("raw", [
+    '<img src="x"onerror="alert(1)">',
+    '<img src=x ONERROR=alert(1)>',
+    '<img src="x" OnLoad = "f()" >',
+    "<body onload='f()'>",
+])
+def test_handlers_are_dropped_by_name_whatever_the_spacing_or_case(raw):
+    out, notes = neut(raw)
+    assert not re.search(r"(?i)\bon\w+\s*=", out), out
+    assert any(n["type"] == "html_handler" for n in notes)
+
+
+def test_a_value_containing_on_equals_is_not_a_handler():
+    raw = '<a title="say onx=hi" href="https://evil.example/x">y</a>'
+    out, _ = neut(raw)
+    assert 'title="say onx=hi"' in out and "hxxps://evil[.]example/x" in out
+
+
+def test_mail_pass_sees_prose_between_stray_angle_brackets():
+    raw = "risk < 50, reset at https://evil.example/login before > 3pm"
+    out, notes = neut(raw, mail=True)
+    assert "hxxps://evil[.]example/login" in out and "risk &lt; 50" in out   # segment re-escaped once changed
+    assert any(n["type"] == "mail_url" for n in notes)
+    # a real tag between them is still a tag, not text
+    out, _ = neut('<p>x</p><a href="https://us-west.exabeam.cloud/c">c</a> and https://evil.example/y', mail=True)
+    assert 'href="https://us-west.exabeam.cloud/c"' in out and "hxxps://evil[.]example/y" in out
+
+
+def test_a_tag_with_a_lt_inside_a_quoted_value_is_made_text():
+    raw = '<a title="a<b" href="https://evil.example/x">y</a>'
+    out, _ = neut(raw, mail=True)
+    assert not out.startswith("<a") and "https://evil.example" not in out
+
+
+def test_entities_in_a_defanged_value_round_trip():
+    raw = '<a href="https://evil.example/?a=1&amp;b=2&quot;">y</a>'
+    out, _ = neut(raw)
+    assert 'href="hxxps://evil[.]example/?a=1&amp;b=2&quot;"' in out
+    assert neut(out)[0] == out
+
+
+def test_relative_value_with_smuggled_control_bytes_is_rewritten():
+    out, notes = neut('<a href="/rel\x00ative">y</a>')
+    assert "\x00" not in out and notes
+
+
+def test_data_usemap_noscript_template_are_covered():
+    out, _ = neut('<object data="https://evil.example/o"></object>')
+    assert "evil.example" not in out
+    out, _ = neut('<img usemap="https://evil.example/m">')
+    assert "hxxps://evil[.]example/m" in out
+    for tag in ("noscript", "template"):
+        out, _ = neut(f'<{tag}><img src="https://evil.example/p"></{tag}>')
+        assert "evil.example" not in out
+
+
+@pytest.mark.parametrize("raw", [
+    '<div style="background:url(//evil\\2e example/x.png)">x</div>',
+    '<div style="background:url(//evil\\00002eexample/x.png)">x</div>',
+    '<div style="background:url(h\\74tps://evil.example/x.png)">x</div>',
+])
+def test_css_escapes_inside_the_url_argument_are_decoded(raw):
+    out, _ = neut(raw, mail=True)
+    assert "evil[.]example" in out and "\\2e" not in out and "\\74" not in out
+
+
+@pytest.mark.parametrize("shape", ["](", '<a "', "<", "<script>", "<style>", "<!--", "[a", "url(", "](x()", "<a href=\"", "&lt;"])
+def test_hostile_shapes_cost_linear_time(shape):
+    """A 32 KB page of one hostile token must neutralize in well under a second: the passes are bounded
+    by construction (no per-opener rescans). The bound is loose for slow CI; the pre-fix cost was 1-3 s."""
+    import time
+    text = shape * (32 * 1024 // len(shape))
+    t0 = time.perf_counter()
+    neut(text, mail=True)
+    assert time.perf_counter() - t0 < 0.5, shape
+
+
+def test_uppercase_handler_assertion_pins_case_insensitivity():
+    out, _ = neut('<img src="x" ONCLICK="y()">')
+    assert not re.search(r"(?i)\bon\w+\s*=", out)
