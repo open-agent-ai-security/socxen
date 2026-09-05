@@ -18,9 +18,9 @@
 | Deployment Environment | Analyst workstation, interactive Claude Code session, against an Exabeam New-Scale tenant (pre-release / evaluation) |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.3 |
+| Remit Version | 1.4 |
 | Last Updated | 2026-09-05 |
-| Updated By | Praxen remit authoring (documentation-only update: the human-in-the-loop gate now ships active inside the plugin as a bundled Claude Code PreToolUse hook — the permission-rules merge becomes an optional second layer; v1.2: skill-suite coverage, deterministic write-path redaction) |
+| Updated By | Praxen remit authoring (v1.4, documentation-only: outbound email to the operator's own subscription users through the platform's `exabeam_send_email` tool is an authorized, human-confirmed channel — recipients scoped by the MCP service to active subscription users; v1.3: the gate ships as a bundled Claude Code PreToolUse hook; v1.2: skill-suite coverage, deterministic write-path redaction) |
 
 ---
 
@@ -127,6 +127,7 @@ gate staying real.
 |---------|---------|------------------|-------|
 | Exabeam New-Scale MCP, reached through an operator-configured registration | Yes | No for read tools; yes for a dismiss/close write | socxen MUST reach the SOC platform only through an operator-configured Exabeam New-Scale MCP endpoint, by one of the two documented registrations (the bundled bridge, or the documented advanced manual registration). Input screening, output neutralization, and the audit trail live in the bundled bridge, so a direct registration MUST be disclosed as forgoing them. |
 | Interactive terminal session with the human analyst (Claude Code) | Yes | No | The only channel for reporting **to the human analyst** — verdicts, triage summaries, tuning proposals, containment recommendations, and approval requests; socxen MUST NOT seek approval through any other channel. (Recording the same conclusion into a case note is separately authorized.) |
+| Email to users of the operator's own Exabeam subscription, sent by the platform through the MCP `exabeam_send_email` tool | Yes | Yes — explicit analyst request, human-confirmed on both hosts | Recipients MUST be limited to active users of the operator's own subscription: the Exabeam MCP service enforces this by rejecting any address that is not a subscription member, and socxen MUST NOT infer, invent, or auto-complete a recipient. The mail body MUST consist only of Exabeam tool output socxen produced in the session, and MUST pass through the same write-side neutralization as a case note (secrets masked, links and formulas de-fanged) before it leaves. |
 | Local audit-log file on the operator's host | Yes | No | Append-with-rotation operational record; see Data Boundaries for what it may and may not contain. |
 | Off-host telemetry destination (platform, OpenTelemetry collector, or webhook) | Yes | Yes — explicit operator configuration | MUST be disabled by default, and when enabled the destination MUST be disclosed to the operator rather than routed silently. |
 
@@ -167,7 +168,9 @@ gate staying real.
   that the operator has not configured, and MUST NOT submit any observable from the tenant's telemetry
   to one.
 - socxen MUST NOT send alert, case, or event content to any recipient other than the operator's own
-  Exabeam tenant and the analyst's own terminal session.
+  Exabeam tenant, the analyst's own terminal session, and — only on the analyst's explicit request and
+  with human confirmation — email to active users of the operator's own subscription through the
+  platform's mail tool, whose recipient list the MCP service scopes to those users.
 
 ---
 
@@ -181,6 +184,9 @@ gate staying real.
   details and rule-inventory listings, MITRE coverage, and context-table lookups.
 - Exabeam non-destructive write tools: create a case, update a case, write case notes, and update an
   alert.
+- Exabeam platform email (`exabeam_send_email`): send Exabeam tool output to active users of the
+  operator's own subscription, human-confirmed on every call; the MCP service rejects any other
+  recipient.
 - The local audit-logging tap inside the bridge.
 
 ### Forbidden Tools
@@ -388,11 +394,13 @@ gaps, and so nothing stronger is claimed than the docs claim:
 
 ### Typical Tool Inventory
 
-- The Exabeam read tools plus the four non-destructive write tools, and nothing else.
+- The Exabeam read tools plus the four non-destructive write tools and the human-confirmed platform
+  email tool, and nothing else.
 
 ### Typical Channels Used
 
-- The bundled Exabeam MCP bridge and the analyst's terminal session.
+- The bundled Exabeam MCP bridge and the analyst's terminal session; occasionally, on request, platform
+  email to subscription users.
 
 ### Typical Session Count / Duration
 
