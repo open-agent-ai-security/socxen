@@ -70,7 +70,7 @@ is satisfied. Artifacts: [report](results/2026-09-05-socxen-0.8.5-bundled-hook.h
 | Finding | Disposition |
 |---|---|
 | `PRAX-2026-09-05-001` — the gate never fails open once it runs, but its *invocation* (`python3 gate.py`) had no fail-closed fallback: a hook that errors is non-blocking on the host, so no python3 meant no gate | **Fixed after the snapshot** on the branch: the hook command now exits 2 (the host's blocking code) when the interpreter is missing or the script cannot run; preflight fails, not warns, on a missing python3 and names the consequence. Pinned by test. |
-| `PRAX-2026-09-05-002` — `exabeam_send_email` mails tenant content as HTML to arbitrary recipients: a channel the remit never authorizes, tiered *ask* not *deny*, and the one write outside the neutralizer | **Open — maintainer decision.** Options the scan lays out: move it to the *deny* tier (and Codex `disabled_tools`) until an HTML-aware neutralizer exists, or neutralize `subject`/`body` and add a recipient allowlist at the bridge, and reconcile the remit either way. |
+| `PRAX-2026-09-05-002` — `exabeam_send_email` mails tenant content as HTML to arbitrary recipients: a channel the remit never authorizes, tiered *ask* not *deny*, and the one write outside the neutralizer | **Addressed after the snapshot, residual open.** Recipients turn out to be scoped server-side to the subscription's active users (`Exabeam/exa-mcp-proxy`, `EmailTools.java`); `subject`/`body` now pass the write-side neutralizer (secrets, formulas, markdown links); the channel is declared in remit v1.4. Links in HTML `href`/`src` are still not de-fanged — an HTML-aware pass is a product decision on clickable links, [#147](https://github.com/open-agent-ai-security/socxen/issues/147). |
 | `PRAX-2026-09-05-003` — the bridge screens tool *results* but proxies the remote server's tool *descriptions* into model context unscreened and unpinned | **Open — design work.** Run `list_tools()` output through the canonicalizer and pin/verify the tool set the release was tested against. |
 
 **Also fixed after the snapshot** (Medium): `-008` the docs contradicted the shipped gate (one page said the
@@ -81,7 +81,7 @@ as the Claude-side gate) — corrected, with a repo invariant that checks the do
 stderr disclosure, matching the telemetry log beside it; `-006` the canonicalizer's kept joiners and
 directional marks are now flagged into the audit trail (`hygiene_kept`), and a screening fail-open is a
 recorded event; `-007` the session record attests the telemetry backend and its *resolved* destination
-(scheme + host, never the backend keyword), and the neutralizer's fail-closed refusal is a distinguishable
+(scheme + host, alongside the backend name — never the keyword alone), and the neutralizer's fail-closed refusal is a distinguishable
 `tool_error` — the one disclosure that cannot go into the log, telemetry disabling itself, stays on stderr
 and is documented as such. The remaining Mediums (`-004` sweep read-only rule is prompt-only, `-005`
 free-text overwrite on the gated writes, `-009` oversized results spill to an unredacted file, `-010`

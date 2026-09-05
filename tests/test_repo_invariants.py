@@ -458,9 +458,9 @@ def _shell_code_only(text):
 def test_preflight_never_writes():
     """preflight.sh is a mirror, not a hand.
 
-    On Claude Code the gate ships off and turning it on is a consent-gated action that
-    belongs to install.sh --merge-permissions. On Codex the gate ships inside the plugin
-    and there is nothing to merge. A fixer here would re-import exactly the consent
+    On both hosts the gate ships inside the plugin (a hook on Claude Code, approval policy on
+    Codex). The Claude permission rules are an optional second lock whose merge is a consent-gated
+    action that belongs to install.sh --merge-permissions. A fixer here would re-import exactly the consent
     problem the Codex packaging removed, so mutation stays out of this file."""
     code = _shell_code_only(PREFLIGHT_SH)
     forbidden = [
@@ -547,9 +547,13 @@ def test_docs_describe_the_gate_that_ships():
     --dangerously-skip-permissions, another that those modes turn the gate off; one said a manual `exabeam`
     server bypasses the hook when the matcher covers it; the skill body still named the snippet as the gate."""
     inst = (ROOT / "plugin" / "docs" / "installation.md").read_text()
-    assert "does not go through the plugin's hook" not in inst
-    assert "turn the hard gate off" not in inst
-    assert "not the bundled hook" in inst
+    guide = ROOT / "guide" / "installation.html"
+    for text, where in ((inst, "installation.md"),) + (((guide.read_text(), "guide/installation.html"),) if guide.is_file() else ()):
+        assert "does not go through the plugin's hook" not in text, where
+        assert "turn the hard gate off" not in text, where
+        assert "cannot grant silent reads" not in text, where
+        assert "still fire in those modes" in text, f"{where} must say the hook's deny/ask hold under skip-permissions"
+        assert "under a name the hook does not match" not in text, f"{where}: neither the hook nor the rules cover another server name"
     body = (SKILL_DIR / "SKILL.md").read_text()
     assert "hooks/gate.py" in body, "the skill body must name the bundled hook as the Claude-side gate"
     hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())

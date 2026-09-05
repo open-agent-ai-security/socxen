@@ -339,15 +339,14 @@ there the same as on Claude, <code>codex exec</code> included.</p>
 </ul>
 <h2 id="setup">Setup</h2>
 <p>With the plugin installed, two one-time steps remain — <strong>connect Exabeam</strong> (drop your API key in
-<code>~/.exabeam-mcp.env</code>) and — optionally — <strong>merge the permission rules</strong> so reads run without a prompt. The setup guide does the lifting:</p>
+<code>~/.exabeam-mcp.env</code>) and, optionally, <strong>merge the permission rules</strong> as a second lock. The setup guide does the lifting:</p>
 <h3 id="full-setup-docsinstallationmd">→ <a href="installation.html">Full setup: docs/installation.md</a></h3>
 <blockquote>
 <p>✅ <strong>The gate ships ON.</strong> On Claude Code a bundled hook asks before dismiss/close and denies containment
-the moment the plugin is enabled; on Codex the same tiers ship as tool-approval policy. The permission
-pack below is <strong>optional</strong> — it makes reads silent and covers a manually wired server. Previously: there was <em>no</em> hard gate on
-dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-Do not point socxen at alerts you care about until it's on. The
-<strong><a href="installation.html#governance--turn-on-the-safety-gate-do-not-skip-this">setup guide</a></strong> walks you
+the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
+ship as tool-approval policy. The permission pack below is <strong>optional</strong> — a second lock that does not
+depend on the hook. The
+<strong><a href="installation.html#governance--the-safety-gate">setup guide</a></strong> walks you
 through merging it by hand, or <code>install.sh --merge-permissions</code> will do it for you. Nothing merges by
 default and <code>-y</code> does not authorize it — the flag is the consent. The merge is additive-only, backs
 your settings file up first, and refuses if a rule already sits in a different tier.</p>

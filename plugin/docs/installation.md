@@ -172,16 +172,18 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > On **Codex** the same tiers ship inside the package as tool-approval policy, and Codex cancels a
 > destructive tool when nobody is there to approve it. Nothing to merge on either host.
 >
-> The hook also grants the reads: its *allow* on the 18 read tools bypasses the prompt, so with nothing
-> merged a read runs silently (verified headless in default permission mode, 2026-09-05). It covers the
-> bundled server and a manually wired server *named* `exabeam` (`claude mcp add exabeam …` — its matcher
-> includes `mcp__exabeam__`). The permission rules below matter in exactly one case: a manual server
-> under any **other** name, which the hook does not see.
+> The hook also grants the reads: its *allow* on the 16 read tools and the two escalation writes
+> bypasses the prompt, so with nothing merged a read runs silently (verified headless in default
+> permission mode, 2026-09-05). It covers the bundled server and a manually wired server *named*
+> `exabeam` (`claude mcp add exabeam …` — its matcher includes `mcp__exabeam__`). If you wire the server
+> by hand, **name it `exabeam`**: neither the hook nor the permission rules below recognize any other
+> name. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
+> Windows) and `python3` 3.7+ on `PATH`; without `python3` every gated call is refused, not allowed.
 
 ### Claude Code — the optional permission rules
 
-You do not need these for the bundled server. They cover a manual server under a name the hook does not
-match, and they double as a second lock on dismiss/close that does not depend on the hook. Merge the `permissions` block from
+You do not need these. They are a second lock on dismiss/close that does not depend on the hook (the
+same tiers, enforced by Claude Code's own permission system), and nothing more. Merge the `permissions` block from
 `skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
 `plugin/skills/soc-investigate/settings.snippet.json` from a clone — into the settings file Claude Code
 reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
@@ -238,7 +240,7 @@ checked or written.
 > turn the *permission rules* off — but **not the bundled hook**: its *deny* on containment and its *ask*
 > on dismiss/close still fire in those modes, and with nobody there to answer, an *ask* is refused
 > (verified live, 2026-09-04). What you lose in those modes is the second lock — the rules, if you
-> merged them — and every prompt on a manual server the hook does not match. Do not rely on that.
+> merged them. Do not rely on that.
 
 Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in

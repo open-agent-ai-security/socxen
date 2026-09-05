@@ -151,20 +151,26 @@ def _destination(backend, kwargs):
     from urllib.parse import urlsplit
 
     def host_only(u):
+        # hostname + port only: netloc would carry user:password@, and a raw fallback would carry the
+        # path/query — both are where tokens live. Unparseable -> a constant, never the input.
         try:
-            p = urlsplit(u)
-            return f"{p.scheme}://{p.netloc}" if p.scheme and p.netloc else u
+            p = urlsplit(u if "://" in u else "//" + u)
+            if not p.hostname:
+                return "(unparseable endpoint)"
+            scheme = p.scheme or "?"
+            return f"{scheme}://{p.hostname}" + (f":{p.port}" if p.port else "")
         except Exception:  # noqa: BLE001
-            return u
+            return "(unparseable endpoint)"
     if backend == "jsonl":
         return kwargs.get("path", "")
     if backend == "webhook":
-        return host_only(kwargs.get("url", "")) or "(no SOCXEN_OBSERVRA_URL set)"
+        return host_only(kwargs["url"]) if kwargs.get("url") else "(no SOCXEN_OBSERVRA_URL set)"
     if backend in ("otel", "otel_log"):
         env = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT" if backend == "otel_log" else "OTEL_EXPORTER_OTLP_ENDPOINT"
         return host_only(kwargs.get("endpoint") or os.environ.get(env, "") or "http://localhost:4318")
     if backend == "exabeam":
-        return host_only(os.environ.get("EXABEAM_ENDPOINT", "")) or "(no EXABEAM_ENDPOINT set)"
+        ep = os.environ.get("EXABEAM_ENDPOINT", "").strip()
+        return host_only(ep) if ep else "(no EXABEAM_ENDPOINT set)"
     return backend
 
 
@@ -196,9 +202,15 @@ def _emit(event_type, **data):
 
 def session_start(**config):
     """The session record doubles as the configuration attestation: which telemetry backend, where it
-    ships (resolved destination), plus whatever the bridge passes (dry_run, plugin_version, gate_log)."""
-    _emit("mcp_session_start", telemetry_backend=_state.get("backend") or "",
-          telemetry_destination=_state.get("destination") or "", **config)
+    ships (resolved destination), plus whatever the bridge passes (dry_run, plugin_version, gate_log).
+    enabled() runs FIRST: it is what configures the pipeline and fills in backend/destination — reading
+    them before it would attest an empty configuration (found in review, 2026-09-05)."""
+    if not enabled():
+        return
+    data = {"telemetry_backend": _state.get("backend") or "",
+            "telemetry_destination": _state.get("destination") or ""}
+    data.update(config)                       # a caller's key wins; never a TypeError on collision
+    _emit("mcp_session_start", **data)
 
 
 def session_end():

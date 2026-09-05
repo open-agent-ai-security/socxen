@@ -12,8 +12,8 @@ when you need it.
 
 - **[Installation & setup](installation.md)** — **start here.** Install from the community marketplace
   on Claude Code or Codex,
-  add your Exabeam credentials, and — optionally — merge the **permission rules** that make reads silent
-  (the human-in-the-loop gate itself ships ON, on both hosts). Also covers updating, fleet auto-update, running
+  add your Exabeam credentials, and — optionally — merge the **permission rules** as a second lock
+  (the human-in-the-loop gate itself ships ON, on both hosts, and reads already run without a prompt). Also covers updating, fleet auto-update, running
   the skill from any other agent, and uninstalling.
 
 - **[Using the skills](usage.md)** — what to say, what happens, and what socxen asks you before it acts:

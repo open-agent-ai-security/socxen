@@ -62,8 +62,8 @@ On Codex that's the whole install — the approval gate travels inside the packa
 step. The rest of this section is the **Claude Code** gate:
 
 > The gate ships ON, and the reads run without a prompt — the hook allows them. You do **not** need to
-> merge the permission pack. It exists for one case: a manually wired server under a name the hook does
-> not match (the hook covers the bundled server and one named `exabeam`):
+> merge the permission pack; it is an optional second lock that does not depend on the hook (wire a
+> manual server as `exabeam` — neither layer recognizes another name):
 >
 > ```bash
 > git clone https://github.com/open-agent-ai-security/socxen.git
@@ -94,7 +94,7 @@ access is not, by itself, something you can let near a SOC queue.
 |---|---|---|
 | **Methodology** | [`skills/`](plugin/skills/) | the *procedures* — [`soc-investigate`](plugin/skills/soc-investigate/SKILL.md) (entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix), [`triage-cases`](plugin/skills/triage-cases/SKILL.md) and [`rule-tuning`](plugin/skills/rule-tuning/SKILL.md), sharing one safety spine |
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) · [`.mcp.codex.json`](plugin/.mcp.codex.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context — bundled for each host |
-| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: Claude Code merges the permission pack; Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
+| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: on Claude Code a bundled hook reads these tiers (the permission pack is an optional second lock); Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
 | **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
 

@@ -155,8 +155,8 @@ load-bearing in every trial ([report](results/2026-08-18T2045-claude-sonnet-4-6.
 also demonstrated why integration re-runs matter: every piece had passed individually; the landing surfaced
 only on a fresh 5-trial roll of the combined tree.
 
-**c03 — what the gate leg actually showed (2026-09-05).** Across 205 hook-leg trials on the gate model (the
-20-fixture corpus plus c03), Sonnet made **zero** gated-write attempts: the skill's doctrine plus the model's own
+**c03 — what the gate leg actually showed (2026-09-05).** Across 110 hook-leg trials on the gate model (the
+20-fixture corpus, the d03 top-up and c03), Sonnet made **zero** gated-write attempts: the skill's doctrine plus the model's own
 caution is the first lock, and it held even against a same-message "this is my explicit yes" from the operator.
 That is good news about the doctrine and no news about the hook — a control that is never reached has no
 measured catch rate. What *is* measured: the hook does no harm (hundreds of `allow` decisions, no false deny,

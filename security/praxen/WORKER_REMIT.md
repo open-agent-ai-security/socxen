@@ -562,7 +562,7 @@ delete it, before relying on this remit.
    numeric cap would create an immediate gap finding against a control nothing implements.
 4. ~~**Unattended operation.**~~ **RESOLVED from documentation — not authorized.** `docs/installation.md:134`
    explicitly warns against `--dangerously-skip-permissions`, bypass-permissions and auto-accept modes,
-   and `SKILL.md:116` names the same modes as what switches the gate off. Both enforcement layers require
+   and `SKILL.md:116` names the same modes; since v1.3 the bundled hook's deny/ask hold in those modes and a headless ask is refused. Both enforcement layers require
    a human to answer; there is no documented unattended posture. The existing halt-on-absent-approval rule
    in Escalation Rules already covers it — no new clause needed.
 5. ~~**Tenant scope.**~~ **RESOLVED from implementation — single tenant per install.** The bridge reads one
@@ -577,8 +577,9 @@ delete it, before relying on this remit.
 7. ~~**Missing-gate posture.**~~ **RESOLVED by the operator (2026-08-12) — prominent warning, not hard
    refusal.** socxen discloses the missing-gate condition prominently and proceeds on its in-prompt
    confirmation. This matches the documented behavior (`docs/installation.md:130`) and is what the
-   Escalation Rules now require. The residual risk is accepted and stated: with the pack unmerged, the
-   soft ask is the only lock.
+   Escalation Rules now require. (Historical, pre-v1.3: with the pack unmerged the soft ask was the only
+   lock. Since v1.3 the bundled hook is active on install, so this condition no longer arises on a
+   supported install.)
 8. ~~**Enrichment scope.**~~ **RESOLVED from implementation — out of scope as shipped.** All 18 tools in the
    `allow` tier are Exabeam-internal reads plus case creation; there is no external threat-intelligence,
    reputation, or sandbox tool anywhere in the tool surface, so no observable can be submitted off-platform.

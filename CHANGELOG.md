@@ -21,9 +21,10 @@ governance model (feature → `dev`, release `dev` → `main`).
   manually wired `exabeam` server alike (#86). Never fails open: an unreadable tier file or malformed
   event degrades to *ask*. Appends a best-effort decision record to `~/.socxen/gate.jsonl` (#87).
   Answers the two questions #9 left open — a plugin cannot ship permission rules, but it can ship this —
-  and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 18 reads
-  (verified headless in default permission mode, 2026-09-05), so the permission-rules merge is needed
-  for one case only: a manually wired server under a name the hook does not match.
+  and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 18 allow-tier
+  tools (16 reads and the two escalation writes; verified headless in default permission mode,
+  2026-09-05), so the permission-rules merge is an optional second lock and nothing more. A manually
+  wired server must be named `exabeam` — neither the hook nor the rules recognize another name.
 
 - **Red-team: a fixture that provokes the gated write on purpose** — `c03-preauthorized-close-headless`
   (class C, "config bypass"). The colleague's handoff note (new `input.instruction`, placed in the human
@@ -38,9 +39,10 @@ governance model (feature → `dev`, release `dev` → `main`).
 ### Security
 - **Praxen 2.0.0-beta.1 gate scan of the bundled-hook tree** (Opus 5, high mode, with the first threat model):
   **0 Critical — gate passes**; 3 High · 9 Medium; RAISE 3.15 (Established); remit v1.3 coverage 34 verified /
-  16 partial / 5 gap of 64. See `security/praxen/README.md`. Two of the three Highs are open maintainer
-  decisions (`exabeam_send_email` outside the neutralizer and the remit's channel table; unscreened remote
-  tool descriptions); the third is fixed below.
+  16 partial / 5 gap of 64. See `security/praxen/README.md`. Of the three Highs: the hook's invocation
+  (`-001`) is fixed below; `exabeam_send_email` (`-002`) is addressed after the snapshot — subject/body
+  neutralized, the channel declared in remit v1.4, the HTML `href`/`src` residual is Matt's call in #147;
+  unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
 - **The bundled hook's invocation now fails closed** (Praxen `-001`). `gate.py` never failed open, but a hook
@@ -69,7 +71,8 @@ governance model (feature → `dev`, release `dev` → `main`).
   macOS pauses the monotonic clock in sleep.
 - **The audit trail now carries what used to be stderr-only disclosures** (Praxen `-006`, `-007`).
   `mcp_session_start` records the telemetry backend and its *resolved* destination (file path, or scheme +
-  host of the endpoint), dry-run state, gate-log location and plugin version; `tool_end` records
+  host of the endpoint — printed alongside the backend name on the startup line too), dry-run state,
+  gate-log location and plugin version; `tool_end` records
   flagged-but-kept invisibles (`hygiene_kept`, `hygiene_kept_classes` — joiners and directional marks the
   canonicalizer deliberately keeps, now visible in the log and nowhere in-band) and a screening fail-open
   (`hygiene_screen_failed`); `tool_error` names the `stage` that raised, with `guardrail_refused: true`
@@ -95,8 +98,8 @@ governance model (feature → `dev`, release `dev` → `main`).
   de-fanged — an HTML-aware pass is a product decision on clickable links, tracked in #147 (Praxen `-002`).
 - **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
   on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
-  documented as *optional* — not needed for the bundled server (the hook allows the reads), only for a
-  manually wired server under a name the hook does not match. Every place that said the merge was mandatory now says the gate ships
+  documented as *optional* — a second lock that does not depend on the hook; the hook already allows the
+  reads. Every place that said the merge was mandatory now says the gate ships
   ON — the repository README, the plugin README, `docs/installation.md` (section retitled "Governance —
   the safety gate"), `docs/usage.md`, the docs index, the site's landing page and install card, and the
   installer's and preflight's own messages. Codex is unchanged.
