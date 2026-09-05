@@ -26,7 +26,10 @@ The tiers come from the file that ships beside this hook — `skills/soc-investi
 snippet and the Codex map cannot disagree. If the tiers cannot be read at all, every tool asks: the human
 decides interactively, and headless the call is refused. The gate never fails open.
 
-Each decision is appended, best-effort, to `~/.socxen/gate.jsonl` (`SOCXEN_GATE_LOG=off` disables;
+Each decision is appended, best-effort, to `~/.socxen/gate.jsonl` with the call's SAFE target fields —
+identifiers and dispositions only (alertId, caseId, alertStatus, stage, …), never free text — so a
+refused attempt reads as "tried to dismiss alert X as false positive", not just "tried update_alert".
+The near-miss is the record that matters in a SOC (`SOCXEN_GATE_LOG=off` disables;
 another path overrides) — a first-party record of what was attempted and what the gate said, including
 attempts that never reached the bridge (#87).
 
@@ -67,6 +70,32 @@ def decide(tool_name: str, tiers) -> tuple[str, str]:
     if name in tiers["allow"]:
         return "allow", f"socxen gate: {name} is a read or an escalation write."
     return "ask", f"socxen gate: {name} is not classified in this release's permission tiers, so it asks rather than inheriting the session default."
+
+
+# The SAFE fields of a call worth recording beside the decision — the same allowlist the bridge's audit
+# trail uses (_AUDIT_FIELDS in exabeam-mcp-bridge.py): identifiers and enums, never free text (note,
+# description, reason, subject, body). Scalars and short lists only, values capped, first occurrence wins.
+AUDIT_FIELDS = {"alertid", "caseid", "alertstatus", "casestatus", "stage",
+                "priority", "severity", "queue", "disposition", "usecases", "recipients"}
+_CAP = 80
+
+
+def target_fields(obj, into=None, depth=0):
+    """Collect AUDIT_FIELDS from anywhere in the (possibly nested) tool input. Never raises."""
+    into = {} if into is None else into
+    try:
+        if isinstance(obj, dict) and depth < 4:
+            for k, v in obj.items():
+                lk = str(k).lower()
+                if lk in AUDIT_FIELDS and isinstance(v, (str, int, float, bool)):
+                    into.setdefault(k, v[:_CAP] if isinstance(v, str) else v)
+                elif lk in AUDIT_FIELDS and isinstance(v, list) and all(isinstance(x, (str, int, float, bool)) for x in v):
+                    into.setdefault(k, [x[:_CAP] if isinstance(x, str) else x for x in v[:10]])
+                elif isinstance(v, dict):
+                    target_fields(v, into, depth + 1)
+    except Exception:  # noqa: BLE001 — the record is best-effort; the decision never depends on it
+        pass
+    return into
 
 
 LOG_MAX_BYTES = 5_000_000   # rotate at ~5 MB, keep 3 backups — bounded like the telemetry log beside it
@@ -111,16 +140,20 @@ def log_decision(record: dict) -> None:
 
 
 def main() -> int:
-    tool = ""
+    tool, target = "", {}
     try:
         event = json.load(sys.stdin)
         tool = str(event.get("tool_name", ""))
+        target = target_fields(event.get("tool_input"))
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, reason = decide(tool, load_tiers(root))
     except Exception as e:  # noqa: BLE001 — cannot classify → the human decides; headless → refused
         decision, reason = "ask", f"socxen gate could not evaluate this call ({type(e).__name__}); asking rather than allowing."
-    log_decision({"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-                  "tool": tool, "decision": decision, "reason": reason})
+    record = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "tool": tool, "decision": decision, "reason": reason}
+    if target:
+        record["target"] = target          # what was attempted, on which object — never the free text
+    log_decision(record)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                              "permissionDecisionReason": reason}}))
     return 0

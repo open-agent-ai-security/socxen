@@ -19,7 +19,9 @@ governance model (feature → `dev`, release `dev` → `main`).
   the same tier file the permission snippet and the Codex map are built from, so the three cannot
   disagree; keyed on the bare tool name, so it gates the bundled server under any plugin key and a
   manually wired `exabeam` server alike (#86). Never fails open: an unreadable tier file or malformed
-  event degrades to *ask*. Appends a best-effort decision record to `~/.socxen/gate.jsonl` (#87).
+  event degrades to *ask*. Appends a best-effort decision record to `~/.socxen/gate.jsonl` (#87) — tool,
+  decision, reason, and the call's safe target fields (alertId / caseId / dispositions, never free text),
+  so a refused attempt reads as *tried to dismiss alert X*, the near-miss a SOC wants on record.
   Answers the two questions #9 left open — a plugin cannot ship permission rules, but it can ship this —
   and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 18 allow-tier
   tools (16 reads and the two escalation writes; verified headless in default permission mode,

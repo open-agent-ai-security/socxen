@@ -67,6 +67,24 @@ written in-band (a marker in alert data would be forgeable). A right-to-left mar
 a value is not proof of anything — Persian, Arabic and emoji use them legitimately — but on a homoglyph or
 bidi-shaped investigation it is the field to query.
 
+## The gate's own record
+
+The bundled Claude Code hook keeps a second, smaller log beside the telemetry: `~/.socxen/gate.jsonl`
+(`SOCXEN_GATE_LOG=off` disables it and says so on stderr; another path overrides; rotates at ~5 MB with
+three backups). One line per decision:
+
+```json
+{"ts": "2026-09-05T16:01:26+00:00", "tool": "mcp__plugin_socxen_exabeam__exabeam_update_alert",
+ "decision": "ask", "reason": "socxen gate: exabeam_update_alert dismisses or closes. It needs the analyst's explicit yes — ask, and wait.",
+ "target": {"alertId": "4471", "alertStatus": "DISMISSED"}}
+```
+
+`target` carries the same safe identifier and disposition fields the telemetry's `action.*` record uses,
+and nothing else — so a refused attempt reads as *tried to dismiss alert 4471 as dismissed*, which is the
+near-miss a SOC wants to see, while the note, description or reason text a payload can ride in never
+enters the file. This is also the only record of an attempt the gate stopped **before** it reached the
+bridge; the telemetry sees only calls that got that far.
+
 ## What is deliberately NOT recorded (privacy by construction)
 
 The log stores **metadata about** the agent's actions — never the raw evidence. Specifically **excluded**:

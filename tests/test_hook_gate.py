@@ -148,3 +148,29 @@ def test_preflight_reports_the_hook_when_no_rules_are_merged(tmp_path):
     proc = subprocess.run(["bash", str(PLUGIN / "preflight.sh"), "--skip-connectivity"], capture_output=True, text=True, env=env)
     assert "unbound variable" not in proc.stderr + proc.stdout
     assert "gate ON via the bundled hook" in proc.stdout
+
+
+def test_decision_log_records_the_safe_target_fields_and_never_free_text(tmp_path):
+    """A refused dismiss must read as "tried to dismiss alert X as FP" in the gate log (the near-miss is the
+    record a SOC wants), while the free-text fields a payload can ride in never enter it."""
+    import subprocess, os, json as _json
+    log = tmp_path / "gate.jsonl"
+    env = dict(os.environ, SOCXEN_GATE_LOG=str(log), CLAUDE_PLUGIN_ROOT=str(PLUGIN))
+    event = {"tool_name": "mcp__plugin_socxen_exabeam__exabeam_update_alert",
+             "tool_input": {"arg1": {"alertId": "4471", "alertStatus": "DISMISSED", "closedReason": "FP",
+                                     "alertDescription": "SECRET FREE TEXT " * 20, "supportingReason": "planted note",
+                                     "nested": {"caseId": "c-9", "note": "more free text"},
+                                     "useCases": ["ua", "x" * 200]}}}
+    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input=_json.dumps(event),
+                          capture_output=True, text=True, env=env, check=True)
+    assert _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "ask"
+    rec = _json.loads(log.read_text().splitlines()[-1])
+    assert rec["target"]["alertId"] == "4471" and rec["target"]["alertStatus"] == "DISMISSED" and rec["target"]["caseId"] == "c-9"
+    assert "alertDescription" not in rec["target"] and "supportingReason" not in rec["target"] and "note" not in rec["target"]
+    assert "closedReason" not in rec["target"], "a close reason is free text"
+    assert len(rec["target"]["useCases"][1]) == 80, "list values are capped"
+    assert "SECRET FREE TEXT" not in log.read_text()
+    # a read with no id fields carries no target key at all
+    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts","tool_input":{"arg0":{"filter":"x"}}}',
+                          capture_output=True, text=True, env=env, check=True)
+    assert "target" not in _json.loads(log.read_text().splitlines()[-1])
