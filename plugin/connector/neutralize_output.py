@@ -303,8 +303,10 @@ def tenant_hosts_from_url(url):
     and nothing else: the API host itself, and every host under its parent domain -- the console the
     analyst clicks into is a sibling of the API host under <region>.exabeam.cloud. Returned as a frozenset
     of allow entries: an exact host, plus "*.<parent>" meaning the parent itself or any host under it.
-    Safe by construction: a host with fewer than three labels (no region) yields the exact host only, and
-    a missing/unparseable URL yields the EMPTY set, under which every link is defanged."""
+    Safe by construction: the widening needs a region label -- a host whose parent is the registrable
+    domain itself (api.exabeam.cloud, mcp.company.io) yields the exact host only, so the allowlist can
+    never become "everything under the operator's corporate domain"; an IP literal is exact only; and a
+    missing/unparseable URL yields the EMPTY set, under which every link is defanged."""
     try:
         h = (urlsplit(url.strip()).hostname or "").lower().rstrip(".")
     except (ValueError, AttributeError):
@@ -312,7 +314,7 @@ def tenant_hosts_from_url(url):
     if not h or not re.fullmatch(r"[a-z0-9.-]+", h):
         return frozenset()
     labels = h.split(".")
-    if len(labels) < 3 or re.fullmatch(r"[\d.]+", h):        # no region label, or an IP literal: exact only
+    if len(labels) < 4 or re.fullmatch(r"[\d.]+", h):        # no region label under the domain, or an IP: exact only
         return frozenset({h})
     return frozenset({h, "*." + ".".join(labels[1:])})
 
@@ -380,16 +382,22 @@ def _defang_target(t, allowed=frozenset()):
     """Defang a markdown-link target: a scheme URL / dangerous scheme, or a scheme-less dotted host (which
     a renderer linkifies). A relative path / anchor with no dotted host is left alone. A target into the
     allowed tenant hosts stays live."""
-    core = t[1:-1] if len(t) > 1 and t[0] == "<" and t[-1] == ">" else t
+    angled = len(t) > 1 and t[0] == "<" and t[-1] == ">"
+    raw = t[1:-1] if angled else t
+    core = raw.replace("\\", "/")                       # a backslash is a slash to the URL parser
+    normalized = core != raw
+    wrap = (lambda s: "<" + s + ">") if angled else (lambda s: s)
     if _url_allowed(core, allowed) or _url_allowed("https://" + core, allowed) and _HOST_RE.match(core):
-        return t
+        return wrap(core) if normalized else t
     d = _defang(core, allowed)
     if d == core:
         m = _HOST_RE.match(core)
         if m:
             slashes, host, tail = m.groups()
             d = (slashes or "") + host.replace(".", "[.]") + tail
-    return ("<" + d + ">") if core is not t else d
+    if d == core and not normalized:
+        return t
+    return wrap(d)
 
 
 def _is_formula(cell):
@@ -572,7 +580,12 @@ def _strip_code_blocks(text, notes, allowed):
             i = m.end(); continue
         c = re.compile(r"<\s*/\s*" + name + r"\s*>", re.IGNORECASE).search(text, m.end())
         if not c:
-            dead.add(name); i = m.end(); continue
+            dead.add(name)
+            if name == "style":                          # no closer: a renderer treats the rest as CSS, with
+                notes.append({"type": "html_strip", "original": "unclosed style"})   # its url()/@import fetches --
+                out.append(text[pos:m.start()]); out.append("&lt;" + m.group(0)[1:])  # so the opener becomes text
+                pos = m.end()
+            i = m.end(); continue
         out.append(text[pos:m.start()])
         if name == "style":
             out.append(m.group(0) + _neutralize_css(text[m.end():c.start()], allowed, notes) + c.group(0))
@@ -699,7 +712,9 @@ def _defang_attr_value(decoded, allowed, notes, kind, keep_relative=True):
     # Browsers strip tab / newline / CR and leading-trailing C0 controls out of a URL before parsing, so
     # "java\tscript:" IS javascript: to the renderer. Decide on the stripped form and, if anything was
     # stripped, write the stripped form back so the smuggled bytes are gone too.
-    v = re.sub(r"[\t\n\r\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", decoded).strip()
+    # A backslash is a slash to the URL parser in every special scheme: "/\evil.example" is a
+    # protocol-relative link and "https:/\evil.example" an absolute one (found in review).
+    v = re.sub(r"[\t\n\r\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", decoded).strip().replace("\\", "/")
     smuggled = v != decoded.strip()
     if not v or (keep_relative and not smuggled and not _ANY_SCHEME_RE.match(v) and not v.startswith("//")
                  and not re.match(r"^www\.", v, re.IGNORECASE) and not _HOST_RE.match(v)):
@@ -875,6 +890,12 @@ def neutralize_output(text, allowed_hosts=frozenset(), mail=False):
 
     def _refdef(m):
         target = m.group(2)
+        # "[Host]: WIN-DC01.corp.local" and "[Evidence]: report.csv" are labelled fields, the most natural
+        # way to write one, and a renderer that did read them as reference definitions would make a
+        # relative link of the value. Only a URL-shaped destination is a link (found in review: the
+        # old rule corrupted hostnames in the durable record).
+        if not re.match(r"(?i)^<?(?:[a-z][a-z0-9+.-]*:|//|www\.)", target):
+            return m.group(0)
         d = _defang_target(target, allowed)
         if d != target:
             notes.append({"type": "link", "original": target[:60]})

@@ -37,6 +37,8 @@ def test_tenant_hosts_are_derived_from_the_mcp_url_and_nothing_else():
     assert N.tenant_hosts_from_url("") == frozenset()
     assert N.tenant_hosts_from_url("not a url") == frozenset()
     assert N.tenant_hosts_from_url("https://exabeam.cloud/mcp") == frozenset({"exabeam.cloud"}), "no region label -> exact host only"
+    assert N.tenant_hosts_from_url("https://api.exabeam.cloud/mcp") == frozenset({"api.exabeam.cloud"}), "never *.exabeam.cloud"
+    assert N.tenant_hosts_from_url("https://mcp.company.io/mcp") == frozenset({"mcp.company.io"}), "never the corporate domain"
     assert N.tenant_hosts_from_url("https://10.0.0.1/mcp") == frozenset({"10.0.0.1"}), "an IP literal never widens"
     assert N.tenant_hosts_from_url("HTTPS://API.US-WEST.EXABEAM.CLOUD./mcp") == T, "case and trailing dot normalized"
 
@@ -546,3 +548,44 @@ def test_hostile_shapes_cost_linear_time(shape):
 def test_uppercase_handler_assertion_pins_case_insensitivity():
     out, _ = neut('<img src="x" ONCLICK="y()">')
     assert not re.search(r"(?i)\bon\w+\s*=", out)
+
+
+# --- PR review (2026-09-05): backslash URL forms, unclosed <style>, labelled fields, allowlist width ------
+
+@pytest.mark.parametrize("raw", [
+    '<a href="/\\evil.example/x">c</a>',
+    '<a href="\\\\evil.example/x">c</a>',
+    '<a href="https:/\\evil.example">c</a>',
+    "[c](/\\evil.example/x)",
+    "[c](https:/\\evil.example/x)",
+])
+def test_backslash_url_forms_are_slashes_to_a_browser_and_are_defanged(raw):
+    out, notes = neut(raw)
+    assert "evil.example" not in out and "evil[.]example" in out and "\\" not in out, out
+    assert notes
+
+
+def test_an_unclosed_style_opener_is_text_and_its_css_fetch_is_inert():
+    out, _ = neut("<style>@import url(https://evil.example/x.css);", mail=True)
+    assert not out.startswith("<style") and "https://evil.example" not in out
+    out, _ = neut("<style>body{background:url(https://evil.example/p)}", mail=True)
+    assert not out.startswith("<style") and "https://evil.example" not in out
+    out, _ = neut("<style>body{color:red}</style><p>x</p>")           # a closed block keeps its tags
+    assert out.startswith("<style>")
+
+
+@pytest.mark.parametrize("raw", [
+    "[Evidence]: report.csv",
+    "[Host]: WIN-DC01.corp.local",
+    "[Source IP]: 10.20.30.40",
+    "[Rule]: Rare process for user",
+])
+def test_labelled_fields_are_not_reference_definitions(raw):
+    assert neut(raw)[0] == raw
+
+
+def test_a_real_reference_definition_is_still_defanged():
+    out, _ = neut("[ioc]: https://evil.example/x\n\nsee [ioc]")
+    assert "[ioc]: hxxps://evil[.]example/x" in out
+    out, _ = neut("[ioc]: <https://evil.example/y>")
+    assert "hxxps://evil[.]example/y" in out

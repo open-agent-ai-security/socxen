@@ -89,8 +89,8 @@ inconvenience of copy-pasting a good link is worth never handing an analyst a li
 Two residuals, stated rather than solved: an open redirect *on an allowed host* passes this rule (the
 same trust you already extend to the console), and "the region domain" is wider than "your tenant" —
 any Exabeam-operated host in that region is allowed, which is the trust the console URL itself carries.
-If you point the bridge at a self-hosted proxy, its parent domain is what gets allowed; choose that host
-accordingly.
+The widening needs a region label: a host whose parent is the registrable domain itself (a self-hosted
+proxy at `mcp.company.io`, say) allows only that exact host, never the whole corporate domain.
 
 ## What these guardrails do *not* do
 
