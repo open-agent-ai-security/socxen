@@ -108,6 +108,25 @@ governance model (feature → `dev`, release `dev` → `main`).
   release, and it is the same tree `pip-audit` checks one step earlier. See `security/README.md`.
 
 ### Changed
+- **Two more live-MCP tools are tiered** (#143). `exabeam_analytics_rule_details` (a read; note its bare-string
+  `arg0`) is allowed; `exabeam_create_analytics_rule` — a write that creates a detection rule server-side — is
+  **denied** on both hosts under both spellings, with `exabeam_update_analytics_rule` denied ahead of the MCP
+  exposing it: `rule-tuning` is proposals-only. `containment-tools.md` documents the detection-content denies
+  beside the containment verbs, so the deny-list invariant covers them; the skill, README and remit no longer
+  say "there is no rule-write path".
+- **The skill says what to stop doing** (#91). After a declined or unanswered dismiss/close the action is over —
+  no retry, no reaching the same outcome by another route — and out-of-lane requests are declined and handed
+  back rather than improvised.
+
+### Fixed
+- **The manual-MCP install path now says what it forgoes** (#86): registering the remote MCP directly bypasses
+  input screening, the write-side neutralizer and the audit trail; only the dismiss/close gate survives, and
+  only for a server named `exabeam`. Stated in the install guide and the guardrails page.
+- **preflight detects every TOML spelling of a loosened Codex approval mode** (#139): section header, dotted
+  key and inline table, scoped to the named tool so a sibling's `"approve"` cannot mask it. Pinned by a
+  fixture-driven test.
+
+### Changed
 - **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
   plugin's name, version, display name, description, keywords and marketplace; both host manifests and
   all 92 permission rules in `settings.snippet.json` are **generated** from it (plus the bare-name tiers

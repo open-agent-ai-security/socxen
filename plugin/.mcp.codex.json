@@ -42,7 +42,11 @@
       "exabeam_delete_file",
       "delete_file",
       "exabeam_run_script_on_host",
-      "run_script_on_host"
+      "run_script_on_host",
+      "exabeam_create_analytics_rule",
+      "create_analytics_rule",
+      "exabeam_update_analytics_rule",
+      "update_analytics_rule"
     ],
     "tools": {
       "exabeam_get_case_details": {
@@ -79,6 +83,9 @@
         "approval_mode": "auto"
       },
       "exabeam_analytics_rule_list": {
+        "approval_mode": "auto"
+      },
+      "exabeam_analytics_rule_details": {
         "approval_mode": "auto"
       },
       "exabeam_correlation_rule_list": {

@@ -147,8 +147,13 @@ Claude Code, `/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔
 
 <details><summary>Advanced — wire it manually (no auto-refresh)</summary>
 
-If you'd rather not use the bundled bridge, register the remote MCP directly — but the bearer token
-expires in ~4h and you'll have to re-add it each time:
+If you'd rather not use the bundled bridge, register the remote MCP directly. Two things to know
+first. The bearer token expires in ~4h and you'll have to re-add it each time. More importantly,
+**all three of socxen's deterministic controls live in the bundled bridge** — input screening of
+telemetry, the write-side neutralizer that masks secrets and de-fangs links in what socxen writes, and
+the audit trail — and **none of them run when Claude Code talks to the remote MCP directly.** The
+dismiss/close gate still applies if you name the server `exabeam` (the hook matches it); nothing else
+does. Use this path for a connectivity check, not for investigations you rely on:
 
 ```bash
 TOK=$(curl -s https://api.<region>.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \

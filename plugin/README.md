@@ -34,7 +34,7 @@ there the same as on Claude, `codex exec` included.
 |---|---|---|
 | **`soc-investigate`** | the analyst | One alert or case, first look to written verdict: gathers evidence, pivots on entities, weighs competing hypotheses, reaches a threat / false-positive verdict, and acts. |
 | **`triage-cases`** | the shift lead | The open queue rather than one case: clusters by attack shape, ranks by corroborated signal (risk score is one input, not the answer), returns a "start here" list plus the noise worth tuning. Read-only across the sweep — never closes in bulk. |
-| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: there is no rule-write path. |
+| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: the MCP's rule-write tool is denied on both hosts. |
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 

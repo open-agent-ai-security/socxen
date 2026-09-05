@@ -37,11 +37,6 @@
           "type": "distribution",
           "url": "https://github.com/open-agent-ai-security/plugins",
           "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"
-        },
-        {
-          "type": "bom",
-          "url": "sbom.cdx.json",
-          "comment": "The software bill of materials for the same release — the bridge's full locked dependency tree with artifact hashes (security/gen_sbom.py)"
         }
       ],
       "properties": [
@@ -89,7 +84,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 6 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 19 allow / 6 ask / 76 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -100,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-06T17:47:55Z"
+    "timestamp": "2026-09-05T20:42:37Z"
   },
   "components": [
     {
@@ -265,7 +260,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 21 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 24 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -288,7 +283,7 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "21"
+          "value": "24"
         },
         {
           "name": "mcp:containmentCapability",

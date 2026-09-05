@@ -221,13 +221,22 @@ codex_write_override() {
   local f
   for f in "${CODEX_HOME:-$HOME/.codex}/config.toml" "./.codex/config.toml"; do
     [ -f "$f" ] || continue
+    # Three TOML spellings say the same thing, and Codex accepts all of them (#139):
+    #   [mcp_servers.exabeam.tools.exabeam_update_alert]   approval_mode = "never"     (section header)
+    #   [mcp_servers.exabeam]  tools.exabeam_update_alert.approval_mode = "never"      (dotted key)
+    #   tools = { exabeam_update_alert = { approval_mode = "never" } }                 (inline table)
+    # A line is a loosening when the tool name is in scope (its own text or the enclosing section) and
+    # the approval_mode it carries is anything but "approve". For inline tables the check is scoped to
+    # the named tool's own {…}, so a sibling tool's "approve" cannot mask it.
     awk '
-      /^[[:space:]]*\[/ {
-        ingate = ($0 ~ /tools\.exabeam_update_(alert|case)\]/) ? 1 : 0
-        next
-      }
-      ingate && /approval_mode/ {
-        if ($0 !~ /"approve"/) { print "loose"; exit }
+      /^[[:space:]]*\[/ { sec = $0; next }
+      {
+        ctx = sec " " $0
+        if (ctx ~ /exabeam_update_(alert|case)/ && $0 ~ /approval_mode/) {
+          s = $0
+          if (match(s, /exabeam_update_(alert|case)/)) { s = substr(s, RSTART); sub(/\}.*/, "", s) }
+          if (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*"approve"/) { print "loose"; exit }
+        }
       }
     ' "$f" | grep -q loose && { printf 'yes'; return; }
   done

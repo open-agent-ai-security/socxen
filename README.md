@@ -21,7 +21,7 @@ both — named for the person whose job they do:
 |---|---|---|
 | **`soc-investigate`** | the analyst | Takes one Exabeam New-Scale alert or case from first look to written verdict — pulls the underlying events, pivots on the entities it finds, weighs the activity against what is normal for them, tests a benign explanation against a malicious one, and writes up its reasoning with the evidence behind it. Then it acts: opens or updates a case, writes notes, escalates. |
 | **`triage-cases`** | the shift lead | Sweeps the open queue instead of one case — clusters by attack shape, ranks by corroborated signal rather than risk score alone, and hands back a short "start here" list plus the noise worth tuning. Read-only across the sweep; it never closes in bulk. |
-| **`rule-tuning`** | the detection engineer | Finds the rules quietly wasting analyst attention — *noisy*, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: there is no rule-write path, and that is deliberate. |
+| **`rule-tuning`** | the detection engineer | Finds the rules quietly wasting analyst attention — *noisy*, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: the MCP's rule-write tool is denied on both hosts, and that is deliberate. |
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 

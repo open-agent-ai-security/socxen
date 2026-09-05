@@ -86,6 +86,9 @@ Keep expectations honest:
   side effect to know: the formula rule de-fangs every link on the *line* the formula sits on, and an
   HTML body is often one line — a planted formula therefore disables every link in that mail, including
   legitimate ones. That is the safety measure working; the mail is still readable.
+- **They live in the bundled bridge.** A server you register by hand against the remote Exabeam MCP
+  (the "wire it manually" path in the install guide) bypasses all three — no screening, no neutralizer,
+  no audit trail. Only the dismiss/close gate survives there, and only if the server is named `exabeam`.
 - They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen **persists** (case notes, exports) — the
