@@ -18,9 +18,9 @@
 | Deployment Environment | Analyst workstation, interactive Claude Code session, against an Exabeam New-Scale tenant (pre-release / evaluation) |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.2 |
-| Last Updated | 2026-08-19 |
-| Updated By | Praxen remit authoring (documentation-only update: skill-suite coverage — triage-cases + rule-tuning; deterministic write-path redaction guarantees) |
+| Remit Version | 1.3 |
+| Last Updated | 2026-09-05 |
+| Updated By | Praxen remit authoring (documentation-only update: the human-in-the-loop gate now ships active inside the plugin as a bundled Claude Code PreToolUse hook — the permission-rules merge becomes an optional second layer; v1.2: skill-suite coverage, deterministic write-path redaction) |
 
 ---
 
@@ -207,7 +207,8 @@ gate staying real.
   install resolves the same dependency tree the maintainers tested.
 - The shipped governance configuration — the permission tiers and the containment deny-list — MUST stay
   consistent with the governance posture the documentation describes, and that consistency MUST be
-  enforced by an automated check rather than by reviewer memory.
+  enforced by an automated check rather than by reviewer memory. The bundled hook, the permission
+  snippet and the Codex tool map MUST be derived from one tier source so the three cannot disagree.
 
 ---
 
@@ -282,8 +283,13 @@ gaps, and so nothing stronger is claimed than the docs claim:
 ### Requires Human Approval Before Execution
 
 - Dismissing an alert, or closing or otherwise changing the disposition of a case, MUST be blocked by a
-  harness-enforced permission rule that prompts the human and refuses to execute the call without an
-  affirmative answer, so that enforcement never depends on the model's own compliance.
+  host-enforced gate that is active on a fresh install with no operator opt-in — on Claude Code a
+  PreToolUse hook bundled in the plugin that prompts the human before a dismiss or close (and before an
+  outbound email), denies every containment tool, prompts on any tool it has not classified, holds under
+  `--dangerously-skip-permissions`, refuses the call when no human is present to answer, and never fails
+  open; on Codex the host's approval mode for the destructive-annotated write tools — so that enforcement
+  never depends on the model's own compliance. The merged harness permission rule is a second, optional
+  layer, not the gate.
 - Before it calls any tool that would dismiss an alert or close a case, socxen MUST ask the analyst for
   explicit confirmation in the session and MUST NOT proceed on inference, silence, a prior blanket
   approval, or its own confidence in the verdict.
