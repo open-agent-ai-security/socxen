@@ -200,7 +200,10 @@ def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allo
             '<img src="https://attacker.example/t.gif"><td>=HYPERLINK("https://evil.example","x")</td></p>')
     out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE https://evil.example/s", "body": body}})
     subj, out_body = out["arg1"]["subject"], out["arg1"]["body"]
-    assert "AKIAIOSFODNN7EXAMPLE" not in subj and "REDACTED" in subj and "hxxps://evil[.]example/s" in subj
+    assert "AKIAIOSFODNN7EXAMPLE" not in subj and "REDACTED" in subj
+    assert "https://evil.example/s" in subj, "the subject is an SMTP header: plain text, no auto-linking, so bare stays"
+    subj2 = B._defang_args({"arg1": {"subject": "Beaconing to https://evil.example — 4 < 5 & R&D", "body": "x"}})["arg1"]["subject"]
+    assert subj2 == "Beaconing to https://evil.example — 4 < 5 & R&D", "a header is never HTML-escaped"
     assert 'href="https://us-west.exabeam.cloud/cases/4471"' in out_body, "the tenant link stays clickable"
     assert 'href="hxxps://sso-reset[.]evil[.]example/login"' in out_body
     assert "hxxps://evil[.]example/ioc" in out_body, "bare URLs are de-fanged in mail"

@@ -645,11 +645,12 @@ def _escape_broken_openers(text, notes):
 _HTML_ATTR_RE = re.compile(
     r"""(?P<lead>[\s/]*)(?P<name>[^\s/>="'][^\s/>=]*|=[^\s/>=]*)"""
     r"""(?P<eq>\s*=\s*(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]*)))?""", re.DOTALL)
+_HTML_ATTR_LEAD_RE = re.compile(r"[\s/]*")
 _HTML_URL_ATTRS = frozenset(("href|src|action|formaction|poster|background|ping|cite|longdesc|usemap|data|"
                              "xlink:href|dynsrc|lowsrc|manifest|codebase|classid|srcdoc|srcset|style").split("|"))
 _INERT_SCHEMES = {"hxxp", "hxxps", "fxp", "fxps"}          # our own output; never re-defanged (idempotency)
 _CSS_URL_RE = re.compile(
-    r"""(url\(\s*(['"]?))([^)'"]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)|((?:-webkit-)?image-set\(\s*(['"]))([^'"]+)(\9)""",
+    r"""(url\(\s*(['"]?))([^)'"(]*)((?:\2)\s*\))|(@import\s+(['"]?))([^'";\s]+)|((?:-webkit-)?image-set\(\s*(['"]))([^'"]+)(\9)""",
     re.IGNORECASE)
 # CSS lets an ident be spelled with backslash escapes: \75rl( is url(. Decode them before deciding.
 _CSS_ESCAPE_RE = re.compile(r"\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^0-9a-fA-F\n])")
@@ -665,7 +666,7 @@ def _css_unescape(css):
         return m.group(2)
     return _CSS_ESCAPE_RE.sub(_u, css)
 _MAIL_MARKUP_RE = re.compile(
-    r"(<[a-zA-Z][\w:.-]*(?:\"[^\"<]*\"|'[^'<]*'|[^'\"<>])*>|</[^>]*>|<[!?][^>]*>)", re.DOTALL)
+    r"(<[a-zA-Z][\w:.-]*(?:\"[^\"<]*\"|'[^'<]*'|[^'\"<>])*>|</[^<>]*>|<[!?][^<>]*>)", re.DOTALL)
 
 
 def _split_mail_markup(text):
@@ -757,7 +758,9 @@ def _neutralize_tag(m, allowed, notes):
     while i < n:
         a = _HTML_ATTR_RE.match(attrs, i)
         if not a or a.end() == i:
-            i += 1                                       # stray byte: kept verbatim
+            # stray byte: kept verbatim. Skip the whole whitespace run first, or a tag padded with 20 000
+            # spaces is re-scanned from each of them (found in review).
+            i = _HTML_ATTR_LEAD_RE.match(attrs, i).end() + 1
             continue
         i = a.end()
         aname = a.group("name").lower()

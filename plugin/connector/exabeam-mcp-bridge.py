@@ -129,7 +129,7 @@ _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "
                   "subject", "body"}     # subject/body: exabeam_send_email — neutralized in MAIL mode (below)
 # Fields that leave the platform as HTML mail: bare URLs in their text are clickable in a mail client, so
 # the neutralizer runs in mail mode on them (defangs bare URLs too, not only link forms).
-_MAIL_FIELDS = {"subject", "body"}
+_MAIL_FIELDS = {"body"}          # the subject is an SMTP header, not HTML: never HTML-escaped, never auto-linked
 # The tenant allowlist: the only hosts a link may stay clickable to, derived from the operator's own MCP
 # URL and nothing else (never curated, never model-influenced). Empty when the URL is missing, and an
 # empty allowlist means every link is defanged. See neutralize_output.tenant_hosts_from_url.

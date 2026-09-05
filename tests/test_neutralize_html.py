@@ -531,7 +531,8 @@ def test_css_escapes_inside_the_url_argument_are_decoded(raw):
     assert "evil[.]example" in out and "\\2e" not in out and "\\74" not in out
 
 
-@pytest.mark.parametrize("shape", ["](", '<a "', "<", "<script>", "<style>", "<!--", "[a", "url(", "](x()", "<a href=\"", "&lt;"])
+@pytest.mark.parametrize("shape", ["](", '<a "', "<", "<script>", "<style>", "<!--", "[a", "url(", "](x()", "<a href=\"", "&lt;",
+                                   "<!", "</", "<a" + " " * 20000 + ">", '<p style="' + "url(" * 5000 + '">'])
 def test_hostile_shapes_cost_linear_time(shape):
     """A 32 KB page of one hostile token must neutralize in well under a second: the passes are bounded
     by construction (no per-opener rescans). The bound is loose for slow CI; the pre-fix cost was 1-3 s."""
