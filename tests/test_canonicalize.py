@@ -90,4 +90,18 @@ def test_no_stripped_char_survives_in_output():
 
 def test_counts_match_removed():
     _, hy = C.canonicalize("a" + chr(0x200B) + chr(0xFEFF) + "b")
-    assert hy.counts == {"stripped": 2} and len(hy.removed) == 2
+    assert hy.counts == {"stripped": 2, "flagged": 0} and len(hy.removed) == 2
+
+
+def test_kept_joiners_and_marks_are_flagged_not_altered():
+    """Praxen PRAX-2026-09-05-006: the remit's screening rule has two halves — strip the smuggling set,
+    FLAG the linguistically legitimate joiners and directional marks. The flag is a record, never a
+    change to the text and never an in-band marker."""
+    from canonicalize import canonicalize
+    zwj, rlm = "\u200d", "\u200f"
+    text = "family: \U0001F468" + zwj + "\U0001F469  name: " + rlm + "abc"
+    clean, hy = canonicalize(text)
+    assert clean == text, "flagged code points must be kept verbatim"
+    assert [k["cp"] for k in hy.kept] == ["U+200D", "U+200F"]
+    assert hy.counts == {"stripped": 0, "flagged": 2}
+    assert hy.is_empty(), "a kept-only value still counts as clean (nothing was stripped)"

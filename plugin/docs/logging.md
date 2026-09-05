@@ -30,10 +30,10 @@ observra neither is available and logging disables itself.
 
 | `event_type` | When | Key fields |
 |---|---|---|
-| `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context |
+| `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context; on start also the configuration attestation: `telemetry_backend`, `telemetry_destination` (resolved file path, or scheme + host of the endpoint), `dry_run`, `plugin_version`, `gate_log` |
 | `tool_start` | a tool call begins | `tool_name` |
 | `tool_end` | a tool call succeeds | `tool_name`, `duration_ms`, + the fields below |
-| `tool_error` | a tool call raises | `tool_name`, `duration_ms`, `error_class` |
+| `tool_error` | a tool call raises | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `remote` = the upstream call) |
 
 Every event also carries: `framework: "mcp"`, `agent_name: "socxen"`, `skill_name: "soc-investigate"`,
 ULID `session_id` / `trace_id` / `span_id` for correlation, a `timestamp`, and host context
@@ -58,7 +58,14 @@ call:
 ```json
 "defang_formula": 1, "defang_link": 1          // output neutralizer defanged a formula / phishing link on a write
 "hygiene_stripped": 3, "hygiene_classes": "U+200B,U+202E"   // input canonicalizer stripped smuggling code points on a read
+"hygiene_kept": 2, "hygiene_kept_classes": "U+200D,U+200F"   // joiners / directional marks were present — kept verbatim, flagged here
+"hygiene_screen_failed": true                                 // screening threw on a block; it passed through raw (fail-open)
 ```
+
+`hygiene_kept` is the only place that signal exists: the text is never altered and no marker is ever
+written in-band (a marker in alert data would be forgeable). A right-to-left mark or a zero-width joiner in
+a value is not proof of anything — Persian, Arabic and emoji use them legitimately — but on a homoglyph or
+bidi-shaped investigation it is the field to query.
 
 ## What is deliberately NOT recorded (privacy by construction)
 
@@ -86,6 +93,14 @@ Default backend is a **local, rotating JSON-lines file** — no network egress:
 | File path | `SOCXEN_OBSERVRA_PATH` | `~/.socxen/telemetry.jsonl` |
 | Rotate at size | `SOCXEN_OBSERVRA_MAX_BYTES` | `10485760` (10 MB) |
 | Backups kept | `SOCXEN_OBSERVRA_BACKUPS` | `5` |
+| Webhook destination | `SOCXEN_OBSERVRA_URL` | — (required for `webhook`) |
+| OTLP endpoint | `SOCXEN_OBSERVRA_ENDPOINT` | — (else `OTEL_EXPORTER_OTLP_ENDPOINT` / `..._LOGS_ENDPOINT`, else `http://localhost:4318`) |
+
+Whatever the backend, the bridge prints the **resolved destination** on stderr at startup (a path, or the
+scheme + host of the endpoint — never a URL path or query, which can carry a token) and records the same on
+the `mcp_session_start` event, so the trail itself attests where it was shipped. One disclosure cannot go
+into the log: if telemetry disables itself (a misconfigured backend, a missing library) that fact is
+printed to stderr only, because there is no longer a log to write it to.
 
 So the log **rotates** (`telemetry.jsonl` → `.1` → … → `.5`, oldest deleted) and is bounded to roughly
 **60 MB** by default. It never grows without limit.
