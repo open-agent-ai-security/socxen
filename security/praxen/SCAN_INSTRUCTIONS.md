@@ -36,7 +36,7 @@ These are the load-bearing ones — resolve each **in code**, and state which la
    manifest actually wires the hook; the matcher covers the bundled prefix, the plugin-key-agnostic
    prefix and a manually wired `exabeam` server; the tier read fails closed; the emitted decision is the
    shape the host honors. Then separate what remains **opt-in** — the permission-rules merge
-   (`--merge-permissions`; needed only for a manual server under a name the hook does not match — the hook's *allow* already makes the reads prompt-free) — and what a **Codex**
+   (`--merge-permissions`; an optional second lock — the hook's *allow* already makes the reads prompt-free, and a manual server must be named `exabeam` for either layer to see it) — and what a **Codex**
    install gets (`.mcp.codex.json` approval mode + `disabled_tools`). The skill's in-prompt confirmation
    is the third, model-side layer. Apply the boundary rules: a control the operator must opt into is
    **capability, not posture**, on the shipped default path; a control that ships active is posture.

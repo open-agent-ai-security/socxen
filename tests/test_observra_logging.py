@@ -235,7 +235,7 @@ def test_session_start_attests_even_when_it_is_the_first_telemetry_call(monkeypa
     out = tmp_path / "t.jsonl"
     t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(out)})
     t.session_start(dry_run=False)                      # no enabled() call first, deliberately
-    t.session_start(telemetry_backend="caller-wins")    # a colliding key must not raise
+    t.session_start(telemetry_backend="caller-wins", event_type="y")    # colliding keys must not raise
     t._shutdown()
     starts = [json.loads(l)["data"] for l in out.read_text().splitlines() if '"mcp_session_start"' in l]
     assert starts[0]["telemetry_backend"] == "jsonl" and starts[0]["telemetry_destination"] == str(out)
