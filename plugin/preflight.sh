@@ -212,7 +212,7 @@ check_gate() {
         on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;
         off) if [ -f "$_PF_DIR/hooks/hooks.json" ]; then
                ok "Human-in-the-loop gate ON via the bundled hook (ships with the plugin; holds even under --dangerously-skip-permissions)"
-               warn "Permission rules not merged — optional: install.sh --merge-permissions adds silent reads and covers a manually wired 'exabeam' server"
+               ok "Permission rules not merged — not needed for the bundled server (the hook allows reads); merge only for a manually wired server under another name: install.sh --merge-permissions"
              else
                fail "Gate is OFF — no bundled hook in this plugin copy and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
              fi ;;
