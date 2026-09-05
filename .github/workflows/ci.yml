@@ -77,21 +77,25 @@ jobs:
         # ruff's flake8-bandit ruleset (S*) over the payload that lands on a user's machine. Every
         # deliberate exception is a `# noqa: S###` with its reason beside it — the rule is that a
         # swallowed exception in plugin/ is a documented decision, never an accident. (#100)
-        run: uv run --with ruff ruff check --select S plugin/
+        # Pinned like the actions and the lockfile: a floating linter turns a required check red on an
+        # unrelated PR the day a new S-rule ships. Bump by hand (Dependabot cannot see a --with pin).
+        run: uv run --with ruff==0.16.6 ruff check --select S plugin/
 
       - name: Security lint — build-time code (advisory)
         # scripts/, security/, evals/ never ship (#66); tests/ are asserts by nature. Reported, not
         # gating, so a finding here is a code-quality signal rather than a broken build.
-        run: uv run --with ruff ruff check --select S --exit-zero --statistics scripts/ security/ evals/
+        run: uv run --with ruff==0.16.6 ruff check --select S --exit-zero --statistics scripts/ security/ evals/
 
       - name: Dependency audit — the bridge's locked tree (required)
         # The bridge's PEP 723 lockfile is hash-pinned (#71 rungs 1-2). This is rung 3: every locked
-        # package checked against the OSV/PyPI advisory databases on every push, so a dependency that
-        # becomes known-vulnerable is a red build, not a surprise. Dependabot alerts cover the same
-        # tree asynchronously; this is the synchronous gate.
+        # package that resolves on this runner's platform (Linux) checked against the OSV/PyPI advisory
+        # databases on every push, so a dependency that becomes known-vulnerable is a red build, not a
+        # surprise. The export keeps the lock's environment markers, so Windows-only entries (pywin32,
+        # colorama) are not audited here — Dependabot alerts cover the whole tree asynchronously; this
+        # is the synchronous gate.
         run: |
           uv export --script plugin/connector/exabeam-mcp-bridge.py --format requirements-txt --no-hashes -q > /tmp/bridge-requirements.txt
-          uv run --with pip-audit pip-audit -r /tmp/bridge-requirements.txt --strict --progress-spinner off
+          uv run --with pip-audit==2.10.1 pip-audit -r /tmp/bridge-requirements.txt --strict --progress-spinner off
 
       - name: Build the SBOM from the lockfile
         # Regenerated on every run (not just committed) so the artifact below is always the tree that

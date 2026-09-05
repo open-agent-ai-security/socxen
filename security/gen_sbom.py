@@ -57,13 +57,26 @@ def _norm(name):
 
 
 def _direct_specifiers():
-    """{normalized name: specifier} from the bridge's PEP 723 header."""
-    m = re.search(r"^# dependencies = \[(.*?)\]", SCRIPT.read_text(), re.M | re.S)
+    """{normalized name: specifier} from the bridge's PEP 723 header (parsed as TOML by gen_aibom)."""
+    deps, _ = _aibom._pep723(str(SCRIPT.relative_to(ROOT)))
     out = {}
-    for spec in re.findall(r'"([^"]+)"', m.group(1) if m else ""):
-        name = re.split(r"[<>=!~\[; ]", spec, 1)[0]
+    for spec in deps:
+        name = re.split(r"[<>=!~\[; ]", spec, maxsplit=1)[0]
         out[_norm(name)] = spec[len(name):].strip()
     return out
+
+
+def _versions(lock):
+    """{name: version} for every locked package. A lock that resolves one name to two versions (a
+    resolution fork) cannot be flattened into one dependency graph honestly, so it is an error here
+    rather than a first-match guess that --check would bless."""
+    versions = {}
+    for p in lock.get("package", []):
+        if p["name"] in versions and versions[p["name"]] != p["version"]:
+            sys.exit(f"lockfile resolves {p['name']} to both {versions[p['name']]} and {p['version']} — "
+                     "the SBOM cannot pick one; split the resolution before regenerating")
+        versions[p["name"]] = p["version"]
+    return versions
 
 
 def build_sbom(timestamp):
@@ -75,6 +88,12 @@ def build_sbom(timestamp):
     direct = {_norm(r["name"]): r.get("specifier", "") for r in lock.get("manifest", {}).get("requirements", [])}
     direct.update({k: v for k, v in _direct_specifiers().items() if k in direct and v})
     aibom_serial = json.loads(AIBOM.read_text()).get("serialNumber", "") if AIBOM.exists() else ""
+    versions = _versions(lock)
+
+    def ref_of(n):
+        if n not in versions:
+            sys.exit(f"lockfile names a dependency it does not lock: {n}")
+        return f"pkg:pypi/{n}@{versions[n]}"
 
     serial = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"{repo}@{version}#sbom#{lock_sha}"))
     root_ref = f"{name}@{version}"
@@ -101,13 +120,11 @@ def build_sbom(timestamp):
     for pkg in sorted(lock.get("package", []), key=lambda p: p["name"]):
         pname, pver = pkg["name"], pkg["version"]
         ref = f"pkg:pypi/{pname}@{pver}"
-        hashes, dists = [], []
+        hashes = []
         for art in ([pkg["sdist"]] if pkg.get("sdist") else []) + list(pkg.get("wheels", [])):
             h = art.get("hash", "")
             if h.startswith("sha256:"):
                 hashes.append({"alg": "SHA-256", "content": h.split(":", 1)[1]})
-            if art.get("url"):
-                dists.append(art["url"])
         registry = (pkg.get("source") or {}).get("registry", "")
         props = [{"name": "socxen:dependencyKind", "value": "direct" if pname in direct else "transitive"}]
         if pname in direct and direct[pname]:
@@ -120,10 +137,10 @@ def build_sbom(timestamp):
         if registry:
             comp["externalReferences"] = [{"type": "distribution", "url": registry, "comment": "resolved from this index"}]
         components.append(comp)
-        deps = sorted({f"pkg:pypi/{d['name']}@{_version_of(lock, d['name'])}" for d in pkg.get("dependencies", [])})
+        deps = sorted({ref_of(d["name"]) for d in pkg.get("dependencies", [])})
         dependencies.append({"ref": ref, "dependsOn": deps})
 
-    dependencies.insert(0, {"ref": root_ref, "dependsOn": sorted(f"pkg:pypi/{n}@{_version_of(lock, n)}" for n in direct)})
+    dependencies.insert(0, {"ref": root_ref, "dependsOn": sorted(ref_of(n) for n in direct)})
 
     metadata = {
         "timestamp": timestamp,
@@ -146,13 +163,6 @@ def build_sbom(timestamp):
         "bomFormat": "CycloneDX", "specVersion": "1.6", "serialNumber": serial, "version": 1,
         "metadata": metadata, "components": components, "dependencies": dependencies,
     }
-
-
-def _version_of(lock, name):
-    for p in lock.get("package", []):
-        if p["name"] == name:
-            return p["version"]
-    return "unknown"
 
 
 # ---------- render HTML ----------
@@ -232,18 +242,27 @@ def main(argv):
             return 1
         cur = json.loads(JSON_OUT.read_text())
         fresh = json.loads(_dumps(bom))
+        committed_ts = cur.get("metadata", {}).get("timestamp", "")
         cur.get("metadata", {}).pop("timestamp", None)
         fresh.get("metadata", {}).pop("timestamp", None)
         if cur != fresh:
             print("security/sbom.cdx.json is STALE vs the lockfile — regenerate with `uv run security/gen_sbom.py`.",
                   file=sys.stderr)
             return 1
+        # The HTML render ships as the CI artifact: checked too, with the committed timestamp so only
+        # real content drift fails.
+        bom["metadata"]["timestamp"] = committed_ts
+        if not HTML_OUT.exists() or HTML_OUT.read_text() != render_html(bom):
+            print("security/sbom.html is STALE vs sbom.cdx.json — regenerate with `uv run security/gen_sbom.py`.",
+                  file=sys.stderr)
+            return 1
         print(f"SBOM is current ({len(bom['components'])} locked packages).")
         return 0
     JSON_OUT.write_text(_dumps(bom))
     HTML_OUT.write_text(render_html(bom))
+    props = {p["name"]: p["value"] for p in bom["metadata"]["properties"]}
     print(f"wrote {JSON_OUT.relative_to(ROOT)} and {HTML_OUT.relative_to(ROOT)} "
-          f"({len(bom['components'])} locked packages, {bom['metadata']['properties'][5]['value']} direct)")
+          f"({len(bom['components'])} locked packages, {props['socxen:directDependencies']} direct)")
     return 0
 
 

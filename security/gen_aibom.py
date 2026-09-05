@@ -45,12 +45,22 @@ def _json(rel):
     return json.loads((ROOT / rel).read_text())
 
 def _pep723(pyfile):
+    """(dependencies, requires-python) from a script's PEP 723 header. The block IS TOML, so it is parsed
+    as TOML where the interpreter has tomllib (3.11+); the regex fallback matches the list to the `]` that
+    ends its line, not the first `]` — an extras marker like "mcp[cli]" truncated the old non-greedy
+    match and silently dropped every dependency after it (found in review)."""
     txt = (ROOT / pyfile).read_text()
     block = re.search(r"# /// script\n(.*?)\n# ///", txt, re.S).group(1)
-    dm = re.search(r"dependencies\s*=\s*\[(.*?)\]", block, re.S)
-    deps = re.findall(r'"([^"]+)"', dm.group(1)) if dm else []
-    py = re.search(r'requires-python\s*=\s*"([^"]+)"', block)
-    return deps, (py.group(1) if py else None)
+    toml_text = "\n".join(line[2:] if line.startswith("# ") else line[1:] for line in block.splitlines())
+    try:
+        import tomllib
+        meta = tomllib.loads(toml_text)
+        return list(meta.get("dependencies", [])), meta.get("requires-python")
+    except ImportError:
+        dm = re.search(r"dependencies\s*=\s*\[(.*?)\][ \t]*$", block, re.S | re.M)
+        deps = re.findall(r'"([^"]+)"', dm.group(1)) if dm else []
+        py = re.search(r'requires-python\s*=\s*"([^"]+)"', block)
+        return deps, (py.group(1) if py else None)
 
 def _split_dep(spec):
     m = re.match(r"([A-Za-z0-9_.\-]+)\s*(.*)", spec)
@@ -379,11 +389,19 @@ def main(argv):
             return 1
         cur = json.loads(JSON_OUT.read_text())
         fresh = json.loads(_dumps(bom))
+        committed_ts = cur.get("metadata", {}).get("timestamp", "")
         cur.get("metadata", {}).pop("timestamp", None)      # ignore the clock
         fresh.get("metadata", {}).pop("timestamp", None)
         if cur != fresh:
             print("security/aibom.cdx.json is STALE vs the repo sources — regenerate with "
                   "`uv run security/gen_aibom.py`.", file=sys.stderr)
+            return 1
+        # The HTML render is what people read and what ships as the CI artifact: check it too, rendered
+        # with the committed timestamp so only real content drift fails (found in review).
+        bom["metadata"]["timestamp"] = committed_ts
+        if not HTML_OUT.exists() or HTML_OUT.read_text() != render_html(bom):
+            print("security/aibom.html is STALE vs aibom.cdx.json — regenerate with `uv run security/gen_aibom.py`.",
+                  file=sys.stderr)
             return 1
         print("AI BOM is current.")
         return 0

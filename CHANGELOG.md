@@ -93,8 +93,10 @@ governance model (feature → `dev`, release `dev` → `main`).
 - **CI: a security lint and a dependency audit, both gating on the shipped plugin** (#71, #100, #131).
   `ruff --select S` (the flake8-bandit ruleset) over `plugin/` is required, with each deliberate
   exception-swallow carrying a `# noqa: S110` and its reason; the same lint over build-time code is
-  advisory. `pip-audit` checks every package in the bridge's hash-pinned lockfile against the OSV / PyPI
-  advisory databases on every push — #71's last rung. Dependabot keeps the SHA-pinned actions current
+  advisory. `pip-audit` checks every package in the bridge's hash-pinned lockfile that resolves on the
+  Linux runner against the OSV / PyPI advisory databases on every push — #71's last rung (the lock's
+  two Windows-only entries are covered by Dependabot alerts). Both gating tools are version-pinned, like
+  the actions and the lockfile, so a new lint rule cannot redden an unrelated PR. Dependabot keeps the SHA-pinned actions current
   weekly and rewrites the version comments with them, and the repository now **requires** actions to be
   pinned to a full commit SHA. `actions/checkout` moves to v7.0.1 and `astral-sh/setup-uv` to v10.0.1,
   both off the deprecated Node 20 runtime.

@@ -82,7 +82,9 @@ of the lock). The two BOMs reference each other (`externalReferences` of type `b
   anyone commits it;
 - `scripts/bump_version.py` regenerates it on every release alongside the AI BOM;
 - the same lockfile is audited against the OSV / PyPI advisory databases in CI (`pip-audit --strict`),
-  so the tree the SBOM describes is also the tree that was checked for known vulnerabilities.
+  so the tree the SBOM describes is also the tree that was checked for known vulnerabilities — every
+  package that resolves on the Linux runner; the lock's Windows-only entries (`pywin32`, `colorama`)
+  are covered by Dependabot alerts, not by that step.
 
 ### Use it
 

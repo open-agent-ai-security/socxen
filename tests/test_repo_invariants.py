@@ -592,7 +592,7 @@ def test_sbom_is_current_and_mirrors_the_lockfile():
     lock manifest's, the root references the AI BOM and the AI BOM references it back, and the
     committed copy is not stale (the same --check CI runs)."""
     import subprocess, sys, tomllib
-    r = subprocess.run(["uv", "run", str(ROOT / "security" / "gen_sbom.py"), "--check"], capture_output=True, text=True, cwd=ROOT)
+    r = subprocess.run([sys.executable, str(ROOT / "security" / "gen_sbom.py"), "--check"], capture_output=True, text=True, cwd=ROOT)
     assert r.returncode == 0, r.stdout + r.stderr
     lock = tomllib.loads((ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py.lock").read_text())
     sbom = json.loads((ROOT / "security" / "sbom.cdx.json").read_text())

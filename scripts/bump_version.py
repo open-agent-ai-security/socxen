@@ -82,7 +82,7 @@ def main(argv):
     if dry:
         for path, _ in edits:
             print(f"  would edit {path.relative_to(ROOT)}")
-        print("  would regenerate security/aibom.cdx.json + security/aibom.html")
+        print("  would regenerate security/aibom.cdx.json + security/aibom.html + security/sbom.cdx.json + security/sbom.html")
         return 0
 
     for path, content in edits:
@@ -96,7 +96,7 @@ def main(argv):
         print("  note: security/gen_aibom.py not present — skipped AI BOM regen", file=sys.stderr)
     if GEN_SBOM.exists():
         # the SBOM's root component carries the version and its serial is version-derived
-        subprocess.run(["uv", "run", str(GEN_SBOM)], check=True, cwd=str(ROOT))
+        subprocess.run([sys.executable, str(GEN_SBOM)], check=True, cwd=str(ROOT))   # stdlib script: no uv on PATH needed
     else:
         print("  note: security/gen_sbom.py not present — skipped SBOM regen", file=sys.stderr)
 
@@ -109,8 +109,9 @@ def main(argv):
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
-    print("  AI BOM regenerated.")
+    print(f"
+✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
+    print("  AI BOM and SBOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0
 
