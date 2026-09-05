@@ -93,7 +93,7 @@ def target_fields(obj, into=None, depth=0):
                     into.setdefault(k, [x[:_CAP] if isinstance(x, str) else x for x in v[:10]])
                 elif isinstance(v, dict):
                     target_fields(v, into, depth + 1)
-    except Exception:  # noqa: BLE001 — the record is best-effort; the decision never depends on it
+    except Exception:  # noqa: BLE001, S110 — the record is best-effort; the decision never depends on it
         pass
     return into
 
@@ -135,7 +135,7 @@ def log_decision(record: dict) -> None:
             _rotate(path)
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except Exception:  # noqa: BLE001 — logging must never change the decision
+    except Exception:  # noqa: BLE001, S110 — logging must never change the decision, so nothing is raised here
         pass
 
 

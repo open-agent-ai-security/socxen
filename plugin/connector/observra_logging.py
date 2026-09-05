@@ -280,5 +280,5 @@ def _shutdown():
         worker = getattr(_state["observra"], "_worker", None)
         if worker is not None:
             worker._shutdown()   # drains the queue to the backend and closes it
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110 — exit must never error; a failed flush is lost telemetry, not a failed run
         pass
