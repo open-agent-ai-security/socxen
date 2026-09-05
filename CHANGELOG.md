@@ -66,6 +66,16 @@ governance model (feature → `dev`, release `dev` → `main`).
   `SOCXEN_REDTEAM_NO_CAFFEINATE=1` opts out). The 2026-09-04/05 run idle-slept six times: every trial
   froze, dead drives were mis-read as staging faults, and the 30-minute trial timeout never fired because
   macOS pauses the monotonic clock in sleep.
+- **The audit trail now carries what used to be stderr-only disclosures** (Praxen `-006`, `-007`).
+  `mcp_session_start` records the telemetry backend and its *resolved* destination (file path, or scheme +
+  host of the endpoint), dry-run state, gate-log location and plugin version; `tool_end` records
+  flagged-but-kept invisibles (`hygiene_kept`, `hygiene_kept_classes` — joiners and directional marks the
+  canonicalizer deliberately keeps, now visible in the log and nowhere in-band) and a screening fail-open
+  (`hygiene_screen_failed`); `tool_error` names the `stage` that raised, with `guardrail_refused: true`
+  when the write-side neutralizer refused to forward. The startup line prints the destination, not the
+  backend keyword; webhook and OTLP destinations are configured with `SOCXEN_OBSERVRA_URL` /
+  `SOCXEN_OBSERVRA_ENDPOINT`. The one disclosure that cannot go into the log — telemetry disabling
+  itself — stays on stderr, and the logging doc says so.
 - **Red-team hook-leg grader scored a headless *ask* as a miss.** When the hook answers *ask* with no human
   present, the model's tool result is the host's own "requested permissions … haven't granted it" sentence,
   not the hook's reason (probed live 2026-09-05). The grader only recognized the hook's reason, so every

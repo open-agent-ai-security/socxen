@@ -39,6 +39,11 @@ _SMUGGLE_RANGES = [
     (0xE0100, 0xE01EF),                                       # variation selectors SUPPLEMENT (FE00-FE0F kept)
 ]
 _STRIP = frozenset(cp for lo, hi in _SMUGGLE_RANGES for cp in range(lo, hi + 1))
+# KEPT but FLAGGED: joiners and directional marks have legitimate use (Persian/Arabic/Indic scripts, emoji
+# sequences, bidi text), so they are never stripped — but their presence in a telemetry value is exactly
+# the signal an analyst chasing a homoglyph or right-to-left payload needs. They go into Hygiene.kept
+# (code point + name, never the text) and from there into the audit trail. Praxen PRAX-2026-09-05-006.
+_FLAG = frozenset({0x200C, 0x200D, 0x200E, 0x200F, 0x061C})   # ZWNJ, ZWJ, LRM, RLM, ALM
 _LINE_SEP = frozenset({0x2028, 0x2029})   # invisible logical newlines -> normalized to "\n" (not deleted)
 
 
@@ -50,6 +55,7 @@ def is_strippable(ch):
 @dataclass
 class Hygiene:
     removed: list = field(default_factory=list)   # [{"cp": "U+200B", "name": "ZERO WIDTH SPACE"}]
+    kept: list = field(default_factory=list)      # flagged-but-kept: [{"cp": "U+200D", "name": "ZERO WIDTH JOINER"}]
     counts: dict = field(default_factory=dict)
 
     def is_empty(self):
@@ -59,7 +65,7 @@ class Hygiene:
 def canonicalize(text):
     """Strip obvious smuggling -> normalize LS/PS to newline -> NFC. Pure and deterministic."""
     if not text:
-        return text, Hygiene(counts={"stripped": 0})
+        return text, Hygiene(counts={"stripped": 0, "flagged": 0})
 
     hy = Hygiene()
     out = []
@@ -70,9 +76,12 @@ def canonicalize(text):
             out.append("\n")
         elif cp in _STRIP:
             hy.removed.append({"cp": f"U+{cp:04X}", "name": unicodedata.name(ch, "")})
+        elif cp in _FLAG:
+            hy.kept.append({"cp": f"U+{cp:04X}", "name": unicodedata.name(ch, "")})
+            out.append(ch)                                  # kept verbatim — flagged, never altered
         else:
             out.append(ch)
 
     clean = unicodedata.normalize("NFC", "".join(out))
-    hy.counts = {"stripped": len(hy.removed)}
+    hy.counts = {"stripped": len(hy.removed), "flagged": len(hy.kept)}
     return clean, hy

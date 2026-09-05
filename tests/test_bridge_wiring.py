@@ -198,3 +198,17 @@ def test_mail_subject_and_body_are_neutralized_for_secrets_and_formulas():
     assert "AKIAIOSFODNN7EXAMPLE" not in out["arg1"]["subject"] and "REDACTED" in out["arg1"]["subject"]
     assert out["arg1"]["body"].startswith("<td>'=HYPERLINK(") and "hxxps://evil[.]example" in out["arg1"]["body"]
     assert out["arg1"]["recipients"] == ["a@example.com"]      # identifiers are never touched
+
+
+def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
+    """The read-side accumulators feed the audit trail: flagged-but-kept code points, and a block whose
+    screening raised (fail-open — the raw block passes through, and the failure is recorded)."""
+    kept, failures = [], []
+
+    class Bad:                       # a block whose text access explodes -> the fail-open path
+        @property
+        def text(self):
+            raise RuntimeError("boom")
+    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad()], None, kept, failures)
+    assert out[0].text == "ab\u200dcd" and [k["cp"] for k in kept] == ["U+200D"]
+    assert failures == ["RuntimeError"] and isinstance(out[1], Bad)

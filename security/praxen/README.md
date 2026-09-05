@@ -78,10 +78,14 @@ hook holds under `--dangerously-skip-permissions`, another that those modes turn
 manual `exabeam` server bypasses the hook when the matcher covers it; the skill body still named the snippet
 as the Claude-side gate) — corrected, with a repo invariant that checks the docs against the compiled matcher;
 `-012` the hook's decision log grew without bound and its off switch was silent — bounded rotation and a
-stderr disclosure, matching the telemetry log beside it. The remaining Mediums (`-004` sweep read-only rule
-is prompt-only, `-005` free-text overwrite on the gated writes, `-006` kept joiners never flagged, `-007`
-operator disclosures to stderr, `-009` oversized results spill to an unredacted file, `-010` allowlist
-perimeters, `-013` no `allowed-tools` on the skills) triage into issues per the policy above.
+stderr disclosure, matching the telemetry log beside it; `-006` the canonicalizer's kept joiners and
+directional marks are now flagged into the audit trail (`hygiene_kept`), and a screening fail-open is a
+recorded event; `-007` the session record attests the telemetry backend and its *resolved* destination
+(scheme + host, never the backend keyword), and the neutralizer's fail-closed refusal is a distinguishable
+`tool_error` — the one disclosure that cannot go into the log, telemetry disabling itself, stays on stderr
+and is documented as such. The remaining Mediums (`-004` sweep read-only rule is prompt-only, `-005`
+free-text overwrite on the gated writes, `-009` oversized results spill to an unredacted file, `-010`
+allowlist perimeters, `-013` no `allowed-tools` on the skills) triage into issues per the policy above.
 
 ## Previous — 0.8.0 gate (dev @ `1a93c22`)
 

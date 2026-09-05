@@ -23,6 +23,7 @@ starting the server.
 """
 import asyncio
 import os
+from pathlib import Path
 import re
 import ssl
 import sys
@@ -161,6 +162,9 @@ def _log_hygiene(hy):
     if hy.removed:
         cps = ", ".join(dict.fromkeys(r["cp"] for r in hy.removed))
         sys.stderr.write(f"bridge: hygiene - stripped [{cps}]\n")
+    if hy.kept:
+        cps = ", ".join(dict.fromkeys(r["cp"] for r in hy.kept))
+        sys.stderr.write(f"bridge: hygiene - kept but flagged [{cps}]\n")
 
 
 def _block_text(block):
@@ -185,11 +189,14 @@ def _rewrite_block(block, kind, clean):
     return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
 
 
-def _canon_content(content, removed=None):
+def _canon_content(content, removed=None, kept=None, failures=None):
     """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
     invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
     never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins.
-    `removed` is an optional accumulator for telemetry (default None — behavior is unchanged)."""
+    `removed` / `kept` / `failures` are optional accumulators for telemetry (default None — behavior is
+    unchanged): stripped code points, flagged-but-kept code points, and the exception class of any block
+    that passed through raw because screening failed (the fail-open path is now a recorded event, not
+    only a stderr line — Praxen PRAX-2026-09-05-006/-007)."""
     out = []
     for block in content:
         try:
@@ -199,9 +206,13 @@ def _canon_content(content, removed=None):
                 _log_hygiene(hy)
                 if removed is not None and hy.removed:
                     removed.extend(hy.removed)
+                if kept is not None and hy.kept:
+                    kept.extend(hy.kept)
                 block = _rewrite_block(block, kind, clean)
         except Exception as e:  # noqa: BLE001 — availability over canonicalization
             sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
+            if failures is not None:
+                failures.append(type(e).__name__)
         out.append(block)
     return out
 
@@ -271,6 +282,8 @@ async def call_tool(name, arguments):
     # byte-identical, un-instrumented path (no allocation, no per-value extend).
     defang_notes = [] if log_on else None
     hygiene_removed = [] if log_on else None
+    hygiene_kept = [] if log_on else None
+    screen_failures = [] if log_on else None
     is_write = name in WRITE_TOOLS and bool(arguments)
     # Dry run: refuse the write here, BEFORE the remote call. Keyed on the tool name alone, not on
     # `is_write` — a write with no arguments is still a write we must not forward. The tool_start above
@@ -298,14 +311,18 @@ async def call_tool(name, arguments):
         # (action.dryRunRefused), not in text the model reads.
         return [TextContent(type="text", text=(
             f"Permission to use `{name}` was not granted; the call was not executed."))]
+    # `stage` names the layer that failed, for the audit record: a neutralizer refusal is a guardrail
+    # acting (fail-closed), not an upstream fault.
+    stage = "neutralize"
     try:
         if is_write:
             arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
+        stage = "remote"
         content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
-        content = _canon_content(content, hygiene_removed)           # input-side (#2) — fail-open
+        content = _canon_content(content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
     except Exception as e:
         if log_on:
-            telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e)
+            telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage)
         raise
     # Telemetry tail — FULLY GUARDED. The remote call has already committed; nothing here (not even
     # _audit_fields on pathological arguments) may raise into the return path and discard a successful write.
@@ -313,6 +330,7 @@ async def call_tool(name, arguments):
         if log_on:
             telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
                                defang_notes=defang_notes, hygiene_removed=hygiene_removed,
+                               hygiene_kept=hygiene_kept, screen_failed=bool(screen_failures),
                                action_fields=_audit_fields(arguments) if is_write else None)
     except Exception as e:  # noqa: BLE001 — telemetry must never break a completed call
         sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
@@ -325,8 +343,21 @@ async def _check():
     print(f"OK — connected to {URL}; {len(tools)} Exabeam tools available.{dry}")
 
 
+def _plugin_version():
+    """Best-effort: the manifest two levels up from this file; '' when running from a bare checkout."""
+    try:
+        import json as _json
+        m = Path(__file__).resolve().parent.parent / ".claude-plugin" / "plugin.json"
+        return str(_json.loads(m.read_text()).get("version", ""))
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _serve():
-    telemetry.session_start()   # best-effort; a no-op unless SOCXEN_OBSERVRA names a backend
+    # The session record is the operator's attestation of how this bridge was configured: telemetry
+    # backend + resolved destination (added by the shim), dry-run state, gate-log location, plugin version.
+    telemetry.session_start(dry_run=DRY_RUN, plugin_version=_plugin_version(),
+                            gate_log=os.environ.get("SOCXEN_GATE_LOG", "").strip() or "~/.socxen/gate.jsonl")
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
 
