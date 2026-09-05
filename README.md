@@ -25,10 +25,11 @@ both — named for the person whose job they do:
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
-**Dismissing an alert or closing a case is held back by two locks**: a host-enforced approval rule that
-stops the call at the harness — on Claude Code a permission rule you merge once (below); on Codex,
-tool-approval policy that ships inside the package, so Codex prompts a human for every destructive write
-and cancels it when nobody is present — and the skill asking you first. Containment is *recommended* for a human
+**Dismissing an alert or closing a case is held back by two locks, out of the box**: a gate the plugin
+ships and the host enforces — on Claude Code a bundled hook that asks before dismiss/close, denies
+containment, and holds even under `--dangerously-skip-permissions`; on Codex tool-approval policy inside
+the package, so Codex prompts a human for every destructive write and cancels it when nobody is present —
+and the skill asking you first. Containment is *recommended* for a human
 to perform in EDR or IAM; the plugin never executes it. No server, no database, no approval queue — the
 analyst at the terminal is the human-in-the-loop.
 
@@ -60,10 +61,9 @@ codex plugin add socxen@open-agent-ai-security
 On Codex that's the whole install — the approval gate travels inside the package, so there is no merge
 step. The rest of this section is the **Claude Code** gate:
 
-> 🛑 **Then turn on the governance gate — this is not optional.** The permission pack is the only
-> *hard* lock on dismiss/close. Until you merge it, the sole thing standing between a wrong verdict
-> and a suppressed alert is the skill's in-prompt ask — a soft prompt to the model, not a rule the
-> harness enforces. Don't point socxen at alerts you care about until it's on.
+> The gate ships ON, and the reads run without a prompt — the hook allows them. You do **not** need to
+> merge the permission pack; it is an optional second lock that does not depend on the hook (wire a
+> manual server as `exabeam` — neither layer recognizes another name):
 >
 > ```bash
 > git clone https://github.com/open-agent-ai-security/socxen.git
@@ -94,7 +94,7 @@ access is not, by itself, something you can let near a SOC queue.
 |---|---|---|
 | **Methodology** | [`skills/`](plugin/skills/) | the *procedures* — [`soc-investigate`](plugin/skills/soc-investigate/SKILL.md) (entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix), [`triage-cases`](plugin/skills/triage-cases/SKILL.md) and [`rule-tuning`](plugin/skills/rule-tuning/SKILL.md), sharing one safety spine |
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) · [`.mcp.codex.json`](plugin/.mcp.codex.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context — bundled for each host |
-| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: Claude Code merges the permission pack; Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
+| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: on Claude Code a bundled hook reads these tiers (the permission pack is an optional second lock); Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
 | **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM, and the regression harness in `evals/` |
 

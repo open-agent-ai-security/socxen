@@ -24,7 +24,7 @@ configuration.
 
 <p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
 
-This is a safety net, not a replacement for judgment. Your **[governance permission gate](installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)**
+This is a safety net, not a replacement for judgment. The **[human-in-the-loop gate](installation.md#governance--the-safety-gate)**
 and your own review before you act remain the primary controls.
 
 ## 1. Screening what socxen reads (hidden-character smuggling)
@@ -77,6 +77,15 @@ of copy-pasting a good link is worth never handing an analyst a live malicious o
 
 Keep expectations honest:
 
+- **Email.** `exabeam_send_email` lets socxen mail Exabeam tool output to a person, and it is
+  human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to **active users of your
+  own subscription** — any other address is rejected — so mail cannot leave your tenant's user base. The
+  subject and body pass through the neutralizer below, so secrets are masked and formulas and
+  markdown-style links de-fanged; but a link written as an HTML `href` or `src` is **not** de-fanged yet
+  (that is a product decision, tracked in #147), so read the body before you approve the send. One
+  side effect to know: the formula rule de-fangs every link on the *line* the formula sits on, and an
+  HTML body is often one line — a planted formula therefore disables every link in that mail, including
+  legitimate ones. That is the safety measure working; the mail is still readable.
 - They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen **persists** (case notes, exports) — the

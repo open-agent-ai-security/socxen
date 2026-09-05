@@ -6,7 +6,7 @@
 # Using the skills
 
 What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished
-[installation](installation.md) — credentials in place and, on Claude Code, the governance gate merged.
+[installation](installation.md) — credentials in place. The human-in-the-loop gate ships on, on both hosts.
 
 ## The three skills, and how to call them
 
@@ -52,9 +52,12 @@ nothing happens. This is the first lock.
 
 **The host asking.** Independently, your agent's own permission system stops the dismiss/close tool call
 and asks you to approve it. On Claude Code that is the permission prompt for `exabeam_update_alert` or
-`exabeam_update_case` (the rules you merged during setup). On Codex it is the tool-approval prompt Codex
+`exabeam_update_case`, raised by the hook that ships inside the plugin (and by the optional permission
+rules, if you merged them — they agree, so you are asked once). On Codex it is the tool-approval prompt Codex
 shows for a destructive tool — and if there is no human present, for example under `codex exec`, Codex
-cancels the call. This is the second lock. Both must open for a dismiss or close to happen.
+cancels the call. This is the second lock. Both must open for a dismiss or close to happen. The same
+prompt guards `exabeam_send_email`: mail only goes out when you approve it, and the Exabeam MCP service
+only accepts recipients who are active users of your own subscription.
 
 You will notice Codex also asks before the *escalation* writes (opening a case, writing notes), where
 Claude Code runs those silently. That is Exabeam's annotation on those tools, not a socxen setting; it is

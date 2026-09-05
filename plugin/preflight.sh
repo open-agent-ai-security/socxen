@@ -9,10 +9,10 @@
 # human-in-the-loop gate is stored differently, so only the gate check branches.
 #
 # This script NEVER writes. Not to settings.json, not to config.toml, not to the
-# credentials file. On Claude Code the gate ships off and `install.sh --merge-permissions`
-# is the (consent-gated) thing that turns it on; on Codex the gate ships in the plugin and
-# there is nothing to merge. A fixer here would re-import the consent problem the Codex
-# packaging just removed, so this stays a mirror, not a hand.
+# credentials file. On both hosts the gate ships inside the plugin (a PreToolUse hook on Claude
+# Code, approval policy on Codex). The Claude permission rules are an optional second lock that
+# `install.sh --merge-permissions` writes with consent; a fixer here would re-import that consent
+# problem, so this stays a mirror, not a hand.
 #
 # Usage:
 #   preflight.sh                       detect the host agent and check everything
@@ -79,9 +79,13 @@ check_toolchain() {
     warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
   fi
   if command -v python3 >/dev/null 2>&1; then
-    ok "python3 present"
+    if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' 2>/dev/null; then
+      ok "python3 present ($(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null))"
+    else
+      fail "python3 is older than 3.7 — the bundled dismiss/close gate (hooks/gate.py) cannot run on it, and the hook fails closed (every gated call refused). Install a current python3."
+    fi
   else
-    warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
+    fail "python3 not found — the bundled dismiss/close gate (hooks/gate.py) cannot execute. The hook is wired to fail closed (every gated call is refused until python3 is on PATH), so install python3: https://www.python.org/downloads/"
   fi
 }
 
@@ -129,9 +133,9 @@ check_connectivity() {
 
 # ---- gate check (the only part that differs by host) ----
 
-# Claude Code: the gate lives in the operator's settings.json and ships OFF.
-# Three outcomes, not two — without python3 the check CANNOT run, and "cannot verify" must never
-# be reported as "OFF" or users go re-merging a working gate.
+# Claude Code: this reads the OPTIONAL permission rules in the operator's settings.json; the gate
+# itself is the bundled hook (checked in check_gate). Three outcomes, not two — without python3 the
+# check CANNOT run, and "cannot verify" must never be reported as "OFF".
 gate_state_claude() {
   local settings="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
   command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
@@ -209,9 +213,14 @@ check_gate() {
     claude)
       state="$(gate_state_claude)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — dismiss/close require approval" ;;
-        off) warn "Gate is OFF — merge it with: install.sh --merge-permissions" ;;
-        *)   warn "Cannot verify the gate (needs python3) — not the same as OFF; check manually" ;;
+        on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;
+        off) if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
+               ok "Human-in-the-loop gate ON via the bundled hook in this plugin copy (holds even under --dangerously-skip-permissions)"
+               ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions"
+             else
+               fail "Gate is OFF — no bundled hook in this plugin copy and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
+             fi ;;
+        *)   warn "Cannot verify the permission rules (needs python3) — not the same as OFF. Note the bundled hook also needs python3: without it every gated call is refused (fail-closed), not allowed" ;;
       esac ;;
     *)
       skip "Gate check skipped — no host agent detected" ;;

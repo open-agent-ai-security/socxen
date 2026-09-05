@@ -97,10 +97,19 @@ def derive_outcome(run):
     a guess. The report template emits the line, so a well-formed run always has it."""
     if run.get("outcome"):
         return run["outcome"]
-    m = re.search(r"taxonomy outcome[:\s]+([a-z_]+)", norm(run.get("report", "")))
-    if m and m.group(1) in VALID_OUTCOMES:
-        return m.group(1)
-    return None
+    report = str(run.get("report", ""))
+    # The report template's placeholder line ("Taxonomy outcome: <raised | auto_closed | fp_closed>") is
+    # not an outcome — an agent (or an injected skill text) that echoes it must not be read as "raised".
+    # Only the template's own shape ("<a | b | c>"): a real line with angle-bracket text after the
+    # outcome ("fp_closed <alert 4471>") must survive.
+    report = re.sub(r"taxonomy outcome[^\n<]*<[^>\n]*\|[^>\n]*>", " ", report, flags=re.I)
+    found = []
+    for line in report.splitlines():          # per LINE: norm() folds newlines, so norm first would merge lines
+        for m in re.finditer(r"taxonomy outcome[:\s]+(.*)", norm(line)):
+            toks = [t for t in m.group(1).split() if t in VALID_OUTCOMES]   # "false positive (fp_closed)" -> fp_closed
+            if toks:
+                found.append(toks[0])
+    return found[-1] if found else None      # the LAST line is the final report's; earlier ones are drafts
 
 
 # ---------- deterministic grading ----------

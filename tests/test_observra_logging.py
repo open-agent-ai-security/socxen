@@ -191,3 +191,63 @@ def test_single_emit_failure_does_not_disable_the_whole_trail(monkeypatch, tmp_p
 
     events = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
     assert any(e["event_type"] == "tool_end" for e in events), "later event lost — trail was disabled"
+
+
+def test_session_start_attests_backend_and_destination_and_tool_end_carries_kept_and_screen_failed(monkeypatch, tmp_path):
+    """Praxen PRAX-2026-09-05-006/-007: the audit trail records WHERE it ships (resolved destination, not the
+    backend keyword), the bridge's configuration facts, the flagged-but-kept invisibles, and a screening
+    fail-open — instead of stderr lines the analyst never sees."""
+    pytest.importorskip("observra")
+    out = tmp_path / "telemetry.jsonl"
+    t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(out)})
+    assert t.enabled() is True
+    t.session_start(dry_run=True, plugin_version="0.8.5", gate_log="~/.socxen/gate.jsonl")
+    t.tool_end("exabeam_search_events", 3.0, hygiene_kept=[{"cp": "U+200D", "name": "ZERO WIDTH JOINER"},
+                                                           {"cp": "U+200F", "name": "RIGHT-TO-LEFT MARK"},
+                                                           {"cp": "U+200D", "name": "ZERO WIDTH JOINER"}],
+               screen_failed=True)
+    t.tool_error("exabeam_update_alert", 1.0, ValueError("neutralizer"), stage="neutralize")
+    t._shutdown()
+    ev = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    start = next(e for e in ev if e["event_type"] == "mcp_session_start")["data"]
+    assert start["telemetry_backend"] == "jsonl" and start["telemetry_destination"] == str(out)
+    assert start["dry_run"] is True and start["plugin_version"] == "0.8.5" and start["gate_log"].endswith("gate.jsonl")
+    end = next(e for e in ev if e["event_type"] == "tool_end")["data"]
+    assert end["hygiene_kept"] == 3 and end["hygiene_kept_classes"] == "U+200D,U+200F" and end["hygiene_screen_failed"] is True
+    err = next(e for e in ev if e["event_type"] == "tool_error")["data"]
+    assert err["stage"] == "neutralize" and err["guardrail_refused"] is True
+
+
+def test_destination_is_scheme_and_host_never_the_path_or_query(monkeypatch):
+    t = _fresh(monkeypatch, {})
+    assert t._destination("webhook", {"url": "https://hooks.example.com/services/T0/B0/secret"}) == "https://hooks.example.com"
+    assert t._destination("otel", {"endpoint": "http://collector:4318/v1/traces"}) == "http://collector:4318"
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://dt.example/api/v2/otlp/v1/logs?token=x")
+    assert t._destination("otel_log", {}) == "https://dt.example"
+    assert t._destination("jsonl", {"path": "/tmp/t.jsonl"}) == "/tmp/t.jsonl"
+    assert "no EXABEAM_ENDPOINT" in t._destination("exabeam", {}) or t._destination("exabeam", {}).startswith("https://")
+
+
+def test_session_start_attests_even_when_it_is_the_first_telemetry_call(monkeypatch, tmp_path):
+    """The bridge calls session_start() before anything else; it must configure first, then attest.
+    Review 2026-09-05: evaluating _state before enabled() recorded an empty backend/destination."""
+    pytest.importorskip("observra")
+    out = tmp_path / "t.jsonl"
+    t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(out)})
+    t.session_start(dry_run=False)                      # no enabled() call first, deliberately
+    t.session_start(telemetry_backend="caller-wins", event_type="y")    # colliding keys must not raise
+    t._shutdown()
+    starts = [json.loads(l)["data"] for l in out.read_text().splitlines() if '"mcp_session_start"' in l]
+    assert starts[0]["telemetry_backend"] == "jsonl" and starts[0]["telemetry_destination"] == str(out)
+    assert starts[1]["telemetry_backend"] == "caller-wins"
+
+
+def test_destination_never_leaks_userinfo_or_a_raw_endpoint(monkeypatch):
+    t = _fresh(monkeypatch, {})
+    assert t._destination("webhook", {"url": "https://user:s3cr3t@hooks.example.com/x?token=1"}) == "https://hooks.example.com"
+    assert "api-key" not in t._destination("otel", {"endpoint": "collector:4318/v1/traces?api-key=abc"})
+    assert "secret" not in t._destination("webhook", {"url": "hooks.example.com/services/T0/B0/secret?token=abc"})
+    assert t._destination("webhook", {}) == "(no SOCXEN_OBSERVRA_URL set)"
+    monkeypatch.setenv("EXABEAM_ENDPOINT", "https://api:tok@x.exabeam.cloud/ingest?k=1")
+    assert t._destination("exabeam", {}) == "https://x.exabeam.cloud"
+    assert t._destination("jsonl", {"path": "/tmp/t.jsonl"}) == "/tmp/t.jsonl"
