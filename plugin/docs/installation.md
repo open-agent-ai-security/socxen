@@ -151,9 +151,11 @@ If you'd rather not use the bundled bridge, register the remote MCP directly. Tw
 first. The bearer token expires in ~4h and you'll have to re-add it each time. More importantly,
 **all three of socxen's deterministic controls live in the bundled bridge** — input screening of
 telemetry, the write-side neutralizer that masks secrets and de-fangs links in what socxen writes, and
-the audit trail — and **none of them run when Claude Code talks to the remote MCP directly.** The
-dismiss/close gate still applies if you name the server `exabeam` (the hook matches it); nothing else
-does. Use this path for a connectivity check, not for investigations you rely on:
+the audit trail — and **none of them run when Claude Code talks to the remote MCP directly.** What does
+survive is the permission layer, and only if you name the server `exabeam`: the dismiss/close gate (the
+hook matches on that name) and, once the snippet is merged, the deny tier — containment verbs and
+detection-rule writes are spelled under the manual `mcp__exabeam__` prefix too. Nothing that lives in
+the bridge does. Use this path for a connectivity check, not for investigations you rely on:
 
 ```bash
 TOK=$(curl -s https://api.<region>.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \

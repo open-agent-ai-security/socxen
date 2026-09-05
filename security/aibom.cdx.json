@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-05T20:42:37Z"
+    "timestamp": "2026-09-05T22:26:51Z"
   },
   "components": [
     {
@@ -260,7 +260,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 24 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 23 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -283,7 +283,11 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "24"
+          "value": "23"
+        },
+        {
+          "name": "mcp:toolCountBasis",
+          "value": "tools the live MCP exposes per tool-map.md; names denied ahead of exposure excluded"
         },
         {
           "name": "mcp:containmentCapability",

@@ -117,16 +117,6 @@ governance model (feature → `dev`, release `dev` → `main`).
 - **The skill says what to stop doing** (#91). After a declined or unanswered dismiss/close the action is over —
   no retry, no reaching the same outcome by another route — and out-of-lane requests are declined and handed
   back rather than improvised.
-
-### Fixed
-- **The manual-MCP install path now says what it forgoes** (#86): registering the remote MCP directly bypasses
-  input screening, the write-side neutralizer and the audit trail; only the dismiss/close gate survives, and
-  only for a server named `exabeam`. Stated in the install guide and the guardrails page.
-- **preflight detects every TOML spelling of a loosened Codex approval mode** (#139): section header, dotted
-  key and inline table, scoped to the named tool so a sibling's `"approve"` cannot mask it. Pinned by a
-  fixture-driven test.
-
-### Changed
 - **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
   plugin's name, version, display name, description, keywords and marketplace; both host manifests and
   all 92 permission rules in `settings.snippet.json` are **generated** from it (plus the bare-name tiers
@@ -169,6 +159,14 @@ governance model (feature → `dev`, release `dev` → `main`).
   the operator's own defaults). Belt-and-suspenders on the same decision: the bridge's `WRITE_TOOLS` and
   the eval harness's dry-run deny list now include it, so a dry run refuses it at the bridge and the
   red-team/eval drives can never send mail (the read-only allowlist already failed closed).
+
+### Fixed
+- **The manual-MCP install path now says what it forgoes** (#86): registering the remote MCP directly bypasses
+  input screening, the write-side neutralizer and the audit trail; only the permission layer survives (the
+  dismiss/close gate and the deny tier under the manual prefix), and only for a server named `exabeam`. Stated in the install guide and the guardrails page.
+- **preflight detects every TOML spelling of a loosened Codex approval mode** (#139): section header, dotted
+  key and inline table, scoped to the named tool so a sibling's `"approve"` cannot mask it. Pinned by a
+  fixture-driven test.
 
 ## [0.8.5] — 2026-08-29
 

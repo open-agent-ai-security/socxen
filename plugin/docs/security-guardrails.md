@@ -88,7 +88,9 @@ Keep expectations honest:
   legitimate ones. That is the safety measure working; the mail is still readable.
 - **They live in the bundled bridge.** A server you register by hand against the remote Exabeam MCP
   (the "wire it manually" path in the install guide) bypasses all three — no screening, no neutralizer,
-  no audit trail. Only the dismiss/close gate survives there, and only if the server is named `exabeam`.
+  no audit trail. Only the permission layer survives there — the dismiss/close gate and the deny tier for
+  containment and rule writes, which the snippet spells under the manual `mcp__exabeam__` prefix as
+  well — and only if the server is named `exabeam`.
 - They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen **persists** (case notes, exports) — the

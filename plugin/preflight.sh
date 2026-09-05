@@ -225,17 +225,33 @@ codex_write_override() {
     #   [mcp_servers.exabeam.tools.exabeam_update_alert]   approval_mode = "never"     (section header)
     #   [mcp_servers.exabeam]  tools.exabeam_update_alert.approval_mode = "never"      (dotted key)
     #   tools = { exabeam_update_alert = { approval_mode = "never" } }                 (inline table)
-    # A line is a loosening when the tool name is in scope (its own text or the enclosing section) and
-    # the approval_mode it carries is anything but "approve". For inline tables the check is scoped to
-    # the named tool's own {…}, so a sibling tool's "approve" cannot mask it.
+    # A line is a loosening when a gated tool is in scope (the enclosing section, a dotted key, or its own
+    # inline table) and the approval_mode it carries is anything but approve (either quote style). Inline
+    # tables are walked tool by tool inside their own balanced {…}, so neither a sibling's "approve" nor a
+    # sibling gated tool can mask a loosened one (a first-match scan did exactly that — found in review).
+    # Comment lines are not settings.
     awk '
+      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\x27]approve["\x27]/) }
+      /^[[:space:]]*#/ { next }
       /^[[:space:]]*\[/ { sec = $0; next }
       {
-        ctx = sec " " $0
-        if (ctx ~ /exabeam_update_(alert|case)/ && $0 ~ /approval_mode/) {
-          s = $0
-          if (match(s, /exabeam_update_(alert|case)/)) { s = substr(s, RSTART); sub(/\}.*/, "", s) }
-          if (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*"approve"/) { print "loose"; exit }
+        line = $0
+        if (line !~ /approval_mode/) next
+        if ((sec " " line) !~ /exabeam_update_(alert|case)/) next
+        if (line !~ /exabeam_update_(alert|case)[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
+          if (loose(line)) { print "loose"; exit }
+          next
+        }
+        s = line                                                                   # inline table(s)
+        while (match(s, /exabeam_update_(alert|case)[[:space:]]*=[[:space:]]*\{/)) {
+          rest = substr(s, RSTART + RLENGTH); depth = 1; body = ""
+          for (i = 1; i <= length(rest) && depth > 0; i++) {
+            c = substr(rest, i, 1)
+            if (c == "{") depth++; else if (c == "}") depth--
+            if (depth > 0) body = body c
+          }
+          if (loose(body)) { print "loose"; exit }
+          s = rest
         }
       }
     ' "$f" | grep -q loose && { printf 'yes'; return; }

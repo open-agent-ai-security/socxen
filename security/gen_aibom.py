@@ -95,7 +95,14 @@ def build_bom(timestamp):
     perms = _json("plugin/skills/soc-investigate/settings.snippet.json")["permissions"]
     deps, requires_python = _pep723("plugin/connector/exabeam-mcp-bridge.py")
     toolmap = (ROOT / "plugin/skills/soc-investigate/reference/tool-map.md").read_text()
-    tool_count = len(set(re.findall(r"\bexabeam_[a-z_]+", toolmap)))
+    names = set(re.findall(r"\bexabeam_[a-z_]+", toolmap))
+    # A tool denied "ahead of the MCP exposing it" is a proxy-only name, not a live tool: the count is
+    # what the live MCP exposes, which is what tool-map.md's own header states (cross-checked below).
+    proxy_only = set(re.findall(r"`(exabeam_[a-z_]+)`[^\n]*ahead of the MCP exposing it", toolmap))
+    tool_count = len(names - proxy_only)
+    header_count = int(re.search(r"The (\d+) tools exposed by the live MCP", toolmap).group(1))
+    if header_count != tool_count:
+        sys.exit(f"tool-map.md header says {header_count} tools, the map lists {tool_count} live names — fix the map")
     mcp_server = next(iter(mcp["mcpServers"]))  # "exabeam"
 
     name, version = plugin["name"], plugin["version"]
@@ -206,6 +213,7 @@ def build_bom(timestamp):
         ],
         "properties": [
             {"name": "mcp:toolCount", "value": str(tool_count)},
+            {"name": "mcp:toolCountBasis", "value": "tools the live MCP exposes per tool-map.md; names denied ahead of exposure excluded"},
             {"name": "mcp:containmentCapability", "value": "none"},
             {"name": "mcp:transport", "value": "stdio bridge -> streamable-http"},
         ],
