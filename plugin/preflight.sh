@@ -22,13 +22,24 @@
 #
 # Exit: 0 when nothing failed, 1 when something did. Warnings do not fail.
 #
-# install.sh sources this file for the shared checks; sourcing defines functions and runs
-# nothing. The UI helpers are only defined if the caller has not already defined them.
+# install.sh sources this file for the shared checks; sourcing defines functions and reads the
+# identity include — it runs no checks. The UI helpers are only defined if the caller has not
+# already defined them.
 
-# Identity from identity.json (generated-artifact source — see gen_identity.py); literal fallback without python3.
+# Identity from identity.sh (GENERATED from identity.json by gen_identity.py; no python3 needed). The same
+# SOCXEN_PLUGIN / SOCXEN_MARKETPLACE overrides install.sh honors apply here, so a remediation message
+# names the key the operator actually installed. Both halves come from the same source or neither does:
+# a key stitched from one real half and one guessed half is one no marketplace serves.
 _PF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$_PF_DIR/identity.json" 2>/dev/null || echo socxen)"
-PLUGIN_KEY="$PLUGIN_NAME@$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["marketplace"]["name"])' "$_PF_DIR/identity.json" 2>/dev/null || echo open-agent-ai-security)"
+if [ -f "$_PF_DIR/identity.sh" ]; then . "$_PF_DIR/identity.sh"; fi
+PLUGIN_NAME="${SOCXEN_PLUGIN:-${SOCXEN_ID_NAME:-}}"
+_PF_MKT="${SOCXEN_MARKETPLACE:-${SOCXEN_ID_MARKETPLACE_NAME:-}}"
+if [ -n "$PLUGIN_NAME" ] && [ -n "$_PF_MKT" ]; then
+  PLUGIN_KEY="${PLUGIN_NAME}@${_PF_MKT}"
+else
+  PLUGIN_NAME="${PLUGIN_NAME:-plugin}"
+  PLUGIN_KEY="<plugin>@<marketplace>  (identity.sh missing — regenerate with python3 $_PF_DIR/gen_identity.py)"
+fi
 
 
 # ---- ui (only if the sourcing script has not already provided these) ----

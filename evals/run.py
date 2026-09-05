@@ -58,6 +58,7 @@ READ_TOOLS = [
 _IDENTITY = json.loads((ROOT / "plugin" / "identity.json").read_text())
 _SERVER = json.loads((ROOT / "plugin" / "skills" / "soc-investigate" / "permissions.json").read_text())["server"]
 PLUGIN_NAME = _IDENTITY["name"]
+MCP_SERVER = _SERVER
 TOOL_PREFIXES = [f"mcp__plugin_{PLUGIN_NAME}_{_SERVER}__", f"mcp__{_SERVER}__"]
 
 # NOTE — no deterministic check for "the report CLAIMED it executed containment".

@@ -228,7 +228,7 @@ def test_no_in_repo_marketplace():
     assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (
         "unexpected plugin/.claude-plugin/marketplace.json — socxen installs via "
         "open-agent-ai-security/plugins; see plugin/docs/installation.md")
-    assert PLUGIN["name"] == "socxen"
+    assert PLUGIN["name"] == IDENTITY["name"]
 
 
 # =====================================================================
@@ -540,6 +540,14 @@ def test_identity_artifacts_are_generated_from_identity_json():
     assert _load("plugin/.codex-plugin/plugin.json")["name"] == IDENTITY["name"]
     assert all(t.startswith(PLUGIN_PREFIX) for t in ALLOW), "allow tier not under the identity's plugin prefix"
     assert PLUGIN["version"] == IDENTITY["version"] == _load("plugin/.codex-plugin/plugin.json")["version"]
+    # The shell include install.sh / preflight.sh source (no python3 on the host) carries the same identity.
+    sh = dict(line.split("=", 1) for line in (ROOT / "plugin" / "identity.sh").read_text().splitlines()
+              if line and not line.startswith("#"))
+    assert sh["SOCXEN_ID_NAME"].strip("'") == IDENTITY["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_NAME"].strip("'") == IDENTITY["marketplace"]["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_REPO"].strip("'") == IDENTITY["marketplace"]["repo"]
+    assert sh["SOCXEN_ID_MCP_SERVER"].strip("'") == IDENTITY["mcpServer"] == list(MCP["mcpServers"])[0]
+    assert "|| echo socxen" not in INSTALL_SH and "|| echo socxen" not in PREFLIGHT_SH, "no literal identity fallback"
 
 
 def test_skill_states_the_taxonomy_report_contract():

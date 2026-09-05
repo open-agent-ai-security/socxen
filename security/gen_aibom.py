@@ -64,7 +64,6 @@ def _split_dep(spec):
 # source of owner metadata) was retired in the #58 hard cutover.
 SUPPLIER = {"name": "Open Agent AI Security",
             "url": ["https://github.com/open-agent-ai-security"]}
-MARKETPLACE_REPO_URL = "https://github.com/open-agent-ai-security/plugins"
 
 DEP_LICENSES = {
     "mcp": "MIT",
@@ -79,6 +78,9 @@ DEP_LICENSES = {
 
 def build_bom(timestamp):
     plugin = _json("plugin/.claude-plugin/plugin.json")
+    identity = _json("plugin/identity.json")                  # the marketplace key follows a re-key (review, #144)
+    marketplace_url = f"https://github.com/{identity['marketplace']['repo']}"
+    marketplace_key = f"{identity['name']}@{identity['marketplace']['name']}"
     mcp = _json("plugin/.mcp.json")
     perms = _json("plugin/skills/soc-investigate/settings.snippet.json")["permissions"]
     deps, requires_python = _pep723("plugin/connector/exabeam-mcp-bridge.py")
@@ -103,7 +105,7 @@ def build_bom(timestamp):
         "externalReferences": [
             {"type": "vcs", "url": repo},
             {"type": "website", "url": plugin["homepage"]},
-            {"type": "distribution", "url": MARKETPLACE_REPO_URL, "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"},
+            {"type": "distribution", "url": marketplace_url, "comment": f"Claude Code plugin marketplace: {marketplace_key}"},
         ],
         "properties": [
             {"name": "ai:systemType", "value": "agent"},

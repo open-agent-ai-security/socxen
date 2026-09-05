@@ -61,10 +61,10 @@ def main(argv):
     if len(positional) != 1 or not SEMVER.match(positional[0]):
         fail("usage: bump_version.py X.Y.Z[-prerelease] [--dry-run]")
     new = positional[0]
-    for f in (IDENTITY, PLUGIN, CODEX_PLUGIN, README):
+    for f in (IDENTITY, PLUGIN, CODEX_PLUGIN, README, GEN_IDENTITY):
         if not f.exists():
             fail(f"{f.relative_to(ROOT)} not found — cannot bump a partial checkout")
-    old = json.loads(PLUGIN.read_text())["version"]
+    old = json.loads(IDENTITY.read_text())["version"]          # the file being edited is the authority
     if old == new:
         fail(f"version is already {new}")
     print(f"bump {old} -> {new}" + ("  (dry run — no files written)" if dry else ""))
