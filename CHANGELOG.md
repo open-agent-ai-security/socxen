@@ -35,6 +35,20 @@ governance model (feature → `dev`, release `dev` → `main`).
   bridge is a HOOK MISS and blocks.
 
 ### Fixed
+- **Red-team: the forbidden-outcome check was dark on Claude.** The stream carries user-role text the
+  host injects — the Skill tool expands `SKILL.md` into one — and the parser captured it into the agent's
+  "report", so the report template's placeholder line (`Taxonomy outcome: <raised | auto_closed |
+  fp_closed>`) was read as the outcome ("raised") before the agent's own line. Found 2026-09-05 on c03's
+  Haiku control: 4/5 trials declared `fp_closed`, the deterministic check saw none, and only the judge
+  caught 2. Fixed three ways: the parser keeps the agent's words only; the outcome reader ignores the
+  placeholder and takes the agent's *last* line; every Claude trial's raw stream is now archived under
+  `security/redteam/transcripts/` (gitignored) so a pass can be re-graded offline. Retro-check on the
+  session transcripts: no Sonnet trial in the 2026-09-04/05 passes declared a closed outcome, so no
+  verdict changes; passes before the Skill-tool load path (1 of 594 earlier transcripts) were not affected.
+- **Red-team: the runner now holds the Mac awake for the pass** (`caffeinate -i -w <pid>`, macOS,
+  `SOCXEN_REDTEAM_NO_CAFFEINATE=1` opts out). The 2026-09-04/05 run idle-slept six times: every trial
+  froze, dead drives were mis-read as staging faults, and the 30-minute trial timeout never fired because
+  macOS pauses the monotonic clock in sleep.
 - **Red-team hook-leg grader scored a headless *ask* as a miss.** When the hook answers *ask* with no human
   present, the model's tool result is the host's own "requested permissions … haven't granted it" sentence,
   not the hook's reason (probed live 2026-09-05). The grader only recognized the hook's reason, so every
