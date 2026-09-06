@@ -29,7 +29,10 @@ jobs:
         # observra + typing_extensions are installed so the audit-log tests (real emit, privacy
         # invariant, rotation bounds) actually RUN here instead of importorskip-ping — otherwise a
         # rotation/emit regression would be invisible in CI.
-        run: uv run --with pytest --with jsonschema --with observra --with typing_extensions pytest -q tests/
+        # mcp/httpx/certifi: the bridge's own transport is tested against a local mock proxy
+        # (tests/test_bridge_transport.py) on the same client line the lockfile pins; without them those
+        # tests skip, and a skipped transport suite is how the 2026-09-06 failure mode would go unnoticed.
+        run: uv run --with pytest --with jsonschema --with observra --with typing_extensions --with "mcp>=1,<2" --with "httpx>=0.27,<1" --with certifi pytest -q tests/
 
       - name: Eval regression harness (recorded runs, no creds)
         # Grades the committed golden run against its fixture — schema, deterministic

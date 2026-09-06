@@ -309,8 +309,8 @@ observra neither is available and logging disables itself.</p>
 </tr>
 <tr>
 <td><code>tool_error</code></td>
-<td>a tool call raises</td>
-<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call)</td>
+<td>a tool call fails</td>
+<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
 </tr>
 </tbody>
 </table>

@@ -29,7 +29,14 @@ for _n in ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http"
 sys.modules["certifi"].where = lambda: None            # cafile=None -> ssl uses system CAs, no file read
 sys.modules["httpx"].AsyncClient = object
 sys.modules["mcp"].ClientSession = object
+sys.modules["mcp"].McpError = type("McpError", (Exception,), {})
+sys.modules["mcp"].types = sys.modules["mcp.types"]
+sys.modules["mcp.types"].ListToolsResult = object
+sys.modules["mcp.types"].ClientRequest = object
+sys.modules["mcp.types"].ListToolsRequest = object
 sys.modules["mcp.client.streamable_http"].streamablehttp_client = object
+sys.modules["httpx"].HTTPStatusError = type("HTTPStatusError", (Exception,), {})
+sys.modules["httpx"].TransportError = type("TransportError", (Exception,), {})
 sys.modules["mcp.server.stdio"].stdio_server = object
 
 
@@ -163,7 +170,7 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
     returned — otherwise the agent thinks a committed dismiss/close failed and may double-act."""
     import asyncio
 
-    async def fake_remote(op):
+    async def fake_remote(op, *_a, **_k):                 # the seam: remote(op, what, retry=...)
         class R:
             content = [Blk(text="committed")]
         return R()
