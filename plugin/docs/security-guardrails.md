@@ -79,18 +79,16 @@ with a stray click.
 **The one exception is your own tenant.** A link to a case or alert in your own Exabeam console stays
 clickable, because that destination can be verified and it is the reason to send someone a case link at
 all. So *the only clickable links in a socxen email point back into the system the recipient already
-signs in to.* The rule is mechanical: the allowed hosts are the API host in your configured
-`EXABEAM_MCP_URL` and the hosts under its region domain (for `api.us-west.exabeam.cloud` that is
-`*.us-west.exabeam.cloud`) — nothing the model says, nothing in tenant content, can widen it. An
-attacker-supplied URL on any other host can never qualify. socxen cannot reliably tell a legitimate
+signs in to.* The rule is mechanical: the one allowed host is exactly the API host in your configured
+`EXABEAM_MCP_URL` (`api.us-west.exabeam.cloud`, say) — no wildcard, no sibling hosts, and nothing the
+model says or tenant content carries can widen it. An attacker-supplied URL on any other host can
+never qualify. socxen cannot reliably tell a legitimate
 third-party link from a disguised malicious one, so every other link is treated the same way — the small
 inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
 
-Two residuals, stated rather than solved: an open redirect *on an allowed host* passes this rule (the
-same trust you already extend to the console), and "the region domain" is wider than "your tenant" —
-any Exabeam-operated host in that region is allowed, which is the trust the console URL itself carries.
-The widening needs a region label: a host whose parent is the registrable domain itself (a self-hosted
-proxy at `mcp.company.io`, say) allows only that exact host, never the whole corporate domain.
+One residual, stated rather than solved: an open redirect *on that host* passes this rule — the same
+trust you already extend to the API endpoint itself. (An earlier cut also allowed every host under the
+region domain; a region is shared by every tenant in it, so that was dropped.)
 
 ## What these guardrails do *not* do
 

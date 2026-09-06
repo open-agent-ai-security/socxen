@@ -299,38 +299,25 @@ _HOST_RE = re.compile(r"^(//)?([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(.*)$", re.S)
 # --- the tenant allowlist (#147: "clickable is decided by destination, not authorship") --------------------
 
 def tenant_hosts_from_url(url):
-    """The operator's own tenant hosts, derived from EXABEAM_MCP_URL (https://api.<region>.exabeam.cloud/mcp)
-    and nothing else: the API host itself, and every host under its parent domain -- the console the
-    analyst clicks into is a sibling of the API host under <region>.exabeam.cloud. Returned as a frozenset
-    of allow entries: an exact host, plus "*.<parent>" meaning the parent itself or any host under it.
-    Safe by construction: the widening needs a region label -- a host whose parent is the registrable
-    domain itself (api.exabeam.cloud, mcp.company.io) yields the exact host only, so the allowlist can
-    never become "everything under the operator's corporate domain"; an IP literal is exact only; and a
-    missing/unparseable URL yields the EMPTY set, under which every link is defanged."""
+    """The operator's own tenant host, derived from EXABEAM_MCP_URL and nothing else: EXACTLY the API host
+    (https://api.<region>.exabeam.cloud/mcp -> api.<region>.exabeam.cloud). No wildcard: an earlier cut
+    also allowed every host under the region domain, and a region is shared by every tenant in it -- any
+    host there serving tenant-supplied content would have made one tenant's content clickable in
+    another's mail (raised in review by the PM, 2026-09-06). A missing/unparseable URL yields the EMPTY
+    set, under which every link is defanged."""
     try:
         h = (urlsplit(url.strip()).hostname or "").lower().rstrip(".")
     except (ValueError, AttributeError):
         return frozenset()
     if not h or not re.fullmatch(r"[a-z0-9.-]+", h):
         return frozenset()
-    labels = h.split(".")
-    if len(labels) < 4 or re.fullmatch(r"[\d.]+", h):        # no region label under the domain, or an IP: exact only
-        return frozenset({h})
-    return frozenset({h, "*." + ".".join(labels[1:])})
+    return frozenset({h})
 
 
 def is_allowed_host(host, allowed):
+    """Exact host match only -- no suffix, no wildcard."""
     h = (host or "").lower().rstrip(".")
-    if not h:
-        return False
-    for a in allowed:
-        if a.startswith("*."):
-            d = a[2:]
-            if h == d or h.endswith("." + d):
-                return True
-        elif h == a:
-            return True
-    return False
+    return bool(h) and h in allowed
 
 
 def _url_allowed(url, allowed):

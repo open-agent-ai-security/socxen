@@ -33,7 +33,7 @@ def neut(text, allowed=T, mail=False):
 # ---- the allowlist is derived, never curated -------------------------------------------------------------
 
 def test_tenant_hosts_are_derived_from_the_mcp_url_and_nothing_else():
-    assert T == frozenset({"api.us-west.exabeam.cloud", "*.us-west.exabeam.cloud"})
+    assert T == frozenset({"api.us-west.exabeam.cloud"}), "exactly the API host, no wildcard"
     assert N.tenant_hosts_from_url("") == frozenset()
     assert N.tenant_hosts_from_url("not a url") == frozenset()
     assert N.tenant_hosts_from_url("https://exabeam.cloud/mcp") == frozenset({"exabeam.cloud"}), "no region label -> exact host only"
@@ -44,7 +44,8 @@ def test_tenant_hosts_are_derived_from_the_mcp_url_and_nothing_else():
 
 
 @pytest.mark.parametrize("host,ok", [
-    ("api.us-west.exabeam.cloud", True), ("us-west.exabeam.cloud", True), ("console.us-west.exabeam.cloud", True),
+    ("api.us-west.exabeam.cloud", True),
+    ("us-west.exabeam.cloud", False), ("console.us-west.exabeam.cloud", False),   # the region is not the tenant
     ("API.US-WEST.EXABEAM.CLOUD", True),
     ("api.eu.exabeam.cloud", False),                       # another region is not this tenant
     ("us-west.exabeam.cloud.evil.example", False),         # suffix in the middle
@@ -57,15 +58,16 @@ def test_is_allowed_host_boundaries(host, ok):
 
 @pytest.mark.parametrize("url,ok", [
     ("https://api.us-west.exabeam.cloud/cases/4471", True),
-    ("HTTPS://Console.US-WEST.exabeam.cloud/", True),
-    ("//us-west.exabeam.cloud/x", True),                                   # protocol-relative
-    ("https://us-west.exabeam.cloud:8443/x", True),
+    ("HTTPS://API.US-WEST.exabeam.cloud/", True),                          # host case is not identity
+    ("https://console.us-west.exabeam.cloud/", False),                     # a sibling host in the region
+    ("//api.us-west.exabeam.cloud/x", True),                                   # protocol-relative
+    ("https://api.us-west.exabeam.cloud:8443/x", True),
     ("https://api.us-west.exabeam.cloud@evil.example/", False),           # userinfo trick
     ("https://evil.example\\@api.us-west.exabeam.cloud/", False),          # backslash smuggling
     ("https://api.us-west.exabeam.cloud/x y", False),                     # whitespace
     ("https://api.us-west.exabeam.cloud/x\x00", False),
     ("mailto:someone@us-west.exabeam.cloud", False),                       # not http(s)
-    ("javascript:alert(1)", False), ("ftp://us-west.exabeam.cloud/x", False),
+    ("javascript:alert(1)", False), ("ftp://api.us-west.exabeam.cloud/x", False),
     ("https://evil.example/?next=https://api.us-west.exabeam.cloud", False),
 ])
 def test_url_allowed_only_for_http_into_the_tenant(url, ok):
@@ -76,10 +78,10 @@ def test_url_allowed_only_for_http_into_the_tenant(url, ok):
 # ---- HTML: links, fetches, handlers, executing elements ---------------------------------------------------
 
 def test_html_anchor_to_attacker_is_defanged_and_tenant_anchor_stays_byte_identical():
-    raw = ('<p style="margin:0;">See <a href="https://us-west.exabeam.cloud/cases/4471">case 4471</a> and '
+    raw = ('<p style="margin:0;">See <a href="https://api.us-west.exabeam.cloud/cases/4471">case 4471</a> and '
            '<a href="https://sso-reset.evil.example/login?u=r.haddad">reset SSO</a>.</p>')
     out, notes = neut(raw)
-    assert '<a href="https://us-west.exabeam.cloud/cases/4471">case 4471</a>' in out
+    assert '<a href="https://api.us-west.exabeam.cloud/cases/4471">case 4471</a>' in out
     assert 'href="hxxps://sso-reset[.]evil[.]example/login?u=r.haddad"' in out
     assert "https://sso-reset.evil.example" not in out
     assert out.startswith('<p style="margin:0;">See ') and out.endswith(".</p>")
@@ -87,8 +89,8 @@ def test_html_anchor_to_attacker_is_defanged_and_tenant_anchor_stays_byte_identi
 
 
 def test_with_no_allowlist_even_the_tenant_link_is_defanged():
-    out, _ = neut('<a href="https://us-west.exabeam.cloud/cases/1">x</a>', allowed=NONE)
-    assert 'href="hxxps://us-west[.]exabeam[.]cloud/cases/1"' in out
+    out, _ = neut('<a href="https://api.us-west.exabeam.cloud/cases/1">x</a>', allowed=NONE)
+    assert 'href="hxxps://api[.]us-west[.]exabeam[.]cloud/cases/1"' in out
 
 
 def test_tracking_pixel_src_is_defanged():
@@ -135,9 +137,9 @@ def test_relative_paths_and_fragments_are_left_alone():
 
 
 def test_srcset_candidates_are_each_decided():
-    raw = '<img srcset="https://us-west.exabeam.cloud/l.png 1x, https://attacker.example/t.png 2x" src="/local.png">'
+    raw = '<img srcset="https://api.us-west.exabeam.cloud/l.png 1x, https://attacker.example/t.png 2x" src="/local.png">'
     out, _ = neut(raw)
-    assert 'srcset="https://us-west.exabeam.cloud/l.png 1x, hxxps://attacker[.]example/t.png 2x"' in out
+    assert 'srcset="https://api.us-west.exabeam.cloud/l.png 1x, hxxps://attacker[.]example/t.png 2x"' in out
     assert 'src="/local.png"' in out
 
 
@@ -207,7 +209,7 @@ def test_css_fetch_vectors_are_defanged(raw, present):
 
 
 def test_css_url_into_the_tenant_stays():
-    raw = '<div style="background:url(https://us-west.exabeam.cloud/logo.png)">'
+    raw = '<div style="background:url(https://api.us-west.exabeam.cloud/logo.png)">'
     assert neut(raw)[0] == raw
 
 
@@ -239,9 +241,9 @@ def test_raw_html_anchor_in_a_case_note_is_defanged_too():
 # ---- mail mode: bare URLs are clickable in a mail client ---------------------------------------------------
 
 def test_mail_mode_defangs_bare_urls_in_text_except_the_tenant():
-    raw = "<p>Open https://us-west.exabeam.cloud/cases/4471 — not https://sso-reset.evil.example/login.</p>"
+    raw = "<p>Open https://api.us-west.exabeam.cloud/cases/4471 — not https://sso-reset.evil.example/login.</p>"
     out, notes = neut(raw, mail=True)
-    assert "https://us-west.exabeam.cloud/cases/4471" in out
+    assert "https://api.us-west.exabeam.cloud/cases/4471" in out
     assert "hxxps://sso-reset[.]evil[.]example/login" in out and "https://sso-reset.evil.example" not in out
     assert any(n["type"] == "mail_url" for n in notes)
 
@@ -284,21 +286,21 @@ def test_every_markdown_link_form_is_defanged(raw, present):
 
 
 def test_markdown_link_into_the_tenant_stays_live_in_a_note():
-    raw = "Worked [case 4471](https://us-west.exabeam.cloud/cases/4471) and <https://api.us-west.exabeam.cloud/x>."
+    raw = "Worked [case 4471](https://api.us-west.exabeam.cloud/cases/4471) and <https://api.us-west.exabeam.cloud/x>."
     assert neut(raw)[0] == raw
 
 
 def test_formula_line_no_longer_kills_the_tenant_link():
-    raw = '=HYPERLINK("https://evil.example","x") see https://us-west.exabeam.cloud/cases/1 and https://evil.example/y'
+    raw = '=HYPERLINK("https://evil.example","x") see https://api.us-west.exabeam.cloud/cases/1 and https://evil.example/y'
     out, _ = neut(raw)
     assert out.startswith("'=HYPERLINK(\"hxxps://evil[.]example\"")
-    assert "https://us-west.exabeam.cloud/cases/1" in out and "hxxps://evil[.]example/y" in out
+    assert "https://api.us-west.exabeam.cloud/cases/1" in out and "hxxps://evil[.]example/y" in out
 
 
 # ---- do no harm: the real mail template -------------------------------------------------------------------
 
 MAIL_TEMPLATE = """<h2 style="color:#0f2744;font-size:20px;font-weight:800;margin:0 0 14px;line-height:1.3;">Case Details &mdash; CASE-4471</h2>
-<p style="margin:0 0 16px;color:#4a5568;font-size:14px;line-height:1.75;">3 cases were found in the last 24 hours &amp; 1 is CRITICAL. Recommend escalation to Tier 2. <a href="https://us-west.exabeam.cloud/cases/4471">Open case 4471</a>.</p>
+<p style="margin:0 0 16px;color:#4a5568;font-size:14px;line-height:1.75;">3 cases were found in the last 24 hours &amp; 1 is CRITICAL. Recommend escalation to Tier 2. <a href="https://api.us-west.exabeam.cloud/cases/4471">Open case 4471</a>.</p>
 <table style="border-collapse:collapse;width:100%;margin:0 0 26px;">
   <thead>
     <tr>
@@ -311,7 +313,7 @@ MAIL_TEMPLATE = """<h2 style="color:#0f2744;font-size:20px;font-weight:800;margi
     <tr bgcolor="#ffffff"><td style="background-color:#ffffff;padding:12px 18px;border-bottom:none;">CASE-4472 &lt;pending&gt;</td><td style="padding:12px 18px;">+45 (approx) @user -unassigned- =99 &mdash; 2026-09-05T20:17:50Z</td></tr>
   </tbody>
 </table>
-<ul style="margin:0 0 20px;padding-left:22px;color:#4a5568;font-size:14px;line-height:1.85;"><li style="margin-bottom:5px;">Rotate the svc-backup credential.</li><li style="margin-bottom:5px;">Verify CHG-2026-5102 in the console: https://console.us-west.exabeam.cloud/changes/5102</li></ul>
+<ul style="margin:0 0 20px;padding-left:22px;color:#4a5568;font-size:14px;line-height:1.85;"><li style="margin-bottom:5px;">Rotate the svc-backup credential.</li><li style="margin-bottom:5px;">Verify CHG-2026-5102 in the console: https://api.us-west.exabeam.cloud/changes/5102</li></ul>
 <p style="margin:0 0 16px;color:#4a5568;font-size:14px;">Showing top 10 of 47 results.</p>
 """
 
@@ -324,8 +326,8 @@ def test_the_mail_template_with_tenant_links_is_byte_identical_in_mail_mode():
 def test_the_mail_template_with_no_allowlist_changes_only_the_two_tenant_links():
     out, notes = neut(MAIL_TEMPLATE, allowed=NONE, mail=True)
     expected = (MAIL_TEMPLATE
-                .replace('href="https://us-west.exabeam.cloud/cases/4471"', 'href="hxxps://us-west[.]exabeam[.]cloud/cases/4471"')
-                .replace("https://console.us-west.exabeam.cloud/changes/5102", "hxxps://console[.]us-west[.]exabeam[.]cloud/changes/5102"))
+                .replace('href="https://api.us-west.exabeam.cloud/cases/4471"', 'href="hxxps://api[.]us-west[.]exabeam[.]cloud/cases/4471"')
+                .replace("https://api.us-west.exabeam.cloud/changes/5102", "hxxps://api[.]us-west[.]exabeam[.]cloud/changes/5102"))
     assert out == expected
     assert sorted(n["type"] for n in notes) == ["html_link", "mail_url"]
 
@@ -412,7 +414,7 @@ def test_unbalanced_quote_in_a_url_attribute_cannot_smuggle_a_live_fetch():
 
 
 def test_well_formed_tags_with_balanced_quotes_are_not_escaped():
-    raw = '<td title="a > b" style="color:#374151;">x</td> <a href="https://us-west.exabeam.cloud/c/1">y</a> <not a tag'
+    raw = '<td title="a > b" style="color:#374151;">x</td> <a href="https://api.us-west.exabeam.cloud/c/1">y</a> <not a tag'
     assert neut(raw)[0] == raw
 
 
@@ -430,7 +432,7 @@ def test_markdown_links_of_any_depth_are_defanged(raw):
 
 
 def test_markdown_scanner_does_not_touch_non_links():
-    for raw in ["a](b", "x](https://us-west.exabeam.cloud/c) y", "[t](https://evil.example", "call f(a](b)) now", "[t]( )"]:
+    for raw in ["a](b", "x](https://api.us-west.exabeam.cloud/c) y", "[t](https://evil.example", "call f(a](b)) now", "[t]( )"]:
         out, _ = neut(raw)
         assert out == raw or "evil.example" not in raw, raw
 
@@ -491,8 +493,8 @@ def test_mail_pass_sees_prose_between_stray_angle_brackets():
     assert "hxxps://evil[.]example/login" in out and "risk &lt; 50" in out   # segment re-escaped once changed
     assert any(n["type"] == "mail_url" for n in notes)
     # a real tag between them is still a tag, not text
-    out, _ = neut('<p>x</p><a href="https://us-west.exabeam.cloud/c">c</a> and https://evil.example/y', mail=True)
-    assert 'href="https://us-west.exabeam.cloud/c"' in out and "hxxps://evil[.]example/y" in out
+    out, _ = neut('<p>x</p><a href="https://api.us-west.exabeam.cloud/c">c</a> and https://evil.example/y', mail=True)
+    assert 'href="https://api.us-west.exabeam.cloud/c"' in out and "hxxps://evil[.]example/y" in out
 
 
 def test_a_tag_with_a_lt_inside_a_quoted_value_is_made_text():

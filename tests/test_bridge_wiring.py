@@ -195,7 +195,7 @@ def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allo
     own tenant, derived from EXABEAM_MCP_URL. A case note (not mail) keeps bare URLs as the documented
     residual but still de-fangs a raw HTML anchor."""
     monkeypatch.setattr(B, "ALLOWED_LINK_HOSTS", B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp"))
-    body = ('<p>Open <a href="https://us-west.exabeam.cloud/cases/4471">4471</a>, not '
+    body = ('<p>Open <a href="https://api.us-west.exabeam.cloud/cases/4471">4471</a>, not '
             '<a href="https://sso-reset.evil.example/login">this</a>. Raw: https://evil.example/ioc '
             '<img src="https://attacker.example/t.gif"><td>=HYPERLINK("https://evil.example","x")</td></p>')
     out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE https://evil.example/s", "body": body}})
@@ -204,7 +204,7 @@ def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allo
     assert "https://evil.example/s" in subj, "the subject is an SMTP header: plain text, no auto-linking, so bare stays"
     subj2 = B._defang_args({"arg1": {"subject": "Beaconing to https://evil.example — 4 < 5 & R&D", "body": "x"}})["arg1"]["subject"]
     assert subj2 == "Beaconing to https://evil.example — 4 < 5 & R&D", "a header is never HTML-escaped"
-    assert 'href="https://us-west.exabeam.cloud/cases/4471"' in out_body, "the tenant link stays clickable"
+    assert 'href="https://api.us-west.exabeam.cloud/cases/4471"' in out_body, "the tenant link stays clickable"
     assert 'href="hxxps://sso-reset[.]evil[.]example/login"' in out_body
     assert "hxxps://evil[.]example/ioc" in out_body, "bare URLs are de-fanged in mail"
     assert 'src="hxxps://attacker[.]example/t.gif"' in out_body
@@ -216,7 +216,7 @@ def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allo
 
 
 def test_allowlist_is_derived_from_the_configured_mcp_url_and_defaults_to_nothing():
-    assert B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp") == frozenset({"api.us-west.exabeam.cloud", "*.us-west.exabeam.cloud"})
+    assert B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp") == frozenset({"api.us-west.exabeam.cloud"})
     assert B.tenant_hosts_from_url("") == frozenset()
     assert B.ALLOWED_LINK_HOSTS == B.tenant_hosts_from_url(B.URL)
 

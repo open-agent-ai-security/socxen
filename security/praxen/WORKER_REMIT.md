@@ -292,8 +292,8 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - A bare URL in prose in a case note is a documented residual (a mention is inert in the note viewer;
   in mail, where a client would auto-link it, it is de-fanged).
 - Clickable links are decided by destination, not authorship (#147): a link into the operator's own
-  tenant hosts (derived from the configured MCP URL) stays live in notes and mail; every other link, in
-  every form, is de-fanged. Residual, stated: an **open redirect on the tenant host** would pass that
+  tenant's API host (exactly the host of the configured MCP URL, no wildcard) stays live in notes and mail;
+  every other link, in every form, is de-fanged. Residual, stated: an **open redirect on that host** would pass that
   rule — the same trust already extended to the console itself; chasing it would mean URL-path analysis
   and is out of scope.
 - The HTML pass is a tag-and-attribute rewrite, not a browser: markup a lenient renderer would "repair"
