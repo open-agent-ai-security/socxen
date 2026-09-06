@@ -267,7 +267,7 @@
       <div class="wrap">
         <div class="section-head">
           <p class="eyebrow">In five minutes</p>
-          <h2>Install. Connect. Turn the gate on. Hunt.</h2>
+          <h2>Install. Connect. Hunt.</h2>
           <p>No server, no database, no approval queue — a plugin in the coding agent you already run, and the analyst at the terminal is the human-in-the-loop. <a href="#install">The four steps and the commands ↓</a></p>
         </div>
       </div>
@@ -281,7 +281,7 @@
           <p>An attacker can write to your logs — a user-agent string, a case note, a "baseline" pasted into an alert. If you expose that data to an agent with tools, you need a plan for what happens when it lies. socxen's plan is code you can read and tests you can run, at every layer between the data and an action.</p>
         </div>
         <ul class="checklist cols">
-          <li><strong>Two locks on dismiss/close</strong> — <span>the host agent's approval rule stops the call at the harness, and the skill asks you first. Never left to the model alone.</span></li>
+          <li><strong>Two locks on dismiss/close, out of the box</strong> — <span>a gate the plugin ships and the host enforces stops the call at the harness, and the skill asks you first. Never left to the model alone.</span></li>
           <li><strong>Containment is recommended, never executed</strong> — <span>isolate, disable, block: the plugin can propose them and cannot perform them. Denied at the harness as defense in depth.</span></li>
           <li><strong>Evidence has provenance</strong> — <span>a baseline is something the agent queried, not something the alert supplied. Planted "context" does not count — the doctrine that closed the one attack no guardrail could catch.</span></li>
           <li><strong>Reads are canonicalized</strong> — <span>invisible-character smuggling is stripped before the model reasons about what it read.</span></li>
@@ -292,10 +292,10 @@
         <div class="section-head" style="margin-top:56px;">
           <p class="eyebrow">The gate</p>
           <h2 style="font-size:clamp(24px,3vw,32px);">A human before anything is dismissed or closed — enforced by the host, not the model</h2>
-          <p>The same allow / ask / deny tiers, generated from one source, land on each host the way that host enforces them. Containment is denied outright; dismiss and close ask; a tool nobody has classified asks rather than running.</p>
+          <p>On the moment the plugin is enabled, with nothing to merge: the same allow / ask / deny tiers, generated from one source, land on each host the way that host enforces them. Containment is denied outright; dismiss and close ask; reads run without a prompt; a tool nobody has classified asks rather than running.</p>
         </div>
         <div class="locks">
-          <div class="lock"><div class="k">Claude Code</div><h3>A permission pack you merge once</h3><p>92 rules across allow / ask / deny tiers, generated from one source and pinned by invariant tests. Ask on dismiss and close; deny on every containment verb.</p></div>
+          <div class="lock"><div class="k">Claude Code</div><h3>A hook that ships in the plugin</h3><p>Active the moment the plugin is enabled: ask on dismiss and close, deny on every containment verb, ask on anything unclassified — and it holds even under <code>--dangerously-skip-permissions</code>. The permission pack (same tiers, one source) is the optional second layer.</p></div>
           <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are canceled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
         </div>
         <p class="lede" style="margin:34px auto 0;max-width:820px;text-align:center;font-size:17px;"><strong>Nothing above is a claim.</strong> Twenty attack fixtures, five trials each, on the weakest supported model per host, before every release — and the dated results ship with the code. <a href="#assurance">The numbers ↓</a></p>
@@ -361,13 +361,13 @@
         <div class="steps">
           <div class="step-item"><h3>Install the plugin</h3><p>One marketplace add and one install, on Claude Code or Codex. The Exabeam MCP bridge comes bundled — nothing else to wire.</p></div>
           <div class="step-item"><h3>Add credentials</h3><p>A single <code>~/.exabeam-mcp.env</code> with your New-Scale API key. The bridge refreshes the token itself.</p></div>
-          <div class="step-item"><h3>Turn the gate on</h3><p>On Claude Code, one consent-gated merge of the permission pack. On Codex the gate ships inside the package — nothing to merge.</p></div>
+          <div class="step-item"><h3>The gate is already on</h3><p>It ships inside the plugin on both hosts — a hook on Claude Code, approval policy on Codex. Reads run without a prompt too — nothing to merge.</p></div>
           <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." socxen gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
         </div>
         <div class="install-card">
           <div>
             <h2>The commands</h2>
-            <p>socxen runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Then add your Exabeam credentials and — on Claude Code — turn on the governance gate.</p>
+            <p>socxen runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Add your Exabeam credentials and hunt — the human-in-the-loop gate is already on.</p>
             <div class="copy-row">
               <button class="btn btn-primary" id="copyBtn" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy install command</button>
               <span class="copy-ok" id="copyOk">Copied ✓</span>
@@ -380,7 +380,7 @@
 <span class="pmt">$</span> claude plugin marketplace add open-agent-ai-security/plugins
 <span class="pmt">$</span> claude plugin install socxen@open-agent-ai-security
 
-<span class="cmt"># turn the governance gate on (consent-gated, one time)</span>
+<span class="cmt"># optional second lock: merge the permission pack</span>
 <span class="pmt">$</span> git clone https://github.com/open-agent-ai-security/socxen.git
 <span class="pmt">$</span> cd socxen &amp;&amp; ./plugin/install.sh --merge-permissions
 
