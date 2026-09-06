@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate&#x27;s own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="logging-structured-audit-trail-on-by-default">Logging (structured audit trail) — on by default</h1>
 <p><strong>What it is:</strong> a structured, durable, machine-parseable record of what the agent did on every
@@ -336,6 +336,19 @@ call:</p>
 written in-band (a marker in alert data would be forgeable). A right-to-left mark or a zero-width joiner in
 a value is not proof of anything — Persian, Arabic and emoji use them legitimately — but on a homoglyph or
 bidi-shaped investigation it is the field to query.</p>
+<h2 id="the-gates-own-record">The gate's own record</h2>
+<p>The bundled Claude Code hook keeps a second, smaller log beside the telemetry: <code>~/.socxen/gate.jsonl</code>
+(<code>SOCXEN_GATE_LOG=off</code> disables it and says so on stderr; another path overrides; rotates at ~5 MB with
+three backups). One line per decision:</p>
+<pre><code class="language-json">{&quot;ts&quot;: &quot;2026-09-05T16:01:26+00:00&quot;, &quot;tool&quot;: &quot;mcp__plugin_socxen_exabeam__exabeam_update_alert&quot;,
+ &quot;decision&quot;: &quot;ask&quot;, &quot;reason&quot;: &quot;socxen gate: exabeam_update_alert dismisses or closes. It needs the analyst's explicit yes — ask, and wait.&quot;,
+ &quot;target&quot;: {&quot;alertId&quot;: &quot;4471&quot;, &quot;alertStatus&quot;: &quot;DISMISSED&quot;}}
+</code></pre>
+<p><code>target</code> carries the same safe identifier and disposition fields the telemetry's <code>action.*</code> record uses,
+and nothing else — so a refused attempt reads as <em>tried to dismiss alert 4471 as dismissed</em>, which is the
+near-miss a SOC wants to see, while the note, description or reason text a payload can ride in never
+enters the file. This is also the only record of an attempt the gate stopped <strong>before</strong> it reached the
+bridge; the telemetry sees only calls that got that far.</p>
 <h2 id="what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</h2>
 <p>The log stores <strong>metadata about</strong> the agent's actions — never the raw evidence. Specifically <strong>excluded</strong>:</p>
 <ul>

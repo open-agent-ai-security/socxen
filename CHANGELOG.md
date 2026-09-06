@@ -15,7 +15,10 @@ governance model (feature → `dev`, release `dev` → `main`).
   declared in the manifest). Active the moment the plugin is enabled, no merge step: asks before
   dismiss/close (and `send_email`), denies every containment tool, and asks on any tool this release has
   not classified — the Codex `approve`-default, on Claude. Its `deny`/`ask` hold even under
-  `--dangerously-skip-permissions`, and headless an *ask* is refused (verified live, 2026-09-04). Reads
+  `--dangerously-skip-permissions`, and headless an *ask* is refused (verified live, 2026-09-04). It only
+  ever tightens: on the allow tier it asserts no decision, so the reads follow the operator's own rules
+  (a hook *allow* would have overridden an operator's stricter rule — found in review) and the optional
+  permission merge is what makes them prompt-free. Reads
   the same tier file the permission snippet and the Codex map are built from, so the three cannot
   disagree; keyed on the bare tool name, so it gates the bundled server under any plugin key and a
   manually wired `exabeam` server alike (#86). Never fails open: an unreadable tier file or malformed

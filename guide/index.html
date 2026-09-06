@@ -343,9 +343,9 @@ there the same as on Claude, <code>codex exec</code> included.</p>
 <h3 id="full-setup-docsinstallationmd">→ <a href="installation.html">Full setup: docs/installation.md</a></h3>
 <blockquote>
 <p>✅ <strong>The gate ships ON.</strong> On Claude Code a bundled hook asks before dismiss/close and denies containment
-the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
-ship as tool-approval policy. The permission pack below is <strong>optional</strong> — a second lock that does not
-depend on the hook. The
+the moment the plugin is enabled; it only ever tightens — the reads follow your own permission rules —
+and on Codex the same tiers ship as tool-approval policy. The permission pack below is <strong>optional</strong>: it
+makes the reads prompt-free and adds a second lock that does not depend on the hook. The
 <strong><a href="installation.html#governance--the-safety-gate">setup guide</a></strong> walks you
 through merging it by hand, or <code>install.sh --merge-permissions</code> will do it for you. Nothing merges by
 default and <code>-y</code> does not authorize it — the flag is the consent. The merge is additive-only, backs

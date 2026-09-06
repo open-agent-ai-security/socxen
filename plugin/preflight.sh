@@ -102,8 +102,41 @@ check_toolchain() {
       fail "python3 is older than 3.7 — the bundled dismiss/close gate (hooks/gate.py) cannot run on it, and the hook fails closed (every gated call refused). Install a current python3."
     fi
   else
-    fail "python3 not found — the bundled dismiss/close gate (hooks/gate.py) cannot execute. The hook is wired to fail closed (every gated call is refused until python3 is on PATH), so install python3: https://www.python.org/downloads/"
+    # A failure only where the gate needs it: on Claude Code the bundled hook is python3. On Codex the gate
+    # is approval policy and the bridge runs under uv's own interpreter, so a python3-less Codex host is a
+    # healthy install and "warnings do not fail" holds (review, 2026-09-05).
+    if [ "${PF_PLATFORM:-}" = claude ]; then
+      fail "python3 not found — the bundled dismiss/close gate (hooks/gate.py) cannot execute. The hook is wired to fail closed (every gated call is refused until python3 is on PATH), so install python3: https://www.python.org/downloads/"
+    else
+      warn "python3 not found — fine on this host (the gate is approval policy here); on a Claude Code host the bundled hook would need it"
+    fi
   fi
+}
+
+# The bundled hook, as INSTALLED: the copy Claude Code actually loads (claude plugin list --json), enabled,
+# with hooks/hooks.json in it. The plugin copy this script sits in proves nothing about the install --
+# a clone with the hook beside an older installed version read "gate ON" (review, 2026-09-05).
+# Prints: "on <version> <path>" | "off <version> <path>" (installed copy has no hook) | "none" | "unknown".
+installed_hook_state() {
+  local json key="${PLUGIN_KEY:-socxen@open-agent-ai-security}"
+  command -v claude >/dev/null 2>&1 || { printf 'unknown'; return; }
+  command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
+  json="$(claude plugin list --json 2>/dev/null)" || { printf 'unknown'; return; }
+  printf '%s' "$json" | python3 -c '
+import json, os, sys
+key = sys.argv[1]
+try:
+    plugins = json.load(sys.stdin)
+except Exception:
+    print("unknown"); sys.exit(0)
+hits = [p for p in plugins if p.get("id") == key and p.get("enabled", True)]
+if not hits:
+    print("none"); sys.exit(0)
+p = hits[0]
+path = p.get("installPath") or ""
+state = "on" if path and os.path.isfile(os.path.join(path, "hooks", "hooks.json")) else "off"
+print(state, p.get("version") or "unknown", path)
+' "$key" 2>/dev/null || printf 'unknown'
 }
 
 # Sets CREDS_OK=1 when the file exists and carries all three keys. Reports the file mode but
@@ -231,12 +264,19 @@ check_gate() {
       state="$(gate_state_claude)"
       case "$state" in
         on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;
-        off) if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
-               ok "Human-in-the-loop gate ON via the bundled hook in this plugin copy (holds even under --dangerously-skip-permissions)"
-               ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions"
-             else
-               fail "Gate is OFF — no bundled hook in this plugin copy and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
-             fi ;;
+        off) local hook hstate hver hpath
+             hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="$(printf '%s' "$hook" | awk '{print $3}')"
+             case "$hstate" in
+               on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
+                    ok "Permission rules not merged — optional: the hook asserts only ask/deny and never grants, so the reads follow your own rules and may prompt. Merge for prompt-free reads and a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
+               off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;
+               none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY:-socxen@open-agent-ai-security}) and no permission rules are merged; install it (install.sh)" ;;
+               *)   if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
+                      warn "Cannot verify the installed plugin (needs the claude CLI with 'plugin list --json' and python3). This plugin copy carries the bundled hook, but only the INSTALLED copy gates — check 'claude plugin list'"
+                    else
+                      fail "Gate is OFF — no bundled hook in this plugin copy, the install cannot be verified, and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
+                    fi ;;
+             esac ;;
         *)   warn "Cannot verify the permission rules (needs python3) — not the same as OFF. Note the bundled hook also needs python3: without it every gated call is refused (fail-closed), not allowed" ;;
       esac ;;
     *)
@@ -269,6 +309,7 @@ preflight_main() {
   esac
   [ "$platform" = "auto" ] && platform=""
   [ -n "$platform" ] || platform="$(detect_platform)"
+  PF_PLATFORM="$platform"
   _palette          # re-derive now that --no-color has actually been parsed
 
   printf '\n%s   %s preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$PLUGIN_NAME" "$RST" "$DIM" "$RST"

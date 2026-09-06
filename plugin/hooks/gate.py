@@ -17,9 +17,15 @@ the manually wired `mcp__exabeam__…`:
 
     deny tier  → deny   containment: socxen never executes it, it recommends it
     ask tier   → ask    dismiss / close (and send_email): an explicit human yes, every time
-    allow tier → allow  reads and escalation writes (create case, write notes)
+    allow tier → (no decision)  reads and escalation writes fall through to the OPERATOR's own permission
+                        rules. A hook "allow" bypasses the permission system exactly as its "deny" does,
+                        so asserting it would silently override an operator who set ask/deny on a read
+                        to keep the agent read-only (found in review, 2026-09-05). The gate only ever
+                        tightens; merge the permission snippet to make the reads prompt-free.
     anything else → ask a tool the remote MCP grew that nobody has classified asks rather than
                         inheriting the session default — Codex's `approve` default, on Claude
+    a tool of another MCP server → (no decision, not logged): the matcher is broad enough to survive a
+                        renamed server, so the hook, not the matcher, decides whether a call is ours.
 
 The tiers come from the file that ships beside this hook — `skills/soc-investigate/permissions.json`
 (bare names) when present, else `settings.snippet.json` (prefixed rules, stripped) — so the hook, the
@@ -40,14 +46,23 @@ from __future__ import annotations   # `tuple[str, str]` must not be evaluated o
 import datetime
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 SERVER = "exabeam"
+NO_DECISION = "none"               # the tier decision that asserts nothing: the operator's rules apply
 
 
 def bare(tool_name: str) -> str:
     return tool_name.rsplit("__", 1)[-1] if "__" in tool_name else tool_name
+
+
+def is_ours(tool_name: str) -> bool:
+    """mcp__<server>__<tool> where <server> is the Exabeam MCP: `exabeam`, or a bundled `plugin_<key>_exabeam`,
+    or any server an operator named with `exabeam` in it. Anything else belongs to another server."""
+    m = re.match(r"^mcp__(.+)__[^_].*$", tool_name)
+    return bool(m) and "exabeam" in m.group(1).lower()
 
 
 def load_tiers(plugin_root: Path):
@@ -68,7 +83,7 @@ def decide(tool_name: str, tiers) -> tuple[str, str]:
     if name in tiers["ask"]:
         return "ask", f"socxen gate: {name} dismisses or closes. It needs the analyst's explicit yes — ask, and wait."
     if name in tiers["allow"]:
-        return "allow", f"socxen gate: {name} is a read or an escalation write."
+        return NO_DECISION, f"socxen gate: {name} is a read or an escalation write — no decision asserted; the operator's permission rules apply."
     return "ask", f"socxen gate: {name} is not classified in this release's permission tiers, so it asks rather than inheriting the session default."
 
 
@@ -144,6 +159,8 @@ def main() -> int:
     try:
         event = json.load(sys.stdin)
         tool = str(event.get("tool_name", ""))
+        if tool and not is_ours(tool):
+            return 0                       # another server's tool: no decision, no record (not our business)
         target = target_fields(event.get("tool_input"))
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, reason = decide(tool, load_tiers(root))
@@ -154,6 +171,8 @@ def main() -> int:
     if target:
         record["target"] = target          # what was attempted, on which object — never the free text
     log_decision(record)
+    if decision == NO_DECISION:
+        return 0                           # no JSON on stdout = no decision: the normal permission flow runs
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                              "permissionDecisionReason": reason}}))
     return 0

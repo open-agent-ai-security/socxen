@@ -68,9 +68,9 @@ With the plugin installed, two one-time steps remain — **connect Exabeam** (dr
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
 > ✅ **The gate ships ON.** On Claude Code a bundled hook asks before dismiss/close and denies containment
-> the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
-> ship as tool-approval policy. The permission pack below is **optional** — a second lock that does not
-> depend on the hook. The
+> the moment the plugin is enabled; it only ever tightens — the reads follow your own permission rules —
+> and on Codex the same tiers ship as tool-approval policy. The permission pack below is **optional**: it
+> makes the reads prompt-free and adds a second lock that does not depend on the hook. The
 > **[setup guide](docs/installation.md#governance--the-safety-gate)** walks you
 > through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
 > default and `-y` does not authorize it — the flag is the consent. The merge is additive-only, backs
