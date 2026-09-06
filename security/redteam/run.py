@@ -243,10 +243,43 @@ def drive(attack, model, max_turns=40, plugin_dir=None, gate="harness", capture=
         # error instead of aborting the whole pass.
         raise RuntimeError("red-team run needs the `claude` CLI on PATH (and the socxen plugin + a synthetic-tenant MCP).")
     run = _parse(proc.stdout, attack["id"], model)
+    if plugin_dir:
+        _assert_plugin_isolation(run, plugin_dir)
     if gate == "hook":
         _assert_hook_isolation(run)
         run["gateLog"] = _read_gate_log(gate_log)
     return run
+
+
+def _assert_plugin_isolation(run, plugin_dir):
+    """The skill the session expanded must live under --plugin-dir. An INSTALLED plugin of the same name
+    shadows the working-tree one silently (Claude Code loads both; the cache copy wins), and on
+    2026-09-06 a full release-gate leg ran against the installed 0.8.5 skill and bridge while reporting
+    itself as a test of dev. The base-directory line the Skill tool emits is the first-party witness."""
+    sd = run.get("skill_dir")
+    if not sd:
+        return                                        # the skill was never invoked in this trial: nothing to check
+    want = str(Path(plugin_dir).resolve())
+    if not str(Path(sd).resolve()).startswith(want):
+        raise IsolationError(f"plugin isolation broken: the session loaded the skill from {sd!r}, not from "
+                             f"--plugin-dir {want!r} — an installed plugin of the same name is shadowing the "
+                             f"working tree. Disable it for the run: claude plugin disable <name>@<marketplace>")
+
+
+def installed_plugin_preflight(plugin_dir):
+    """Refuse to start a --plugin-dir pass while an installed, ENABLED plugin carries the same name."""
+    try:
+        name = json.loads((Path(plugin_dir) / ".claude-plugin" / "plugin.json").read_text())["name"]
+        out = subprocess.run(["claude", "plugin", "list", "--json"], capture_output=True, text=True, timeout=60)
+        plugins = json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else []
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+        return                                        # cannot read the install state: the per-trial check still guards
+    clash = [p for p in plugins if str(p.get("id", "")).split("@")[0] == name and p.get("enabled", True)]
+    if clash:
+        ids = ", ".join(str(p.get("id")) for p in clash)
+        raise IsolationError(f"an installed plugin named {name!r} is enabled ({ids}) and would shadow --plugin-dir "
+                             f"{plugin_dir}. Disable it for the run: claude plugin disable {ids.split(',')[0]}  "
+                             f"(re-enable afterwards)")
 
 
 def _read_gate_log(path):
@@ -490,8 +523,13 @@ def _parse_codex(stdout, attack_id, model):
 
 def _parse(stdout, attack_id, model):
     tool_calls, texts, final, resolved, results, servers = [], [], "", "", {}, None
+    skill_dir = None
     for line in stdout.splitlines():
         line = line.strip()
+        if skill_dir is None and "Base directory for this skill: " in line:
+            m = re.search(r"Base directory for this skill: ([^\\\"\n]+)", line)
+            if m:
+                skill_dir = m.group(1).strip()
         if not line.startswith("{"):
             continue
         try:
@@ -536,7 +574,8 @@ def _parse(stdout, attack_id, model):
         if r:
             tc["result"] = r
     return {"attack": attack_id, "model": model, "resolved_model": resolved, "toolCalls": tool_calls,
-            "report": "\n".join(texts).strip(), "final": final.strip(), "mcp_servers": servers}
+            "report": "\n".join(texts).strip(), "final": final.strip(), "mcp_servers": servers,
+            "skill_dir": skill_dir}
 
 
 # ---------- grade one run ----------
@@ -1040,6 +1079,8 @@ def main(argv):
 
     cx_home = codex_home(args.plugin_dir) if args.host == "codex" else None
     hook_copy = None
+    if args.host == "claude" and args.plugin_dir:
+        installed_plugin_preflight(args.plugin_dir)      # raises IsolationError -> the pass never starts
     if args.host == "claude" and args.claude_gate == "hook":
         if not args.plugin_dir:
             raise SystemExit("--claude-gate hook needs --plugin-dir (the working-tree plugin carrying hooks/)")

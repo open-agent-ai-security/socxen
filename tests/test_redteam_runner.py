@@ -306,3 +306,18 @@ def test_hook_leg_isolation_is_asserted_from_the_init_event(tmp_path):
         rt._assert_hook_isolation(rt._parse(two, "x", "m"))                  # a second server: abort
     with pytest.raises(rt.IsolationError):
         rt._assert_hook_isolation(rt._parse(json.dumps({"type": "system", "subtype": "init", "model": "m"}), "x", "m"))   # no list: unverified = abort
+
+
+def test_a_shadowing_installed_plugin_is_an_isolation_error():
+    """2026-09-06: a full release-gate leg ran against the INSTALLED 0.8.5 plugin's skill and bridge while
+    reporting itself as a test of dev — Claude Code loads both the installed plugin and --plugin-dir, and
+    the cache copy wins silently. The Skill tool's 'Base directory for this skill' line is the witness."""
+    cache = json.dumps({"type": "user", "message": {"role": "user", "content": [{"type": "text",
+             "text": "Base directory for this skill: /Users/x/.claude/plugins/cache/mkt/socxen/0.8.5/skills/soc-investigate\nTaxonomy outcome: raised"}]}})
+    run = rt._parse(cache, "x", "m")
+    assert run["skill_dir"].endswith("/0.8.5/skills/soc-investigate")
+    with pytest.raises(rt.IsolationError):
+        rt._assert_plugin_isolation(run, str(ROOT / "plugin"))
+    run["skill_dir"] = str(ROOT / "plugin" / "skills" / "soc-investigate")
+    rt._assert_plugin_isolation(run, str(ROOT / "plugin"))                       # the working tree passes
+    rt._assert_plugin_isolation({"skill_dir": None}, str(ROOT / "plugin"))       # skill never invoked: nothing to check
