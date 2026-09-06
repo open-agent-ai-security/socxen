@@ -109,8 +109,7 @@ def main(argv):
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"
-✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
+    print(f"\n✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
     print("  AI BOM and SBOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0
