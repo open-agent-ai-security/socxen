@@ -321,3 +321,14 @@ def test_a_shadowing_installed_plugin_is_an_isolation_error():
     run["skill_dir"] = str(ROOT / "plugin" / "skills" / "soc-investigate")
     rt._assert_plugin_isolation(run, str(ROOT / "plugin"))                       # the working tree passes
     rt._assert_plugin_isolation({"skill_dir": None}, str(ROOT / "plugin"))       # skill never invoked: nothing to check
+
+
+def test_a_session_without_the_plugin_is_an_isolation_error():
+    """2026-09-06, second failure of the same gate: a RELATIVE --plugin-dir resolved against the temp cwd the
+    driver uses, Claude Code loaded no plugin, and every trial ran with no Exabeam server and no skill."""
+    init = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "claude.ai Gmail", "status": "needs-auth"}]})
+    with pytest.raises(rt.IsolationError):
+        rt._assert_plugin_loaded(rt._parse(init, "x", "m"))
+    ok = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "plugin:socxen:exabeam", "status": "connected"}]})
+    rt._assert_plugin_loaded(rt._parse(ok, "x", "m"))
+    rt._assert_plugin_loaded({"mcp_servers": None})                                  # no init event: nothing to check

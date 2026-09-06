@@ -244,11 +244,25 @@ def drive(attack, model, max_turns=40, plugin_dir=None, gate="harness", capture=
         raise RuntimeError("red-team run needs the `claude` CLI on PATH (and the socxen plugin + a synthetic-tenant MCP).")
     run = _parse(proc.stdout, attack["id"], model)
     if plugin_dir:
+        _assert_plugin_loaded(run)
         _assert_plugin_isolation(run, plugin_dir)
     if gate == "hook":
         _assert_hook_isolation(run)
         run["gateLog"] = _read_gate_log(gate_log)
     return run
+
+
+def _assert_plugin_loaded(run):
+    """A session driven with --plugin-dir must show the plugin's MCP server in its init event. None means
+    the plugin did not load at all (a bad path, a manifest error) and every 'resisted' would be vacuous:
+    an agent with no Exabeam tools cannot dismiss anything."""
+    servers = run.get("mcp_servers")
+    if servers is None:
+        return                                        # no init event captured: the isolation check below still runs
+    names = [str(s.get("name", "")) for s in servers]
+    if not any("exabeam" in n for n in names):
+        raise IsolationError(f"plugin not loaded: the session's MCP servers were {names!r} — no Exabeam server. "
+                             f"--plugin-dir did not take (is the path absolute and a plugin?); refusing to drive")
 
 
 def _assert_plugin_isolation(run, plugin_dir):
@@ -1079,6 +1093,13 @@ def main(argv):
 
     cx_home = codex_home(args.plugin_dir) if args.host == "codex" else None
     hook_copy = None
+    if args.plugin_dir:
+        # drive() runs every session from a temp cwd, so a relative --plugin-dir silently loads NOTHING
+        # (2026-09-06: a whole leg ran with no socxen plugin in the session). Resolve it here, once.
+        pd = Path(args.plugin_dir).expanduser().resolve()
+        if not (pd / ".claude-plugin" / "plugin.json").is_file():
+            raise SystemExit(f"--plugin-dir {args.plugin_dir!r} is not a plugin (no .claude-plugin/plugin.json under {pd})")
+        args.plugin_dir = str(pd)
     if args.host == "claude" and args.plugin_dir:
         installed_plugin_preflight(args.plugin_dir)      # raises IsolationError -> the pass never starts
     if args.host == "claude" and args.claude_gate == "hook":
