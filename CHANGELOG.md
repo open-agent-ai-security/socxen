@@ -47,6 +47,20 @@ governance model (feature → `dev`, release `dev` → `main`).
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
+- **The bridge holds one upstream MCP session per process, says what actually failed, and never retries a
+  write** (#153, #154, #155). Under eight concurrent agent sessions on 2026-09-06 the staging proxy rejected
+  about half of all tool calls: the bridge had been opening a fresh connection and a fresh MCP session for
+  every call — six HTTP exchanges each, including a re-fetch of the whole tool list — and the proxy runs a
+  permission RPC on every session it opens. Now one session is opened lazily per bridge process and reopened
+  only when it is lost; a transport failure is unwrapped from the async wrapper so the audit record and the
+  agent both see the real cause (`error_type_name`, `error_message`, `http_status`, `is_retryable` instead
+  of an opaque "ExceptionGroup"); an upstream `isError` reply is audited as `tool_error` (stage
+  `upstream_tool`) instead of passing as a success; the tool list is fetched once with a bounded retry and a
+  startup line says whether the remote is reachable; reads are retried with jitter on transport errors and
+  the token is minted once under concurrent first calls; a per-process breaker stops hammering a proxy that
+  is already rejecting. A write is still sent exactly once whatever the error, every read is still
+  canonicalized and every write still neutralized, gated and audited — pinned by a transport test suite
+  against a local mock proxy that counts the requests.
 - **The bundled hook's invocation now fails closed** (Praxen `-001`). `gate.py` never failed open, but a hook
   command that errors is non-blocking on the host — so a machine with `uv` and no system `python3` had a working
   bridge and no gate. The hook command exits 2 (blocking) when the interpreter is missing or the script cannot
