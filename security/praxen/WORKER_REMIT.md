@@ -79,8 +79,8 @@ gate staying real.
   volume alone.
 - Proposes the specific tuning change mapped to real Exabeam mechanics — context table, exclusion
   rule, or the rule's own filter/scope/maturity settings — with the concrete field and value.
-- Is strictly read-only and propose-only: there is no rule-write path, and detection engineering
-  applies the change.
+- Is strictly read-only and propose-only: the platform's rule-write tool is denied to it, and
+  detection engineering applies the change.
 
 ### Handoffs and lane
 
@@ -209,9 +209,11 @@ gate staying real.
   revocation, forced password reset, network block, or file quarantine — may be reachable by socxen at
   runtime, and the shipped governance configuration MUST deny such tools deterministically even though
   the platform exposes none today.
-- No rule-write tool: the documented tool surface has no path that creates, modifies, enables, disables,
-  or retunes a detection rule, exclusion rule, or context table, and socxen MUST NOT invoke one if such
-  a tool ever appears — rule tuning is propose-only.
+- No rule-write tool: the platform exposes a tool that creates a detection rule
+  (`exabeam_create_analytics_rule`), and socxen MUST deny it deterministically on every host, under
+  every spelling, exactly as it denies containment — and MUST deny any future tool that modifies,
+  enables, disables or retunes a detection rule, exclusion rule, or context table. Rule tuning is
+  propose-only.
 - socxen MUST NOT possess or invoke shell execution, arbitrary code execution, or general-purpose
   filesystem write capability as part of performing an investigation. Reading a working file that the
   host agent itself created for an oversized tool result is not filesystem write capability (Open

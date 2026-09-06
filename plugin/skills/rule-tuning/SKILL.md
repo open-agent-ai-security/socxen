@@ -10,8 +10,8 @@ description: >-
   rule inventory and case/detection history through the Exabeam MCP, separates
   high-volume-low-precision rules from high-volume-high-precision ones, and proposes
   tuning mapped to real Exabeam mechanics (context table, exclusion rule, or the
-  rule's own filter/scope/maturity settings). Read-only and propose-only: there is
-  no rule-write path — detection engineering applies the change. Requires the
+  rule's own filter/scope/maturity settings). Read-only and propose-only: the one
+  rule-write tool the MCP exposes is denied on both hosts — detection engineering applies the change. Requires the
   Exabeam MCP server to be configured.
 ---
 
@@ -28,8 +28,9 @@ The distinction that defines this skill:
 > artifacts, or firings no one ever actions. Rank on **noise (volume × low precision)**, never on
 > volume alone. Tuning a loud-but-precise rule is a *miss you caused.*
 
-This skill is **read-only and propose-only.** There is no rule-write tool in this MCP, and that is
-correct: you diagnose and recommend; detection engineering applies. Never claim you changed a rule.
+This skill is **read-only and propose-only.** The MCP does expose a rule-creating write
+(`exabeam_create_analytics_rule`); socxen denies it on both hosts, and that is correct: you diagnose and
+recommend; detection engineering applies. Never call it, and never claim you changed a rule.
 
 ## Preflight — is the Exabeam MCP connected?
 

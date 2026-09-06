@@ -48,6 +48,20 @@ way: additions are fine, silent removals are not.
 - `delete_file`
 - `run_script_on_host`
 
+## Also denied: detection-content writes
+
+Not containment, but the same posture — actions socxen **must never perform**, only propose. The live
+Exabeam MCP grew `exabeam_create_analytics_rule` (2026-09: builds and creates a detection rule
+server-side from one of six canned names) and the proxy defines `exabeam_update_analytics_rule`. The
+`rule-tuning` skill's contract is *proposals for detection engineering to act on*, and `SKILL.md`
+forbids applying or claiming to have applied a rule change, so both are denied on both hosts, under
+both spellings, exactly like the containment verbs. A future rule-write tool under a new name lands on
+the hook's unknown-tool rule (ask), which is the safety net until it is classified here.
+
+**Detection content**
+- `create_analytics_rule`
+- `update_analytics_rule`
+
 ## Why these and not `create_case` / `update_alert`
 
 Opening a case or dismissing an alert is **workflow** — it routes and documents, and is easily

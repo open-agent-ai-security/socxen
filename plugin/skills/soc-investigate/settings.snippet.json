@@ -13,6 +13,7 @@
       "mcp__plugin_socxen_exabeam__exabeam_get_mitre_coverage",
       "mcp__plugin_socxen_exabeam__exabeam_get_use_case_score",
       "mcp__plugin_socxen_exabeam__exabeam_analytics_rule_list",
+      "mcp__plugin_socxen_exabeam__exabeam_analytics_rule_details",
       "mcp__plugin_socxen_exabeam__exabeam_correlation_rule_list",
       "mcp__plugin_socxen_exabeam__exabeam_get_correlation_rule_details",
       "mcp__plugin_socxen_exabeam__exabeam_context_table_list",
@@ -63,6 +64,10 @@
       "mcp__plugin_socxen_exabeam__delete_file",
       "mcp__plugin_socxen_exabeam__exabeam_run_script_on_host",
       "mcp__plugin_socxen_exabeam__run_script_on_host",
+      "mcp__plugin_socxen_exabeam__exabeam_create_analytics_rule",
+      "mcp__plugin_socxen_exabeam__create_analytics_rule",
+      "mcp__plugin_socxen_exabeam__exabeam_update_analytics_rule",
+      "mcp__plugin_socxen_exabeam__update_analytics_rule",
       "mcp__exabeam__exabeam_isolate_host",
       "mcp__exabeam__isolate_host",
       "mcp__exabeam__exabeam_quarantine_host",
@@ -96,7 +101,11 @@
       "mcp__exabeam__exabeam_delete_file",
       "mcp__exabeam__delete_file",
       "mcp__exabeam__exabeam_run_script_on_host",
-      "mcp__exabeam__run_script_on_host"
+      "mcp__exabeam__run_script_on_host",
+      "mcp__exabeam__exabeam_create_analytics_rule",
+      "mcp__exabeam__create_analytics_rule",
+      "mcp__exabeam__exabeam_update_analytics_rule",
+      "mcp__exabeam__update_analytics_rule"
     ]
   }
 }

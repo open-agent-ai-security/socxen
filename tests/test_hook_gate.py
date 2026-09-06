@@ -93,8 +93,9 @@ def test_dismiss_and_close_ask_and_containment_denies():
 
 def test_unclassified_tool_asks_instead_of_inheriting_the_session_default():
     """The Codex map's `default_tools_approval_mode: approve` equivalent — a tool the remote MCP grew
-    that nobody classified (e.g. exabeam_create_analytics_rule, #143) must not run unattended."""
-    out = run_hook("mcp__plugin_socxen_exabeam__exabeam_create_analytics_rule")
+    that nobody classified must not run unattended (exabeam_create_analytics_rule was the live example
+    until #143 classified it as deny; the name here is one no release will classify)."""
+    out = run_hook("mcp__plugin_socxen_exabeam__exabeam_brand_new_thing")
     assert out["permissionDecision"] == "ask" and "not classified" in out["permissionDecisionReason"]
 
 

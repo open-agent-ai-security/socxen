@@ -5,7 +5,7 @@
 
 # Exabeam MCP — real tool surface
 
-The 21 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact
+The 23 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact
 names. Grouped by how they serve the investigation loop.
 
 ## Calling convention (read this first)
@@ -15,6 +15,9 @@ the most common first-call error:
 
 - **Read / get / search tools → `arg0`.** e.g. `exabeam_get_case_details` → `{"arg0": {"caseId": "…"}}`;
   `exabeam_search_alerts` → `{"arg0": {"filter": "…", "fields": ["alertId","alertName","priority","riskScore","user","rules","creationTimestamp"], "limit": 25, "orderBy": ["riskScore DESC"], "startTime": "…", "endTime": "…"}}`.
+  **One exception:** `exabeam_analytics_rule_details` takes `arg0` as a **bare string** (the rule id:
+  `{"arg0": "C_MCP_…"}`), not a wrapper object — a schema error there is not fixed by the `arg0`↔`arg1`
+  swap below; send the bare string.
 - **Write tools → `arg1`** (NOT `arg0`): `exabeam_create_case`, `exabeam_create_case_notes`,
   `exabeam_update_alert`, `exabeam_update_case`.
 - **No-arg tools → call with `{}`** (verified via `list_tools`: no `arg0`/`arg1`, empty schema):
@@ -67,6 +70,8 @@ always the cause.
 ## Understand what fired
 - `exabeam_get_correlation_rule_details` — what a correlation rule keys on (fast FP/TP tell)
 - `exabeam_correlation_rule_list` / `exabeam_analytics_rule_list` — list correlation / analytics rules
+- `exabeam_analytics_rule_details` — one analytics / detection-management rule by id *(allow)*. **Odd calling
+  convention:** `arg0` is a bare string, the rule id (e.g. `{"arg0": "C_MCP_C_FF-PC-…"}`), not a wrapper object.
 - `exabeam_get_mitre_coverage` — MITRE ATT&CK coverage for the technique
 - `exabeam_get_use_case_score` — use-case detection score
 
@@ -77,15 +82,16 @@ always the cause.
   #137)*. Schema (verified via `list_tools`, 2026-09-02): `arg1: {` **`recipients`** `: [email…],` **`subject`**
   `,` **`body`** `}` — `body` is an **HTML fragment** (≤ 8000 chars) rendered as-is into a template, and the MCP
   restricts it to content produced by an Exabeam read tool. Do not infer recipients: an empty list makes the
-  tool return the subscription's users to choose from. **Recipients are scoped by the MCP service to active
-  users of the operator's own subscription** — any other address is rejected (with suggestions), so mail
-  cannot leave the tenant's user base. `subject` and `body` run through the write-side neutralizer
-  (secrets masked, formulas and markdown links de-fanged), but links carried in HTML attributes (`href`,
-  `src`) are **not** de-fanged — an HTML-aware pass is a product decision, see #147. A formula anywhere on
-  a line de-fangs every link on that line, and an HTML body is often one line. Review the body before
-  approving a send.
+  tool return the subscription's users to choose from. Outbound mail is **not** run through the write-side
+  neutralizer yet (its rules are markdown/formula-shaped; mail is HTML) — see the follow-up issue.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
+
+## Never (denied on both hosts)
+- `exabeam_create_analytics_rule` — creates a detection rule in the tenant (server builds it from one of six
+  canned names; `arg1: {ruleName}`). **Denied**, both spellings, both hosts: `rule-tuning` produces
+  *proposals* for detection engineering, and no socxen skill applies detection content. Recommend; never call.
+  (`exabeam_update_analytics_rule` is denied the same way ahead of the MCP exposing it.)
 
 ## Not present (important)
 There is **no entity/Attack-Surface lookup tool and no containment tool** on this server. Get entity

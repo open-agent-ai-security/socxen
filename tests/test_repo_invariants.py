@@ -186,10 +186,10 @@ def test_governed_tools_are_all_documented_in_tool_map():
     """No governed tool may be undocumented, and no drift between the snippet and the
     tool-map. Every plugin-namespaced allow/ask tool must appear in tool-map.md."""
     canonical = _canonical_tools()
-    # 21 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email, which the
-    # remote MCP grew after 0.8.5 and #137 classified onto the ask tier (before that it was ungoverned
-    # and each host fell back to its own default — the exact split #137 closed).
-    assert len(canonical) == 21, f"expected 21 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
+    # 22 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email (#137, ask)
+    # + exabeam_analytics_rule_details (#143, allow). exabeam_create_analytics_rule is governed too, on
+    # the DENY tier, so it is not in this allow+ask count — test_deny_list_matches_containment_doc pins it.
+    assert len(canonical) == 22, f"expected 22 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
     undocumented = sorted(t for t in canonical if t not in TOOL_MAP_MD)
     assert not undocumented, f"governed tools missing from tool-map.md: {undocumented}"
 
@@ -584,6 +584,33 @@ def test_docs_describe_the_gate_that_ships():
     hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())
     matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
     assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
+def test_skill_says_what_to_stop_doing():
+    """#91 / Praxen 0.6.9 -010/-012: the skill said how to ask and never what to do after a refusal, nor
+    that out-of-lane requests are declined. Both are gate-bypass shapes if left to improvisation."""
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "the action is over" in body and "Do not retry the call" in body, "no abandon-after-refusal rule"
+    assert "reach the same outcome by another route" in body, "the workaround path must be named"
+    assert "Stay in your lanes" in body and "Decline it" in body, "no decline clause"
+
+
+def test_manual_mcp_path_discloses_what_it_forgoes():
+    """#86: the manual-registration path bypasses screening, neutralization and the audit trail — the
+    install guide and the guardrails page must say so, not just mention the token expiry."""
+    inst = (ROOT / "plugin" / "docs" / "installation.md").read_text()
+    assert "none of them run when Claude Code talks to the remote MCP directly" in inst
+    guard = (ROOT / "plugin" / "docs" / "security-guardrails.md").read_text()
+    assert "bypasses all three" in guard
+
+
+def test_rule_write_tools_are_denied_and_documented():
+    """#143: the live MCP grew a rule-creating write; rule-tuning is proposals-only, so it is denied on
+    both hosts under both spellings, and the tool map says never."""
+    for name in ("exabeam_create_analytics_rule", "create_analytics_rule"):
+        for ns in (PLUGIN_PREFIX, f"mcp__{next(iter(MCP['mcpServers']))}__"):
+            assert f"{ns}{name}" in DENY, f"{ns}{name} not denied"
+    assert "exabeam_create_analytics_rule" in TOOL_MAP_MD and "Never (denied on both hosts)" in TOOL_MAP_MD
+    codex = _load("plugin/.mcp.codex.json")
+    assert "exabeam_create_analytics_rule" in codex["exabeam"]["disabled_tools"]
 
 
 def test_sbom_is_current_and_mirrors_the_lockfile():
