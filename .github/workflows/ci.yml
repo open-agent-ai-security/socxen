@@ -38,6 +38,11 @@ jobs:
       - name: Byte-compile the connector bridge
         run: python -m py_compile plugin/connector/exabeam-mcp-bridge.py
 
+      - name: Guide is current with the docs sources (no drift)
+        # guide/*.html and sitemap.xml are generated from plugin/docs/*.md by docs_build.py -- the public
+        # copy of the install and guardrails docs. Gated like every other generated artifact.
+        run: uv run docs_build.py --check
+
       - name: AI BOM is current with the sources
         # Fails if security/aibom.cdx.json drifts from plugin.json / .mcp.json /
         # connector deps / governance — regenerate with `uv run security/gen_aibom.py`.

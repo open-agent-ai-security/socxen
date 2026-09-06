@@ -208,11 +208,11 @@ def page_html(theme_css, title, nav, body, src, out_name, description, body_end=
 """
 
 
-def build():
+def render_all():
+    """{repo-relative path: content} for every generated file -- the guide pages and the sitemap."""
     theme_css = THEME_CSS.read_text(encoding="utf-8")
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
     md = markdown.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists"], output_format="html5")
-    sitemap = [""]
+    out, sitemap = {}, [""]
     for src, out_name, label in PAGES:
         text = (ROOT / src).read_text(encoding="utf-8")
         text = LEADING_COMMENT.sub("", text, count=1)
@@ -225,15 +225,34 @@ def build():
         if title.lower() == "socxen":                        # the Overview h1 is the site name itself
             title = label
         nav = left_nav(out_name, onpage_toc(md.toc_tokens))
-        (OUT_DIR / f"{out_name}.html").write_text(
-            page_html(theme_css, title, nav, body, src, out_name, meta_description(body, label), MERMAID_SCRIPT if has_mermaid else ""),
-            encoding="utf-8")
-        print(f"docs_build.py: wrote guide/{out_name}.html  <- {src}")
+        out[f"guide/{out_name}.html"] = page_html(theme_css, title, nav, body, src, out_name, meta_description(body, label),
+                                                  MERMAID_SCRIPT if has_mermaid else "")
         sitemap.append(f"guide/{out_name}.html")
     entries = "\n".join(f"  <url><loc>{html.escape(SITE_URL + p, quote=True)}</loc></url>" for p in sitemap)
-    (ROOT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + entries + "\n</urlset>\n")
-    print("docs_build.py: wrote sitemap.xml")
+    out["sitemap.xml"] = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+                          + entries + "\n</urlset>\n")
+    return out
+
+
+def build():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for rel, content in render_all().items():
+        (ROOT / rel).write_text(content, encoding="utf-8")
+        print(f"docs_build.py: wrote {rel}")
+
+
+def check():
+    """Exit 1 if any committed generated file differs from what the sources render to -- the same gate
+    every other generator in the repo has (gen_aibom, gen_identity, gen_sbom), because guide/ is the
+    PUBLIC copy of the install and guardrails docs and must never quietly go stale (review, 2026-09-06)."""
+    stale = [rel for rel, content in render_all().items()
+             if not (ROOT / rel).is_file() or (ROOT / rel).read_text(encoding="utf-8") != content]
+    if stale:
+        print("docs_build.py: STALE — regenerate with `uv run docs_build.py`: " + ", ".join(stale), file=sys.stderr)
+        return 1
+    print("docs_build.py: guide/ and sitemap.xml are current with the sources.")
+    return 0
 
 
 if __name__ == "__main__":
-    build()
+    sys.exit(check() if "--check" in sys.argv[1:] else build())

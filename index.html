@@ -193,8 +193,8 @@
       <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen — agentic SOC skill suite" width="141" height="36"></a>
       <nav class="nav-links">
         <a href="#skills">The skills</a>
-        <a href="#how">How it works</a>
         <a href="#guardrails">Guardrails</a>
+        <a href="#built">How it's built</a>
         <a href="#assurance">Assurance</a>
         <a href="guide/index.html">Docs</a>
       </nav>
@@ -268,13 +268,7 @@
         <div class="section-head">
           <p class="eyebrow">In five minutes</p>
           <h2>Install. Connect. Turn the gate on. Hunt.</h2>
-          <p>No server, no database, no approval queue. The analyst at the terminal is the human-in-the-loop.</p>
-        </div>
-        <div class="steps">
-          <div class="step-item"><h3>Install the plugin</h3><p>One marketplace add and one install, on Claude Code or Codex. The Exabeam MCP bridge comes bundled — nothing else to wire.</p></div>
-          <div class="step-item"><h3>Add credentials</h3><p>A single <code>~/.exabeam-mcp.env</code> with your New-Scale API key. The bridge refreshes the token itself.</p></div>
-          <div class="step-item"><h3>Turn the gate on</h3><p>On Claude Code, one consent-gated merge of the permission pack. On Codex the gate ships inside the package — nothing to merge.</p></div>
-          <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." socxen gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
+          <p>No server, no database, no approval queue — a plugin in the coding agent you already run, and the analyst at the terminal is the human-in-the-loop. <a href="#install">The four steps and the commands ↓</a></p>
         </div>
       </div>
     </section>
@@ -295,10 +289,16 @@
           <li><strong>Every call is audited</strong> — <span>a local, metadata-only trail of what was called, when, and with what result. Nothing phones home.</span></li>
         </ul>
         <p style="text-align:center;margin:26px 0 0;font-size:15px;"><a href="guide/security-guardrails.html">What the code stops, and what it deliberately doesn't →</a></p>
+        <div class="section-head" style="margin-top:56px;">
+          <p class="eyebrow">The gate</p>
+          <h2 style="font-size:clamp(24px,3vw,32px);">A human before anything is dismissed or closed — enforced by the host, not the model</h2>
+          <p>The same allow / ask / deny tiers, generated from one source, land on each host the way that host enforces them. Containment is denied outright; dismiss and close ask; a tool nobody has classified asks rather than running.</p>
+        </div>
         <div class="locks">
           <div class="lock"><div class="k">Claude Code</div><h3>A permission pack you merge once</h3><p>92 rules across allow / ask / deny tiers, generated from one source and pinned by invariant tests. Ask on dismiss and close; deny on every containment verb.</p></div>
           <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are canceled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
         </div>
+        <p class="lede" style="margin:34px auto 0;max-width:820px;text-align:center;font-size:17px;"><strong>Nothing above is a claim.</strong> Twenty attack fixtures, five trials each, on the weakest supported model per host, before every release — and the dated results ship with the code. <a href="#assurance">The numbers ↓</a></p>
       </div>
     </section>
 
@@ -354,10 +354,19 @@
 
     <section class="section-pad" id="install">
       <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Get started in minutes</p>
+          <h2>Four steps. Two commands.</h2>
+        </div>
+        <div class="steps">
+          <div class="step-item"><h3>Install the plugin</h3><p>One marketplace add and one install, on Claude Code or Codex. The Exabeam MCP bridge comes bundled — nothing else to wire.</p></div>
+          <div class="step-item"><h3>Add credentials</h3><p>A single <code>~/.exabeam-mcp.env</code> with your New-Scale API key. The bridge refreshes the token itself.</p></div>
+          <div class="step-item"><h3>Turn the gate on</h3><p>On Claude Code, one consent-gated merge of the permission pack. On Codex the gate ships inside the package — nothing to merge.</p></div>
+          <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." socxen gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
+        </div>
         <div class="install-card">
           <div>
-            <p class="eyebrow">Get started in minutes</p>
-            <h2>Install the plugin</h2>
+            <h2>The commands</h2>
             <p>socxen runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Then add your Exabeam credentials and — on Claude Code — turn on the governance gate.</p>
             <div class="copy-row">
               <button class="btn btn-primary" id="copyBtn" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy install command</button>
