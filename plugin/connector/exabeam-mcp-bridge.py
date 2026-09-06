@@ -101,7 +101,7 @@ server = Server("exabeam")
 #     neutralize_output.py — the a10 fix). Only the write tools; reads are never argument-mutated.
 # Both are FAIL-OPEN: a guardrail bug must never break an investigation.
 from canonicalize import canonicalize
-from neutralize_output import neutralize_output
+from neutralize_output import neutralize_output, tenant_hosts_from_url
 # On-by-default, fail-open agent audit logging (SOCXEN_OBSERVRA=off to disable). observra is a hard
 # dependency BY DESIGN (see the PEP-723 header): an autonomous agent that takes gated actions must keep an
 # audit trail, so logging ships on out of the box — which requires the lib to be resolvable at launch.
@@ -111,11 +111,14 @@ import observra_logging as telemetry
 
 # send_email is gated (ask on both hosts), refused under SOCXEN_DRY_RUN, and audited like every write.
 # Its schema is confirmed (list_tools, 2026-09-02): arg1.{recipients, subject, body}; body is an HTML
-# fragment. `subject` and `body` ARE neutralized (below) — secrets masked, formulas and markdown links
-# de-fanged. What that does NOT cover: URLs inside HTML attributes (href/src), javascript:/data: targets
-# and on* handlers — the neutralizer is markdown-shaped and those are its documented residual. An
-# HTML-aware pass is a product decision (clickable links in mail), tracked in #147. Recipients are scoped
-# server-side to the subscription's active users (Exabeam/exa-mcp-proxy, EmailTools.java).
+# fragment. `subject` and `body` are GENUINELY neutralized (#147, decided 2026-09-05): secrets masked,
+# formulas quoted, every link form de-fanged — markdown and HTML href/src/srcset/CSS url() alike —
+# script/iframe/object removed, on* handlers dropped, and bare URLs in mail text de-fanged too (mail
+# clients auto-link them). The ONE thing that stays clickable is a link into the operator's own tenant,
+# derived from EXABEAM_MCP_URL (ALLOWED_LINK_HOSTS below): clickable is decided by destination, not by
+# who wrote the link. Residual, stated: an open redirect on the tenant host passes — the same trust the
+# console already gets. Recipients are scoped server-side to the subscription's active users
+# (Exabeam/exa-mcp-proxy, EmailTools.java).
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes",
                "exabeam_send_email"}    # mail leaving the platform is a write (#137)
@@ -123,7 +126,14 @@ WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
 _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags",
-                  "subject", "body"}     # subject/body: exabeam_send_email (#147 for the HTML residual)
+                  "subject", "body"}     # subject/body: exabeam_send_email — neutralized in MAIL mode (below)
+# Fields that leave the platform as HTML mail: bare URLs in their text are clickable in a mail client, so
+# the neutralizer runs in mail mode on them (defangs bare URLs too, not only link forms).
+_MAIL_FIELDS = {"body"}          # the subject is an SMTP header, not HTML: never HTML-escaped, never auto-linked
+# The tenant allowlist: the only hosts a link may stay clickable to, derived from the operator's own MCP
+# URL and nothing else (never curated, never model-influenced). Empty when the URL is missing, and an
+# empty allowlist means every link is defanged. See neutralize_output.tenant_hosts_from_url.
+ALLOWED_LINK_HOSTS = tenant_hosts_from_url(URL)
 
 # DRY RUN — refuse every write at the bridge instead of forwarding it to the tenant.
 #
@@ -217,18 +227,19 @@ def _canon_content(content, removed=None, kept=None, failures=None):
     return out
 
 
-def _defang_value(v, notes=None):
+def _defang_value(v, notes=None, mail=False):
     """Neutralize a free-text value; when `notes` is provided, accumulate the neutralizer's change
-    records into it (for telemetry only — the security behavior is identical whether or not it is)."""
+    records into it (for telemetry only — the security behavior is identical whether or not it is).
+    `mail` selects the stricter mail-body mode (bare URLs in text are defanged too)."""
     if isinstance(v, str):
-        clean, ns = neutralize_output(v)
+        clean, ns = neutralize_output(v, allowed_hosts=ALLOWED_LINK_HOSTS, mail=mail)
         if notes is not None:
             notes.extend(ns)
         return clean
     if isinstance(v, list):
-        return [_defang_value(x, notes) for x in v]
+        return [_defang_value(x, notes, mail) for x in v]
     if isinstance(v, dict):
-        return {k: _defang_value(x, notes) for k, x in v.items()}
+        return {k: _defang_value(x, notes, mail) for k, x in v.items()}
     return v
 
 
@@ -238,7 +249,8 @@ def _defang_args(obj, notes=None):
     so the bridge refuses the write rather than persist a raw payload. `notes` is an optional telemetry
     accumulator (default None — byte-identical to the un-instrumented path)."""
     if isinstance(obj, dict):
-        return {k: (_defang_value(v, notes) if k.lower() in _DEFANG_FIELDS else _defang_args(v, notes))
+        return {k: (_defang_value(v, notes, mail=k.lower() in _MAIL_FIELDS) if k.lower() in _DEFANG_FIELDS
+                    else _defang_args(v, notes))
                 for k, v in obj.items()}
     if isinstance(obj, list):
         return [_defang_args(v, notes) for v in obj]

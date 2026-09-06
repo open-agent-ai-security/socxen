@@ -107,7 +107,7 @@ def test_tags_list_is_neutralized_elementwise():
 
 # ---- #10: WRITE path is fail-CLOSED (a neutralizer error must not persist raw) ----
 def test_write_path_fails_closed(monkeypatch):
-    def boom(_):
+    def boom(*_a, **_k):
         raise RuntimeError("neutralizer bug")
     monkeypatch.setattr(B, "neutralize_output", boom)
     with pytest.raises(RuntimeError):
@@ -188,16 +188,37 @@ def test_audit_fields_cap_long_strings_inside_list_values():
     assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped
 
 
-def test_mail_subject_and_body_are_neutralized_for_secrets_and_formulas():
-    """exabeam_send_email carries tenant content to a person as HTML. Its subject and body go through the
-    same neutralizer as a case note (Praxen PRAX-2026-09-05-002): a seeded credential is masked and a
-    formula is neutralized. What this does NOT assert — and must not, until #147 decides it — is that a
-    link inside an HTML attribute is de-fanged; that is the neutralizer's documented residual."""
-    out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE",
-                                   "body": "<td>=HYPERLINK(\"https://evil.example\",\"x\")</td>"}})
-    assert "AKIAIOSFODNN7EXAMPLE" not in out["arg1"]["subject"] and "REDACTED" in out["arg1"]["subject"]
-    assert out["arg1"]["body"].startswith("<td>'=HYPERLINK(") and "hxxps://evil[.]example" in out["arg1"]["body"]
+def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allowlist(monkeypatch):
+    """exabeam_send_email carries tenant content to a person as HTML (#147, decided 2026-09-05): subject
+    and body go through the neutralizer in MAIL mode — secrets masked, formulas quoted, HTML href/src
+    and even bare URLs de-fanged — and the ONE thing that stays clickable is a link into the operator's
+    own tenant, derived from EXABEAM_MCP_URL. A case note (not mail) keeps bare URLs as the documented
+    residual but still de-fangs a raw HTML anchor."""
+    monkeypatch.setattr(B, "ALLOWED_LINK_HOSTS", B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp"))
+    body = ('<p>Open <a href="https://api.us-west.exabeam.cloud/cases/4471">4471</a>, not '
+            '<a href="https://sso-reset.evil.example/login">this</a>. Raw: https://evil.example/ioc '
+            '<img src="https://attacker.example/t.gif"><td>=HYPERLINK("https://evil.example","x")</td></p>')
+    out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE https://evil.example/s", "body": body}})
+    subj, out_body = out["arg1"]["subject"], out["arg1"]["body"]
+    assert "AKIAIOSFODNN7EXAMPLE" not in subj and "REDACTED" in subj
+    assert "https://evil.example/s" in subj, "the subject is an SMTP header: plain text, no auto-linking, so bare stays"
+    subj2 = B._defang_args({"arg1": {"subject": "Beaconing to https://evil.example — 4 < 5 & R&D", "body": "x"}})["arg1"]["subject"]
+    assert subj2 == "Beaconing to https://evil.example — 4 < 5 & R&D", "a header is never HTML-escaped"
+    assert 'href="https://api.us-west.exabeam.cloud/cases/4471"' in out_body, "the tenant link stays clickable"
+    assert 'href="hxxps://sso-reset[.]evil[.]example/login"' in out_body
+    assert "hxxps://evil[.]example/ioc" in out_body, "bare URLs are de-fanged in mail"
+    assert 'src="hxxps://attacker[.]example/t.gif"' in out_body
+    assert "'=HYPERLINK(\"hxxps://evil[.]example\"" in out_body
     assert out["arg1"]["recipients"] == ["a@example.com"]      # identifiers are never touched
+    note = B._defang_args({"arg1": {"note": 'see https://evil.example/ioc and <a href="https://evil.example/x">x</a>'}})["arg1"]["note"]
+    assert "https://evil.example/ioc" in note, "a bare URL in a NOTE is the documented residual"
+    assert 'href="hxxps://evil[.]example/x"' in note
+
+
+def test_allowlist_is_derived_from_the_configured_mcp_url_and_defaults_to_nothing():
+    assert B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp") == frozenset({"api.us-west.exabeam.cloud"})
+    assert B.tenant_hosts_from_url("") == frozenset()
+    assert B.ALLOWED_LINK_HOSTS == B.tenant_hosts_from_url(B.URL)
 
 
 def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
