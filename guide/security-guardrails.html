@@ -335,6 +335,11 @@ of copy-pasting a good link is worth never handing an analyst a live malicious o
   side effect to know: the formula rule de-fangs every link on the <em>line</em> the formula sits on, and an
   HTML body is often one line — a planted formula therefore disables every link in that mail, including
   legitimate ones. That is the safety measure working; the mail is still readable.</li>
+<li><strong>They live in the bundled bridge.</strong> A server you register by hand against the remote Exabeam MCP
+  (the "wire it manually" path in the install guide) bypasses all three — no screening, no neutralizer,
+  no audit trail. Only the permission layer survives there — the dismiss/close gate and the deny tier for
+  containment and rule writes, which the snippet spells under the manual <code>mcp__exabeam__</code> prefix as
+  well — and only if the server is named <code>exabeam</code>.</li>
 <li>They protect the <strong>records socxen writes</strong> and the <strong>text socxen analyzes</strong>. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen <strong>persists</strong> (case notes, exports) — the
