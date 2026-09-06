@@ -8,7 +8,7 @@
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](plugin/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 > ### Analyst, shift lead, detection engineer.
 > ### Three skills, one governance gate. You stay in control.
@@ -70,7 +70,7 @@ step. The rest of this section is the **Claude Code** gate:
 > cd socxen && ./plugin/install.sh --merge-permissions
 > ```
 >
-> The flag is the consent: nothing merges by default and `-y` doesn't authorise it. To merge by hand
+> The flag is the consent: nothing merges by default and `-y` doesn't authorize it. To merge by hand
 > instead, and to supply your Exabeam credentials (the only other setup step), follow
 > **[the setup guide](plugin/docs/installation.md)**.
 
@@ -128,5 +128,5 @@ security in an increasingly agentic world.
 
 ## License
 
-[Apache-2.0](plugin/LICENSE). Contributions require a DCO sign-off — see
+[Apache-2.0](LICENSE). Contributions require a DCO sign-off — see
 [`CONTRIBUTING.md`](CONTRIBUTING.md).

@@ -192,7 +192,7 @@ def test_dry_run_returns_a_refusal_rather_than_raising():
 
 def test_refusal_text_does_not_coach_the_model():
     """The refusal is read by the agent mid-run, including mid-attack in a red-team exercise. Telling it
-    to defer to a human, or not to retry, is coaching the exact behaviour the exercise measures — and it
+    to defer to a human, or not to retry, is coaching the exact behavior the exercise measures — and it
     is text the Claude Code baseline (a bare "you haven't granted it yet") never saw, so it would make
     the two hosts non-comparable as well as flattering. Keep it a statement of fact."""
     guard = _dry_run_guard()
