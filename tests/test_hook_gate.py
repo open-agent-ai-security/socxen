@@ -66,19 +66,22 @@ def test_another_servers_tool_gets_no_decision_and_no_record(tmp_path):
 @pytest.mark.parametrize("prefix", ["mcp__plugin_socxen_exabeam__", "mcp__plugin_soc_exabeam__", "mcp__exabeam__"])
 def test_decisions_match_the_shipped_tiers_under_every_prefix(prefix):
     """Exhaustive, in-process (decide() is a plain function; the subprocess contract is tested beside it):
-    every shipped rule under every prefix. The allow tier asserts NOTHING -- the operator's rules apply."""
+    every shipped rule under every prefix, and the three tiers are exactly Codex's auto / approve / disabled."""
     tiers = gate.load_tiers(PLUGIN)
-    for tier, expected in (("deny", "deny"), ("ask", "ask"), ("allow", gate.NO_DECISION)):
+    for tier, expected in (("deny", "deny"), ("ask", "ask"), ("allow", "allow")):
         for rule in SNIPPET[tier]:
             decision, reason = gate.decide(prefix + bare(rule), tiers)
             assert decision == expected, (tier, rule, decision, reason)
 
 
-def test_the_allow_tier_never_overrides_the_operators_rules():
-    """A hook 'allow' bypasses the permission system as its 'deny' does; an operator who set ask/deny on
-    a read to keep the agent read-only must keep that (review, 2026-09-05). End-to-end: empty stdout."""
-    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts") == NO_DECISION
-    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_create_case_notes") == NO_DECISION
+def test_safe_operations_are_allowed_so_nothing_prompts_with_nothing_merged():
+    """The point of the bundled hook: an install needs no permission merge. Reads and the two escalation
+    writes are allowed outright (Codex runs the same tools as `auto`); dismiss/close ask; containment denied."""
+    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts")["permissionDecision"] == "allow"
+    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_create_case_notes")["permissionDecision"] == "allow"
+    codex = json.loads((PLUGIN / ".mcp.codex.json").read_text())["exabeam"]["tools"]
+    auto = {t for t, spec in codex.items() if spec.get("approval_mode") == "auto"}
+    assert auto == set(gate.load_tiers(PLUGIN)["allow"]), "Claude's allow tier must be exactly Codex's auto set"
 
 
 def test_dismiss_and_close_ask_and_containment_denies():
@@ -159,7 +162,7 @@ def test_gate_never_crashes_on_a_bad_log_path(tmp_path):
     import subprocess, json as _json, os
     env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN), SOCXEN_GATE_LOG="~nosuchuser_zz/gate.jsonl")
     proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}', capture_output=True, text=True, env=env)
-    assert proc.returncode == 0 and proc.stdout.strip() == ""      # a read: no decision asserted, and no crash
+    assert proc.returncode == 0 and _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 
 def _fake_claude(tmp_path, install_path):

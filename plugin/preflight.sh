@@ -268,7 +268,7 @@ check_gate() {
              hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="$(printf '%s' "$hook" | awk '{print $3}')"
              case "$hstate" in
                on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
-                    ok "Permission rules not merged — optional: the hook asserts only ask/deny and never grants, so the reads follow your own rules and may prompt. Merge for prompt-free reads and a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
+                    ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
                off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;
                none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY:-socxen@open-agent-ai-security}) and no permission rules are merged; install it (install.sh)" ;;
                *)   if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then

@@ -424,19 +424,20 @@ tool outright, and <strong>asks</strong> on any tool this release hasn't classif
 <code>--dangerously-skip-permissions</code>, and when no human is present (<code>claude -p</code>, CI) an <em>ask</em> is refused.
 On <strong>Codex</strong> the same tiers ship inside the package as tool-approval policy, and Codex cancels a
 destructive tool when nobody is there to approve it. Nothing to merge on either host.</p>
-<p>The hook never grants. On the 16 read tools and the two escalation writes it asserts <strong>no decision</strong>,
-so they follow your own permission rules — a hook <em>allow</em> would bypass the permission system the way
-its <em>deny</em> does, and silently override an operator who set <code>ask</code> or <code>deny</code> on a read to keep the agent
-read-only. With nothing merged, a read may prompt; merge the rules below to make the reads prompt-free.
-The hook fires for the bundled server under any plugin key and for any manually wired server whose
-name contains <code>exabeam</code> (<code>claude mcp add exabeam …</code>); the permission rules below recognize only the
-bundled key and a server named exactly <code>exabeam</code>, so if you wire by hand, <strong>name it <code>exabeam</code></strong>. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
+<p>The hook also grants the reads: its <em>allow</em> on the 16 read tools and the two escalation writes
+bypasses the prompt, so with nothing merged a safe operation runs silently and a dangerous one asks —
+the same split Codex applies from the same tier file (verified headless in default permission mode,
+2026-09-06). Your own rules still win: a <code>deny</code> on one of these tools removes it from the model's tool
+list before the hook runs, and an <code>ask</code> still prompts — the hook's <em>allow</em> only removes the default
+prompt (both verified live the same day). The hook
+fires for the bundled server under any plugin key and for any manually wired server whose name
+contains <code>exabeam</code> (<code>claude mcp add exabeam …</code>); the permission rules below recognize only the bundled
+key and a server named exactly <code>exabeam</code>, so if you wire by hand, <strong>name it <code>exabeam</code></strong>. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
 Windows) and <code>python3</code> 3.7+ on <code>PATH</code>; without <code>python3</code> every gated call is refused, not allowed.</p>
 </blockquote>
 <h3 id="claude-code-the-optional-permission-rules">Claude Code — the optional permission rules</h3>
-<p>You do not need these for safety. They make the reads prompt-free (the hook never grants) and add a
-second lock on dismiss/close that does not depend on the hook — the same tiers, enforced by Claude
-Code's own permission system. Merge the <code>permissions</code> block from
+<p>You do not need these. They are a second lock on dismiss/close that does not depend on the hook (the
+same tiers, enforced by Claude Code's own permission system), and nothing more. Merge the <code>permissions</code> block from
 <code>skills/soc-investigate/settings.snippet.json</code> — inside the installed plugin, or
 <code>plugin/skills/soc-investigate/settings.snippet.json</code> from a clone — into the settings file Claude Code
 reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-settings-file">Which settings file?</a> below):</p>

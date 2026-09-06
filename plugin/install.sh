@@ -508,7 +508,7 @@ elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
   # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
   # "assume yes" answers the installer's own questions, it does not authorize writing to the
   # operator's settings.json. Installation alone must never change that file (#70 non-goal).
-  warn "Permission rules not merged — optional: the bundled hook gates dismiss/close and blocks containment, but never grants, so the reads follow your own rules and may prompt. Merging makes them prompt-free and adds a second lock that does not depend on the hook (re-run with --merge-permissions)"
+  warn "Permission rules not merged — not needed: the bundled hook gates dismiss/close, blocks containment and allows the reads. Merging adds a second lock that does not depend on the hook (re-run with --merge-permissions)"
 else
   # Gate is OFF, we're interactive, and we can do something about it — offer, showing exactly what
   # would change first. Declining leaves the original warning, unchanged from previous releases.
@@ -519,7 +519,7 @@ else
   read -r reply || reply=""
   case "$reply" in
     [yY]|[yY][eE][sS]) run_merge ;;
-    *) warn "Permission rules not merged (declined) — fine: the bundled hook gates dismiss/close; the reads follow your own rules and may prompt" ;;
+    *) warn "Permission rules not merged (declined) — fine: the bundled hook gates dismiss/close and allows the reads" ;;
   esac
 fi
 

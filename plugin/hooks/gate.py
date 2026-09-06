@@ -17,11 +17,14 @@ the manually wired `mcp__exabeam__…`:
 
     deny tier  → deny   containment: socxen never executes it, it recommends it
     ask tier   → ask    dismiss / close (and send_email): an explicit human yes, every time
-    allow tier → (no decision)  reads and escalation writes fall through to the OPERATOR's own permission
-                        rules. A hook "allow" bypasses the permission system exactly as its "deny" does,
-                        so asserting it would silently override an operator who set ask/deny on a read
-                        to keep the agent read-only (found in review, 2026-09-05). The gate only ever
-                        tightens; merge the permission snippet to make the reads prompt-free.
+    allow tier → allow  reads and the two escalation writes (create case, write notes): safe operations
+                        run without a prompt, so an install needs NOTHING merged — the same tools Codex
+                        runs as `auto`. This allow removes only the DEFAULT prompt: an operator's own
+                        settings rule on one of these tools still wins — a `deny` removes the tool from
+                        the model's list before the hook ever runs, and an `ask` still prompts (both
+                        verified live in default permission mode, headless, 2026-09-06). Returning no
+                        decision here instead would make every read prompt with nothing merged, which is
+                        the permission merge back under another name.
     anything else → ask a tool the remote MCP grew that nobody has classified asks rather than
                         inheriting the session default — Codex's `approve` default, on Claude
     a tool of another MCP server → (no decision, not logged): the matcher is broad enough to survive a
@@ -51,7 +54,6 @@ import sys
 from pathlib import Path
 
 SERVER = "exabeam"
-NO_DECISION = "none"               # the tier decision that asserts nothing: the operator's rules apply
 
 
 def bare(tool_name: str) -> str:
@@ -83,7 +85,7 @@ def decide(tool_name: str, tiers) -> tuple[str, str]:
     if name in tiers["ask"]:
         return "ask", f"socxen gate: {name} dismisses or closes. It needs the analyst's explicit yes — ask, and wait."
     if name in tiers["allow"]:
-        return NO_DECISION, f"socxen gate: {name} is a read or an escalation write — no decision asserted; the operator's permission rules apply."
+        return "allow", f"socxen gate: {name} is a read or an escalation write."
     return "ask", f"socxen gate: {name} is not classified in this release's permission tiers, so it asks rather than inheriting the session default."
 
 
@@ -171,8 +173,6 @@ def main() -> int:
     if target:
         record["target"] = target          # what was attempted, on which object — never the free text
     log_decision(record)
-    if decision == NO_DECISION:
-        return 0                           # no JSON on stdout = no decision: the normal permission flow runs
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                              "permissionDecisionReason": reason}}))
     return 0
