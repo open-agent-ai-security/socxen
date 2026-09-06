@@ -191,24 +191,24 @@ def codex_home(plugin_dir):
 
     mkt = home / "mkt"
     (mkt / ".claude-plugin").mkdir(parents=True)
-    shutil.copytree(plugin_dir, mkt / "socxen", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(plugin_dir, mkt / ev.PLUGIN_NAME, ignore=shutil.ignore_patterns("__pycache__"))
     # Force the dry run on in the installed copy. It must live in the plugin's own .mcp.codex.json:
     # neither a shell export nor a config.toml env override under
     # [plugins."socxen@...".mcp_servers.exabeam] reaches the server (both verified silently ineffective).
-    mcp = mkt / "socxen" / ".mcp.codex.json"
+    mcp = mkt / ev.PLUGIN_NAME / ".mcp.codex.json"
     spec = json.loads(mcp.read_text())
-    spec["exabeam"]["env"] = {CODEX_DRY_ENV: "1"}
+    spec[ev.MCP_SERVER]["env"] = {CODEX_DRY_ENV: "1"}
     mcp.write_text(json.dumps(spec, indent=2) + "\n")
     (mkt / ".claude-plugin" / "marketplace.json").write_text(json.dumps({
         "name": CODEX_MARKETPLACE,
         "owner": {"name": "socxen red team", "url": "https://example.invalid"},
-        "plugins": [{"name": "socxen", "source": "./socxen", "description": "red-team build",
+        "plugins": [{"name": ev.PLUGIN_NAME, "source": f"./{ev.PLUGIN_NAME}", "description": "red-team build",
                      "license": "Apache-2.0", "category": "security"}],
     }, indent=2) + "\n")
 
     env = {**os.environ, "CODEX_HOME": str(home)}
     for cmd in (["codex", "plugin", "marketplace", "add", str(mkt)],
-                ["codex", "plugin", "add", f"socxen@{CODEX_MARKETPLACE}"]):
+                ["codex", "plugin", "add", f"{ev.PLUGIN_NAME}@{CODEX_MARKETPLACE}"]):
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if r.returncode != 0:
             raise RuntimeError(f"{' '.join(cmd[:3])} failed: {(r.stderr or r.stdout).strip()[:300]}")

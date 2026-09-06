@@ -16,6 +16,7 @@ Run:  uv run --with pytest pytest -q tests/
 """
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,8 @@ def _load(path):
     return json.loads((ROOT / path).read_text())
 
 PLUGIN = _load("plugin/.claude-plugin/plugin.json")
+IDENTITY = _load("plugin/identity.json")
+PLUGIN_PREFIX = f"mcp__plugin_{IDENTITY['name']}_{_load('plugin/skills/soc-investigate/permissions.json')['server']}__"
 MCP = _load("plugin/.mcp.json")
 SETTINGS = _load("plugin/skills/soc-investigate/settings.snippet.json")
 PERMS = SETTINGS["permissions"]
@@ -225,7 +228,7 @@ def test_no_in_repo_marketplace():
     assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (
         "unexpected plugin/.claude-plugin/marketplace.json — socxen installs via "
         "open-agent-ai-security/plugins; see plugin/docs/installation.md")
-    assert PLUGIN["name"] == "socxen"
+    assert PLUGIN["name"] == IDENTITY["name"]
 
 
 # =====================================================================
@@ -515,7 +518,7 @@ def test_send_email_is_human_gated_on_both_hosts():
     action on BOTH hosts — before this it was unclassified, so the split between hosts was an accident
     of their defaults. Pins: the snippet asks (both prefixes), the generated Codex map says approve,
     and both dry-run layers treat it as a write."""
-    for prefix in ("mcp__plugin_socxen_exabeam__", "mcp__exabeam__"):
+    for prefix in (PLUGIN_PREFIX, "mcp__exabeam__"):
         assert prefix + "exabeam_send_email" in ASK, f"send_email not on the ask tier under {prefix}"
     assert not tier_has(ALLOW, "exabeam_send_email") and not tier_has(DENY, "exabeam_send_email")
     codex = json.loads((ROOT / "plugin" / ".mcp.codex.json").read_text())
@@ -523,6 +526,28 @@ def test_send_email_is_human_gated_on_both_hosts():
         "the generated Codex map does not require a human for send_email")
     assert "exabeam_send_email" in (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text().split("WRITE_TOOLS")[1][:400]
     assert "exabeam_send_email" in (ROOT / "evals" / "run.py").read_text().split("WRITE_TOOLS")[1][:400]
+
+
+def test_identity_artifacts_are_generated_from_identity_json():
+    """The plugin's identity lives in ONE place (plugin/identity.json); both manifests and every permission
+    rule are generated from it by plugin/gen_identity.py. A hand edit to a generated file is drift that
+    would silently split the key from the namespace the gate matches on — so --check must be clean, and
+    the generated name must be the one the rules actually use."""
+    import subprocess
+    r = subprocess.run([sys.executable, str(ROOT / "plugin" / "gen_identity.py"), "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr or r.stdout
+    assert PLUGIN["name"] == IDENTITY["name"]
+    assert _load("plugin/.codex-plugin/plugin.json")["name"] == IDENTITY["name"]
+    assert all(t.startswith(PLUGIN_PREFIX) for t in ALLOW), "allow tier not under the identity's plugin prefix"
+    assert PLUGIN["version"] == IDENTITY["version"] == _load("plugin/.codex-plugin/plugin.json")["version"]
+    # The shell include install.sh / preflight.sh source (no python3 on the host) carries the same identity.
+    sh = dict(line.split("=", 1) for line in (ROOT / "plugin" / "identity.sh").read_text().splitlines()
+              if line and not line.startswith("#"))
+    assert sh["SOCXEN_ID_NAME"].strip("'") == IDENTITY["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_NAME"].strip("'") == IDENTITY["marketplace"]["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_REPO"].strip("'") == IDENTITY["marketplace"]["repo"]
+    assert sh["SOCXEN_ID_MCP_SERVER"].strip("'") == IDENTITY["mcpServer"] == list(MCP["mcpServers"])[0]
+    assert "|| echo socxen" not in INSTALL_SH and "|| echo socxen" not in PREFLIGHT_SH, "no literal identity fallback"
 
 
 def test_skill_states_the_taxonomy_report_contract():

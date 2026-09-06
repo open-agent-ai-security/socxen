@@ -47,3 +47,12 @@ jobs:
         # Fails if security/aibom.cdx.json drifts from plugin.json / .mcp.json /
         # connector deps / governance — regenerate with `uv run security/gen_aibom.py`.
         run: uv run security/gen_aibom.py --check
+
+      - name: Identity artifacts are generated from plugin/identity.json (no drift)
+        # Both host manifests and every permission rule are generated from identity.json +
+        # permissions.json by plugin/gen_identity.py. A hand edit to a generated file would silently
+        # split the plugin key from the namespace the gate matches on.
+        run: python3 plugin/gen_identity.py --check
+
+      - name: Codex approval map is generated from the permission snippet (no drift)
+        run: uv run scripts/gen_codex_mcp.py --check

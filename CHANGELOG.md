@@ -11,6 +11,20 @@ governance model (feature → `dev`, release `dev` → `main`).
 ## [Unreleased]
 
 ### Changed
+- **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
+  plugin's name, version, display name, description, keywords and marketplace; both host manifests and
+  all 92 permission rules in `settings.snippet.json` are **generated** from it (plus the bare-name tiers
+  in `permissions.json`) by `plugin/gen_identity.py`, and CI fails on drift. Re-keying or re-branding the
+  plugin — e.g. a vendor catalog shipping it under its own name — is one field and a regenerate, where it
+  used to be two manifests and ninety-two hand-edited rules that had to agree. `install.sh`, `preflight.sh`,
+  the eval harness, the tests and `bump_version.py` read the identity instead of carrying literals. The
+  generator ships in the payload, so an installed copy can regenerate itself. Only cosmetic change to
+  shipped artifacts: the Claude manifest's description now uses the same host-neutral wording as Codex's.
+  After review: the identity also reaches the shell scripts as a generated `identity.sh` include, so a
+  host without python3 reads the real name instead of a literal fallback that would have installed the
+  upstream plugin after a re-key; the release smoke, the AI-BOM's distribution reference, the Codex
+  red-team leg and the invariants test follow the identity too; `mcpServer` is cross-checked against
+  `permissions.json` and the `.mcp*.json` server key instead of sitting unread.
 - **`exabeam_send_email` is human-gated on both hosts** (#137 — PM decision). Mail leaving the platform
   to a person now sits on the `ask` tier in `settings.snippet.json` and as `approval_mode: "approve"` in
   the generated Codex map, pinned by an invariant test; before, it was unclassified and the hosts split

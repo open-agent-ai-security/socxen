@@ -22,8 +22,25 @@
 #
 # Exit: 0 when nothing failed, 1 when something did. Warnings do not fail.
 #
-# install.sh sources this file for the shared checks; sourcing defines functions and runs
-# nothing. The UI helpers are only defined if the caller has not already defined them.
+# install.sh sources this file for the shared checks; sourcing defines functions and reads the
+# identity include — it runs no checks. The UI helpers are only defined if the caller has not
+# already defined them.
+
+# Identity from identity.sh (GENERATED from identity.json by gen_identity.py; no python3 needed). The same
+# SOCXEN_PLUGIN / SOCXEN_MARKETPLACE overrides install.sh honors apply here, so a remediation message
+# names the key the operator actually installed. Both halves come from the same source or neither does:
+# a key stitched from one real half and one guessed half is one no marketplace serves.
+_PF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_PF_DIR/identity.sh" ]; then . "$_PF_DIR/identity.sh"; fi
+PLUGIN_NAME="${SOCXEN_PLUGIN:-${SOCXEN_ID_NAME:-}}"
+_PF_MKT="${SOCXEN_MARKETPLACE:-${SOCXEN_ID_MARKETPLACE_NAME:-}}"
+if [ -n "$PLUGIN_NAME" ] && [ -n "$_PF_MKT" ]; then
+  PLUGIN_KEY="${PLUGIN_NAME}@${_PF_MKT}"
+else
+  PLUGIN_NAME="${PLUGIN_NAME:-plugin}"
+  PLUGIN_KEY="<plugin>@<marketplace>  (identity.sh missing — regenerate with python3 $_PF_DIR/gen_identity.py)"
+fi
+
 
 # ---- ui (only if the sourcing script has not already provided these) ----
 # Palette as a function, not a one-shot assignment: --no-color is parsed inside preflight_main,
@@ -203,7 +220,7 @@ check_gate() {
         on)  ok "Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the destructive write tools and refuses them with no human present" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
-        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
+        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add ${PLUGIN_KEY}" ;;
         *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
       esac ;;
     claude)
@@ -245,7 +262,7 @@ preflight_main() {
   [ -n "$platform" ] || platform="$(detect_platform)"
   _palette          # re-derive now that --no-color has actually been parsed
 
-  printf '\n%s   socxen preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+  printf '\n%s   %s preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$PLUGIN_NAME" "$RST" "$DIM" "$RST"
 
   head2 "Host agent"
   case "$platform" in
