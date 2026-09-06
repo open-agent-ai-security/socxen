@@ -217,19 +217,56 @@ PY
 # This does not resolve TOML — it detects that an override exists and refuses to claim
 # green, which is the conservative half of the job and the only half worth doing here. An
 # override that TIGHTENS the gate reads as "overridden" too; safe direction, and rare.
+# Prints: yes (a gated write's approval_mode is loosened somewhere) | no | unverifiable (a config.toml
+# does not parse -- reported as "cannot verify", never as gate ON).
+#
+# Codex accepts every TOML spelling of the same override -- section header, dotted key, inline table,
+# quoted keys -- and four review rounds each found a spelling a regex missed (#139). So the file is
+# PARSED wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
+# approval_mode is anything but approve. The awk scan below is the fallback for a host without it.
 codex_write_override() {
-  local f
+  local f verdict
   for f in "${CODEX_HOME:-$HOME/.codex}/config.toml" "./.codex/config.toml"; do
     [ -f "$f" ] || continue
-    # Three TOML spellings say the same thing, and Codex accepts all of them (#139):
+    if command -v python3 >/dev/null 2>&1 && python3 -c 'import tomllib' 2>/dev/null; then
+      verdict="$(python3 - "$f" <<'PY' 2>/dev/null
+import sys, tomllib
+GATED = {"exabeam_update_alert", "exabeam_update_case"}
+try:
+    with open(sys.argv[1], "rb") as fh:
+        cfg = tomllib.load(fh)
+except Exception:
+    print("unverifiable"); sys.exit(0)
+def loosened(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in GATED and isinstance(v, dict):
+                mode = v.get("approval_mode")
+                if mode is not None and str(mode).strip().lower() != "approve":
+                    return True
+            if loosened(v):
+                return True
+    elif isinstance(node, list):
+        return any(loosened(x) for x in node)
+    return False
+print("yes" if loosened(cfg) else "no")
+PY
+)"
+      case "$verdict" in
+        yes) printf 'yes'; return ;;
+        unverifiable) printf 'unverifiable'; return ;;
+        no) continue ;;
+      esac
+    fi
+    # Fallback without tomllib: three TOML spellings say the same thing, and Codex accepts all of them:
     #   [mcp_servers.exabeam.tools.exabeam_update_alert]   approval_mode = "never"     (section header)
     #   [mcp_servers.exabeam]  tools.exabeam_update_alert.approval_mode = "never"      (dotted key)
     #   tools = { exabeam_update_alert = { approval_mode = "never" } }                 (inline table)
     # A line is a loosening when a gated tool is in scope (the enclosing section, a dotted key, or its own
-    # inline table) and the approval_mode it carries is anything but approve (either quote style). Inline
-    # tables are walked tool by tool inside their own balanced {…}, so neither a sibling's "approve" nor a
-    # sibling gated tool can mask a loosened one (a first-match scan did exactly that — found in review).
-    # Comment lines are not settings.
+    # inline table, the key quoted or bare) and the approval_mode it carries is anything but approve
+    # (either quote style). Inline tables are walked tool by tool inside their own balanced {…}, so
+    # neither a sibling's "approve" nor a sibling gated tool can mask a loosened one. Comment lines are
+    # not settings.
     awk '
       function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\x27]approve["\x27]/) }
       /^[[:space:]]*#/ { next }
@@ -238,12 +275,12 @@ codex_write_override() {
         line = $0
         if (line !~ /approval_mode/) next
         if ((sec " " line) !~ /exabeam_update_(alert|case)/) next
-        if (line !~ /exabeam_update_(alert|case)[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
+        if (line !~ /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
           if (loose(line)) { print "loose"; exit }
           next
         }
-        s = line                                                                   # inline table(s)
-        while (match(s, /exabeam_update_(alert|case)[[:space:]]*=[[:space:]]*\{/)) {
+        s = line                                                                   # inline table(s), key bare or quoted
+        while (match(s, /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/)) {
           rest = substr(s, RSTART + RLENGTH); depth = 1; body = ""
           for (i = 1; i <= length(rest) && depth > 0; i++) {
             c = substr(rest, i, 1)
@@ -266,7 +303,10 @@ gate_state_codex() {
   [ -n "$out" ] || { printf 'unknown'; return; }
   if printf '%s' "$out" | grep -q 'default_tools_approval_mode: *approve' \
      && printf '%s' "$out" | grep -q 'disabled_tools:'; then
-    [ "$(codex_write_override)" = "yes" ] && { printf 'overridden'; return; }
+    case "$(codex_write_override)" in
+      yes) printf 'overridden'; return ;;
+      unverifiable) printf 'unverifiable'; return ;;
+    esac
     printf 'on'
   else
     printf 'off'
@@ -280,6 +320,8 @@ check_gate() {
       state="$(gate_state_codex)"
       case "$state" in
         on)  ok "Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the destructive write tools and refuses them with no human present" ;;
+        unverifiable)
+             warn "Cannot verify the gate — a config.toml does not parse as TOML, so per-tool overrides on update_alert/update_case cannot be read; fix the file (codex would reject it too)" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
         off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add ${PLUGIN_KEY}" ;;
