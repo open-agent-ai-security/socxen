@@ -220,8 +220,10 @@ release channel**: whatever lands there reaches new installers immediately.
 - **Connector dependencies:** the bridge's PEP 723 header is bounded and **locked**. If you add or
   change a dependency, re-lock in the same PR — `uv lock --script plugin/connector/exabeam-mcp-bridge.py`
   — and commit the updated `.lock` beside the script. `uv run` uses it automatically, so a stale lock
-  means users resolve a different tree than you tested. Regenerate the AI BOM in the same commit
-  (`uv run security/gen_aibom.py`); CI's `--check` catches the BOM but **not** lock drift.
+  means users resolve a different tree than you tested. Regenerate both BOMs in the same commit
+  (`uv run security/gen_aibom.py && uv run security/gen_sbom.py` — the SBOM is derived from the lock, so a
+  lock change always changes it); CI's `--check` steps catch a stale BOM but **not** lock drift, and
+  `pip-audit` in CI fails the build if the locked tree carries a known vulnerability.
 - **Evals:** if you change a fixture or the harness (`evals/`), include a recorded
   run and confirm the HARD safety gates pass. A backend/fixture is not mergeable
   without at least one grounded run.

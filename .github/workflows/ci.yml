@@ -9,7 +9,9 @@ on:
 
 # Third-party actions are pinned to a commit SHA, with the release tag in a trailing comment.
 # A mutable tag (@v4) can be repointed at new code by whoever controls the action's repo; a SHA
-# cannot. Keep the comment in sync when bumping, and never revert to a bare tag.
+# cannot. The repository setting "Require actions to be pinned to a full-length commit SHA" is ON,
+# so a bare tag is rejected at run time, and .github/dependabot.yml keeps the pins (and these
+# comments) current weekly. (#131)
 permissions:
   contents: read
 
@@ -18,10 +20,10 @@ jobs:
     name: Repo invariants (no inference)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Deterministic tests (invariants + bridge static + evals)
         # observra + typing_extensions are installed so the audit-log tests (real emit, privacy
@@ -56,3 +58,58 @@ jobs:
 
       - name: Codex approval map is generated from the permission snippet (no drift)
         run: uv run scripts/gen_codex_mcp.py --check
+
+      - name: SBOM is current with the lockfile
+        # Fails if security/sbom.cdx.json drifts from the bridge's uv lockfile — regenerate with
+        # `uv run security/gen_sbom.py` (bump_version.py does it for you on a release).
+        run: uv run security/gen_sbom.py --check
+
+  security:
+    name: Security lint + dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Security lint — the shipped plugin (required)
+        # ruff's flake8-bandit ruleset (S*) over the payload that lands on a user's machine. Every
+        # deliberate exception is a `# noqa: S###` with its reason beside it — the rule is that a
+        # swallowed exception in plugin/ is a documented decision, never an accident. (#100)
+        # Pinned like the actions and the lockfile: a floating linter turns a required check red on an
+        # unrelated PR the day a new S-rule ships. Bump by hand (Dependabot cannot see a --with pin).
+        run: uv run --with ruff==0.16.6 ruff check --select S plugin/
+
+      - name: Security lint — build-time code (advisory)
+        # scripts/, security/, evals/ never ship (#66); tests/ are asserts by nature. Reported, not
+        # gating, so a finding here is a code-quality signal rather than a broken build.
+        run: uv run --with ruff==0.16.6 ruff check --select S --exit-zero --statistics scripts/ security/ evals/
+
+      - name: Dependency audit — the bridge's locked tree (required)
+        # The bridge's PEP 723 lockfile is hash-pinned (#71 rungs 1-2). This is rung 3: every locked
+        # package that resolves on this runner's platform (Linux) checked against the OSV/PyPI advisory
+        # databases on every push, so a dependency that becomes known-vulnerable is a red build, not a
+        # surprise. The export keeps the lock's environment markers, so Windows-only entries (pywin32,
+        # colorama) are not audited here — Dependabot alerts cover the whole tree asynchronously; this
+        # is the synchronous gate.
+        run: |
+          uv export --script plugin/connector/exabeam-mcp-bridge.py --format requirements-txt --no-hashes -q > /tmp/bridge-requirements.txt
+          uv run --with pip-audit==2.10.1 pip-audit -r /tmp/bridge-requirements.txt --strict --progress-spinner off
+
+      - name: Build the SBOM from the lockfile
+        # Regenerated on every run (not just committed) so the artifact below is always the tree that
+        # was audited one step up, whatever the state of the checked-in copy.
+        run: uv run security/gen_sbom.py
+
+      - name: Publish the SBOM as a build artifact
+        # CycloneDX 1.6 JSON + the HTML render, attached to this workflow run (90 days). Consumers who
+        # want the SBOM for a given commit take it from here; the committed copy is the reviewed one.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: socxen-sbom-${{ github.sha }}
+          path: |
+            security/sbom.cdx.json
+            security/sbom.html
+          retention-days: 90
+          if-no-files-found: error

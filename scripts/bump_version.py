@@ -36,6 +36,7 @@ GEN_IDENTITY = ROOT / "plugin/gen_identity.py"
 CODEX_PLUGIN = ROOT / "plugin/.codex-plugin/plugin.json"
 README = ROOT / "plugin" / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
+GEN_SBOM = ROOT / "security/gen_sbom.py"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
@@ -81,7 +82,7 @@ def main(argv):
     if dry:
         for path, _ in edits:
             print(f"  would edit {path.relative_to(ROOT)}")
-        print("  would regenerate security/aibom.cdx.json + security/aibom.html")
+        print("  would regenerate security/aibom.cdx.json + security/aibom.html + security/sbom.cdx.json + security/sbom.html")
         return 0
 
     for path, content in edits:
@@ -93,6 +94,11 @@ def main(argv):
         subprocess.run([sys.executable, str(GEN_AIBOM)], check=True, cwd=str(ROOT))
     else:
         print("  note: security/gen_aibom.py not present — skipped AI BOM regen", file=sys.stderr)
+    if GEN_SBOM.exists():
+        # the SBOM's root component carries the version and its serial is version-derived
+        subprocess.run([sys.executable, str(GEN_SBOM)], check=True, cwd=str(ROOT))   # stdlib script: no uv on PATH needed
+    else:
+        print("  note: security/gen_sbom.py not present — skipped SBOM regen", file=sys.stderr)
 
     # verify consistency (what the invariant tests enforce)
     got = {
@@ -104,7 +110,7 @@ def main(argv):
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
     print(f"\n✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
-    print("  AI BOM regenerated.")
+    print("  AI BOM and SBOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0
 
