@@ -257,14 +257,26 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
     _emit("tool_end", tool_name=tool, **data)
 
 
-def tool_error(tool, duration_ms, exc, stage=None):
+def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, error_message=None,
+               http_status=None, is_retryable=None):
     """`stage` names the layer that raised: "neutralize" is the write-side guardrail refusing to forward
-    (fail-closed — a guardrail acting, recorded as such), "remote" is the upstream call."""
+    (fail-closed — a guardrail acting, recorded as such), "remote" is the upstream call, "upstream_tool"
+    the tool ran on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
+    `error_class` alone was always the anyio wrapper ("ExceptionGroup") for a remote failure, and 115
+    records in one incident carried zero bits about the cause."""
     data = {"duration_ms": round(duration_ms, 1), "error_class": type(exc).__name__}
     if stage:
         data["stage"] = stage
         if stage == "neutralize":
             data["guardrail_refused"] = True
+    if error_type_name:
+        data["error_type_name"] = str(error_type_name)[:80]
+    if error_message:
+        data["error_message"] = str(error_message)[:300]
+    if http_status is not None:
+        data["http_status"] = int(http_status)
+    if is_retryable is not None:
+        data["is_retryable"] = bool(is_retryable)
     _emit("tool_error", tool_name=tool, **data)
 
 
