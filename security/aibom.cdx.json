@@ -9,7 +9,7 @@
       "type": "application",
       "name": "socxen",
       "version": "0.8.5",
-      "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
+      "description": "socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent's tool-approval rules.",
       "licenses": [
         {
           "license": {
@@ -95,7 +95,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-01T20:43:35Z"
+    "timestamp": "2026-09-03T19:19:13Z"
   },
   "components": [
     {

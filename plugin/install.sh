@@ -30,12 +30,21 @@
 #   SOCXEN_SETTINGS_FILE        the settings.json the governance gate is checked/merged in
 set -euo pipefail
 
-MARKETPLACE_REPO="${SOCXEN_REPO:-open-agent-ai-security/plugins}"
-MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-open-agent-ai-security}"
-PLUGIN="${SOCXEN_PLUGIN:-socxen}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Identity comes from identity.sh, GENERATED from identity.json by gen_identity.py (no python3 needed to
+# read it); env still overrides. There is deliberately NO literal fallback: the install target is not a
+# cosmetic value, and a guessed name would install the upstream plugin after a re-key.
+if [ -f "$SCRIPT_DIR/identity.sh" ]; then . "$SCRIPT_DIR/identity.sh"; fi
+MARKETPLACE_REPO="${SOCXEN_REPO:-${SOCXEN_ID_MARKETPLACE_REPO:-}}"
+MARKETPLACE_NAME="${SOCXEN_MARKETPLACE:-${SOCXEN_ID_MARKETPLACE_NAME:-}}"
+PLUGIN="${SOCXEN_PLUGIN:-${SOCXEN_ID_NAME:-}}"
+if [ -z "$PLUGIN" ] || [ -z "$MARKETPLACE_NAME" ] || [ -z "$MARKETPLACE_REPO" ]; then
+  printf 'install.sh: cannot determine the plugin identity — %s/identity.sh is missing or incomplete.\n' "$SCRIPT_DIR" >&2
+  printf '  Regenerate it with: python3 %s/gen_identity.py   (or set SOCXEN_PLUGIN, SOCXEN_MARKETPLACE and SOCXEN_REPO)\n' "$SCRIPT_DIR" >&2
+  exit 1
+fi
 SCOPE="${SOCXEN_SCOPE:-user}"
 ENV_FILE="${EXABEAM_ENV_FILE:-$HOME/.exabeam-mcp.env}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE="$SCRIPT_DIR/connector/exabeam-mcp-bridge.py"
 
 # ---- flags ----
@@ -388,7 +397,7 @@ else
     elif anyv="$(installed_version)" && [ -n "$anyv" ]; then
       warn "Not installed at ${SCOPE} scope (see the failure above), but a ${anyv} install exists at another scope and still works"
     else
-      warn "Install at ${SCOPE} scope failed (see above), but a socxen install is visible in 'claude plugin list'"
+      warn "Install at ${SCOPE} scope failed (see above), but a ${PLUGIN} install is visible in 'claude plugin list'"
     fi
   else
     case "$PLUGIN_OUTCOME" in

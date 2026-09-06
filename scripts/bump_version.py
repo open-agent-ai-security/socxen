@@ -9,8 +9,8 @@
 Version lives in three coupled places; the invariant tests + CI fail if they drift, so bumping by hand
 is error-prone. This edits all of them and regenerates the AI BOM:
 
-  - `plugin/.claude-plugin/plugin.json`               → `version`
-  - `plugin/.codex-plugin/plugin.json`                → `version`  (must not skew)
+  - `plugin/identity.json`                            → `version`  (the source; both manifests are
+    regenerated from it by plugin/gen_identity.py)
   - `plugin/README.md`                                → the `version-vX.Y.Z` pill
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
 
@@ -29,8 +29,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugin/.claude-plugin/plugin.json"
-# Two manifests, one release. A skew here ships a Codex plugin whose advertised version
-# disagrees with the Claude one; tests/test_repo_invariants.py pins them together.
+# Two manifests, one release — both GENERATED from plugin/identity.json (the version source) by
+# plugin/gen_identity.py, so the bump edits identity.json and regenerates; tests pin all three together.
+IDENTITY = ROOT / "plugin/identity.json"
+GEN_IDENTITY = ROOT / "plugin/gen_identity.py"
 CODEX_PLUGIN = ROOT / "plugin/.codex-plugin/plugin.json"
 README = ROOT / "plugin" / "README.md"
 GEN_AIBOM = ROOT / "security/gen_aibom.py"
@@ -59,21 +61,18 @@ def main(argv):
     if len(positional) != 1 or not SEMVER.match(positional[0]):
         fail("usage: bump_version.py X.Y.Z[-prerelease] [--dry-run]")
     new = positional[0]
-    for f in (PLUGIN, CODEX_PLUGIN, README):
+    for f in (IDENTITY, PLUGIN, CODEX_PLUGIN, README, GEN_IDENTITY):
         if not f.exists():
             fail(f"{f.relative_to(ROOT)} not found — cannot bump a partial checkout")
-    old = json.loads(PLUGIN.read_text())["version"]
+    old = json.loads(IDENTITY.read_text())["version"]          # the file being edited is the authority
     if old == new:
         fail(f"version is already {new}")
     print(f"bump {old} -> {new}" + ("  (dry run — no files written)" if dry else ""))
 
     edits = [
-        (PLUGIN, _sub_once(PLUGIN.read_text(),
+        (IDENTITY, _sub_once(IDENTITY.read_text(),
                            r'("version"\s*:\s*")' + re.escape(old) + r'(")',
-                           r"\g<1>" + new + r"\g<2>", "plugin.json version")),
-        (CODEX_PLUGIN, _sub_once(CODEX_PLUGIN.read_text(),
-                           r'("version"\s*:\s*")' + re.escape(old) + r'(")',
-                           r"\g<1>" + new + r"\g<2>", "codex plugin.json version")),
+                           r"\g<1>" + new + r"\g<2>", "identity.json version")),
         (README, _sub_once(README.read_text(),
                            r"(badge/version-v)" + re.escape(old) + r"(-)",
                            r"\g<1>" + new + r"\g<2>", "README version pill")),
@@ -88,6 +87,7 @@ def main(argv):
     for path, content in edits:
         path.write_text(content)
         print(f"  edited {path.relative_to(ROOT)}")
+    subprocess.run([sys.executable, str(GEN_IDENTITY)], check=True, cwd=str(ROOT))   # both manifests follow identity.json
 
     if GEN_AIBOM.exists():
         subprocess.run([sys.executable, str(GEN_AIBOM)], check=True, cwd=str(ROOT))
@@ -103,7 +103,7 @@ def main(argv):
     mismatch = {k: v for k, v in got.items() if v != new}
     if mismatch:
         fail(f"post-bump mismatch (expected {new}): {mismatch}")
-    print(f"\n✓ plugin.json / codex plugin.json / README pill all at {new}")
+    print(f"\n✓ identity.json → plugin.json / codex plugin.json regenerated; README pill — all at {new}")
     print("  AI BOM regenerated.")
     print("\nnext: review the diff, commit the bump + regenerated BOM, and open a PR to dev.")
     return 0
