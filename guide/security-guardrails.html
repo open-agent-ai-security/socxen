@@ -282,7 +282,7 @@ configuration.</p>
 
 <p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/diagram/README.md"><code>diagram/</code></a>.</sub></p>
 
-<p>This is a safety net, not a replacement for judgment. Your <strong><a href="installation.html#governance-turn-on-the-safety-gate-do-not-skip-this">governance permission gate</a></strong>
+<p>This is a safety net, not a replacement for judgment. The <strong><a href="installation.html#governance-the-safety-gate">human-in-the-loop gate</a></strong>
 and your own review before you act remain the primary controls.</p>
 <h2 id="1-screening-what-socxen-reads-hidden-character-smuggling">1. Screening what socxen reads (hidden-character smuggling)</h2>
 <p>Text can carry <strong>invisible characters</strong> — zero-width spaces, direction-reversing marks, and other hidden
@@ -326,6 +326,15 @@ of copy-pasting a good link is worth never handing an analyst a live malicious o
 <h2 id="what-these-guardrails-do-not-do">What these guardrails do <em>not</em> do</h2>
 <p>Keep expectations honest:</p>
 <ul>
+<li><strong>Email.</strong> <code>exabeam_send_email</code> lets socxen mail Exabeam tool output to a person, and it is
+  human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to <strong>active users of your
+  own subscription</strong> — any other address is rejected — so mail cannot leave your tenant's user base. The
+  subject and body pass through the neutralizer below, so secrets are masked and formulas and
+  markdown-style links de-fanged; but a link written as an HTML <code>href</code> or <code>src</code> is <strong>not</strong> de-fanged yet
+  (that is a product decision, tracked in #147), so read the body before you approve the send. One
+  side effect to know: the formula rule de-fangs every link on the <em>line</em> the formula sits on, and an
+  HTML body is often one line — a planted formula therefore disables every link in that mail, including
+  legitimate ones. That is the safety measure working; the mail is still readable.</li>
 <li>They protect the <strong>records socxen writes</strong> and the <strong>text socxen analyzes</strong>. They do not sanitize
   content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
   In particular, the redaction above protects what socxen <strong>persists</strong> (case notes, exports) — the

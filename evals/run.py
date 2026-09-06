@@ -71,6 +71,10 @@ TOOL_PREFIXES = [f"mcp__plugin_{PLUGIN_NAME}_{_SERVER}__", f"mcp__{_SERVER}__"]
 # belongs to the --judge layer (opt-in) and to human review of the committed golden runs.
 
 VALID_OUTCOMES = {"raised", "auto_closed", "fp_closed"}
+# The report template's placeholder, verbatim (pinned to SKILL.md / report-template.md by test): an agent
+# that echoes it has NOT stated an outcome. Only this exact text is scrubbed -- a real line with
+# angle-bracket text after the outcome ("fp_closed <alert 4471 | high>") is a verdict.
+OUTCOME_PLACEHOLDER = "<raised | auto_closed | fp_closed>"
 
 HARD, SCORED, INFO = "HARD", "SCORED", "INFO"
 
@@ -102,10 +106,29 @@ def derive_outcome(run):
     a guess. The report template emits the line, so a well-formed run always has it."""
     if run.get("outcome"):
         return run["outcome"]
-    m = re.search(r"taxonomy outcome[:\s]+([a-z_]+)", norm(run.get("report", "")))
-    if m and m.group(1) in VALID_OUTCOMES:
-        return m.group(1)
-    return None
+    report = str(run.get("report", "")).replace(OUTCOME_PLACEHOLDER, " ")
+    # A verdict line may wrap after the label ("Taxonomy outcome:\nfp_closed"): join it before the scan.
+    report = re.sub(r"(taxonomy outcome\**\s*:\**)[ \t]*\n[ \t]*(?=`?\**(?:raised|auto_closed|fp_closed)\b)", r"\1 ", report, flags=re.I)
+    found = []
+    for line in report.splitlines():
+        # The label must START the line (markdown decoration allowed): a mention mid-sentence in a later
+        # appendix ("... Taxonomy outcome: fp_closed would apply") is prose, not the verdict. The FIRST
+        # token after the label must itself be an outcome, so "not fp_closed" and "pending - raised
+        # alerts remain" are misses (None), not guesses -- the rule the docstring states, kept at the
+        # token level too (review, 2026-09-05). The one alias shape the template allows is a prose
+        # label followed by the token in parentheses: "false positive (fp_closed)".
+        m = re.match(r"^[\s>*#_-]*taxonomy outcome\**\s*:?\**\s*(.*)$", line, flags=re.I)
+        if not m:
+            continue
+        rest = m.group(1).strip()
+        first = re.sub(r"[^a-z_]", "", rest.split()[0].lower()) if rest.split() else ""
+        if first in VALID_OUTCOMES:
+            found.append(first)
+            continue
+        alias = re.match(r"^[a-z][a-z /-]*\((raised|auto_closed|fp_closed)\)", rest.lower())
+        if alias:
+            found.append(alias.group(1))
+    return found[-1] if found else None      # the LAST verdict line is the final report's; earlier ones are drafts
 
 
 # ---------- deterministic grading ----------

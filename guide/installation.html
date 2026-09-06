@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#claude-code">Claude Code</a></li><li><a href="#openai-codex">OpenAI Codex</a></li><li><a href="#credentials-the-only-manual-step">Credentials (the only manual step)</a></li><li><a href="#governance-turn-on-the-safety-gate-do-not-skip-this">Governance — turn on the safety gate (do not skip this)</a></li><li><a href="#audit-logging-on-by-default">Audit logging (on by default)</a></li><li><a href="#updating">Updating</a></li><li><a href="#any-other-agent">Any other agent</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#claude-code">Claude Code</a></li><li><a href="#openai-codex">OpenAI Codex</a></li><li><a href="#credentials-the-only-manual-step">Credentials (the only manual step)</a></li><li><a href="#governance-the-safety-gate">Governance — the safety gate</a></li><li><a href="#audit-logging-on-by-default">Audit logging (on by default)</a></li><li><a href="#updating">Updating</a></li><li><a href="#any-other-agent">Any other agent</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="installation">Installation</h1>
 <p>socxen ships as a portable <strong>agent skill suite</strong> (<code>skills/</code>) for <strong>Claude Code</strong> and <strong>OpenAI Codex</strong>,
@@ -415,18 +415,29 @@ claude mcp add --transport http exabeam https://api.&lt;region&gt;.exabeam.cloud
 
 <p>The bundled server registers as <code>exabeam</code>; the governance rules match its plugin-namespaced tools
 (<code>mcp__plugin_socxen_exabeam__…</code> — see Governance below).</p>
-<h2 id="governance-turn-on-the-safety-gate-do-not-skip-this">Governance — turn on the safety gate (do not skip this)</h2>
+<h2 id="governance-the-safety-gate">Governance — the safety gate</h2>
 <blockquote>
-<p>🛑 <strong>On Claude Code this is the most important step on the page. Install the permissions pack before you
-point socxen at anything real.</strong> It is the <em>only</em> hard, harness-enforced lock on dismiss/close. Skip it
-and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
-as mandatory, not "recommended."</p>
-<p><strong>On Codex there is nothing to merge — Codex requires approval for the destructive write tools and
-refuses them when no human is present.</strong> Skip to
-<a href="#verifying-the-gate-on-codex">Verifying the gate on Codex</a>.</p>
+<p>✅ <strong>The gate ships ON, on both hosts.</strong> On <strong>Claude Code</strong> it is a <code>PreToolUse</code> hook bundled in the
+plugin (<code>hooks/gate.py</code>) that is active the moment the plugin is enabled: it <strong>asks</strong> you before
+<code>exabeam_update_alert</code> / <code>exabeam_update_case</code> / <code>exabeam_send_email</code>, <strong>denies</strong> every containment
+tool outright, and <strong>asks</strong> on any tool this release hasn't classified. Its decisions hold even under
+<code>--dangerously-skip-permissions</code>, and when no human is present (<code>claude -p</code>, CI) an <em>ask</em> is refused.
+On <strong>Codex</strong> the same tiers ship inside the package as tool-approval policy, and Codex cancels a
+destructive tool when nobody is there to approve it. Nothing to merge on either host.</p>
+<p>The hook also grants the reads: its <em>allow</em> on the 16 read tools and the two escalation writes
+bypasses the prompt, so with nothing merged a safe operation runs silently and a dangerous one asks —
+the same split Codex applies from the same tier file (verified headless in default permission mode,
+2026-09-06). Your own rules still win: a <code>deny</code> on one of these tools removes it from the model's tool
+list before the hook runs, and an <code>ask</code> still prompts — the hook's <em>allow</em> only removes the default
+prompt (both verified live the same day). The hook
+fires for the bundled server under any plugin key and for any manually wired server whose name
+contains <code>exabeam</code> (<code>claude mcp add exabeam …</code>); the permission rules below recognize only the bundled
+key and a server named exactly <code>exabeam</code>, so if you wire by hand, <strong>name it <code>exabeam</code></strong>. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
+Windows) and <code>python3</code> 3.7+ on <code>PATH</code>; without <code>python3</code> every gated call is refused, not allowed.</p>
 </blockquote>
-<h3 id="claude-code_1">Claude Code</h3>
-<p>This is the control that makes socxen safe to point at real alerts. Merge the <code>permissions</code> block from
+<h3 id="claude-code-the-optional-permission-rules">Claude Code — the optional permission rules</h3>
+<p>You do not need these. They are a second lock on dismiss/close that does not depend on the hook (the
+same tiers, enforced by Claude Code's own permission system), and nothing more. Merge the <code>permissions</code> block from
 <code>skills/soc-investigate/settings.snippet.json</code> — inside the installed plugin, or
 <code>plugin/skills/soc-investigate/settings.snippet.json</code> from a clone — into the settings file Claude Code
 reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-settings-file">Which settings file?</a> below):</p>
@@ -435,10 +446,9 @@ reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-sett
 <li><strong><code>ask</code></strong> on <code>update_alert</code> / <code>update_case</code> (dismiss/close — where a wrong verdict does the most harm),</li>
 <li><strong><code>deny</code></strong> the 17 containment tools (defense-in-depth; the MCP exposes none today).</li>
 </ul>
-<p>Merged, this is a <strong>hard, harness-enforced gate</strong>: Claude Code prompts you before a dismiss/close runs
-and will not execute it without your approval, and deterministically hard-blocks the containment tools.
-<strong>Until it's merged there is no permission-layer gate</strong> — only the skill's in-prompt ask (softer). The
-rules use the <strong>bundled</strong> MCP's tool names (<code>mcp__plugin_socxen_exabeam__…</code>); for the advanced manual
+<p>Merged, the rules and the bundled hook agree on every tool — they are generated from the same tier
+file, and a test pins that — so a dismiss/close prompts once, not twice. The rules use the <strong>bundled</strong>
+MCP's tool names (<code>mcp__plugin_socxen_exabeam__…</code>); for the advanced manual
 <code>claude mcp add exabeam</code> path instead, use <code>mcp__exabeam__…</code>.</p>
 <h3 id="let-the-installer-merge-it-for-you">Let the installer merge it for you</h3>
 <p>From a clone, <code>plugin/install.sh</code> can perform the merge instead of you hand-editing JSON:</p>
@@ -471,9 +481,11 @@ otherwise <code>$CLAUDE_CONFIG_DIR/settings.json</code> if your config dir is re
 <code>~/.claude/settings.json</code>. Every message names the resolved path, so you can always see which file was
 checked or written.</p>
 <blockquote>
-<p>⚠️ <strong>Do not run socxen with <code>--dangerously-skip-permissions</code></strong>, bypass-permissions, or auto-accept
-modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
-soft ask. Keep permissions on.</p>
+<p>⚠️ <strong>Keep permissions on.</strong> <code>--dangerously-skip-permissions</code>, bypass-permissions and auto-accept modes
+turn the <em>permission rules</em> off — but <strong>not the bundled hook</strong>: its <em>deny</em> on containment and its <em>ask</em>
+on dismiss/close still fire in those modes, and with nobody there to answer, an <em>ask</em> is refused
+(verified live, 2026-09-04). What you lose in those modes is the second lock — the rules, if you
+merged them. Do not rely on that.</p>
 </blockquote>
 <p>Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in

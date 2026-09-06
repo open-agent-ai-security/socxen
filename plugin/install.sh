@@ -131,7 +131,7 @@ fi
 # Host-neutral checks live in preflight.sh so the two entry points cannot drift: a credentials
 # or connectivity check that behaves differently depending on which script you ran is exactly the
 # bug that reproduces on one platform and not the other.
-check_toolchain
+PF_PLATFORM=claude check_toolchain
 check_credentials
 
 # Version of ${PLUGIN}@${MARKETPLACE_NAME} installed at scope $1 (any scope if omitted). Prints
@@ -508,18 +508,18 @@ elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
   # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
   # "assume yes" answers the installer's own questions, it does not authorize writing to the
   # operator's settings.json. Installation alone must never change that file (#70 non-goal).
-  warn "Governance not merged — the dismiss/close hard-gate is OFF until you merge settings.snippet.json (or re-run with --merge-permissions)"
+  warn "Permission rules not merged — not needed: the bundled hook gates dismiss/close, blocks containment and allows the reads. Merging adds a second lock that does not depend on the hook (re-run with --merge-permissions)"
 else
   # Gate is OFF, we're interactive, and we can do something about it — offer, showing exactly what
   # would change first. Declining leaves the original warning, unchanged from previous releases.
-  printf '\n   %sThe dismiss/close hard-gate is OFF.%s I can merge it for you — additive only,\n' "$YLW" "$RST"
+  printf '\n   %sPermission rules not merged (optional — the bundled hook already gates dismiss/close).%s I can merge them as a second lock — additive only,\n' "$YLW" "$RST"
   printf '   nothing of yours removed or reordered, and %s is backed up first:\n\n' "$SETTINGS"
   python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" --dry-run 2>&1 | sed 's/^/     /' || true
   printf '\n   Merge it now? [y/N] '
   read -r reply || reply=""
   case "$reply" in
     [yY]|[yY][eE][sS]) run_merge ;;
-    *) warn "Governance not merged (declined) — the dismiss/close hard-gate stays OFF until you merge settings.snippet.json" ;;
+    *) warn "Permission rules not merged (declined) — fine: the bundled hook gates dismiss/close and allows the reads" ;;
   esac
 fi
 
@@ -537,11 +537,11 @@ ${BOLD}   Next steps${RST}
         EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
-   2. Merge the ${BOLD}permissions${RST} block from
+   2. (optional) Merge the ${BOLD}permissions${RST} block from
         ${SNIPPET}
-      into ${SETTINGS}
-      — or let the installer do it: ${CYAN}${SCRIPT_DIR}/install.sh --merge-permissions${RST}
-      ${YLW}⚠ don't run with --dangerously-skip-permissions (it disables the gate).${RST}
+      into ${SETTINGS} as a second lock — the bundled hook already gates dismiss/close:
+        ${CYAN}${SCRIPT_DIR}/install.sh --merge-permissions${RST}
+      ${YLW}⚠ keep permissions on: skip-permissions modes turn the rules off (the hook's deny/ask still fire).${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT
 else

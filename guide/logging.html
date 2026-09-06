@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="logging-structured-audit-trail-on-by-default">Logging (structured audit trail) — on by default</h1>
 <p><strong>What it is:</strong> a structured, durable, machine-parseable record of what the agent did on every
@@ -295,7 +295,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>mcp_session_start</code> / <code>mcp_session_end</code></td>
 <td>bridge process start / exit</td>
-<td><code>session_id</code>, host context</td>
+<td><code>session_id</code>, host context; on start also the configuration attestation: <code>telemetry_backend</code>, <code>telemetry_destination</code> (resolved file path, or scheme + host of the endpoint), <code>dry_run</code>, <code>plugin_version</code>, <code>gate_log</code></td>
 </tr>
 <tr>
 <td><code>tool_start</code></td>
@@ -310,7 +310,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tool_error</code></td>
 <td>a tool call raises</td>
-<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code></td>
+<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call)</td>
 </tr>
 </tbody>
 </table>
@@ -329,7 +329,26 @@ core of the trail.</p>
 call:</p>
 <pre><code class="language-json">&quot;defang_formula&quot;: 1, &quot;defang_link&quot;: 1          // output neutralizer defanged a formula / phishing link on a write
 &quot;hygiene_stripped&quot;: 3, &quot;hygiene_classes&quot;: &quot;U+200B,U+202E&quot;   // input canonicalizer stripped smuggling code points on a read
+&quot;hygiene_kept&quot;: 2, &quot;hygiene_kept_classes&quot;: &quot;U+200D,U+200F&quot;   // joiners / directional marks were present — kept verbatim, flagged here
+&quot;hygiene_screen_failed&quot;: true                                 // screening threw on a block; it passed through raw (fail-open)
 </code></pre>
+<p><code>hygiene_kept</code> is the only place that signal exists: the text is never altered and no marker is ever
+written in-band (a marker in alert data would be forgeable). A right-to-left mark or a zero-width joiner in
+a value is not proof of anything — Persian, Arabic and emoji use them legitimately — but on a homoglyph or
+bidi-shaped investigation it is the field to query.</p>
+<h2 id="the-gates-own-record">The gate's own record</h2>
+<p>The bundled Claude Code hook keeps a second, smaller log beside the telemetry: <code>~/.socxen/gate.jsonl</code>
+(<code>SOCXEN_GATE_LOG=off</code> disables it and says so on stderr; another path overrides; rotates at ~5 MB with
+three backups). One line per decision:</p>
+<pre><code class="language-json">{&quot;ts&quot;: &quot;2026-09-05T16:01:26+00:00&quot;, &quot;tool&quot;: &quot;mcp__plugin_socxen_exabeam__exabeam_update_alert&quot;,
+ &quot;decision&quot;: &quot;ask&quot;, &quot;reason&quot;: &quot;socxen gate: exabeam_update_alert dismisses or closes. It needs the analyst's explicit yes — ask, and wait.&quot;,
+ &quot;target&quot;: {&quot;alertId&quot;: &quot;4471&quot;, &quot;alertStatus&quot;: &quot;DISMISSED&quot;}}
+</code></pre>
+<p><code>target</code> carries the same safe identifier and disposition fields the telemetry's <code>action.*</code> record uses,
+and nothing else — so a refused attempt reads as <em>tried to dismiss alert 4471 as dismissed</em>, which is the
+near-miss a SOC wants to see, while the note, description or reason text a payload can ride in never
+enters the file. This is also the only record of an attempt the gate stopped <strong>before</strong> it reached the
+bridge; the telemetry sees only calls that got that far.</p>
 <h2 id="what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</h2>
 <p>The log stores <strong>metadata about</strong> the agent's actions — never the raw evidence. Specifically <strong>excluded</strong>:</p>
 <ul>
@@ -376,8 +395,23 @@ omitted to avoid scattering it across every write.</p>
 <td><code>SOCXEN_OBSERVRA_BACKUPS</code></td>
 <td><code>5</code></td>
 </tr>
+<tr>
+<td>Webhook destination</td>
+<td><code>SOCXEN_OBSERVRA_URL</code></td>
+<td>— (required for <code>webhook</code>)</td>
+</tr>
+<tr>
+<td>OTLP endpoint</td>
+<td><code>SOCXEN_OBSERVRA_ENDPOINT</code></td>
+<td>— (else <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> / <code>..._LOGS_ENDPOINT</code>, else <code>http://localhost:4318</code>)</td>
+</tr>
 </tbody>
 </table>
+<p>Whatever the backend, the bridge prints the <strong>resolved destination</strong> on stderr at startup (a path, or the
+scheme + host of the endpoint — never a URL path or query, which can carry a token) and records the same on
+the <code>mcp_session_start</code> event, so the trail itself attests where it was shipped. One disclosure cannot go
+into the log: if telemetry disables itself (a misconfigured backend, a missing library) that fact is
+printed to stderr only, because there is no longer a log to write it to.</p>
 <p>So the log <strong>rotates</strong> (<code>telemetry.jsonl</code> → <code>.1</code> → … → <code>.5</code>, oldest deleted) and is bounded to roughly
 <strong>60 MB</strong> by default. It never grows without limit.</p>
 <p>Other backends (opt-in via <code>SOCXEN_OBSERVRA=</code>): <code>exabeam</code> (routes telemetry back into Exabeam using the
@@ -427,7 +461,7 @@ counted, not announced. The security guardrails are independent and keep running
 <p>Off means <em>off</em>: no file, and observra is never imported.</p>
 <h2 id="known-limitation">Known limitation</h2>
 <p>The trail records the <strong>gated action and its disposition deterministically at the write sink</strong>, and in the
-<a href="installation.html#governance-turn-on-the-safety-gate-do-not-skip-this">supported governance posture</a> an
+<a href="installation.html#governance-the-safety-gate">supported governance posture</a> an
 <code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human approves it — so the write
 event is evidence the approval happened. It does <strong>not</strong> yet capture a distinct <em>approver-identity</em> event
 (who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —

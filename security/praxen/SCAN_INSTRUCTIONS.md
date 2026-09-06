@@ -11,13 +11,14 @@
 # SCAN INSTRUCTIONS — socxen — agentic SOC skill suite (whole deployed system)
 
 **Do not scan any one skill in isolation.** socxen's security architecture is a *system*: the
-agent skills, a bundled MCP bridge, a permissions pack the operator must merge, two always-on
-connector guardrails, and default-on audit logging. Scoping to a single `SKILL.md`
+agent skills, a bundled MCP bridge, a bundled PreToolUse hook (the human-in-the-loop gate, active on
+install), an optional permissions pack the operator may merge, two always-on connector guardrails, and
+default-on audit logging. Scoping to a single `SKILL.md`
 alone would miss every enforcement mechanism and mis-score the whole target.
 
 | Field | Value |
 |-------|-------|
-| Main target to scan | The **deployed socxen system**: (1) **all agent skills** under `plugin/skills/**` — each skill's `SKILL.md` and `reference/**`, plus `settings.snippet.json` (the permissions pack) and `merge_permissions.py` where present; (2) the **connector** `plugin/connector/**` — `exabeam-mcp-bridge.py` (bundled MCP server, OAuth refresh, credential handling), `canonicalize.py` (inbound telemetry screening), `neutralize_output.py` (outbound content de-activation), `observra_logging.py` (audit trail); (3) `plugin/install.sh` and what it wires up; (4) any packaging/config that defines the deployed surface (`plugin/.claude-plugin/plugin.json`, `plugin/.mcp.json`). Note the shipped payload lives under `plugin/`; the repo root holds build-time material that is **not** installed. |
+| Main target to scan | The **deployed socxen system**: (1) **all agent skills** under `plugin/skills/**` — each skill's `SKILL.md` and `reference/**`, plus `settings.snippet.json` (the tier source: the permissions pack, and what the hook reads) and `merge_permissions.py` where present; (1b) **the bundled gate** `plugin/hooks/**` — `hooks.json` (the PreToolUse matcher) and `gate.py` (the decision), and its `hooks` declaration in the plugin manifest; (2) the **connector** `plugin/connector/**` — `exabeam-mcp-bridge.py` (bundled MCP server, OAuth refresh, credential handling), `canonicalize.py` (inbound telemetry screening), `neutralize_output.py` (outbound content de-activation), `observra_logging.py` (audit trail); (3) `plugin/install.sh` and what it wires up; (4) any packaging/config that defines the deployed surface (`plugin/.claude-plugin/plugin.json`, `plugin/.mcp.json`). Note the shipped payload lives under `plugin/`; the repo root holds build-time material that is **not** installed. |
 | Also in scope as evidence | `security/**` (design notes, red-team corpus/runner/results/history, AIBOM), `evals/**`, `tests/**`, `scripts/**`, `.github/**` — these are **maturity and practice evidence** for the Step 8b sweep, not the behavioral subject. Judge them under the provenance test: does the project attack **its own** defenses, with findings traced to fixes? |
 | Excluded | Nothing is hard-excluded. Prefer depth on the four subject areas above. |
 | Hygiene sweeps | Whole tree regardless of subject scope: committed secrets/credential literals, dependency pinning, workflow/action pinning. |
@@ -26,17 +27,23 @@ alone would miss every enforcement mechanism and mis-score the whole target.
 
 These are the load-bearing ones — resolve each **in code**, and state which layer enforces it:
 
-1. **Dismiss/close (`update_alert` / `update_case`).** The docs describe two gates: the harness
-   permission rule (`ask`) and the skill's in-prompt confirmation. Determine what is enforced
-   **by default, on a fresh install**, versus what requires the operator to opt in. The
-   installer can now perform the merge itself (`--merge-permissions`, and an interactive offer when the
-   gate reads OFF) into a *resolved* settings path (`SOCXEN_SETTINGS_FILE` → `$CLAUDE_CONFIG_DIR/settings.json` →
-   `~/.claude/settings.json`) — so determine whether the shipped default path now *installs* the gate
-   or still only warns. Apply the boundary rules: a control the operator must opt into is
-   **capability, not posture**, on the shipped default path.
-2. **Containment tools.** The docs say 17 containment tools are `deny`-listed defense-in-depth and
-   that "the MCP exposes none today." Verify both halves against the code/config — a deny rule that
-   only exists in an unmerged snippet, and a tool surface that is empty anyway, are different claims.
+1. **Dismiss/close (`update_alert` / `update_case`).** The docs now say the gate **ships ON**: a
+   PreToolUse hook bundled in the plugin (`plugin/hooks/hooks.json` + `gate.py`, declared in
+   `plugin.json`), keyed on the bare tool name, reading its tiers from `settings.snippet.json`; *ask* on
+   dismiss/close and `send_email`, *deny* on every containment tool, *ask* on any tool it has not
+   classified; its deny/ask hold under `--dangerously-skip-permissions`; a headless *ask* is a refusal;
+   it never fails open (unreadable tiers or a malformed event → ask). Verify each claim **in code**: the
+   manifest actually wires the hook; the matcher covers the bundled prefix, the plugin-key-agnostic
+   prefix and a manually wired `exabeam` server; the tier read fails closed; the emitted decision is the
+   shape the host honors. Then separate what remains **opt-in** — the permission-rules merge
+   (`--merge-permissions`; an optional second lock — the hook's *allow* already makes the reads prompt-free, and a manual server must be named `exabeam` for either layer to see it) — and what a **Codex**
+   install gets (`.mcp.codex.json` approval mode + `disabled_tools`). The skill's in-prompt confirmation
+   is the third, model-side layer. Apply the boundary rules: a control the operator must opt into is
+   **capability, not posture**, on the shipped default path; a control that ships active is posture.
+2. **Containment tools.** The docs say 17 containment tools are `deny`-listed defense-in-depth — now in
+   the bundled hook's deny tier as well as the snippet — and that "the MCP exposes none today." Verify
+   all three claims against the code/config: a deny that the hook enforces on install, a deny that only
+   exists in an unmerged snippet, and a tool surface that is empty anyway are different claims.
 3. **The two automatic guardrails.** `canonicalize.py` and `neutralize_output.py` are described as
    running on **every** Exabeam call. Verify they are actually wired into the call path (not
    declared-but-unreferenced — apply the phantom/inert-control rule), and determine what they do and
@@ -52,7 +59,8 @@ These are the load-bearing ones — resolve each **in code**, and state which la
 
 ## Notes
 
-- Pin the source SHA at scan time and record it in the results artifact — do not re-clone or pull mid-scan. (The 2026-08-12 run was pinned at `005fa4c`, socxen 0.6.9; the 2026-08-19 high-mode run at `1a93c22`, dev pre-0.8.0; see `results/`.)
+- Pin the source SHA at scan time and record it in the results artifact — do not re-clone or pull mid-scan. (The 2026-08-12 run was pinned at `005fa4c`, socxen 0.6.9; the 2026-08-19 high-mode run at `1a93c22`, dev pre-0.8.0; the 2026-09-05 run — the first on Praxen 2.0 beta, with the threat model — at the `gate/bundled-hook` tip recorded in the workspace's `CLONE_SHA.txt`; see `results/`.)
+- Red-team evidence for this run includes a **hook-only leg** (`--claude-gate hook`: permissions bypassed, write tools offered, the hook the only gate) and a fixture that provokes the gated write on purpose (`c03`, `attempt_expected`) — see `security/redteam/HISTORY.md` and `results/`.
 - The remit for this scan was authored **blind** (documentation only, no implementation access) by a
   separate agent. Divergence between the documented intent and the implementation is the finding
   surface — that is the point.
