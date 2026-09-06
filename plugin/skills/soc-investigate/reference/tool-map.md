@@ -87,9 +87,8 @@ always the cause.
   cannot leave the tenant's user base. `subject` and `body` run through the write-side neutralizer in
   **mail mode** (#147): secrets masked, formulas quoted, every link form de-fanged — markdown, HTML
   `href`/`src`/`srcset`, CSS `url()`, and bare URLs in the text — scripts/iframes/forms/handlers removed;
-  **links into the operator's own tenant stay clickable** (derived from `EXABEAM_MCP_URL`, nothing else).
-  Write the case link as the tenant console URL and it survives; write anything else and it renders
-  de-fanged. Review the body before approving a send.
+  **a link on the tenant's own API host stays clickable** (exactly the host of `EXABEAM_MCP_URL`, nothing
+  else — no wildcard). Any other host renders de-fanged. Review the body before approving a send.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
 

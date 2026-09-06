@@ -89,7 +89,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 6 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 19 allow / 6 ask / 76 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -100,7 +100,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-06T17:55:15Z"
+    "timestamp": "2026-09-06T18:08:31Z"
   },
   "components": [
     {
@@ -265,7 +265,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 21 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 23 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -288,7 +288,11 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "21"
+          "value": "23"
+        },
+        {
+          "name": "mcp:toolCountBasis",
+          "value": "tools the live MCP exposes per tool-map.md; names denied ahead of exposure excluded"
         },
         {
           "name": "mcp:containmentCapability",
