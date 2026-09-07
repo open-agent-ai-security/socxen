@@ -63,8 +63,11 @@ governance model (feature → `dev`, release `dev` → `main`).
   `plugin_<this plugin's name>_exabeam`, with the name read from the identity file beside the hook — so a
   vendor-keyed copy recognizes its own bridge and a manual or third-party Exabeam-named server gets the
   operator's own rules for reads (it still gets *ask* and *deny*, which only tighten); the matcher and the
-  hook are both case-insensitive, so they cannot disagree about which calls are ours; `preflight` warns
-  when an Exabeam server is registered under a name the gate does not reach. The deny tier now carries
+  hook's *is-ours* test are both case-insensitive, so they cannot disagree about which calls the
+  restrictions reach — while the identity comparison that grants *allow* stays exact, so an oddly-cased
+  server name falls through to the operator's rules rather than being granted (loose for restrictions,
+  exact for grants — the asymmetry is deliberate); `preflight` warns when an Exabeam server is registered
+  under a name the gate does not reach. The deny tier now carries
   every detection-content verb the Worker Remit names (create/update/enable/disable/delete a detection,
   correlation or exclusion rule; create/update/delete a context table or its records) under both
   spellings, ahead of the MCP exposing them; the two parser reads the proxy defines are classified
