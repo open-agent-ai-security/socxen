@@ -325,7 +325,7 @@ a floor, not a total: `totalRows` is the true count even when you only pulled `l
 ## Quality bar for a query
 
 - **Tight window.** Start narrow (the alert window ± hours); widen only with a reason.
-- **Named fields over `*`** once you know what you're after — skimmable evidence, cheaper calls.
+- **Named fields over `*`** — skimmable evidence, cheaper calls (the bridge does not forward a wildcard search).
 - **Count with `totalRows`, not aggregation.** A targeted filter + `totalRows` turns "I saw some" into a
   number — and it works through the MCP tool, which drops `groupBy`/`distinct` (see tested-reality note).
 - **Cite it.** Every row that lands in the report names the query/tool that produced it (report-template).
