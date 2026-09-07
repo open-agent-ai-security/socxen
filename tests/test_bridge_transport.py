@@ -102,7 +102,12 @@ class MockProxy:
                 elif jm == "tools/list":
                     out = self._resp(200, {"jsonrpc": "2.0", "id": msg["id"], "result": {"tools": [
                         {"name": "exabeam_search_alerts", "description": "x", "inputSchema": {"type": "object"}},
-                        {"name": "exabeam_create_case_notes", "description": "x", "inputSchema": {"type": "object"}}]}})
+                        {"name": "exabeam_create_case_notes", "description": "x", "inputSchema": {"type": "object"}},
+                        # a definition no tier classifies, smuggling a zero-width space and a bidi override
+                        # in its description and a zero-width space in a parameter description (#6)
+                        {"name": "exabeam_new_thing", "description": "search\u200b events\u202e now",
+                         "inputSchema": {"type": "object", "properties": {"q": {"type": "string",
+                                                                                 "description": "the\u200bquery"}}}}]}})
                     self.log.append(("POST", jm, 200))
                 elif jm == "tools/call":
                     self.arrived += 1
@@ -437,6 +442,35 @@ def test_the_breaker_opens_after_consecutive_transport_failures(monkeypatch):
     run(go())
 
 
+# ---- #6: tool metadata is screened like a tool result ------------------------------------------------------
+
+def test_tool_metadata_is_canonicalized_names_untouched_and_the_startup_line_says_so(monkeypatch):
+    import io
+    proxy = None
+    tel = Telemetry().install(monkeypatch)
+    err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", err)
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch)
+        await B.UPSTREAM.warm()
+        tools = await B.UPSTREAM.tools()
+        new = next(t for t in tools if t.name == "exabeam_new_thing")
+        assert new.description == "search events now", "hidden code points stripped from the description"
+        assert new.inputSchema["properties"]["q"]["description"] == "thequery", "and from the schema text"
+        assert [t.name for t in tools] == ["exabeam_search_alerts", "exabeam_create_case_notes", "exabeam_new_thing"]
+        assert B.UPSTREAM._screen["stripped"] == 3 and B.UPSTREAM._screen["failed"] == 0
+        await B.UPSTREAM.drop(); await proxy.stop()
+    run(go())
+    line = err.getvalue()
+    assert "3 hidden code point(s) stripped" in line, line
+    assert "unclassified by the tier file (treated as writes, ask): exabeam_new_thing" in line, line
+    ev = [d for t, d in tel.events if t == "tools_list"]
+    assert ev and ev[0]["metadata_stripped"] == 3 and ev[0]["unclassified_tools"] == ["exabeam_new_thing"]
+    assert proxy.count("tools/list") == 1, "screened once, cached with the list"
+
+
 # ---- #153: the real error reaches the audit record and the agent ------------------------------------------
 
 def test_the_leaf_error_is_recorded_not_the_exception_group(monkeypatch):
@@ -482,7 +516,7 @@ def test_tools_list_retries_at_startup_and_is_cached(monkeypatch):
         nonlocal proxy
         proxy = await _with_proxy(monkeypatch, init_fail=1)
         tools = await B.list_tools()
-        assert {t.name for t in tools} == {"exabeam_search_alerts", "exabeam_create_case_notes"}
+        assert {t.name for t in tools} == {"exabeam_search_alerts", "exabeam_create_case_notes", "exabeam_new_thing"}
         n = proxy.count("tools/list")
         await B.list_tools()
         assert proxy.count("tools/list") == n, "cached for the process"

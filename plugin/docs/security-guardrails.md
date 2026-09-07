@@ -37,6 +37,12 @@ Before socxen reasons over any alert or case, it strips out the obvious smugglin
 up hidden line breaks. What the agent analyzes is the plain, visible text — not a version with hidden
 payloads spliced in. Legitimate text (names in any language, file paths, emoji) is left untouched.
 
+The same screen runs over the **tool definitions** the Exabeam MCP hands the bridge at startup — the
+names, descriptions and parameter text that tell the model what each tool does. Descriptions are
+canonicalized like any result (a name is never rewritten; one carrying a hidden code point is reported
+instead), and the startup line says what was stripped and which tools, if any, the shipped tier file
+does not classify — those are treated as writes.
+
 ## 2. Filtering what socxen writes (de-activating dangerous content)
 
 When socxen writes its findings back to Exabeam — a case note, an alert update — it makes sure it never
@@ -66,6 +72,11 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   trial, and even the strongest (Opus 5) let a raw credential and an SSN through occasionally. The
   persisted record came out clean **100% of trials on both models** because this filter, not model
   judgment, is what stands between the alert data and the case note.
+- **Updates change state only.** An alert or case update can set a status, a stage, a priority, a
+  supported closed reason, an assignee or a queue — and nothing else. The description, the name, the
+  supporting reason and the tags on an existing object are replaced wholesale by the API, so the bridge
+  drops those fields from an update before it is sent and tells the agent what it dropped. Analyst-written
+  text is never overwritten by the model; socxen's reasoning goes into a case note, which appends.
 
 ### Why your links look "broken" — this is intentional
 

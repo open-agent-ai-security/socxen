@@ -198,7 +198,7 @@ a case exists. List any containment as recommendations.
 | Working a… | Verdict | Do this |
 |---|---|---|
 | **Alert** | Confirmed threat | `exabeam_create_case` to escalate, then `exabeam_create_case_notes` to document. |
-| **Alert** | False positive | `exabeam_update_alert` to dismiss (**ask the analyst first**), with the reason. |
+| **Alert** | False positive | `exabeam_update_alert` to dismiss (**ask the analyst first**) — status only; the reason goes in a case note (`exabeam_create_case_notes`). |
 | **Case** | Confirmed threat | `exabeam_update_case` (status/verdict) + `exabeam_create_case_notes`. **Never** `create_case` — it already exists. |
 | **Case** | False positive | `exabeam_update_case` to close as FP (**ask the analyst first**) + `exabeam_create_case_notes` explaining why. **Never** `update_alert` — this is a case, not an alert. |
 | Either | Inconclusive | Escalate: open/keep the case, document what's missing and the next investigative step for a human. |
@@ -208,6 +208,12 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 (`update_alert` / `update_case`) requires an explicit yes from the analyst *before* you call the tool
 (your ask is the lock — the permission prompt can be bypassed), and **containment** is recommended only
 (it lives outside this MCP).
+
+**An update changes state and disposition only.** `update_alert` carries `alertStatus` and `priority`;
+`update_case` carries `stage`, a supported `closedReason`, `priority`, `assignee` and `queue`. A
+description, a name, a supporting reason or tags belong to the analyst who wrote them: the bridge drops
+those fields from an update and tells you what it dropped. Write the reason as a case note instead — a
+note appends, an update replaces.
 
 ## Reaching a good verdict
 

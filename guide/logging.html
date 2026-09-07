@@ -298,6 +298,11 @@ observra neither is available and logging disables itself.</p>
 <td><code>session_id</code>, host context; on start also the configuration attestation: <code>telemetry_backend</code>, <code>telemetry_destination</code> (resolved file path, or scheme + host of the endpoint), <code>dry_run</code>, <code>plugin_version</code>, <code>gate_log</code></td>
 </tr>
 <tr>
+<td><code>tools_list</code></td>
+<td>the remote's tool definitions arrive (once per session)</td>
+<td><code>tool_count</code>, <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code>, <code>odd_names</code> (tool names carrying a hidden code point, reported not altered), <code>unclassified_tools</code> (names no tier classifies; treated as writes)</td>
+</tr>
+<tr>
 <td><code>tool_start</code></td>
 <td>a tool call begins</td>
 <td><code>tool_name</code></td>

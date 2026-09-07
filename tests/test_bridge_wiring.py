@@ -221,6 +221,77 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
     assert out[0].text == "committed"       # the committed write's content survives the tail blowing up
 
 
+# ---- #89: an update carries state and disposition only (Praxen 2026-09-07-003) ----
+def _capturing_remote(sent):
+    """A fake `remote` whose session records the arguments the bridge actually forwards."""
+    async def fake_remote(op, *_a, **_k):
+        class S:
+            async def call_tool(self, name, arguments, **_kw):
+                sent["name"], sent["arguments"] = name, arguments
+                class R:
+                    content = [Blk(text="ok")]
+                    isError = False
+                return R()
+        return await op(S())
+    return fake_remote
+
+
+def test_an_alert_update_forwards_state_fields_only(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {
+        "alertId": "a1", "alertStatus": "DISMISSED", "priority": "LOW",
+        "alertDescription": "rewritten by the model", "alertName": "renamed", "tags": ["model-tag"]}}))
+    assert sent["arguments"] == {"arg1": {"alertId": "a1", "alertStatus": "DISMISSED", "priority": "LOW"}}
+    note = out[-1].text
+    assert "alertDescription" in note and "alertName" in note and "tags" in note and "case note" in note
+    assert "rewritten by the model" not in note, "names of dropped fields, never their values"
+
+
+def test_a_case_update_keeps_a_supported_closed_reason_and_drops_free_text(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
+        "caseId": "c1", "stage": "CLOSED", "closedReason": "false positive or duplicate",
+        "supportingReason": "the model's essay", "assignee": "alice", "useCases": ["x"]}}))
+    assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED",
+                                          "closedReason": "false positive or duplicate", "assignee": "alice"}}
+    sent.clear()
+    out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
+        "caseId": "c1", "stage": "CLOSED", "closedReason": "because the model said so"}}))
+    assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED"}}
+    assert "closedReason (not a supported closed reason)" in out[-1].text
+
+
+def test_creates_and_reads_are_not_field_filtered(monkeypatch):
+    """A new object has nothing to overwrite, and a read is not a write: both pass through untouched."""
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    args = {"arg1": {"alertId": "a1", "priority": "HIGH", "supportingReason": "escalated because"}}
+    out = asyncio.run(B.call_tool("exabeam_create_case", args))
+    assert sent["arguments"] == args and len(out) == 1
+    args = {"arg0": {"alertId": "a1", "fields": ["alertName", "alertDescription"]}}
+    out = asyncio.run(B.call_tool("exabeam_get_alert_details", args))
+    assert sent["arguments"] == args and len(out) == 1
+
+
+def test_dropped_field_names_reach_the_audit_record_without_values(monkeypatch):
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "a1", "alertStatus": "DISMISSED",
+                                                             "alertDescription": "SECRET-TEXT"}}))
+    fields = ends[-1]["action_fields"]
+    assert fields["droppedFields"] == ["alertDescription"] and fields["alertStatus"] == "DISMISSED"
+    assert "SECRET-TEXT" not in repr(ends)
+
+
 # ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
 def test_audit_fields_cap_long_strings_inside_list_values():
     """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,

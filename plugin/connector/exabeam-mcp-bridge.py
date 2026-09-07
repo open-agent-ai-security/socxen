@@ -202,6 +202,7 @@ class _Upstream:
         self._open_until = 0.0
         self._last_summary = ""
         self._last_failed_owner = None
+        self._screen = None
 
     async def _runner(self, tok, ready, close, err):
         # The session's context managers are entered and exited by THIS task only (anyio requires it).
@@ -377,8 +378,9 @@ class _Upstream:
             return self._tools
         # call() retries the session open (the failure mode that stranded the a07 session); the list
         # request itself is a read, so it is retried the same bounded way
-        self._tools = (await self.call(lambda s: s.send_request(
+        tools = (await self.call(lambda s: s.send_request(
             _list_tools_request(), _ListToolsResult, request_read_timeout_seconds=_LIST_TIMEOUT), "tools/list", retry=True)).tools
+        self._tools, self._screen = _screen_tools(tools)      # screened once, cached with the list (#6)
         return self._tools
 
     async def warm(self):
@@ -386,7 +388,20 @@ class _Upstream:
         call retries."""
         try:
             tools = await self.tools()
-            sys.stderr.write(f"bridge: remote reachable — {len(tools)} Exabeam tools\n")
+            acc = self._screen or {}
+            unclassified = sorted(t.name for t in tools if t.name not in TIERED_TOOLS)
+            line = f"bridge: remote reachable — {len(tools)} Exabeam tools"
+            if acc.get("stripped") or acc.get("flagged"):
+                line += f"; tool metadata screened: {acc['stripped']} hidden code point(s) stripped, {acc['flagged']} flagged"
+            if acc.get("failed"):
+                line += f"; {acc['failed']} definition(s) could not be screened (kept as received)"
+            if acc.get("odd_names"):
+                line += f"; names carrying hidden code points: {', '.join(acc['odd_names'])}"
+            if unclassified:
+                line += f"; unclassified by the tier file (treated as writes, ask): {', '.join(unclassified)}"
+            sys.stderr.write(line + "\n")
+            if telemetry.enabled():
+                telemetry.tools_list(len(tools), acc, unclassified)
         except Exception as e:  # noqa: BLE001
             leaf = _Leaf(e)
             sys.stderr.write(f"bridge: remote NOT reachable ({leaf.summary('tools/list')}) — will retry on the first call\n")
@@ -410,7 +425,7 @@ server = Server("exabeam")
 #     socxen persists to Exabeam, so an export of that stored artifact can't fire (connector/
 #     neutralize_output.py — the a10 fix). Only the write tools; reads are never argument-mutated.
 # Both are FAIL-OPEN: a guardrail bug must never break an investigation.
-from canonicalize import canonicalize
+from canonicalize import canonicalize, is_strippable
 from neutralize_output import neutralize_output, tenant_hosts_from_url
 # On-by-default, fail-open agent audit logging (SOCXEN_OBSERVRA=off to disable). observra is a hard
 # dependency BY DESIGN (see the PEP-723 header): an autonomous agent that takes gated actions must keep an
@@ -439,6 +454,42 @@ WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
 # failure direction is "a read is treated as a write", never the reverse.
 _ESCALATION_WRITES = {"exabeam_create_case", "exabeam_create_case_notes"}
 
+# An UPDATE changes state and disposition only (Praxen 2026-09-07-003, #89). The remit forbids overwriting
+# analyst-authored free text, and the two update tools take description, name, reason and tag fields with
+# REPLACE semantics at the API. So on those two tools the bridge forwards only the fields below; anything
+# else is dropped before the call and named in the reply (names, never values), so the reason goes where
+# it belongs -- a case note, which appends -- and never over a field the analyst wrote. `closedReason` is
+# a disposition vocabulary the API documents in prose (no schema enum): a supported value passes, anything
+# else is free text and is dropped. `create_case` is untouched: a new object has nothing to overwrite.
+_STATE_FIELDS = {
+    "exabeam_update_alert": frozenset({"alertid", "alertstatus", "priority"}),
+    "exabeam_update_case": frozenset({"caseid", "stage", "closedreason", "priority", "assignee", "queue"}),
+}
+_CLOSED_REASONS = frozenset({"already mitigated or resolved", "false positive or duplicate", "low risk",
+                             "rule misconfiguration", "policy or setup issue", "other"})
+_ARG_WRAPPERS = frozenset({"arg0", "arg1"})
+
+
+def _state_only(name, obj, dropped):
+    """Keep only the state/disposition fields of an update, recursing through the proxy's arg0/arg1
+    wrapper; append the NAMES of dropped fields to `dropped`. A nested object under any other key is
+    dropped too -- an update has no legitimate nested free text."""
+    if not isinstance(obj, dict):
+        return obj
+    allowed, out = _STATE_FIELDS[name], {}
+    for k, v in obj.items():
+        lk = k.lower()
+        if isinstance(v, dict) and lk in _ARG_WRAPPERS:
+            out[k] = _state_only(name, v, dropped)
+        elif lk in allowed:
+            if lk == "closedreason" and not (isinstance(v, str) and " ".join(v.split()).lower() in _CLOSED_REASONS):
+                dropped.append(f"{k} (not a supported closed reason)")
+            else:
+                out[k] = v
+        else:
+            dropped.append(k)
+    return out
+
 
 def _read_tools():
     root = Path(__file__).resolve().parent.parent / "skills" / "soc-investigate"
@@ -457,6 +508,65 @@ def _read_tools():
 
 
 READ_TOOLS = _read_tools()
+
+
+def _tier_names():
+    """Every tool name any tier classifies -- the bridge's picture of the tool surface, so a name the
+    remote offers that no tier knows can be named on the startup line (it is treated as a write)."""
+    root = Path(__file__).resolve().parent.parent / "skills" / "soc-investigate"
+    try:
+        import json as _json
+        tiers = _json.loads((root / "permissions.json").read_text())["tiers"]
+        return frozenset(n for tier in tiers.values() for n in tier.get("tools", []))
+    except Exception:  # noqa: BLE001 -- the startup line then names every tool as unclassified, which is the honest reading
+        return frozenset()
+
+
+TIERED_TOOLS = _tier_names()
+
+# tools/list is the one platform-sourced text channel the read-side screen did not cover (Praxen
+# 2026-09-07-001, #6): the remote's tool descriptions and schema text entered the model's context
+# verbatim. They now get the same treatment as a tool result -- the human-readable strings are
+# canonicalized and what was stripped is counted, out of band. A NAME is never rewritten (a rewritten
+# name is a broken call); a name carrying a hidden code point is reported instead. FAIL-OPEN per tool.
+_METADATA_TEXT_KEYS = frozenset({"description", "title"})
+
+
+def _screen_text(value, acc):
+    clean, hy = canonicalize(value)
+    acc["stripped"] += hy.counts["stripped"]
+    acc["flagged"] += hy.counts["flagged"]
+    return clean
+
+
+def _screen_schema(obj, acc):
+    if isinstance(obj, dict):
+        return {k: (_screen_text(v, acc) if k in _METADATA_TEXT_KEYS and isinstance(v, str) else _screen_schema(v, acc))
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_screen_schema(v, acc) for v in obj]
+    return obj
+
+
+def _screen_tools(tools):
+    """Canonicalize the description and schema text of every remote tool definition. Returns the screened
+    list and the tally: code points stripped / flagged, per-tool screening failures (the original
+    definition stands), and names that carry a hidden code point (reported, never altered)."""
+    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "odd_names": []}
+    for t in tools:
+        try:
+            if any(is_strippable(ch) for ch in (t.name or "")):
+                acc["odd_names"].append(t.name)
+            update = {}
+            if t.description:
+                update["description"] = _screen_text(t.description, acc)
+            if isinstance(t.inputSchema, dict):
+                update["inputSchema"] = _screen_schema(t.inputSchema, acc)
+            out.append(t.model_copy(update=update) if update else t)
+        except Exception:  # noqa: BLE001 -- fail-open: the definition stands, the failure is counted
+            acc["failed"] += 1
+            out.append(t)
+    return out, acc
 
 
 def is_write_tool(name):
@@ -681,6 +791,11 @@ async def call_tool(name, arguments):
         # (action.dryRunRefused), not in text the model reads.
         return [TextContent(type="text", text=(
             f"Permission to use `{name}` was not granted; the call was not executed."))]
+    # An update carries state and disposition only (#89): drop the rest here, BEFORE neutralization and
+    # the call, and say so in the reply. Deterministic, keyed on the tool name; the values never leave.
+    dropped = []
+    if name in _STATE_FIELDS and arguments:
+        arguments = _state_only(name, arguments, dropped)
     # `stage` names the layer that failed, for the audit record: a neutralizer refusal is a guardrail
     # acting (fail-closed), not an upstream fault.
     stage = "neutralize"
@@ -718,14 +833,23 @@ async def call_tool(name, arguments):
         if log_on:
             telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage)
         raise
+    if dropped:
+        # What the agent reads: the state change went through; the text did not, and where it belongs.
+        content = list(content) + [TextContent(type="text", text=(
+            f"socxen forwarded state fields only and dropped {', '.join(dropped)} from `{name}`: an update "
+            f"never replaces text an analyst wrote. Put the reason in a case note (exabeam_create_case_notes)."))]
     # Telemetry tail — FULLY GUARDED. The remote call has already committed; nothing here (not even
     # _audit_fields on pathological arguments) may raise into the return path and discard a successful write.
     try:
         if log_on:
+            fields = _audit_fields(arguments) if is_write else None
+            if dropped:
+                fields = dict(fields or {})
+                fields["droppedFields"] = sorted({d.split(" ", 1)[0] for d in dropped})   # names only, never values
             telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
                                defang_notes=defang_notes, hygiene_removed=hygiene_removed,
                                hygiene_kept=hygiene_kept, screen_failed=bool(screen_failures),
-                               action_fields=_audit_fields(arguments) if is_write else None)
+                               action_fields=fields)
     except Exception as e:  # noqa: BLE001 — telemetry must never break a completed call
         sys.stderr.write(f"bridge: telemetry tail error (ignored): {e!r}\n")
     return content
