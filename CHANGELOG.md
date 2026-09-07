@@ -39,6 +39,16 @@ governance model (feature → `dev`, release `dev` → `main`).
   bridge is a HOOK MISS and blocks.
 
 ### Security
+
+- **The installer verifies the INSTALLED plugin carries the bundled hook before it says the gate is on**
+  (Praxen 2026-09-07 `-002`). `install.sh` used to print "not needed: the bundled hook gates dismiss/close"
+  whenever the permission rules were absent, from the clone's own view; a `claude plugin update` failure is
+  downgraded to a warning, so an offline operator could hold a hook-less older install and read that the
+  gate was on. The Governance block now asks `installed_hook_state()` first and reads it exactly as
+  `preflight.sh`'s `check_gate` does — hook present: gate ON via the installed plugin; installed copy
+  predates the hook, or no plugin installed/enabled: **FAIL**, with the merge offered as the lock that does
+  not depend on the hook; unverifiable: say so. Every "rules not merged" line, including the Next steps,
+  carries that same reading. A repo invariant pins that no reassuring line sits outside the check's `on)` arm.
 - **Praxen 2.0.0-beta.1 gate scan of the bundled-hook tree** (Opus 5, high mode, with the first threat model):
   **0 Critical — gate passes**; 3 High · 9 Medium; RAISE 3.15 (Established); remit v1.3 coverage 34 verified /
   16 partial / 5 gap of 64. See `security/praxen/README.md`. Of the three Highs: the hook's invocation

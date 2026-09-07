@@ -491,6 +491,23 @@ elif gate_on; then GATE_STATE=on
 else GATE_STATE=off
 fi
 
+# The other lock is the bundled hook -- in the INSTALLED plugin, the copy Claude Code loads, not the
+# clone this script sits in. Ask before saying anything reassuring: a `claude plugin update` failure is
+# downgraded to a warning above, so an offline operator can hold a hook-less older copy while this block
+# would otherwise tell them the gate is on (Praxen 2026-09-07-002). Same reading preflight's check_gate
+# makes; HOOK_NOTE is the one phrase every "rules not merged" line below carries.
+PLUGIN_KEY="${PLUGIN}@${MARKETPLACE_NAME}"
+HOOK="$(installed_hook_state)"; HOOK_STATE="${HOOK%% *}"
+HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="$(printf '%s' "$HOOK" | awk '{print $3}')"
+MERGE_LABEL="(needed)"; HOOK_TAIL=""
+case "$HOOK_STATE" in
+  on)   HOOK_NOTE="the bundled hook in the installed plugin already gates dismiss/close, so the rules are an optional second lock that does not depend on the hook"
+        MERGE_LABEL="(optional)"; HOOK_TAIL=" (the installed hook's deny/ask still fire)" ;;
+  off)  HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) carries NO hook, so the rules are the only lock until the plugin is updated" ;;
+  none) HOOK_NOTE="no plugin is installed or enabled for Claude Code (${PLUGIN_KEY}), so nothing gates dismiss/close until it is" ;;
+  *)    HOOK_NOTE="the installed hook could not be verified (needs the claude CLI with 'plugin list --json' and python3), so treat the rules as the lock" ;;
+esac
+
 if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
   # Same "cannot do it ≠ pretend it's done" discipline as the gate check: say why, give the manual path.
   warn "Cannot merge permissions ($BLOCKER) — merge the permissions block from settings.snippet.json into $SETTINGS by hand"
@@ -504,23 +521,33 @@ elif [ "$GATE_STATE" = unknown ]; then
   warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into $SETTINGS"
 elif [ "$GATE_STATE" = on ]; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
-elif [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
-  # Gate is OFF and we can't ask (no tty, or -y). Note that -y does NOT stand in for consent here:
-  # "assume yes" answers the installer's own questions, it does not authorize writing to the
-  # operator's settings.json. Installation alone must never change that file (#70 non-goal).
-  warn "Permission rules not merged — not needed: the bundled hook gates dismiss/close, blocks containment and allows the reads. Merging adds a second lock that does not depend on the hook (re-run with --merge-permissions)"
 else
-  # Gate is OFF, we're interactive, and we can do something about it — offer, showing exactly what
-  # would change first. Declining leaves the original warning, unchanged from previous releases.
-  printf '\n   %sPermission rules not merged (optional — the bundled hook already gates dismiss/close).%s I can merge them as a second lock — additive only,\n' "$YLW" "$RST"
-  printf '   nothing of yours removed or reordered, and %s is backed up first:\n\n' "$SETTINGS"
-  python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" --dry-run 2>&1 | sed 's/^/     /' || true
-  printf '\n   Merge it now? [y/N] '
-  read -r reply || reply=""
-  case "$reply" in
-    [yY]|[yY][eE][sS]) run_merge ;;
-    *) warn "Permission rules not merged (declined) — fine: the bundled hook gates dismiss/close and allows the reads" ;;
+  # The rules are not merged, so the gate is whatever the INSTALLED hook is. A false "gate ON" is the
+  # dangerous direction: off/none FAIL, exactly as preflight's check_gate reads them.
+  case "$HOOK_STATE" in
+    on)   ok "Governance gate ON via the bundled hook in the INSTALLED plugin (${HOOK_VER} at ${HOOK_PATH}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions" ;;
+    off)  fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) predates the bundled hook and no permission rules are merged; update the plugin (re-run without --checks-only), or merge the rules" ;;
+    none) fail "Governance gate OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}) and no permission rules are merged" ;;
+    *)    warn "Cannot verify the bundled hook in the installed plugin (needs the claude CLI with 'plugin list --json' and python3) — only the INSTALLED copy gates; check 'claude plugin list'" ;;
   esac
+  if [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
+    # We can't ask (no tty, or -y). Note that -y does NOT stand in for consent here: "assume yes"
+    # answers the installer's own questions, it does not authorize writing to the operator's
+    # settings.json. Installation alone must never change that file (#70 non-goal).
+    warn "Permission rules not merged — ${HOOK_NOTE} (re-run with --merge-permissions)"
+  else
+    # Interactive, and we can do something about it — offer, showing exactly what would change first.
+    # Declining leaves the warning above.
+    printf '\n   %sPermission rules not merged — %s.%s I can merge them now — additive only,\n' "$YLW" "$HOOK_NOTE" "$RST"
+    printf '   nothing of yours removed or reordered, and %s is backed up first:\n\n' "$SETTINGS"
+    python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" --dry-run 2>&1 | sed 's/^/     /' || true
+    printf '\n   Merge it now? [y/N] '
+    read -r reply || reply=""
+    case "$reply" in
+      [yY]|[yY][eE][sS]) run_merge ;;
+      *) warn "Permission rules not merged (declined) — ${HOOK_NOTE}" ;;
+    esac
+  fi
 fi
 
 # ---- summary ----
@@ -537,11 +564,11 @@ ${BOLD}   Next steps${RST}
         EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
-   2. (optional) Merge the ${BOLD}permissions${RST} block from
+   2. ${MERGE_LABEL} Merge the ${BOLD}permissions${RST} block from
         ${SNIPPET}
-      into ${SETTINGS} as a second lock — the bundled hook already gates dismiss/close:
+      into ${SETTINGS} — ${HOOK_NOTE}:
         ${CYAN}${SCRIPT_DIR}/install.sh --merge-permissions${RST}
-      ${YLW}⚠ keep permissions on: skip-permissions modes turn the rules off (the hook's deny/ask still fire).${RST}
+      ${YLW}⚠ keep permissions on: skip-permissions modes turn the rules off${HOOK_TAIL}.${RST}
    3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT
 else

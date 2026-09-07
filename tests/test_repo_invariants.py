@@ -446,6 +446,29 @@ def test_install_sources_preflight_instead_of_duplicating_it():
             f"{fn} was re-inlined into install.sh — it must come from preflight.sh")
 
 
+def test_install_never_claims_the_hook_gates_without_checking_the_installed_plugin():
+    """Praxen 2026-09-07-002: a false "gate ON" is the dangerous direction. The bundled hook gates only
+    from the INSTALLED plugin, and a failed `claude plugin update` is downgraded to a warning, so the
+    installer must ask `installed_hook_state()` before any reassuring line -- and every such line must
+    sit inside that check's `on)` arm."""
+    lines = INSTALL_SH.splitlines()
+    checks = [i for i, l in enumerate(lines) if "$(installed_hook_state)" in l]
+    assert checks, "install.sh no longer asks installed_hook_state() before reporting the gate"
+    first_check = checks[0]
+    arm_start = next(i for i, l in enumerate(lines) if i > first_check and l.strip().startswith("case \"$HOOK_STATE\" in"))
+    on_lines = [i for i, l in enumerate(lines) if i > arm_start and re.match(r"\s*on\)", l)]
+    # each `on)` arm ends at its own `;;`
+    arms = [(o, next(j for j in range(o, len(lines)) if lines[j].rstrip().endswith(";;"))) for o in on_lines]
+    reassuring = [i for i, l in enumerate(lines)
+                  if not l.lstrip().startswith("#") and re.search(r"hook.*(already gates|gates dismiss)", l)]
+    assert reassuring, "expected the installer to still explain what the hook gates, inside the on) arm"
+    for i in reassuring:
+        assert i > first_check, f"install.sh:{i + 1} claims the hook gates before the installed plugin is checked"
+        assert any(o <= i <= e for o, e in arms), (
+            f"install.sh:{i + 1} claims the hook gates outside the installed_hook_state() on) arm")
+    assert "not needed: the bundled hook" not in INSTALL_SH, "the unconditional reassurance is back"
+
+
 def _shell_code_only(text):
     """Shell source with comments and quoted strings removed.
 
