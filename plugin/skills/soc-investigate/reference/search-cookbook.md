@@ -67,7 +67,9 @@ real in-product queries.
 >   to search raw logs. **Never send bare unquoted text** — `HR-LT-88`, `svc_deploy`, `group membership
 >   change` are rejected the moment they carry a hyphen, an underscore, a digit or a second word
 >   (*"Field value cannot be a free text"* / *"Please check the syntax"*).
-> - **Never send `fields: ["*"]`** — see the request-shape table above. Name the fields, every call.
+> - **Prefer named fields.** `fields: ["*"]` is a legitimate search but returns every column of every
+>   row, so pair it with a small `limit` and a tight window; naming the fields you need keeps the result
+>   readable (see the request-shape table above).
 > - **A `"Syntax error while query using fields"` (`AAA_ESA_1003_400`) on a well-formed events query is
 >   NOT your filter.** It is a backend failure that affects a whole session from its first search;
 >   rewriting the query will not help. Say so in the report and move on to the alerts/cases evidence, or
