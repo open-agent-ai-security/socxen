@@ -53,10 +53,6 @@ governance model (feature → `dev`, release `dev` → `main`).
   on the startup line and in the `tools_list` audit event — surfaced, never rewritten — and every definition
   is hashed (`tool_shas`, `surface_sha`) so a definition that changes between sessions shows up as a changed
   hash in the audit trail. Within a session the list is fetched once, so there is nothing to compare against.
-  The re-scan of this tree kept the finding at High because the text still reaches the model; maintainer
-  decision (2026-09-07): accepted at Medium — only Exabeam's own server can place text there, a careless
-  description is a bug (#160 was one), not an attack, and a compromised Exabeam is a bigger problem than
-  tool descriptions. Reporting stays; rewriting a vendor's descriptions does not happen.
 
 - **An update changes state and disposition only** (Praxen 2026-09-07 `-003`, #89; security assessment
   F-03). `exabeam_update_alert` and `exabeam_update_case` take description, name, reason and tag fields
