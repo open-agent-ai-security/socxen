@@ -115,6 +115,8 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 _READ_RETRY_DELAYS = (0.3, 0.9)          # seconds, plus jitter -- reads only, never writes
 _CALL_TIMEOUT = timedelta(seconds=120)   # no call may hang the bridge forever (the old design had no bound)
 _LIST_TIMEOUT = timedelta(seconds=30)
+_DROP_TIMEOUT = 10.0             # how long drop() waits for the owner task to send its DELETE and exit
+_OPEN_FAIL_WAIT = 5.0            # how long _open() waits for a failed owner task to finish unwinding
 _BREAKER_TRIP = 5                        # consecutive transport failures ...
 _BREAKER_HOLD = 20.0                     # ... open the breaker for this long
 
@@ -150,21 +152,25 @@ class _Leaf:
         self.status = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None
         self.message = (str(e) or self.type_name)[:300]
         transport = isinstance(e, httpx.TransportError)
+        code = getattr(getattr(e, "error", None), "code", None) if isinstance(e, McpError) else None
         # A timeout is NOT retryable: the query is slow, not transient, and a retry doubles the load on a
         # proxy that is already struggling while the agent waits out another full read timeout (the stress
         # gate saw a single read take 3 x 120 s this way).
         self.retryable = transport or self.status in _RETRYABLE_STATUS
-        # The session survives only an APPLICATION-level JSON-RPC error (the proxy answered, on a live
-        # session). Anything at the transport layer -- a status error, a dropped connection, a timeout,
-        # "Session terminated" -- has killed the client's transport task under the session, so the next
-        # call must reopen it (a retry on the dead session hangs).
-        app_error = isinstance(e, McpError) and "session" not in self.message.lower() and "timed out" not in self.message.lower()
+        # The session survives an APPLICATION-level JSON-RPC error: the proxy answered on a live session, or
+        # the SDK's own per-request timeout fired (`anyio.fail_after` around the response stream -- the
+        # transport under the session is untouched, review of #157). What kills the transport task is a
+        # status error, a dropped connection, or "Session terminated" (code 32600): then the next call must
+        # reopen (a retry on the dead session hangs).
+        terminated = code == 32600 or "session" in self.message.lower()
+        app_error = isinstance(e, McpError) and not terminated
         self.session_lost = not app_error
+        self.sent = False                    # set by call(): the request had been sent when this failed
 
     def summary(self, what):
         if self.status is not None:
             return f"HTTP {self.status} on {what}"
-        return f"{self.type_name} on {what}: {self.message[:120]}"
+        return f"{self.type_name} on {what}: {_safe_text(self.message, 120)}"
 
 
 from mcp import types as _mt
@@ -191,7 +197,6 @@ class _Upstream:
         self._tools = None
         self._streak = 0
         self._open_until = 0.0
-        self._runner_exc = None
         self._last_summary = ""
         self._last_failed_owner = None
 
@@ -199,41 +204,55 @@ class _Upstream:
         # The session's context managers are entered and exited by THIS task only (anyio requires it).
         # The session lives until `close` is set; a normal exit sends the DELETE, so a failed call never
         # leaks a proxy session the way the per-call design did (#154).
+        # The task RETURNS its error (or None): a caller racing against this task reads it from the task
+        # itself, so two generations can never confuse their errors (review of #157). A cancellation is
+        # re-raised as a cancellation -- it is never handed to a caller as if it were the session's error,
+        # because a bare CancelledError escaping a handler takes the whole MCP server down.
         mine = None
         try:
             async with streamablehttp_client(URL, headers={"Authorization": f"Bearer {tok}"}) as (r, w, _):
                 async with ClientSession(r, w) as s:
                     await s.initialize()
-                    self._session = mine = s
+                    if self._task is asyncio.current_task():     # publish only while still the owner
+                        self._session = mine = s
                     ready.set()
                     await close.wait()
-        except BaseException as e:  # noqa: BLE001 -- reported to the opener through `err`, to callers through _runner_exc
-            err.append(e)
-            self._runner_exc = e
+        except asyncio.CancelledError:
             ready.set()
+            raise
+        except BaseException as e:  # noqa: BLE001 -- reported to the opener through `err`, to callers as the task's result
+            err.append(e)
+            ready.set()
+            return e
         finally:
             if mine is not None and self._session is mine:   # never clear a session a NEWER owner has since opened
                 self._session = None
+        return None
 
     async def _open(self):
         tok = await get_token()
         ready, close, err = asyncio.Event(), asyncio.Event(), []
         task = asyncio.create_task(self._runner(tok, ready, close, err))
-        await ready.wait()
+        self._task, self._close = task, close            # registered BEFORE waiting: a cancelled opener can still close it
+        try:
+            await ready.wait()
+        except asyncio.CancelledError:
+            close.set()                                  # the runner exits cleanly (DELETE) once initialize completes
+            raise
         if err:
             try:
-                await asyncio.wait_for(task, 5)
+                await asyncio.wait_for(task, _OPEN_FAIL_WAIT)
             except BaseException:  # noqa: BLE001, S110 — the owner task is already failed; its error is err[0], raised next
                 pass
+            self._task = self._close = None
             raise err[0]
-        self._task, self._close = task, close
 
     async def drop(self):
         if self._close is not None:
             self._close.set()
         if self._task is not None:
             try:
-                await asyncio.wait_for(self._task, 10)
+                await asyncio.wait_for(self._task, _DROP_TIMEOUT)
             except BaseException:  # noqa: BLE001, S110 — teardown is best effort; the session is gone either way
                 pass
         self._task = self._close = self._session = None
@@ -244,7 +263,6 @@ class _Upstream:
         async with self._lock:
             if self._session is None or self._task is None or self._task.done():
                 await self.drop()
-                self._runner_exc = None
                 await self._open()
             return self._session, self._task
 
@@ -263,7 +281,11 @@ class _Upstream:
         task, and a caller blocked on it would otherwise wait out the full read timeout. Racing the call
         against the owner task turns a transport death into an immediate, attributable error."""
         op_task = asyncio.ensure_future(op(s))
-        done, _ = await asyncio.wait({op_task, owner}, return_when=asyncio.FIRST_COMPLETED)
+        try:
+            done, _ = await asyncio.wait({op_task, owner}, return_when=asyncio.FIRST_COMPLETED)
+        except asyncio.CancelledError:                   # the host cancelled the call: do not orphan the op
+            op_task.cancel()
+            raise
         if op_task in done:
             return op_task.result()
         op_task.cancel()
@@ -271,7 +293,16 @@ class _Upstream:
             await op_task
         except BaseException:  # noqa: BLE001, S110 — the cancellation (or the op's own error); the owner's error is what is raised
             pass
-        raise self._runner_exc or RuntimeError("upstream session closed during the call")
+        # The owner's own error, read from the owner (never from shared state, never a cancellation).
+        exc = None
+        if owner.done() and not owner.cancelled():
+            try:
+                exc = owner.result()
+            except BaseException:  # noqa: BLE001, S110 — a runner that raised anyway: treat as an unexplained close
+                exc = None
+        if not isinstance(exc, Exception):
+            exc = RuntimeError("upstream session closed during the call")
+        raise exc
 
     def _breaker_check(self, what):
         now = time.time()
@@ -306,6 +337,8 @@ class _Upstream:
             except Exception as e:
                 leaf = _Leaf(e)
                 self._last_summary = leaf.summary("initialize")
+                if leaf.status == 401:
+                    _token["exp"] = 0.0
                 self._note(False)
                 if leaf.retryable and attempt < len(_READ_RETRY_DELAYS):
                     await asyncio.sleep(_READ_RETRY_DELAYS[attempt] + random.uniform(0, 0.3))  # noqa: S311
@@ -317,6 +350,12 @@ class _Upstream:
             except Exception as e:
                 leaf = _Leaf(e)
                 self._last_summary = leaf.summary(what)
+                try:
+                    e.socxen_sent = True                 # the request had been sent: a write's outcome is unknown
+                except Exception:  # noqa: BLE001, S110 — an exception type without a __dict__; the flag is advisory
+                    pass
+                if leaf.status == 401:
+                    _token["exp"] = 0.0                  # a rejected token is not fresh, whatever our clock says
                 if leaf.session_lost:
                     await self._drop_if(owner)
                 self._note(False, owner)
@@ -634,12 +673,16 @@ async def call_tool(name, arguments):
     except Exception as e:
         if stage == "remote":
             leaf = _Leaf(e)
+            # A write whose request had gone out when the session died may have committed upstream: say
+            # so, or the agent re-issues it (review of #157). Reads are retried; a write is sent once.
+            unknown = is_write and getattr(e, "socxen_sent", False)
+            suffix = " — the write was sent and its outcome is unknown: verify before re-issuing" if unknown else ""
             if log_on:
                 telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage,
-                                     error_type_name=leaf.type_name, error_message=_safe_text(leaf.message),
+                                     error_type_name=leaf.type_name, error_message=_safe_text(leaf.message) + suffix,
                                      http_status=leaf.status, is_retryable=leaf.retryable)
             # what the agent reads: the real failure, not "unhandled errors in a TaskGroup"
-            raise RuntimeError(f"Exabeam MCP unavailable: {leaf.summary(name)}") from e
+            raise RuntimeError(f"Exabeam MCP unavailable: {leaf.summary(name)}{suffix}") from e
         if log_on:
             telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage)
         raise

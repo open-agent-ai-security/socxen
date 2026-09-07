@@ -42,8 +42,10 @@ class MockProxy:
     answer 500 before succeeding; `call_script` = the answers to successive tools/call requests
     ("ok" | 500 | 503 | 404 | "iserror"), the last one repeating."""
 
-    def __init__(self, init_fail=0, call_script=("ok",), call_delay=0.0):
+    def __init__(self, init_fail=0, call_script=("ok",), call_delay=0.0, delete_delay=0.0, init_delay=0.0):
         self.init_fail = init_fail
+        self.delete_delay = delete_delay       # seconds the mock holds the session DELETE (a slow teardown)
+        self.init_delay = init_delay           # seconds the mock holds `initialize` (a slow open)
         self.call_delay = call_delay           # seconds the mock holds an answered tools/call (keeps it in flight)
         self.release = None                    # set by the test to let "hang" steps answer at the end
         self.arrived = 0                       # tools/call requests received (the log records them when answered)
@@ -78,10 +80,14 @@ class MockProxy:
                     out = self._resp(200, {"access_token": f"tok{self.tokens}", "expires_in": 3600})
                     self.log.append((method, "token", 200))
                 elif method == "DELETE":
+                    if self.delete_delay:
+                        await asyncio.sleep(self.delete_delay)
                     out = self._resp(200); self.log.append(("DELETE", "", 200))
                 elif method == "GET":
                     out = self._resp(405); self.log.append(("GET", "", 405))
                 elif jm == "initialize":
+                    if self.init_delay:
+                        await asyncio.sleep(self.init_delay)
                     if self.init_fail > 0:
                         self.init_fail -= 1
                         out = self._resp(500, {"error": "permission lookup failed"})
@@ -289,6 +295,112 @@ def test_a_late_victim_of_a_lost_session_does_not_drop_the_reopened_one(monkeypa
     run(go())
     assert proxy.count("initialize") == 2, f"one loss = one reconnect, not one per victim: {proxy.log}"
     assert proxy.count("tools/call") == 4, "each read went out once on the lost session and once on the reopened one"
+
+
+def test_a_slow_session_teardown_never_escapes_as_a_cancellation(monkeypatch):
+    """Review of #157, High-1: when drop() gives up on a slow DELETE it cancels the owner task; that
+    cancellation used to be stored as the owner's error and re-raised into every sibling call as a bare
+    CancelledError, which the MCP server treats as fatal (the whole bridge exited). A sibling must get an
+    ordinary error, retry as a read, and succeed; nothing may leak past call()."""
+    proxy = None
+    monkeypatch.setattr(B, "_DROP_TIMEOUT", 0.2)
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch, call_script=["hang", "hang", "ok"], call_delay=0.0, delete_delay=2.0)
+        u = B.UPSTREAM
+        a = asyncio.create_task(u.call(lambda s: s.call_tool("exabeam_search_alerts", {}), "a", retry=True))
+        b = asyncio.create_task(u.call(lambda s: s.call_tool("exabeam_search_alerts", {}), "b", retry=True))
+        await asyncio.sleep(0.3)
+        assert proxy.arrived == 2 and proxy.count("initialize") == 1
+        _s, owner = await u.session()
+        await u._drop_if(owner)                 # a victim's drop; the DELETE hangs longer than _DROP_TIMEOUT
+        outs = await asyncio.gather(a, b, return_exceptions=True)
+        assert all(isinstance(o, BaseException) is False and not o.isError for o in outs), outs
+        proxy.release.set()
+        await u.drop(); await proxy.stop()
+    run(go())
+    assert proxy.count("initialize") == 2, "one reconnect after the cancelled teardown"
+
+
+def test_a_timed_out_read_is_not_retried_and_the_session_survives(monkeypatch):
+    """Review of #157, High-2: the SDK's per-request timeout leaves the transport alive. A timed-out read
+    used to be retried (3 x the timeout) and each attempt dropped the live session under every sibling.
+    Now: one attempt, no drop, the sibling in flight completes, one failure counted."""
+    proxy = None
+    tel = Telemetry().install(monkeypatch)
+    monkeypatch.setattr(B, "_CALL_TIMEOUT", B.timedelta(seconds=0.3))
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch, call_script=["hang", "hang", "ok"])
+        # the sibling has its own, longer read timeout: it must survive A's timeout untouched
+        b = asyncio.create_task(B.UPSTREAM.call(
+            lambda s: s.call_tool("exabeam_search_alerts", {}, read_timeout_seconds=B.timedelta(seconds=5)), "b", retry=True))
+        await asyncio.sleep(0.05)
+        with pytest.raises(RuntimeError) as ei:
+            await B.call_tool("exabeam_search_alerts", {"arg0": {"a": 1}})                  # times out at 0.3 s
+        assert "Timed out" in str(ei.value)
+        assert proxy.arrived == 2, "the timed-out read was sent exactly once"
+        assert proxy.count("initialize") == 1, "no drop: the session is alive"
+        assert B.UPSTREAM._streak == 1
+        proxy.release.set()
+        out = await b
+        assert not out.isError and out.content[0].text == "ok", "the sibling was not killed by the timeout"
+        out = await B.call_tool("exabeam_search_alerts", {"arg0": {"c": 1}})
+        assert out[0].text == "ok" and proxy.count("initialize") == 1, "still the same session"
+        await B.UPSTREAM.drop(); await proxy.stop()
+    run(go())
+    err = tel.errors()[0]
+    assert err["error_type_name"] == "McpError" and err["is_retryable"] is False
+
+
+def test_a_cancel_during_session_open_does_not_leak_the_session(monkeypatch):
+    """Review of #157, Medium-3: a caller cancelled while `initialize` is in flight used to orphan the
+    owner task -- a proxy session with no DELETE, and a second session opened beside it."""
+    proxy = None
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch, init_delay=0.4)
+        t = asyncio.create_task(B.call_tool("exabeam_search_alerts", {"arg0": {}}))
+        await asyncio.sleep(0.1)
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+        await asyncio.sleep(0.8)                # the orphan would have finished initialize by now
+        assert proxy.sessions == 1
+        assert sum(1 for m, j, s in proxy.log if m == "DELETE") == 1, "the cancelled open was closed cleanly"
+        assert B.UPSTREAM._session is None and (B.UPSTREAM._task is None or B.UPSTREAM._task.done())
+        out = await B.call_tool("exabeam_search_alerts", {"arg0": {}})
+        assert out[0].text == "ok" and proxy.sessions == 2
+        await B.UPSTREAM.drop(); await proxy.stop()
+    run(go())
+    assert sum(1 for m, j, s in proxy.log if m == "DELETE") == 2, "every session opened was terminated"
+
+
+def test_a_write_killed_after_it_was_sent_says_its_outcome_is_unknown(monkeypatch):
+    """Review of #157, Low-5: a write in flight when the session dies went out; the agent must be told
+    the outcome is unknown rather than invited to re-issue it."""
+    proxy = None
+    tel = Telemetry().install(monkeypatch)
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch, call_script=["hang", "ok"])
+        w = asyncio.create_task(B.call_tool("exabeam_create_case_notes", {"arg1": {"caseId": "1", "note": "x"}}))
+        await asyncio.sleep(0.2)
+        assert proxy.arrived == 1
+        _s, owner = await B.UPSTREAM.session()
+        await B.UPSTREAM._drop_if(owner)        # the session dies under the write
+        with pytest.raises(RuntimeError) as ei:
+            await w
+        assert "the write was sent and its outcome is unknown" in str(ei.value)
+        proxy.release.set()
+        await B.UPSTREAM.drop(); await proxy.stop()
+    run(go())
+    assert proxy.count("tools/call") <= 1 and proxy.arrived == 1, "never re-sent"
+    assert "outcome is unknown" in tel.errors()[0]["error_message"]
 
 
 def test_the_breaker_opens_after_consecutive_transport_failures(monkeypatch):

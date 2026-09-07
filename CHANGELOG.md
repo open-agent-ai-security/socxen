@@ -66,7 +66,16 @@ governance model (feature → `dev`, release `dev` → `main`).
   victim had just reopened, and five such self-inflicted losses tripped the breaker against a healthy proxy.
   A victim now drops only the session it was on, one lost session counts once, and a read timeout is no
   longer retried (the query is slow, not transient; a retry doubled the proxy's load while the agent waited
-  out another two minutes). Reproduced and pinned by a staggered-victim test against the mock proxy.
+  out another two minutes). Reproduced and pinned by a staggered-victim test against the mock proxy. An
+  independent review of the PR then found, and reproduced, what that first fix had missed: the SDK's request
+  timeout still counted as a lost session (so it was still retried, and each retry dropped the live session
+  under every sibling call); a session teardown slower than ten seconds cancelled the owner task and
+  re-raised that cancellation into a sibling's handler, which took the whole MCP server down; and a caller
+  cancelled during `initialize` orphaned the session with no DELETE. All three are fixed and pinned by
+  sequence tests against the mock proxy, along with the smaller findings: the owner's error is read from
+  the owner task itself, a write whose request had gone out when the session died says its outcome is
+  unknown instead of inviting a re-issue, a rejected token is refreshed rather than reused, and the
+  agent-facing error text passes through the canonicalizer like the audit record.
 - **The bundled hook's invocation now fails closed** (Praxen `-001`). `gate.py` never failed open, but a hook
   command that errors is non-blocking on the host — so a machine with `uv` and no system `python3` had a working
   bridge and no gate. The hook command exits 2 (blocking) when the interpreter is missing or the script cannot
