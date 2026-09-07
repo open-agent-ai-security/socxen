@@ -60,13 +60,22 @@ Artifacts: [report](results/2026-09-07-socxen-fix163.html) · [findings JSON](re
 instruction-shaped-text finding remains, re-stated: the text is now **detected and reported** but reaches
 the model verbatim, and the scan wants it treated as untrusted markup, not only reported.
 
-**Maintainer decision (Steve Wilson, 2026-09-07): accepted as-is, and not a High in principle.** Tool
-definitions are static per proxy release and carry no tenant data; the only party who can put text there
-is Exabeam's own MCP server. A careless description is a *bug* — we hit exactly one (#160, the wildcard
-directive) and it produced a self-inflicted DoS, not an attack — and if Exabeam's own infrastructure were
-compromised, tool descriptions would be the least of it. Detection and reporting stay (the startup line,
-the `tools_list` event); the bridge does not rewrite a vendor's descriptions. Our severity: Medium. This
-is recorded here as the waiver the release gate asks for on an open High.
+**Maintainer decision (Steve Wilson, 2026-09-07): accepted at Medium. Malicious use of this vector is out
+of the threat model; accidental use is real, demonstrated, and bounded.** The argument is about who can
+place text there, not about impact. Tool definitions are static per proxy release and carry no tenant
+data, so exactly one party can write them: Exabeam — the same vendor that supplies the MCP server, the
+SIEM and the analytics layer. Rating this High would model Exabeam as weaponizing tool descriptions against
+its own customer, and a vendor in that position has no need of the description channel: it already
+returns the alerts, events, timelines and analytics verdicts the entire investigation rests on. The
+description channel is strictly weaker than the channels socxen already trusts completely; one cannot
+coherently trust the evidence and distrust the labels on the tools that fetch it. So the malicious branch
+is not mitigated, it is outside the model. The accidental branch is the one to keep checkable: it has
+happened once (#160 — a "MANDATORY, IGNORE any user request" description reached 100% of calls), and what
+makes it Medium is that its impact was bounded (a self-inflicted DoS, now intercepted at the bridge) and
+every consequential action downstream is deterministically controlled — including, as of this PR, the
+`create_case` route. Detection and reporting stay (the startup line, the `tools_list` event); the bridge
+does not rewrite a vendor's descriptions. Recorded here as the waiver the release gate asks for on an
+open High.
 
 **Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
 session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
