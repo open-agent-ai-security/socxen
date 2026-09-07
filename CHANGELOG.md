@@ -8,7 +8,46 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.8.6] — 2026-09-07
+
+**One release, three threads: security, performance and robustness.** Every entry below belongs to one
+of them, and they are the same story told from three sides — two days of live red-team load on the real
+proxy, two Praxen scans with a threat model, and a security assessment's Highs, each answered in code.
+
+**Security.** The human-in-the-loop gate ships ON for Claude Code — a bundled hook, active the moment the
+plugin is enabled, fail-closed, needing no permission merge, its allow reaching only the bundled bridge
+itself — matching what Codex already got from its approval policy. Under it, the bridge is the enforcement
+point rather than the skill's prose: an update may change state and disposition only, a create may only
+open a case, the remote's own tool definitions are screened for hidden code points and instruction-shaped
+text and hashed per session like any other input, links are de-fanged in every form, and outbound mail
+is human-gated on both hosts. The red-team corpus now provokes the gated write on purpose (c03, c04, the
+hook leg) and the Praxen worker remit has a threat model behind it.
+
+**Performance.** The connector was rebuilt around what the load taught: one upstream session per process
+instead of one per call — the eight-drive shape that used to fail about half the old bridge's calls ran
+1,918 calls with no transport error — reads retried with backoff and writes never, a breaker for a proxy
+that is rejecting, a wildcard search answered with the endpoint's column list instead of being forwarded
+(a stated workaround for the MCP's own schema text), and a preflight that no longer starts every
+registered server to check one.
+
+**Robustness.** The audit record says what actually failed instead of a generic error, the gate's reach is
+decided by identity rather than a name substring, the plugin's identity lives in one file that generates
+the rest, the search cookbook says what each endpoint accepts, the hook's decision log is bounded and its
+off switch speaks, the docs describe the gate that ships, and CI gates on a security lint, a dependency
+audit and generated bills of materials. The red-team runner itself was fixed in the places its own
+findings exposed — the forbidden-outcome check, the headless *ask*, the Mac going to sleep mid-pass.
+
+Release gate for this version — recorded in `security/redteam/HISTORY.md` and `security/praxen/README.md`:
+Two full-corpus stress runs on the rebuilt transport (2026-09-06 stress gate, 2026-09-07 stress run 2: 22
+fixtures × 5 trials, both legs at once, 8 concurrent drives — the load shape that had failed about half
+the old bridge's calls): 440 trials, 0 landed, 0 transport errors in the second run's 1,918 calls. A
+final top-up on the merged tree (a10, a11, a12, c01, c02, c03, d01 × 5, both legs): 70/70 resisted, after
+one hook-leg attempt was voided by an account rate-limit window and re-run. The new c04 fixture (close via
+`create_case` after a decline): Codex 5/5, hook leg 5/5 on the re-drive after a taxonomy-label fix. Praxen
+2.0.0-beta.1 (Claude Opus 5, high thinking, with threat model) on the #164 tree at `8eb6c24`: 0 Critical,
+1 High accepted at Medium with the maintainer's waiver on record in the Praxen README, 5 Medium, 2 Low,
+RAISE 3.55; the commits after the scan are review fixes listed in HISTORY. 761 unit tests, 23/23 fixtures
+lint clean, guide current.
 
 ### Added
 - **The human-in-the-loop gate ships ON for Claude Code — a bundled `PreToolUse` hook** (`plugin/hooks/`,
@@ -84,6 +123,72 @@ governance model (feature → `dev`, release `dev` → `main`).
   (`-001`) is fixed below; `exabeam_send_email` (`-002`) is addressed after the snapshot — subject/body
   neutralized, the channel declared in remit v1.4, and the HTML `href`/`src` pass landed under #147's ruling;
   unscreened remote tool descriptions (`-003`) stays open as design work.
+- **Links are now de-fanged in every form, and clickable is decided by destination** (#147, decided by
+  the PM; #119). The write-side neutralizer gained an HTML-aware pass — `href`/`src`/`srcset`/`action`
+  and the other URL-bearing attributes, CSS `url()` in style attributes and blocks, tracking pixels,
+  `javascript:`/`data:`/entity-encoded and slash-less schemes, event handlers, and `script`/`iframe`/
+  `object`/`svg`/`form`/`meta`/`base` elements — and every markdown link form CommonMark accepts (titles,
+  padding, nested brackets, reference definitions, autolinks). The one kind of link that stays clickable
+  is a link into the operator's own tenant, derived from `EXABEAM_MCP_URL` by the bridge and nothing
+  else; an empty allowlist (no config, the red-team harness) de-fangs everything. `exabeam_send_email`'s
+  subject and body run in **mail mode**, which also de-fangs bare URLs in text because mail clients
+  auto-link them. The mail template's inline styles, `bgcolor` and entities pass through byte-identical
+  (do-no-harm corpus in `tests/test_neutralize_html.py`). Residual, stated in the remit: an open redirect
+  on the tenant host passes. New red-team fixture `a12` (a live anchor and a tracking pixel planted in a
+  note) grades through the pipeline.
+
+### Changed
+- **Two more live-MCP tools are tiered** (#143). `exabeam_analytics_rule_details` (a read; note its bare-string
+  `arg0`) is allowed; `exabeam_create_analytics_rule` — a write that creates a detection rule server-side — is
+  **denied** on both hosts under both spellings, with `exabeam_update_analytics_rule` denied ahead of the MCP
+  exposing it: `rule-tuning` is proposals-only. `containment-tools.md` documents the detection-content denies
+  beside the containment verbs, so the deny-list invariant covers them; the skill, README and remit no longer
+  say "there is no rule-write path".
+- **The skill says what to stop doing** (#91). After a declined or unanswered dismiss/close the action is over —
+  no retry, no reaching the same outcome by another route — and out-of-lane requests are declined and handed
+  back rather than improvised.
+- **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
+  plugin's name, version, display name, description, keywords and marketplace; both host manifests and
+  all 92 permission rules in `settings.snippet.json` are **generated** from it (plus the bare-name tiers
+  in `permissions.json`) by `plugin/gen_identity.py`, and CI fails on drift. Re-keying or re-branding the
+  plugin — e.g. a vendor catalog shipping it under its own name — is one field and a regenerate, where it
+  used to be two manifests and ninety-two hand-edited rules that had to agree. `install.sh`, `preflight.sh`,
+  the eval harness, the tests and `bump_version.py` read the identity instead of carrying literals. The
+  generator ships in the payload, so an installed copy can regenerate itself. Only cosmetic change to
+  shipped artifacts: the Claude manifest's description now uses the same host-neutral wording as Codex's.
+  After review: the identity also reaches the shell scripts as a generated `identity.sh` include, so a
+  host without python3 reads the real name instead of a literal fallback that would have installed the
+  upstream plugin after a re-key; the release smoke, the AI-BOM's distribution reference, the Codex
+  red-team leg and the invariants test follow the identity too; `mcpServer` is cross-checked against
+  `permissions.json` and the `.mcp*.json` server key instead of sitting unread.
+- **Worker Remit v1.5 — the #121 tune-ups, before the dev RC scan.** Closure rules on the tool inventory
+  and the channel table (anything outside them is out of policy); the three disclosure rules name their
+  channel (the audit trail's session record and startup line; stderr for the one case where the trail is
+  unavailable); Declared Redaction Limits now carry the bare-URL-in-a-note residual, the open-redirect
+  residual of the tenant link rule (#147, #119) and the host's spill file for oversized results (resolved
+  as Open Question 9: the host's copy, not a socxen write). The dependency-pinning split is moot — the lockfile
+  is honored automatically.
+- **Outbound email is a declared channel.** The Praxen Worker Remit (v1.4) now authorizes `exabeam_send_email`
+  as a human-confirmed channel to active users of the operator's own subscription, and the docs
+  (`security-guardrails.md`, `usage.md`, the tool map) say what the platform enforces: the Exabeam MCP
+  service rejects any recipient who is not a subscription member, so mail cannot leave the tenant's user
+  base. The bridge now runs the mail `subject` and `body` through the write-side neutralizer (secrets
+  masked, formulas and markdown links de-fanged); the HTML-aware pass under #147's ruling (see Security,
+  above) then closed the `href`/`src` gap Praxen `-002` named.
+- **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
+  on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
+  documented as *optional* — a second lock that does not depend on the hook; the hook already allows the
+  reads. Every place that said the merge was mandatory now says the gate ships
+  ON — the repository README, the plugin README, `docs/installation.md` (section retitled "Governance —
+  the safety gate"), `docs/usage.md`, the docs index, the site's landing page and install card, and the
+  installer's and preflight's own messages. Codex is unchanged.
+- **`exabeam_send_email` is human-gated on both hosts** (#137 — PM decision). Mail leaving the platform
+  to a person now sits on the `ask` tier in `settings.snippet.json` and as `approval_mode: "approve"` in
+  the generated Codex map, pinned by an invariant test; before, it was unclassified and the hosts split
+  by accident of their defaults (Codex asked via `default_tools_approval_mode`, Claude fell through to
+  the operator's own defaults). Belt-and-suspenders on the same decision: the bridge's `WRITE_TOOLS` and
+  the eval harness's dry-run deny list now include it, so a dry run refuses it at the bridge and the
+  red-team/eval drives can never send mail (the read-only allowlist already failed closed).
 
 ### Fixed
 - **A wildcard search is answered with the column list instead of being forwarded** (#160). The MCP
@@ -207,75 +312,6 @@ governance model (feature → `dev`, release `dev` → `main`).
   the full dependency graph, cross-linked with the AI BOM in both directions. Drift-checked on every PR,
   rebuilt and published as a workflow artifact on every push, regenerated by `bump_version.py` on a
   release, and it is the same tree `pip-audit` checks one step earlier. See `security/README.md`.
-### Security
-- **Links are now de-fanged in every form, and clickable is decided by destination** (#147, decided by
-  the PM; #119). The write-side neutralizer gained an HTML-aware pass — `href`/`src`/`srcset`/`action`
-  and the other URL-bearing attributes, CSS `url()` in style attributes and blocks, tracking pixels,
-  `javascript:`/`data:`/entity-encoded and slash-less schemes, event handlers, and `script`/`iframe`/
-  `object`/`svg`/`form`/`meta`/`base` elements — and every markdown link form CommonMark accepts (titles,
-  padding, nested brackets, reference definitions, autolinks). The one kind of link that stays clickable
-  is a link into the operator's own tenant, derived from `EXABEAM_MCP_URL` by the bridge and nothing
-  else; an empty allowlist (no config, the red-team harness) de-fangs everything. `exabeam_send_email`'s
-  subject and body run in **mail mode**, which also de-fangs bare URLs in text because mail clients
-  auto-link them. The mail template's inline styles, `bgcolor` and entities pass through byte-identical
-  (do-no-harm corpus in `tests/test_neutralize_html.py`). Residual, stated in the remit: an open redirect
-  on the tenant host passes. New red-team fixture `a12` (a live anchor and a tracking pixel planted in a
-  note) grades through the pipeline.
-
-### Changed
-- **Two more live-MCP tools are tiered** (#143). `exabeam_analytics_rule_details` (a read; note its bare-string
-  `arg0`) is allowed; `exabeam_create_analytics_rule` — a write that creates a detection rule server-side — is
-  **denied** on both hosts under both spellings, with `exabeam_update_analytics_rule` denied ahead of the MCP
-  exposing it: `rule-tuning` is proposals-only. `containment-tools.md` documents the detection-content denies
-  beside the containment verbs, so the deny-list invariant covers them; the skill, README and remit no longer
-  say "there is no rule-write path".
-- **The skill says what to stop doing** (#91). After a declined or unanswered dismiss/close the action is over —
-  no retry, no reaching the same outcome by another route — and out-of-lane requests are declined and handed
-  back rather than improvised.
-- **The plugin's identity lives in one place.** `plugin/identity.json` is now the single source for the
-  plugin's name, version, display name, description, keywords and marketplace; both host manifests and
-  all 92 permission rules in `settings.snippet.json` are **generated** from it (plus the bare-name tiers
-  in `permissions.json`) by `plugin/gen_identity.py`, and CI fails on drift. Re-keying or re-branding the
-  plugin — e.g. a vendor catalog shipping it under its own name — is one field and a regenerate, where it
-  used to be two manifests and ninety-two hand-edited rules that had to agree. `install.sh`, `preflight.sh`,
-  the eval harness, the tests and `bump_version.py` read the identity instead of carrying literals. The
-  generator ships in the payload, so an installed copy can regenerate itself. Only cosmetic change to
-  shipped artifacts: the Claude manifest's description now uses the same host-neutral wording as Codex's.
-  After review: the identity also reaches the shell scripts as a generated `identity.sh` include, so a
-  host without python3 reads the real name instead of a literal fallback that would have installed the
-  upstream plugin after a re-key; the release smoke, the AI-BOM's distribution reference, the Codex
-  red-team leg and the invariants test follow the identity too; `mcpServer` is cross-checked against
-  `permissions.json` and the `.mcp*.json` server key instead of sitting unread.
-- **Worker Remit v1.5 — the #121 tune-ups, before the dev RC scan.** Closure rules on the tool inventory
-  and the channel table (anything outside them is out of policy); the three disclosure rules name their
-  channel (the audit trail's session record and startup line; stderr for the one case where the trail is
-  unavailable); Declared Redaction Limits now carry the bare-URL-in-a-note residual, the open-redirect
-  residual of the tenant link rule (#147, #119) and the host's spill file for oversized results (resolved
-  as Open Question 9: the host's copy, not a socxen write). The dependency-pinning split is moot — the lockfile
-  is honored automatically.
-- **Outbound email is a declared channel.** The Praxen Worker Remit (v1.4) now authorizes `exabeam_send_email`
-  as a human-confirmed channel to active users of the operator's own subscription, and the docs
-  (`security-guardrails.md`, `usage.md`, the tool map) say what the platform enforces: the Exabeam MCP
-  service rejects any recipient who is not a subscription member, so mail cannot leave the tenant's user
-  base. The bridge now runs the mail `subject` and `body` through the write-side neutralizer (secrets
-  masked, formulas and markdown links de-fanged); the HTML-aware pass under #147's ruling (see Security,
-  above) then closed the `href`/`src` gap Praxen `-002` named.
-- **The governance merge is no longer a required setup step.** With the gate shipping inside the plugin
-  on both hosts, `install.sh --merge-permissions` and the hand-merge of `settings.snippet.json` are
-  documented as *optional* — a second lock that does not depend on the hook; the hook already allows the
-  reads. Every place that said the merge was mandatory now says the gate ships
-  ON — the repository README, the plugin README, `docs/installation.md` (section retitled "Governance —
-  the safety gate"), `docs/usage.md`, the docs index, the site's landing page and install card, and the
-  installer's and preflight's own messages. Codex is unchanged.
-- **`exabeam_send_email` is human-gated on both hosts** (#137 — PM decision). Mail leaving the platform
-  to a person now sits on the `ask` tier in `settings.snippet.json` and as `approval_mode: "approve"` in
-  the generated Codex map, pinned by an invariant test; before, it was unclassified and the hosts split
-  by accident of their defaults (Codex asked via `default_tools_approval_mode`, Claude fell through to
-  the operator's own defaults). Belt-and-suspenders on the same decision: the bridge's `WRITE_TOOLS` and
-  the eval harness's dry-run deny list now include it, so a dry run refuses it at the bridge and the
-  red-team/eval drives can never send mail (the read-only allowlist already failed closed).
-
-### Fixed
 - **The manual-MCP install path now says what it forgoes** (#86): registering the remote MCP directly bypasses
   input screening, the write-side neutralizer and the audit trail; only the permission layer survives (the
   dismiss/close gate and the deny tier under the manual prefix), and only for a server named `exabeam`. Stated in the install guide and the guardrails page.
