@@ -39,6 +39,16 @@ governance model (feature → `dev`, release `dev` → `main`).
   bridge is a HOOK MISS and blocks.
 
 ### Security
+
+- **The installer verifies the INSTALLED plugin carries the bundled hook before it says the gate is on**
+  (Praxen 2026-09-07 `-002`). `install.sh` used to print "not needed: the bundled hook gates dismiss/close"
+  whenever the permission rules were absent, from the clone's own view; a `claude plugin update` failure is
+  downgraded to a warning, so an offline operator could hold a hook-less older install and read that the
+  gate was on. The Governance block now asks `installed_hook_state()` first and reads it exactly as
+  `preflight.sh`'s `check_gate` does — hook present: gate ON via the installed plugin; installed copy
+  predates the hook, or no plugin installed/enabled: **FAIL**, with the merge offered as the lock that does
+  not depend on the hook; unverifiable: say so. Every "rules not merged" line, including the Next steps,
+  carries that same reading. A repo invariant pins that no reassuring line sits outside the check's `on)` arm.
 - **Praxen 2.0.0-beta.1 gate scan of the bundled-hook tree** (Opus 5, high mode, with the first threat model):
   **0 Critical — gate passes**; 3 High · 9 Medium; RAISE 3.15 (Established); remit v1.3 coverage 34 verified /
   16 partial / 5 gap of 64. See `security/praxen/README.md`. Of the three Highs: the hook's invocation
@@ -47,6 +57,30 @@ governance model (feature → `dev`, release `dev` → `main`).
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
+- **`preflight.sh --skip-connectivity` no longer starts every registered MCP server.** The new gate-reach
+  check read registrations through `claude mcp list`, which health-checks every approved server — the
+  bridge included, reaching Exabeam — exactly what the flag promises to skip (review of #158). The check is
+  skipped under the flag; the installer never called it. Same review: the hook trusts the manifest's plugin
+  name over `identity.json` when the two disagree (and says so on stderr), `decide()` takes its bundled
+  flag explicitly, the installer's Next steps no longer ask for a merge that is already done, an installed
+  plugin path with spaces is reported whole, and the repo tripwire pins every phrasing of "the hook gates".
+- **The gate's reach is decided by identity, not by a name substring; the deny tier is closed over the
+  remit's verbs; the bridge treats an unclassified tool as a write** (Praxen 2026-09-07 findings 003, 004,
+  005). The hook's prompt-free *allow* is granted only to the bundled bridge — the server named
+  `plugin_<this plugin's name>_exabeam`, with the name read from the identity file beside the hook — so a
+  vendor-keyed copy recognizes its own bridge and a manual or third-party Exabeam-named server gets the
+  operator's own rules for reads (it still gets *ask* and *deny*, which only tighten); the matcher and the
+  hook's *is-ours* test are both case-insensitive, so they cannot disagree about which calls the
+  restrictions reach — while the identity comparison that grants *allow* stays exact, so an oddly-cased
+  server name falls through to the operator's rules rather than being granted (loose for restrictions,
+  exact for grants — the asymmetry is deliberate); `preflight` warns when an Exabeam server is registered
+  under a name the gate does not reach. The deny tier now carries
+  every detection-content verb the Worker Remit names (create/update/enable/disable/delete a detection,
+  correlation or exclusion rule; create/update/delete a context table or its records) under both
+  spellings, ahead of the MCP exposing them; the two parser reads the proxy defines are classified
+  *allow* ahead of exposure. In the bridge, writes are the default and the tier file's reads the
+  exception: a tool this release did not classify as a read is neutralized, audited and refused in a dry
+  run until it is classified.
 - **The bridge holds one upstream MCP session per process, says what actually failed, and never retries a
   write** (#153, #154, #155). Under eight concurrent agent sessions on 2026-09-06 the staging proxy rejected
   about half of all tool calls: the bridge had been opening a fresh connection and a fresh MCP session for

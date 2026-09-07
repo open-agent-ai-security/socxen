@@ -11,9 +11,10 @@ only in `settings.snippet.json`, inert until an operator merged it, and switched
 mode and is refused when no human is present — the same posture the Codex package gets from
 `default_tools_approval_mode`. Verified live on 2026-09-04 (issue #9's two open questions).
 
-What it decides, keyed on the BARE tool name (the last `__` segment), so it applies equally to the
-bundled server under any plugin key (`mcp__plugin_socxen_exabeam__…`, `mcp__plugin_soc_exabeam__…`) and to
-the manually wired `mcp__exabeam__…`:
+What it decides, keyed on the BARE tool name (the last `__` segment). `deny` and `ask` apply equally to
+every Exabeam-named server -- the bundled server under any plugin key (`mcp__plugin_socxen_exabeam__…`,
+`mcp__plugin_soc_exabeam__…`), the manually wired `mcp__exabeam__…`, a third party's -- because tightening
+is always safe; `allow` applies to the bundled bridge only (below):
 
     deny tier  → deny   containment: socxen never executes it, it recommends it
     ask tier   → ask    dismiss / close (and send_email): an explicit human yes, every time
@@ -25,10 +26,17 @@ the manually wired `mcp__exabeam__…`:
                         verified live in default permission mode, headless, 2026-09-06). Returning no
                         decision here instead would make every read prompt with nothing merged, which is
                         the permission merge back under another name.
+                        The allow is granted ONLY to the bundled bridge — the server named
+                        `plugin_<this plugin's name>_exabeam`, the name read from identity.json beside
+                        this hook. On any other Exabeam-named server (a manual registration, a third
+                        party's server) an allow-tier tool gets NO decision: the operator's own rules
+                        apply, exactly as the generated permission snippet already spells it (its allow
+                        rules exist under the bundled prefix only). Praxen 2026-09-07-003.
     anything else → ask a tool the remote MCP grew that nobody has classified asks rather than
                         inheriting the session default — Codex's `approve` default, on Claude
     a tool of another MCP server → (no decision, not logged): the matcher is broad enough to survive a
                         renamed server, so the hook, not the matcher, decides whether a call is ours.
+                        "Ours" is case-insensitive here AND in the matcher (Praxen 2026-09-07-004).
 
 The tiers come from the file that ships beside this hook — `skills/soc-investigate/permissions.json`
 (bare names) when present, else `settings.snippet.json` (prefixed rules, stripped) — so the hook, the
@@ -54,17 +62,50 @@ import sys
 from pathlib import Path
 
 SERVER = "exabeam"
+NO_DECISION = "none"               # the allow tier off the bundled bridge: the operator's rules apply
 
 
 def bare(tool_name: str) -> str:
     return tool_name.rsplit("__", 1)[-1] if "__" in tool_name else tool_name
 
 
-def is_ours(tool_name: str) -> bool:
-    """mcp__<server>__<tool> where <server> is the Exabeam MCP: `exabeam`, or a bundled `plugin_<key>_exabeam`,
-    or any server an operator named with `exabeam` in it. Anything else belongs to another server."""
+def server_of(tool_name: str) -> str:
+    """The <server> in mcp__<server>__<tool>; '' when the name is not an MCP tool name."""
     m = re.match(r"^mcp__(.+)__[^_].*$", tool_name)
-    return bool(m) and "exabeam" in m.group(1).lower()
+    return m.group(1) if m else ""
+
+
+def is_ours(tool_name: str) -> bool:
+    """mcp__<server>__<tool> where <server> is an Exabeam MCP: `exabeam`, a bundled `plugin_<key>_exabeam`,
+    or any server an operator named with `exabeam` in it (any case). Anything else belongs to another server."""
+    return SERVER in server_of(tool_name).lower()
+
+
+def plugin_name(plugin_root: Path):
+    """This plugin's own name — the one Claude Code builds the bundled server prefix from. Claude Code reads
+    it from the manifest (.claude-plugin/plugin.json), so that is the authority; identity.json is the source
+    the manifest is generated from and the fallback. When both are present and disagree (an overlaid copy
+    that was not regenerated), say so on stderr and trust the manifest -- silently trusting identity.json
+    would make every bundled read fall through to a prompt (review of #158). None when neither is readable,
+    which means no server can be recognized as the bundled bridge: reads then fall through, never allow."""
+    names = {}
+    for rel in (".claude-plugin/plugin.json", "identity.json"):
+        try:
+            name = json.loads((plugin_root / rel).read_text()).get("name")
+            if isinstance(name, str) and name:
+                names[rel] = name
+        except Exception:  # noqa: BLE001, S110 — try the other source; the caller treats None as "not bundled"
+            pass
+    manifest, ident = names.get(".claude-plugin/plugin.json"), names.get("identity.json")
+    if manifest and ident and manifest != ident:
+        sys.stderr.write(f"socxen gate: identity.json names this plugin {ident!r} but the manifest Claude Code reads "
+                         f"names it {manifest!r} — using the manifest; regenerate with gen_identity.py\n")
+    return manifest or ident
+
+
+def is_bundled(tool_name: str, name) -> bool:
+    """Exactly the bundled bridge: `plugin_<name>_exabeam`, no substring, no case games."""
+    return bool(name) and server_of(tool_name) == f"plugin_{name}_{SERVER}"
 
 
 def load_tiers(plugin_root: Path):
@@ -78,14 +119,18 @@ def load_tiers(plugin_root: Path):
     return {t: {bare(r) for r in p.get(t, [])} for t in ("allow", "ask", "deny")}
 
 
-def decide(tool_name: str, tiers) -> tuple[str, str]:
+def decide(tool_name: str, tiers, *, bundled: bool) -> tuple[str, str]:
+    """deny and ask apply to every Exabeam-named server (tightening only); allow applies to the bundled
+    bridge alone -- elsewhere an allow-tier tool gets NO decision and the operator's rules apply."""
     name = bare(tool_name)
     if name in tiers["deny"]:
         return "deny", f"socxen gate: {name} is a containment action. socxen recommends containment for a human to perform and never executes it."
     if name in tiers["ask"]:
         return "ask", f"socxen gate: {name} dismisses or closes. It needs the analyst's explicit yes — ask, and wait."
     if name in tiers["allow"]:
-        return "allow", f"socxen gate: {name} is a read or an escalation write."
+        if bundled:
+            return "allow", f"socxen gate: {name} is a read or an escalation write."
+        return NO_DECISION, f"socxen gate: {name} is a read or an escalation write, but this is not the bundled bridge — no decision; the operator's own permission rules apply."
     return "ask", f"socxen gate: {name} is not classified in this release's permission tiers, so it asks rather than inheriting the session default."
 
 
@@ -165,7 +210,7 @@ def main() -> int:
             return 0                       # another server's tool: no decision, no record (not our business)
         target = target_fields(event.get("tool_input"))
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
-        decision, reason = decide(tool, load_tiers(root))
+        decision, reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
     except Exception as e:  # noqa: BLE001 — cannot classify → the human decides; headless → refused
         decision, reason = "ask", f"socxen gate could not evaluate this call ({type(e).__name__}); asking rather than allowing."
     record = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -173,6 +218,8 @@ def main() -> int:
     if target:
         record["target"] = target          # what was attempted, on which object — never the free text
     log_decision(record)
+    if decision == NO_DECISION:
+        return 0                           # no JSON on stdout = no decision: the normal permission flow runs
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                              "permissionDecisionReason": reason}}))
     return 0

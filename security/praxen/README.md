@@ -38,7 +38,46 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `dev` @ `16c1f02` (2026-09-06, the 0.8.6 release candidate)
+## Current status — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
+
+| | |
+|---|---|
+| Scanned | **`fix/gate-reach`** (`16dea29`) — `dev` @ `16c1f02` plus the one-session bridge transport (#157) and the gate-reach fixes (#158), the tree the same evening's stress gate drove |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model** (50 min) |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 3 High · 5 Medium · 2 Low |
+| Weighted RAISE posture | **3.45 / 5** (Established) — up from 3.30 on `dev` the same day; Limit Your Domain 3 → 4 |
+| Remit coverage | Remit **v1.5** · 67 rules — 57 verified · 8 partial · 1 gap · 1 not enforceable in code |
+| Threat model | 21 nodes · 25 edges · 8 trust boundaries · 2 attack paths — [`-threatmodel.html`](results/2026-09-07-socxen-bridge-stress-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 4 · Balance Your Knowledge Base 3 · Implement Zero Trust 3 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-07-socxen-bridge-stress.html) · [findings JSON](results/2026-09-07-socxen-bridge-stress.json) ·
+[audit](results/2026-09-07-socxen-bridge-stress-audit.md) · [threat model](results/2026-09-07-socxen-bridge-stress-threatmodel.html).
+Two fixes landed on the same PR stack after the snapshot: the bridge's late-victim session cascade
+(#157, found by the stress gate) and finding `-002` below (#158).
+
+**The three Highs, and their disposition:**
+
+| Finding | Disposition |
+|---|---|
+| `-001` Remote MCP tool descriptions reach the model unscreened — the canonicalizer covers tool results only | Tracked as #6. |
+| `-002` The installer told the operator the bundled hook gates dismiss/close without checking the INSTALLED plugin carries the hook | **Fixed in #158**: `install.sh` asks `installed_hook_state()` before any verdict; a hook-less or missing install FAILS; a repo invariant pins it. |
+| `-003` Nothing prevents a gated write from overwriting existing free-text content the remit exempts only state/disposition from | Tracked as #89. High, not Critical: the only path is the ask-tier gated write with a human in front of it. |
+
+**Mediums and Lows (open, not yet filed):** `-004` the deny tier is a list of names, so an unenumerated
+detection-content write asks a human instead of being denied outright (the tier is closed over the remit's
+verbs since #158; unknown-asks is the chosen fail-closed-to-a-human posture), `-005` the write-side
+neutralizer picks fields from a fixed allowlist, so an unanticipated free-text field would persist raw,
+`-006` switching the audit trail off produces no disclosure, `-007` nothing reconciles a report's claimed
+disposition change against the bridge's record of what was called (and the model floor is documentation
+only), `-008` the credentials file's mode is checked and warned about, never enforced; `-009` https is not
+required on the credential-bearing endpoint, `-010` the tool surface is not reconciled — the two allow-tier
+parser reads absent upstream are the documented "ahead of the MCP exposing it" case, but the model's own
+reference disagrees with the skill on the tool count.
+
+## Previous — `dev` @ `16c1f02` (2026-09-06, the 0.8.6 release candidate before #157/#158)
 
 | | |
 |---|---|
