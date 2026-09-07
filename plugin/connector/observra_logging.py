@@ -51,7 +51,7 @@ import atexit
 import os
 import sys
 
-__all__ = ["enabled", "session_start", "session_end", "tool_start", "tool_end", "tool_error"]
+__all__ = ["enabled", "session_start", "session_end", "tools_list", "tool_start", "tool_end", "tool_error"]
 
 SKILL = "soc-investigate"
 AGENT = "socxen"

@@ -106,6 +106,8 @@ class MockProxy:
                         # a definition no tier classifies, smuggling a zero-width space and a bidi override
                         # in its description and a zero-width space in a parameter description (#6)
                         {"name": "exabeam_new_thing", "description": "search\u200b events\u202e now",
+                         "title": "New\u200bThing", "annotations": {"title": "A\u200bT", "readOnlyHint": True},
+                         "outputSchema": {"type": "object", "description": "out\u200bput"},
                          "inputSchema": {"type": "object", "properties": {"q": {"type": "string",
                                                                                  "description": "the\u200bquery"}}}}]}})
                     self.log.append(("POST", jm, 200))
@@ -459,15 +461,17 @@ def test_tool_metadata_is_canonicalized_names_untouched_and_the_startup_line_say
         new = next(t for t in tools if t.name == "exabeam_new_thing")
         assert new.description == "search events now", "hidden code points stripped from the description"
         assert new.inputSchema["properties"]["q"]["description"] == "thequery", "and from the schema text"
+        assert new.title == "NewThing" and new.annotations.title == "AT" and new.outputSchema["description"] == "output"
+        assert new.annotations.readOnlyHint is True, "the rest of the annotation is untouched"
         assert [t.name for t in tools] == ["exabeam_search_alerts", "exabeam_create_case_notes", "exabeam_new_thing"]
-        assert B.UPSTREAM._screen["stripped"] == 3 and B.UPSTREAM._screen["failed"] == 0
+        assert B.UPSTREAM._screen["stripped"] == 6 and B.UPSTREAM._screen["failed"] == 0
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     line = err.getvalue()
-    assert "3 hidden code point(s) stripped" in line, line
+    assert "6 hidden code point(s) stripped" in line, line
     assert "unclassified by the tier file (treated as writes, ask): exabeam_new_thing" in line, line
     ev = [d for t, d in tel.events if t == "tools_list"]
-    assert ev and ev[0]["metadata_stripped"] == 3 and ev[0]["unclassified_tools"] == ["exabeam_new_thing"]
+    assert ev and ev[0]["metadata_stripped"] == 6 and ev[0]["unclassified_tools"] == ["exabeam_new_thing"]
     assert proxy.count("tools/list") == 1, "screened once, cached with the list"
 
 

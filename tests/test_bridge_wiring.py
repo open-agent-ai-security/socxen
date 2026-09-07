@@ -257,12 +257,66 @@ def test_a_case_update_keeps_a_supported_closed_reason_and_drops_free_text(monke
         "caseId": "c1", "stage": "CLOSED", "closedReason": "false positive or duplicate",
         "supportingReason": "the model's essay", "assignee": "alice", "useCases": ["x"]}}))
     assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED",
-                                          "closedReason": "false positive or duplicate", "assignee": "alice"}}
+                                          "closedReason": "False Positive or Duplicate", "assignee": "alice"}}, \
+        "a supported closed reason is forwarded in the API's own spelling, whatever the model's casing"
     sent.clear()
     out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
         "caseId": "c1", "stage": "CLOSED", "closedReason": "because the model said so"}}))
     assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED"}}
-    assert "closedReason (not a supported closed reason)" in out[-1].text
+    assert "closedReason (not a supported value)" in out[-1].text
+
+
+def test_dropped_field_names_are_bounded_and_never_the_models_text(monkeypatch):
+    """Review of #159: a key NAME is model text too. Schema-known fields are named by their own spelling,
+    anything else is counted; hidden code points and 5,000-character keys never reach the reply or the log."""
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    args = {"arg1": {"alertId": "a", "alertStatus": "READ", "K" * 5000: "v", "alert\u200bDescription\u202e": "v",
+                     "alertDescription": "x", **{f"junk{i}": "v" for i in range(300)}}}
+    out = asyncio.run(B.call_tool("exabeam_update_alert", args))
+    assert sent["arguments"] == {"arg1": {"alertId": "a", "alertStatus": "READ"}}
+    note = out[-1].text
+    assert len(note) < 400 and "\u200b" not in note and "\u202e" not in note and "K" * 20 not in note, note
+    assert "alertDescription" in note and "302 field(s) the update does not accept" in note, note
+    fields = ends[-1]["action_fields"]
+    assert fields["droppedFields"] == ["alertDescription"] and fields["droppedOther"] == 302
+    assert "\u200b" not in repr(ends) and "K" * 20 not in repr(ends)
+
+
+def test_an_upstream_error_on_a_stripped_update_says_what_was_dropped(monkeypatch):
+    """An update that carried only text becomes an empty patch upstream; the agent must not retry blind."""
+    import asyncio
+    async def failing_remote(op, *_a, **_k):
+        class S:
+            async def call_tool(self, name, arguments, **_kw):
+                class R:
+                    content = [Blk(text="alertStatus required")]
+                    isError = True
+                return R()
+        return await op(S())
+    monkeypatch.setattr(B, "remote", failing_remote)
+    with pytest.raises(RuntimeError) as ei:
+        asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "a", "alertDescription": "only text"}}))
+    assert "socxen dropped: alertDescription" in str(ei.value) and "only text" not in str(ei.value)
+
+
+def test_startup_display_helpers_are_bounded_and_escape_hidden_code_points():
+    assert B._display_name("a\u200bb\u202e") == "aU+200BbU+202E"
+    assert B._display_name("x" * 200).endswith("…") and len(B._display_name("x" * 200)) == 81
+    shown = B._display_list([f"t{i}" for i in range(15)])
+    assert shown.endswith(" +5 more") and shown.count(",") == 9
+
+
+def test_unclassified_excludes_names_the_bridge_treats_as_reads(monkeypatch):
+    class T:
+        def __init__(self, n): self.name = n
+    monkeypatch.setattr(B, "TIERED_TOOLS", frozenset())
+    monkeypatch.setattr(B, "READ_TOOLS", frozenset({"exabeam_search_alerts"}))
+    assert B._unclassified([T("exabeam_search_alerts"), T("exabeam_new_thing")]) == ["exabeam_new_thing"]
 
 
 def test_creates_and_reads_are_not_field_filtered(monkeypatch):

@@ -389,16 +389,16 @@ class _Upstream:
         try:
             tools = await self.tools()
             acc = self._screen or {}
-            unclassified = sorted(t.name for t in tools if t.name not in TIERED_TOOLS)
+            unclassified = _unclassified(tools)
             line = f"bridge: remote reachable — {len(tools)} Exabeam tools"
             if acc.get("stripped") or acc.get("flagged"):
                 line += f"; tool metadata screened: {acc['stripped']} hidden code point(s) stripped, {acc['flagged']} flagged"
             if acc.get("failed"):
                 line += f"; {acc['failed']} definition(s) could not be screened (kept as received)"
             if acc.get("odd_names"):
-                line += f"; names carrying hidden code points: {', '.join(acc['odd_names'])}"
+                line += f"; names carrying hidden code points: {_display_list(acc['odd_names'])}"
             if unclassified:
-                line += f"; unclassified by the tier file (treated as writes, ask): {', '.join(unclassified)}"
+                line += f"; unclassified by the tier file (treated as writes, ask): {_display_list(unclassified)}"
             sys.stderr.write(line + "\n")
             if telemetry.enabled():
                 telemetry.tools_list(len(tools), acc, unclassified)
@@ -465,15 +465,22 @@ _STATE_FIELDS = {
     "exabeam_update_alert": frozenset({"alertid", "alertstatus", "priority"}),
     "exabeam_update_case": frozenset({"caseid", "stage", "closedreason", "priority", "assignee", "queue"}),
 }
-_CLOSED_REASONS = frozenset({"already mitigated or resolved", "false positive or duplicate", "low risk",
-                             "rule misconfiguration", "policy or setup issue", "other"})
+_CLOSED_REASONS = {n.lower(): n for n in ("Already Mitigated or Resolved", "False Positive or Duplicate", "Low Risk",
+                                          "Rule Misconfiguration", "Policy or Setup Issue", "Other")}
 _ARG_WRAPPERS = frozenset({"arg0", "arg1"})
+# The fields an update may carry in the schema but the bridge drops (review of #159: the reply and the audit
+# record name a dropped field by ITS OWN spelling, never by the model's key text -- a key name is model text
+# too). Anything else the model sent is counted, not echoed.
+_DROPPABLE = {"alertdescription": "alertDescription", "alertname": "alertName", "tags": "tags",
+              "supportingreason": "supportingReason", "usecases": "useCases", "closedreason": "closedReason"}
 
 
 def _state_only(name, obj, dropped):
     """Keep only the state/disposition fields of an update, recursing through the proxy's arg0/arg1
-    wrapper; append the NAMES of dropped fields to `dropped`. A nested object under any other key is
-    dropped too -- an update has no legitimate nested free text."""
+    wrapper; append `(key, reason)` for every dropped field to `dropped` (the key is model text: it is
+    only ever counted or mapped to the schema's own spelling downstream, never echoed). A nested object
+    under any other key is dropped too -- an update has no legitimate nested free text. A supported
+    closedReason is forwarded in the API's own spelling, whatever casing or spacing the model used."""
     if not isinstance(obj, dict):
         return obj
     allowed, out = _STATE_FIELDS[name], {}
@@ -482,13 +489,34 @@ def _state_only(name, obj, dropped):
         if isinstance(v, dict) and lk in _ARG_WRAPPERS:
             out[k] = _state_only(name, v, dropped)
         elif lk in allowed:
-            if lk == "closedreason" and not (isinstance(v, str) and " ".join(v.split()).lower() in _CLOSED_REASONS):
-                dropped.append(f"{k} (not a supported closed reason)")
+            if lk == "closedreason":
+                canon = _CLOSED_REASONS.get(" ".join(v.split()).lower()) if isinstance(v, str) else None
+                if canon is None:
+                    dropped.append((k, "not a supported value"))
+                else:
+                    out[k] = canon
             else:
                 out[k] = v
         else:
-            dropped.append(k)
+            dropped.append((k, None))
     return out
+
+
+def _dropped_summary(dropped):
+    """What the agent and the audit record may say about dropped fields: schema-known fields by the
+    schema's own spelling, everything else as a count. Bounded; never a model-chosen string."""
+    known, other = [], 0
+    for k, why in dropped:
+        canon = _DROPPABLE.get(str(k).lower())
+        if canon is None:
+            other += 1
+        elif canon not in [x.split(" ", 1)[0] for x in known]:
+            known.append(canon + (f" ({why})" if why else ""))
+    names = sorted({x.split(" ", 1)[0] for x in known})
+    text = ", ".join(known)
+    if other:
+        text = (text + " and " if text else "") + f"{other} field(s) the update does not accept"
+    return names, text
 
 
 def _read_tools():
@@ -548,6 +576,24 @@ def _screen_schema(obj, acc):
     return obj
 
 
+def _display_name(n, cap=80):
+    """A remote-controlled name on its way to stderr: hidden code points spelled out, length bounded."""
+    s = "".join(f"U+{ord(c):04X}" if is_strippable(c) else c for c in str(n))
+    return s if len(s) <= cap else s[:cap] + "…"
+
+
+def _display_list(names, cap=10):
+    names = list(names)
+    shown = ", ".join(_display_name(n) for n in names[:cap])
+    return shown + (f" +{len(names) - cap} more" if len(names) > cap else "")
+
+
+def _unclassified(tools):
+    """Tools the remote offers that no tier classifies AND the bridge does not treat as a read -- the
+    honest reading when only one of the two tier sources could be loaded."""
+    return sorted(t.name for t in tools if t.name not in TIERED_TOOLS and t.name not in READ_TOOLS)
+
+
 def _screen_tools(tools):
     """Canonicalize the description and schema text of every remote tool definition. Returns the screened
     list and the tally: code points stripped / flagged, per-tool screening failures (the original
@@ -560,8 +606,15 @@ def _screen_tools(tools):
             update = {}
             if t.description:
                 update["description"] = _screen_text(t.description, acc)
+            if getattr(t, "title", None):
+                update["title"] = _screen_text(t.title, acc)
             if isinstance(t.inputSchema, dict):
                 update["inputSchema"] = _screen_schema(t.inputSchema, acc)
+            if isinstance(getattr(t, "outputSchema", None), dict):
+                update["outputSchema"] = _screen_schema(t.outputSchema, acc)
+            ann = getattr(t, "annotations", None)
+            if ann is not None and getattr(ann, "title", None):
+                update["annotations"] = ann.model_copy(update={"title": _screen_text(ann.title, acc)})
             out.append(t.model_copy(update=update) if update else t)
         except Exception:  # noqa: BLE001 -- fail-open: the definition stands, the failure is counted
             acc["failed"] += 1
@@ -572,7 +625,7 @@ def _screen_tools(tools):
 def is_write_tool(name):
     return name not in READ_TOOLS
 # Free-text write fields a payload can ride in — the ONLY fields we neutralize. IDs / enums / state
-# fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
+# fields (caseId, alertId, priority, stage, queue, assignee, alertStatus) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
 _DEFANG_FIELDS = {"note", "alertdescription", "alertname", "supportingreason", "closedreason", "tags",
                   "subject", "body"}     # subject/body: exabeam_send_email — neutralized in MAIL mode (below)
@@ -813,10 +866,13 @@ async def call_tool(name, arguments):
             texts = [t for t, _ in (_block_text(b) for b in content) if t]
             raise _UpstreamToolError(_safe_text(" ".join(texts) or "upstream tool error"))
     except _UpstreamToolError as e:
+        # A dropped field is part of why an update may have failed upstream (an update that carried only
+        # text becomes an empty patch): say so in the record and to the agent, so it does not retry blind.
+        suffix = f" (socxen dropped: {_dropped_summary(dropped)[1]})" if dropped else ""
         if log_on:
             telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage,
-                                 error_type_name="UpstreamToolError", error_message=str(e), is_retryable=False)
-        raise RuntimeError(f"Exabeam tool error ({name}): {e}") from e
+                                 error_type_name="UpstreamToolError", error_message=str(e) + suffix, is_retryable=False)
+        raise RuntimeError(f"Exabeam tool error ({name}): {e}{suffix}") from e
     except Exception as e:
         if stage == "remote":
             leaf = _Leaf(e)
@@ -835,9 +891,10 @@ async def call_tool(name, arguments):
         raise
     if dropped:
         # What the agent reads: the state change went through; the text did not, and where it belongs.
+        # Schema-known fields by their own spelling, anything else as a count -- never the model's key text.
         content = list(content) + [TextContent(type="text", text=(
-            f"socxen forwarded state fields only and dropped {', '.join(dropped)} from `{name}`: an update "
-            f"never replaces text an analyst wrote. Put the reason in a case note (exabeam_create_case_notes)."))]
+            f"socxen forwarded state fields only and dropped {_dropped_summary(dropped)[1]} from `{name}`: an "
+            f"update never replaces text an analyst wrote. Put the reason in a case note (exabeam_create_case_notes)."))]
     # Telemetry tail — FULLY GUARDED. The remote call has already committed; nothing here (not even
     # _audit_fields on pathological arguments) may raise into the return path and discard a successful write.
     try:
@@ -845,7 +902,9 @@ async def call_tool(name, arguments):
             fields = _audit_fields(arguments) if is_write else None
             if dropped:
                 fields = dict(fields or {})
-                fields["droppedFields"] = sorted({d.split(" ", 1)[0] for d in dropped})   # names only, never values
+                names, _ = _dropped_summary(dropped)
+                fields["droppedFields"] = names                          # schema spellings only; never model text
+                fields["droppedOther"] = sum(1 for k, _w in dropped if str(k).lower() not in _DROPPABLE)
             telemetry.tool_end(name, (time.perf_counter() - t0) * 1000,
                                defang_notes=defang_notes, hygiene_removed=hygiene_removed,
                                hygiene_kept=hygiene_kept, screen_failed=bool(screen_failures),
