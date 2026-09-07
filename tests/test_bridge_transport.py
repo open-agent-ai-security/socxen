@@ -42,8 +42,11 @@ class MockProxy:
     answer 500 before succeeding; `call_script` = the answers to successive tools/call requests
     ("ok" | 500 | 503 | 404 | "iserror"), the last one repeating."""
 
-    def __init__(self, init_fail=0, call_script=("ok",)):
+    def __init__(self, init_fail=0, call_script=("ok",), call_delay=0.0):
         self.init_fail = init_fail
+        self.call_delay = call_delay           # seconds the mock holds an answered tools/call (keeps it in flight)
+        self.release = None                    # set by the test to let "hang" steps answer at the end
+        self.arrived = 0                       # tools/call requests received (the log records them when answered)
         self.call_script = list(call_script)
         self.log = []                      # (http method, jsonrpc method, status)
         self.sessions = 0
@@ -96,7 +99,13 @@ class MockProxy:
                         {"name": "exabeam_create_case_notes", "description": "x", "inputSchema": {"type": "object"}}]}})
                     self.log.append(("POST", jm, 200))
                 elif jm == "tools/call":
+                    self.arrived += 1
                     step = self.call_script[0] if len(self.call_script) == 1 else self.call_script.pop(0)
+                    if step == "hang":                     # in flight until the test releases it
+                        await self.release.wait()
+                        step = "ok"
+                    elif self.call_delay:
+                        await asyncio.sleep(self.call_delay)
                     if step == "ok":
                         out = self._resp(200, {"jsonrpc": "2.0", "id": msg["id"], "result": {
                             "content": [{"type": "text", "text": "ok"}], "isError": False}})
@@ -109,12 +118,13 @@ class MockProxy:
                 else:
                     out = self._resp(400); self.log.append((method, jm, 400))
                 writer.write(out); await writer.drain()
-        except (asyncio.IncompleteReadError, ConnectionResetError):
+        except (asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError):
             pass
         finally:
             writer.close()
 
     async def start(self):
+        self.release = asyncio.Event()
         self.server = await asyncio.start_server(self.handle, "127.0.0.1", 0)
         port = self.server.sockets[0].getsockname()[1]
         self.url = f"http://127.0.0.1:{port}/mcp"
@@ -244,6 +254,41 @@ def test_a_lost_session_is_reopened_for_the_next_read(monkeypatch):
     run(go())
     assert proxy.count("initialize") == 2, "404 = the proxy forgot the session: reconnect, then the read"
     assert proxy.count("tools/call") == 2
+
+
+def test_a_late_victim_of_a_lost_session_does_not_drop_the_reopened_one(monkeypatch):
+    """Stress gate 2026-09-06: two reads in flight on one session when the proxy dropped it. The first
+    victim reopened the session and retried; the second victim noticed later (its cancellation was slow)
+    and dropped "the" session -- the reopened one, killing the first victim's retry -- and so on until
+    the breaker tripped against a healthy proxy. A victim may only drop the session it was actually on:
+    one loss is one reconnect, and every read in flight succeeds on the reopened session."""
+    proxy = None
+    tel = Telemetry().install(monkeypatch)
+
+    async def slow_cancel(s):                   # the second victim: cancellation takes longer than the first's reconnect
+        try:
+            return await s.call_tool("exabeam_search_alerts", {})
+        except asyncio.CancelledError:
+            await asyncio.sleep(0.6)
+            raise
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch, call_script=["hang", "hang", "ok"], call_delay=1.0)
+        u = B.UPSTREAM
+        a = asyncio.create_task(u.call(lambda s: s.call_tool("exabeam_search_alerts", {}), "a", retry=True))
+        b = asyncio.create_task(u.call(slow_cancel, "b", retry=True))
+        await asyncio.sleep(0.3)                # both reads are in flight on the first session
+        assert proxy.arrived == 2 and proxy.count("initialize") == 1
+        u._close.set()                          # the proxy drops that session under both of them
+        outs = await asyncio.gather(a, b, return_exceptions=True)
+        assert all(not isinstance(o, BaseException) and not o.isError for o in outs), outs
+        assert u._open_until == 0.0, "one lost session never opens the breaker"
+        proxy.release.set()
+        await u.drop(); await proxy.stop()
+    run(go())
+    assert proxy.count("initialize") == 2, f"one loss = one reconnect, not one per victim: {proxy.log}"
+    assert proxy.count("tools/call") == 4, "each read went out once on the lost session and once on the reopened one"
 
 
 def test_the_breaker_opens_after_consecutive_transport_failures(monkeypatch):

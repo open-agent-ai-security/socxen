@@ -60,7 +60,13 @@ governance model (feature → `dev`, release `dev` → `main`).
   the token is minted once under concurrent first calls; a per-process breaker stops hammering a proxy that
   is already rejecting. A write is still sent exactly once whatever the error, every read is still
   canonicalized and every write still neutralized, gated and audited — pinned by a transport test suite
-  against a local mock proxy that counts the requests.
+  against a local mock proxy that counts the requests. The 2026-09-06 stress gate (both red-team legs at
+  once, eight drives, 220 trials, 0 landed) then found the one way the new transport still buckled: when the
+  proxy dropped a session with several reads in flight, each later victim dropped the session the first
+  victim had just reopened, and five such self-inflicted losses tripped the breaker against a healthy proxy.
+  A victim now drops only the session it was on, one lost session counts once, and a read timeout is no
+  longer retried (the query is slow, not transient; a retry doubled the proxy's load while the agent waited
+  out another two minutes). Reproduced and pinned by a staggered-victim test against the mock proxy.
 - **The bundled hook's invocation now fails closed** (Praxen `-001`). `gate.py` never failed open, but a hook
   command that errors is non-blocking on the host — so a machine with `uv` and no system `python3` had a working
   bridge and no gate. The hook command exits 2 (blocking) when the interpreter is missing or the script cannot

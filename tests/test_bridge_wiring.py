@@ -23,21 +23,26 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 
 # ---- stub the bridge's heavy top-level deps (import-time only) ----
-for _n in ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http",
-           "mcp.server", "mcp.server.stdio", "mcp.types"]:
-    sys.modules.setdefault(_n, types.ModuleType(_n))
-sys.modules["certifi"].where = lambda: None            # cafile=None -> ssl uses system CAs, no file read
-sys.modules["httpx"].AsyncClient = object
-sys.modules["mcp"].ClientSession = object
-sys.modules["mcp"].McpError = type("McpError", (Exception,), {})
-sys.modules["mcp"].types = sys.modules["mcp.types"]
-sys.modules["mcp.types"].ListToolsResult = object
-sys.modules["mcp.types"].ClientRequest = object
-sys.modules["mcp.types"].ListToolsRequest = object
-sys.modules["mcp.client.streamable_http"].streamablehttp_client = object
-sys.modules["httpx"].HTTPStatusError = type("HTTPStatusError", (Exception,), {})
-sys.modules["httpx"].TransportError = type("TransportError", (Exception,), {})
-sys.modules["mcp.server.stdio"].stdio_server = object
+# FRESH stub modules, installed only while the bridge is imported, then the real modules (if any) are put
+# back. The installed mcp/httpx must never be mutated in-process: setting `ClientSession = object` on the
+# real package broke every later test that drives the real client (tests/test_bridge_transport.py, and
+# CI, where mcp is installed).
+_STUB_NAMES = ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http",
+               "mcp.server", "mcp.server.stdio", "mcp.types"]
+_saved = {n: sys.modules.get(n) for n in _STUB_NAMES}
+_stubs = {n: types.ModuleType(n) for n in _STUB_NAMES}
+_stubs["certifi"].where = lambda: None                 # cafile=None -> ssl uses system CAs, no file read
+_stubs["httpx"].AsyncClient = object
+_stubs["mcp"].ClientSession = object
+_stubs["mcp"].McpError = type("McpError", (Exception,), {})
+_stubs["mcp"].types = _stubs["mcp.types"]
+_stubs["mcp.types"].ListToolsResult = object
+_stubs["mcp.types"].ClientRequest = object
+_stubs["mcp.types"].ListToolsRequest = object
+_stubs["mcp.client.streamable_http"].streamablehttp_client = object
+_stubs["httpx"].HTTPStatusError = type("HTTPStatusError", (Exception,), {})
+_stubs["httpx"].TransportError = type("TransportError", (Exception,), {})
+_stubs["mcp.server.stdio"].stdio_server = object
 
 
 class _TextContent:                                     # the bridge builds one of these to refuse a
@@ -45,7 +50,7 @@ class _TextContent:                                     # the bridge builds one 
     def __repr__(self): return f"_TextContent({self.__dict__})"
 
 
-sys.modules["mcp.types"].TextContent = _TextContent
+_stubs["mcp.types"].TextContent = _TextContent
 
 
 class _Server:                                          # identity decorators for @server.list_tools/call_tool
@@ -54,12 +59,20 @@ class _Server:                                          # identity decorators fo
     def call_tool(self): return lambda f: f
 
 
-sys.modules["mcp.server"].Server = _Server
+_stubs["mcp.server"].Server = _Server
 
 sys.path.insert(0, str(ROOT / "plugin" / "connector"))
-_spec = importlib.util.spec_from_file_location("bridge", ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py")
-B = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(B)
+sys.modules.update(_stubs)
+try:
+    _spec = importlib.util.spec_from_file_location("bridge", ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py")
+    B = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(B)                          # the bridge module keeps its references to the stubs
+finally:
+    for _n in _STUB_NAMES:                              # the process gets its real modules back
+        if _saved[_n] is None:
+            sys.modules.pop(_n, None)
+        else:
+            sys.modules[_n] = _saved[_n]
 
 
 # ---- test doubles for MCP content blocks ----

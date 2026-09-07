@@ -150,8 +150,10 @@ class _Leaf:
         self.status = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None
         self.message = (str(e) or self.type_name)[:300]
         transport = isinstance(e, httpx.TransportError)
-        self.retryable = transport or self.status in _RETRYABLE_STATUS or (
-            isinstance(e, McpError) and "timed out" in self.message.lower())
+        # A timeout is NOT retryable: the query is slow, not transient, and a retry doubles the load on a
+        # proxy that is already struggling while the agent waits out another full read timeout (the stress
+        # gate saw a single read take 3 x 120 s this way).
+        self.retryable = transport or self.status in _RETRYABLE_STATUS
         # The session survives only an APPLICATION-level JSON-RPC error (the proxy answered, on a live
         # session). Anything at the transport layer -- a status error, a dropped connection, a timeout,
         # "Session terminated" -- has killed the client's transport task under the session, so the next
@@ -191,16 +193,18 @@ class _Upstream:
         self._open_until = 0.0
         self._runner_exc = None
         self._last_summary = ""
+        self._last_failed_owner = None
 
     async def _runner(self, tok, ready, close, err):
         # The session's context managers are entered and exited by THIS task only (anyio requires it).
         # The session lives until `close` is set; a normal exit sends the DELETE, so a failed call never
         # leaks a proxy session the way the per-call design did (#154).
+        mine = None
         try:
             async with streamablehttp_client(URL, headers={"Authorization": f"Bearer {tok}"}) as (r, w, _):
                 async with ClientSession(r, w) as s:
                     await s.initialize()
-                    self._session = s
+                    self._session = mine = s
                     ready.set()
                     await close.wait()
         except BaseException as e:  # noqa: BLE001 -- reported to the opener through `err`, to callers through _runner_exc
@@ -208,7 +212,8 @@ class _Upstream:
             self._runner_exc = e
             ready.set()
         finally:
-            self._session = None
+            if mine is not None and self._session is mine:   # never clear a session a NEWER owner has since opened
+                self._session = None
 
     async def _open(self):
         tok = await get_token()
@@ -241,14 +246,23 @@ class _Upstream:
                 await self.drop()
                 self._runner_exc = None
                 await self._open()
-            return self._session
+            return self._session, self._task
 
-    async def _run_on_session(self, op, s):
+    async def _drop_if(self, owner):
+        """Drop the session only while `owner` still owns it. Several calls in flight on one session all
+        fail when it dies; the first to notice reopens it, and the others must not then drop the session
+        it just reopened (the stress gate turned one proxy-side loss into five and tripped the breaker)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:
+            if self._task is owner:
+                await self.drop()
+
+    async def _run_on_session(self, op, s, owner):
         """Run op(s) but never outlive the session: the transport under a shared session dies in the OWNER
         task, and a caller blocked on it would otherwise wait out the full read timeout. Racing the call
         against the owner task turns a transport death into an immediate, attributable error."""
         op_task = asyncio.ensure_future(op(s))
-        owner = self._task
         done, _ = await asyncio.wait({op_task, owner}, return_when=asyncio.FIRST_COMPLETED)
         if op_task in done:
             return op_task.result()
@@ -265,10 +279,14 @@ class _Upstream:
             raise RuntimeError(f"Exabeam MCP: circuit open after {_BREAKER_TRIP} consecutive transport failures "
                                f"(last: {self._last_summary}); {what} refused for another {self._open_until - now:.0f}s")
 
-    def _note(self, ok):
+    def _note(self, ok, owner=None):
         if ok:
             self._streak = 0
+            self._last_failed_owner = None
         else:
+            if owner is not None and owner is self._last_failed_owner:
+                return                       # N calls in flight on ONE lost session are one failure, not N
+            self._last_failed_owner = owner
             self._streak += 1
             if self._streak >= _BREAKER_TRIP:
                 self._open_until = time.time() + _BREAKER_HOLD
@@ -284,7 +302,7 @@ class _Upstream:
         attempt = 0
         while True:
             try:
-                s = await self.session()
+                s, owner = await self.session()
             except Exception as e:
                 leaf = _Leaf(e)
                 self._last_summary = leaf.summary("initialize")
@@ -295,13 +313,13 @@ class _Upstream:
                     continue
                 raise
             try:
-                result = await self._run_on_session(op, s)
+                result = await self._run_on_session(op, s, owner)
             except Exception as e:
                 leaf = _Leaf(e)
                 self._last_summary = leaf.summary(what)
                 if leaf.session_lost:
-                    await self.drop()
-                self._note(False)
+                    await self._drop_if(owner)
+                self._note(False, owner)
                 if retry and (leaf.retryable or leaf.session_lost) and attempt < len(_READ_RETRY_DELAYS):
                     await asyncio.sleep(_READ_RETRY_DELAYS[attempt] + random.uniform(0, 0.3))  # noqa: S311
                     attempt += 1
