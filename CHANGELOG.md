@@ -10,15 +10,32 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [0.8.6] — 2026-09-07
 
-**The human-in-the-loop gate ships ON, and the bridge is the enforcement point.** On Claude Code the
-dismiss/close gate is now a bundled hook that is active the moment the plugin is enabled — no permission
-merge, fail-closed, its allow reaching only the bundled bridge itself — matching what Codex already got
-from its approval policy. Under it, the connector was rebuilt around what two days of live red-team load
-taught: one upstream session per process instead of one per call, real errors in the audit record, reads
-retried and writes never, a breaker for a proxy that is rejecting; an update may change state and
-disposition only, a create may only open a case, and the remote's own tool definitions are screened and
-hashed like any other input. Two things the model would not do on instruction alone are now done in
-code: naming the columns of a search, and never overwriting text an analyst wrote.
+**One release, three threads: security, performance and robustness.** Every entry below belongs to one
+of them, and they are the same story told from three sides — two days of live red-team load on the real
+proxy, two Praxen scans with a threat model, and a security assessment's Highs, each answered in code.
+
+**Security.** The human-in-the-loop gate ships ON for Claude Code — a bundled hook, active the moment the
+plugin is enabled, fail-closed, needing no permission merge, its allow reaching only the bundled bridge
+itself — matching what Codex already got from its approval policy. Under it, the bridge is the enforcement
+point rather than the skill's prose: an update may change state and disposition only, a create may only
+open a case, the remote's own tool definitions are screened for hidden code points and instruction-shaped
+text and hashed per session like any other input, links are de-fanged in every form, and outbound mail
+is human-gated on both hosts. The red-team corpus now provokes the gated write on purpose (c03, c04, the
+hook leg) and the Praxen worker remit has a threat model behind it.
+
+**Performance.** The connector was rebuilt around what the load taught: one upstream session per process
+instead of one per call — the eight-drive shape that used to fail about half the old bridge's calls ran
+1,918 calls with no transport error — reads retried with backoff and writes never, a breaker for a proxy
+that is rejecting, a wildcard search answered with the endpoint's column list instead of being forwarded
+(a stated workaround for the MCP's own schema text), and a preflight that no longer starts every
+registered server to check one.
+
+**Robustness.** The audit record says what actually failed instead of a generic error, the gate's reach is
+decided by identity rather than a name substring, the plugin's identity lives in one file that generates
+the rest, the search cookbook says what each endpoint accepts, the hook's decision log is bounded and its
+off switch speaks, the docs describe the gate that ships, and CI gates on a security lint, a dependency
+audit and generated bills of materials. The red-team runner itself was fixed in the places its own
+findings exposed — the forbidden-outcome check, the headless *ask*, the Mac going to sleep mid-pass.
 
 Release gate for this version — recorded in `security/redteam/HISTORY.md` and `security/praxen/README.md`:
 Two full-corpus stress runs on the rebuilt transport (2026-09-06 stress gate, 2026-09-07 stress run 2: 22
