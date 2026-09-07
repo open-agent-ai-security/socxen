@@ -38,7 +38,7 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `fix/gate-reach` @ `16dea29` (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
+## Current status — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
 
 | | |
 |---|---|

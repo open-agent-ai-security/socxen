@@ -65,7 +65,7 @@ def test_another_servers_tool_gets_no_decision_and_no_record(tmp_path):
 
 @pytest.mark.parametrize("prefix", ["mcp__plugin_socxen_exabeam__", "mcp__plugin_soc_exabeam__", "mcp__exabeam__", "mcp__EXABEAM-prod__"])
 def test_decisions_match_the_shipped_tiers_under_every_prefix(prefix):
-    """Exhaustive, in-process (decide() is a plain function; the subprocess contract is tested beside it):
+    """Exhaustive, in-process (decide(, bundled=True) is a plain function; the subprocess contract is tested beside it):
     deny and ask apply under EVERY Exabeam-named prefix; allow applies to the bundled bridge only
     (Praxen 2026-09-07-003) — elsewhere an allow-tier tool gets no decision."""
     tiers = gate.load_tiers(PLUGIN)
@@ -96,10 +96,20 @@ def test_the_allow_tier_is_the_bundled_bridges_alone(tmp_path):
     shutil.copytree(PLUGIN, vendored, ignore=shutil.ignore_patterns("__pycache__"))
     ident = json.loads((vendored / "identity.json").read_text()); ident["name"] = "soc"
     (vendored / "identity.json").write_text(json.dumps(ident))
+    manifest = vendored / ".claude-plugin" / "plugin.json"
+    man = json.loads(manifest.read_text()); man["name"] = "soc"           # gen_identity regenerates it from identity.json
+    manifest.write_text(json.dumps(man))
     out = run_hook("mcp__plugin_soc_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
     assert out["permissionDecision"] == "allow"
     out = run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
     assert out == NO_DECISION, "under the vendored copy, the upstream key is not its bridge"
+    # an overlaid identity.json that was never regenerated into the manifest: Claude Code builds the prefix
+    # from the MANIFEST, so the manifest wins (review of #158) -- the bundled reads keep their allow
+    man["name"] = "socxen"; manifest.write_text(json.dumps(man))
+    out = run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
+    assert out["permissionDecision"] == "allow", "the manifest's name is the one Claude Code registered"
+    out = run_hook("mcp__plugin_soc_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
+    assert out == NO_DECISION
 
 
 def test_matcher_and_hook_agree_on_case(tmp_path):

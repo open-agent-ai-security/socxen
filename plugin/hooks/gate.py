@@ -11,9 +11,10 @@ only in `settings.snippet.json`, inert until an operator merged it, and switched
 mode and is refused when no human is present — the same posture the Codex package gets from
 `default_tools_approval_mode`. Verified live on 2026-09-04 (issue #9's two open questions).
 
-What it decides, keyed on the BARE tool name (the last `__` segment), so it applies equally to the
-bundled server under any plugin key (`mcp__plugin_socxen_exabeam__…`, `mcp__plugin_soc_exabeam__…`) and to
-the manually wired `mcp__exabeam__…`:
+What it decides, keyed on the BARE tool name (the last `__` segment). `deny` and `ask` apply equally to
+every Exabeam-named server -- the bundled server under any plugin key (`mcp__plugin_socxen_exabeam__…`,
+`mcp__plugin_soc_exabeam__…`), the manually wired `mcp__exabeam__…`, a third party's -- because tightening
+is always safe; `allow` applies to the bundled bridge only (below):
 
     deny tier  → deny   containment: socxen never executes it, it recommends it
     ask tier   → ask    dismiss / close (and send_email): an explicit human yes, every time
@@ -81,17 +82,25 @@ def is_ours(tool_name: str) -> bool:
 
 
 def plugin_name(plugin_root: Path):
-    """This plugin's own name — the one Claude Code builds the bundled server prefix from — read from the
-    identity file shipped beside this hook (the generated manifest as the fallback). None when unreadable,
+    """This plugin's own name — the one Claude Code builds the bundled server prefix from. Claude Code reads
+    it from the manifest (.claude-plugin/plugin.json), so that is the authority; identity.json is the source
+    the manifest is generated from and the fallback. When both are present and disagree (an overlaid copy
+    that was not regenerated), say so on stderr and trust the manifest -- silently trusting identity.json
+    would make every bundled read fall through to a prompt (review of #158). None when neither is readable,
     which means no server can be recognized as the bundled bridge: reads then fall through, never allow."""
-    for rel in ("identity.json", ".claude-plugin/plugin.json"):
+    names = {}
+    for rel in (".claude-plugin/plugin.json", "identity.json"):
         try:
             name = json.loads((plugin_root / rel).read_text()).get("name")
             if isinstance(name, str) and name:
-                return name
-        except Exception:  # noqa: BLE001, S110 — try the next source; the caller treats None as "not bundled"
+                names[rel] = name
+        except Exception:  # noqa: BLE001, S110 — try the other source; the caller treats None as "not bundled"
             pass
-    return None
+    manifest, ident = names.get(".claude-plugin/plugin.json"), names.get("identity.json")
+    if manifest and ident and manifest != ident:
+        sys.stderr.write(f"socxen gate: identity.json names this plugin {ident!r} but the manifest Claude Code reads "
+                         f"names it {manifest!r} — using the manifest; regenerate with gen_identity.py\n")
+    return manifest or ident
 
 
 def is_bundled(tool_name: str, name) -> bool:
@@ -110,7 +119,7 @@ def load_tiers(plugin_root: Path):
     return {t: {bare(r) for r in p.get(t, [])} for t in ("allow", "ask", "deny")}
 
 
-def decide(tool_name: str, tiers, bundled: bool = True) -> tuple[str, str]:
+def decide(tool_name: str, tiers, *, bundled: bool) -> tuple[str, str]:
     """deny and ask apply to every Exabeam-named server (tightening only); allow applies to the bundled
     bridge alone -- elsewhere an allow-tier tool gets NO decision and the operator's rules apply."""
     name = bare(tool_name)

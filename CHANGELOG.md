@@ -57,6 +57,13 @@ governance model (feature → `dev`, release `dev` → `main`).
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
+- **`preflight.sh --skip-connectivity` no longer starts every registered MCP server.** The new gate-reach
+  check read registrations through `claude mcp list`, which health-checks every approved server — the
+  bridge included, reaching Exabeam — exactly what the flag promises to skip (review of #158). The check is
+  skipped under the flag; the installer never called it. Same review: the hook trusts the manifest's plugin
+  name over `identity.json` when the two disagree (and says so on stderr), `decide()` takes its bundled
+  flag explicitly, the installer's Next steps no longer ask for a merge that is already done, an installed
+  plugin path with spaces is reported whole, and the repo tripwire pins every phrasing of "the hook gates".
 - **The gate's reach is decided by identity, not by a name substring; the deny tier is closed over the
   remit's verbs; the bridge treats an unclassified tool as a write** (Praxen 2026-09-07 findings 003, 004,
   005). The hook's prompt-free *allow* is granted only to the bundled bridge — the server named

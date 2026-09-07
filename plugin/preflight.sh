@@ -327,6 +327,9 @@ gate_reach_warnings() {
 
 check_gate_reach() {
   command -v claude >/dev/null 2>&1 || return 0
+  # `claude mcp list` health-checks every approved server, i.e. it STARTS the bridge and reaches Exabeam --
+  # exactly what --skip-connectivity promises not to do (review of #158).
+  [ "${SKIP_CONN:-0}" = 1 ] && { skip "Gate-reach check skipped (--skip-connectivity: 'claude mcp list' would start every registered MCP server)"; return 0; }
   local missed
   missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')"
   [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook and the permission rules key on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
@@ -351,9 +354,9 @@ check_gate() {
       check_gate_reach
       state="$(gate_state_claude)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;
+        on)  ok "Human-in-the-loop gate ON — the permission rules are merged (dismiss/close in the ask tier, containment denied); the bundled hook gates the same when the installed plugin carries it" ;;
         off) local hook hstate hver hpath
-             hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="$(printf '%s' "$hook" | awk '{print $3}')"
+             hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="${hook#* * }"
              case "$hstate" in
                on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
                     ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;

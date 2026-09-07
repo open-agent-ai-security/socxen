@@ -498,7 +498,7 @@ fi
 # makes; HOOK_NOTE is the one phrase every "rules not merged" line below carries.
 PLUGIN_KEY="${PLUGIN}@${MARKETPLACE_NAME}"
 HOOK="$(installed_hook_state)"; HOOK_STATE="${HOOK%% *}"
-HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="$(printf '%s' "$HOOK" | awk '{print $3}')"
+HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="${HOOK#* * }"          # the path may carry spaces
 MERGE_LABEL="(needed)"; HOOK_TAIL=""
 case "$HOOK_STATE" in
   on)   HOOK_NOTE="the bundled hook in the installed plugin already gates dismiss/close, so the rules are an optional second lock that does not depend on the hook"
@@ -507,6 +507,7 @@ case "$HOOK_STATE" in
   none) HOOK_NOTE="no plugin is installed or enabled for Claude Code (${PLUGIN_KEY}), so nothing gates dismiss/close until it is" ;;
   *)    HOOK_NOTE="the installed hook could not be verified (needs the claude CLI with 'plugin list --json' and python3), so treat the rules as the lock" ;;
 esac
+[ "$GATE_STATE" = on ] && { MERGE_LABEL="(already merged)"; HOOK_NOTE="the permission rules are merged into $SETTINGS and gate dismiss/close on their own; $HOOK_NOTE"; }
 
 if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
   # Same "cannot do it ≠ pretend it's done" discipline as the gate check: say why, give the manual path.

@@ -460,7 +460,8 @@ def test_install_never_claims_the_hook_gates_without_checking_the_installed_plug
     # each `on)` arm ends at its own `;;`
     arms = [(o, next(j for j in range(o, len(lines)) if lines[j].rstrip().endswith(";;"))) for o in on_lines]
     reassuring = [i for i, l in enumerate(lines)
-                  if not l.lstrip().startswith("#") and re.search(r"hook.*(already gates|gates dismiss)", l)]
+                  if not l.lstrip().startswith("#")
+                  and re.search(r"(gate ON via the bundled hook|hook.*(already gates|gates dismiss|asks on dismiss|denies containment|still fire))", l)]
     assert reassuring, "expected the installer to still explain what the hook gates, inside the on) arm"
     for i in reassuring:
         assert i > first_check, f"install.sh:{i + 1} claims the hook gates before the installed plugin is checked"

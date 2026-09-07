@@ -190,6 +190,15 @@ def test_write_tools_cover_all_mutating_tools():
                              "exabeam_send_email"}
 
 
+def test_no_tool_is_both_a_bridge_read_and_a_write():
+    """READ_TOOLS is the allow tier minus the escalation writes: putting a write into the allow tier would
+    make it a bridge read (un-neutralized, retried) AND a hook allow at once (review of #158)."""
+    assert B.READ_TOOLS, "the tier file must be readable in the test tree"
+    assert not (B.READ_TOOLS & B.WRITE_TOOLS), B.READ_TOOLS & B.WRITE_TOOLS
+    assert B._ESCALATION_WRITES <= B.WRITE_TOOLS
+    assert all(B.is_write_tool(w) for w in B.WRITE_TOOLS)
+
+
 # ---- telemetry tail must never break a completed call (code-review PR #39, finding #2) ----
 def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
     """The remote write has already committed by the time the telemetry tail runs. If anything there
