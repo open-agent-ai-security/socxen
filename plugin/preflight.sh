@@ -331,7 +331,11 @@ check_gate_reach() {
   # exactly what --skip-connectivity promises not to do (review of #158).
   [ "${SKIP_CONN:-0}" = 1 ] && { skip "Gate-reach check skipped (--skip-connectivity: 'claude mcp list' would start every registered MCP server)"; return 0; }
   local missed
-  missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')"
+  # `claude mcp list` exits non-zero when ANY registered server fails its health check -- an ordinary state
+  # on a working machine -- and under `set -euo pipefail` that status would abort the whole Governance
+  # section before a single gate verdict printed (automated review of #158). The listing it did print is
+  # still what we need; the status is not.
+  missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')" || true
   [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook and the permission rules key on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
   return 0
 }
