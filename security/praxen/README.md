@@ -38,7 +38,54 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
+## Current status — `fix/praxen-163` @ `8eb6c24` (2026-09-07, PR #164: the two #163 Highs fixed)
+
+| | |
+|---|---|
+| Scanned | **`fix/praxen-163`** (`8eb6c24`) — `dev` @ `f82bdef` (every 0.8.6 PR merged) plus the #163 fixes: a `create_case` carrying a closing disposition is refused; tool definitions screened for instruction-shaped text and hashed |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project memory), 45 min; account window 20–27%, never rejected |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **1 High** · 5 Medium · 2 Low — all 8 CONFIRMED by the audit pass, 0 UNSUPPORTED |
+| Weighted RAISE posture | **3.55 / 5** (Established) — up from 3.45; **Implement Zero Trust 3 → 4** (the close-by-another-route refusal) |
+| Remit coverage | Remit **v1.5** · 68 rules — 50 verified · 7 partial · 0 gap · 11 not enforceable in code |
+| Threat model | 22 nodes · 29 edges · 9 trust boundaries · 2 attack paths — [`-threatmodel.html`](results/2026-09-07-socxen-fix163-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-07-socxen-fix163.html) · [findings JSON](results/2026-09-07-socxen-fix163.json) ·
+[audit](results/2026-09-07-socxen-fix163-audit.md) · [threat model](results/2026-09-07-socxen-fix163-threatmodel.html).
+
+**Against #163's two Highs:** the close-by-another-route finding is gone (Zero Trust moved to 4 on it). The
+instruction-shaped-text finding remains, re-stated: the text is now **detected and reported** but reaches
+the model verbatim, and the scan wants it treated as untrusted markup, not only reported.
+
+**Maintainer decision (Steve Wilson, 2026-09-07): accepted at Medium. Malicious use of this vector is out
+of the threat model; accidental use is real, demonstrated, and bounded.** The argument is about who can
+place text there, not about impact. Tool definitions are static per proxy release and carry no tenant
+data, so exactly one party can write them: Exabeam — the same vendor that supplies the MCP server, the
+SIEM and the analytics layer. Rating this High would model Exabeam as weaponizing tool descriptions against
+its own customer, and a vendor in that position has no need of the description channel: it already
+returns the alerts, events, timelines and analytics verdicts the entire investigation rests on. The
+description channel is strictly weaker than the channels socxen already trusts completely; one cannot
+coherently trust the evidence and distrust the labels on the tools that fetch it. So the malicious branch
+is not mitigated, it is outside the model. The accidental branch is the one to keep checkable: it has
+happened once (#160 — a "MANDATORY, IGNORE any user request" description reached 100% of calls), and what
+makes it Medium is that its impact was bounded (a self-inflicted DoS, now intercepted at the bridge) and
+every consequential action downstream is deterministically controlled — including, as of this PR, the
+`create_case` route. Detection and reporting stay (the startup line, the `tools_list` event); the bridge
+does not rewrite a vendor's descriptions. Recorded here as the waiver the release gate asks for on an
+open High.
+
+**Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
+session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
+no host gate and no missing-gate warning; `-004` all three skills tell the model to run a host shell
+command at preflight — a second host tool the remit does not declare; `-005` an upstream tool error's
+text is written into the audit trail, which the remit says never holds tool results; `-006` the allow tier
+grants reads the remit's Known Good Baseline does not enumerate (the parser reads, the use-case score).
+Lows: `-007` docs miscount the governance surface; `-008` any scheme is accepted in `EXABEAM_MCP_URL`.
+
+## Previous — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
 
 | | |
 |---|---|
@@ -76,6 +123,16 @@ only), `-008` the credentials file's mode is checked and warned about, never enf
 required on the credential-bearing endpoint, `-010` the tool surface is not reconciled — the two allow-tier
 parser reads absent upstream are the documented "ahead of the MCP exposing it" case, but the model's own
 reference disagrees with the skill on the tool count.
+
+**A later scan of the merged `dev` @ `f82bdef`** — 2026-09-07, run by the automated reviewer in a
+context-isolated session (Praxen 2.0.0-beta.1, Opus 5, standard mode, no threat model, **no audit
+pass**, so its findings are unadjudicated): 0 Critical · 2 High · 6 Medium · 3 Low, remit 67 rules
+58 verified / 9 partial / 0 gaps, RAISE 3.30. Its artifacts could not be pushed by that account and are
+tracked in #163. Both Highs were re-read at their cited lines and fixed on `dev` the same day: a close by
+another route through the allow-tier `create_case` (now refused by the bridge when a create carries a
+closing disposition), and tool definitions screened for hidden code points but not for instruction-shaped
+text (now surfaced on the startup line and in the `tools_list` audit event, with a per-session hash of the
+tool surface).
 
 ## Previous — `dev` @ `16c1f02` (2026-09-06, the 0.8.6 release candidate before #157/#158)
 

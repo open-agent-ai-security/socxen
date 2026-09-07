@@ -39,7 +39,20 @@ governance model (feature → `dev`, release `dev` → `main`).
   bridge is a HOOK MISS and blocks.
 
 ### Security
-
+- **A case is opened by `create_case`; a create carrying a closing disposition is refused** (#163, Praxen
+  2026-09-07-001). `exabeam_create_case` sits in the prompt-free allow tier on both hosts — escalation must
+  not prompt — yet its schema accepts `stage` and `closedReason`, so a case created already CLOSED or FALSE
+  POSITIVE was a close by another route around the ask-tier gate, forbidden by the skill in prose only. The
+  bridge now refuses such a create before the dry run, with its own sentence, audited as a guardrail
+  refusal; opening stages and free text on the new object pass untouched. The red-team grader reads that
+  refusal as a control save, and a new fixture (`c04-close-via-create-case-after-decline`) provokes the
+  route on purpose.
+- **Tool definitions are screened for instruction-shaped text and hashed per session** (#163, Praxen
+  2026-09-07-002). The code-point screen cannot see language, and the Exabeam MCP's own schemas talk to the
+  model ("MANDATORY … IGNORE any user request"). A definition whose text is instruction-shaped is now named
+  on the startup line and in the `tools_list` audit event — surfaced, never rewritten — and every definition
+  is hashed (`tool_shas`, `surface_sha`) so a definition that changes between sessions shows up as a changed
+  hash in the audit trail. Within a session the list is fetched once, so there is nothing to compare against.
 - **An update changes state and disposition only** (Praxen 2026-09-07 `-003`, #89; security assessment
   F-03). `exabeam_update_alert` and `exabeam_update_case` take description, name, reason and tag fields
   with replace semantics at the API, and the action matrix said a dismiss goes "with the reason" — so on

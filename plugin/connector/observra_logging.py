@@ -228,6 +228,9 @@ def tools_list(count, screen, unclassified):
           metadata_stripped=int(screen.get("stripped", 0)), metadata_flagged=int(screen.get("flagged", 0)),
           metadata_screen_failed=int(screen.get("failed", 0)),
           odd_names=[str(n)[:80] for n in screen.get("odd_names", [])][:20],
+          directive_tools=[str(n)[:80] for n in screen.get("directive_tools", [])][:50],   # definitions with instruction-shaped text (#163)
+          surface_sha=str(screen.get("surface_sha", ""))[:64],                              # hash of the whole tool surface, per session
+          tool_shas={str(n)[:80]: str(h)[:12] for n, h in list((screen.get("tool_shas") or {}).items())[:100]},
           unclassified_tools=[str(n)[:80] for n in unclassified][:50])
 
 

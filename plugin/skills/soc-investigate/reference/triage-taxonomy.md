@@ -17,6 +17,11 @@ verdict so results stay countable across investigations.
 Notes:
 - **raised** is the right call for a confirmed threat *and* for genuinely inconclusive cases — when in
   doubt, escalate to a human rather than auto-close.
+- **The label is the disposition that happened, not the verdict.** `auto_closed` and `fp_closed` are
+  used only when the closing call succeeded in this session. If the analyst declined the close, a control
+  refused it, or the dismiss is handed to a human to perform, the outcome is **raised** — even with a
+  positive benign explanation in hand. A report that says "false positive" and "not dismissed" ends with
+  `raised`; `fp_closed` on such a report claims an action that did not happen.
 - **fp_closed** requires a *positive* benign explanation (known automation, documented change,
   expected admin behavior). "I found nothing suspicious" without an explanation is **raised**
   (inconclusive), not **fp_closed**.

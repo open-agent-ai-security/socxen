@@ -41,7 +41,11 @@ The same screen runs over the **tool definitions** the Exabeam MCP hands the bri
 names, descriptions and parameter text that tell the model what each tool does. Descriptions are
 canonicalized like any result (a name is never rewritten; one carrying a hidden code point is reported
 instead), and the startup line says what was stripped and which tools, if any, the shipped tier file
-does not classify — those are treated as writes.
+does not classify — those are treated as writes. Two more things are reported about each definition,
+never changed: whether its text *talks to the model* (instruction-shaped phrases such as "mandatory",
+"ignore any user request" — the Exabeam MCP's own schemas carry some, and the skill counters them in
+prose), and a hash of the definition, recorded per session in the audit trail so a definition that
+changes between sessions shows up as a changed hash.
 
 ## 2. Filtering what socxen writes (de-activating dangerous content)
 
@@ -77,6 +81,8 @@ When socxen writes its findings back to Exabeam — a case note, an alert update
   supporting reason and the tags on an existing object are replaced wholesale by the API, so the bridge
   drops those fields from an update before it is sent and tells the agent what it dropped. Analyst-written
   text is never overwritten by the model; socxen's reasoning goes into a case note, which appends.
+  And a case is *opened* by a create: a `create_case` carrying a closed or false-positive stage, or a
+  close reason, is a close by another route around the human gate, and the bridge refuses it outright.
 
 ### Why your links look "broken" — this is intentional
 

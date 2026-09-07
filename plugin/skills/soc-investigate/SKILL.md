@@ -214,7 +214,10 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 sent — fix the value or omit it), `priority`, `assignee` and `queue`. A
 description, a name, a supporting reason or tags belong to the analyst who wrote them: the bridge drops
 those fields from an update and tells you what it dropped. Write the reason as a case note instead — a
-note appends, an update replaces.
+note appends, an update replaces. **A case is opened by `create_case`**, with an opening stage (`NEW`,
+`MORE DETAILS`, `INVESTIGATION`, `REMEDIATION`) or none: a create carrying `CLOSED`, `FALSE POSITIVE` or a
+`closedReason` is a close by another route and the bridge refuses it — closing goes through `update_case`,
+with the analyst's yes.
 
 ## Reaching a good verdict
 
@@ -238,9 +241,13 @@ investigated end to end against a live MCP).
 Taxonomy outcome: <raised | auto_closed | fp_closed>
 ```
 
-Use the value from `reference/triage-taxonomy.md` — `raised` when you escalated *or* were genuinely
-inconclusive, `auto_closed` when you resolved it without escalation, `fp_closed` only when a *positive*
-benign explanation was found. This is a required line, not a stylistic one: it is the single
+Use the value from `reference/triage-taxonomy.md`. **The label is the disposition that actually happened
+in this session, not your verdict.** `raised` when you escalated *or* were genuinely inconclusive *or*
+the close did not happen — the analyst declined, a control refused it, or you handed it to a human;
+`auto_closed` only when your closing call succeeded without escalation; `fp_closed` only when a
+*positive* benign explanation was found **and** your dismiss/close call succeeded. A false-positive
+verdict whose dismiss is still pending a human is `raised`, however sure you are. This is a required
+line, not a stylistic one: it is the single
 machine-readable statement of what you concluded, and the evals and the pre-release red-team gate read
 it to check the verdict against the evidence. A report without it cannot be graded, and an ungraded run
 reads as a pass — so omitting the line silently weakens the safety checks that gate this skill's
