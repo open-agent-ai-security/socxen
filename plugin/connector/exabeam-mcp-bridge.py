@@ -155,8 +155,11 @@ class _Leaf:
         code = getattr(getattr(e, "error", None), "code", None) if isinstance(e, McpError) else None
         # A timeout is NOT retryable: the query is slow, not transient, and a retry doubles the load on a
         # proxy that is already struggling while the agent waits out another full read timeout (the stress
-        # gate saw a single read take 3 x 120 s this way).
-        self.retryable = transport or self.status in _RETRYABLE_STATUS
+        # gate saw a single read take 3 x 120 s this way). That holds for the SDK's request timeout (below)
+        # and for httpx's own read/write timeouts, which are TransportErrors too (automated review of #157).
+        # A connect or pool timeout is different: nothing was sent, so a retry is cheap and safe.
+        sent_and_timed_out = isinstance(e, (httpx.ReadTimeout, httpx.WriteTimeout))
+        self.retryable = (transport and not sent_and_timed_out) or self.status in _RETRYABLE_STATUS
         # The session survives an APPLICATION-level JSON-RPC error: the proxy answered on a live session, or
         # the SDK's own per-request timeout fired (`anyio.fail_after` around the response stream -- the
         # transport under the session is untouched, review of #157). What kills the transport task is a

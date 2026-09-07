@@ -403,6 +403,21 @@ def test_a_write_killed_after_it_was_sent_says_its_outcome_is_unknown(monkeypatc
     assert "outcome is unknown" in tel.errors()[0]["error_message"]
 
 
+def test_httpx_timeouts_after_the_send_are_not_retryable():
+    """Automated review of #157: httpx's ReadTimeout/WriteTimeout are TransportErrors, so they were still
+    retryable while the comment said a timeout never is. A connect or pool timeout sent nothing and stays
+    retryable; every httpx timeout still kills the transport task, so the session is lost either way."""
+    import httpx
+    for cls in (httpx.ReadTimeout, httpx.WriteTimeout):
+        leaf = B._Leaf(cls("slow"))
+        assert leaf.retryable is False and leaf.session_lost is True, cls.__name__
+    for cls in (httpx.ConnectTimeout, httpx.PoolTimeout, httpx.ConnectError):
+        leaf = B._Leaf(cls("nothing sent"))
+        assert leaf.retryable is True and leaf.session_lost is True, cls.__name__
+    inner = ExceptionGroup("unhandled errors in a TaskGroup", [httpx.ReadTimeout("slow")])
+    assert B._Leaf(inner).retryable is False, "unwrapped from the anyio group too"
+
+
 def test_the_breaker_opens_after_consecutive_transport_failures(monkeypatch):
     proxy = None
     monkeypatch.setattr(B, "_BREAKER_TRIP", 2)
