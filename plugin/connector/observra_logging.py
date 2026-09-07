@@ -51,7 +51,7 @@ import atexit
 import os
 import sys
 
-__all__ = ["enabled", "session_start", "session_end", "tool_start", "tool_end", "tool_error"]
+__all__ = ["enabled", "session_start", "session_end", "tools_list", "tool_start", "tool_end", "tool_error"]
 
 SKILL = "soc-investigate"
 AGENT = "socxen"
@@ -216,6 +216,19 @@ def session_start(**config):
 
 def session_end():
     _emit("mcp_session_end")
+
+
+def tools_list(count, screen, unclassified):
+    """The tool surface the remote offered this session: how many definitions, what the metadata screen
+    stripped or flagged (COUNTS only -- the text never enters the log), how many definitions could not be
+    screened, which names carry a hidden code point, and which names no tier classifies (treated as
+    writes). State facts about the surface, never a description."""
+    screen = screen or {}
+    _emit("tools_list", tool_count=int(count),
+          metadata_stripped=int(screen.get("stripped", 0)), metadata_flagged=int(screen.get("flagged", 0)),
+          metadata_screen_failed=int(screen.get("failed", 0)),
+          odd_names=[str(n)[:80] for n in screen.get("odd_names", [])][:20],
+          unclassified_tools=[str(n)[:80] for n in unclassified][:50])
 
 
 def tool_start(tool):

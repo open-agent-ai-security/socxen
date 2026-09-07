@@ -40,6 +40,22 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ### Security
 
+- **An update changes state and disposition only** (Praxen 2026-09-07 `-003`, #89; security assessment
+  F-03). `exabeam_update_alert` and `exabeam_update_case` take description, name, reason and tag fields
+  with replace semantics at the API, and the action matrix said a dismiss goes "with the reason" — so on
+  ordinary use the model could overwrite text an analyst wrote. The bridge now forwards only the state
+  fields on those two tools (`alertStatus`/`priority`; `stage`, a supported `closedReason`, `priority`,
+  `assignee`, `queue`), drops everything else before the call, names the dropped fields in the reply and
+  in the audit record (names, never values), and the skill says the reason belongs in a case note, which
+  appends. A `closedReason` outside the API's vocabulary refuses the close rather than closing the case
+  with no disposition (automated review). `create_case` is untouched: a new object has nothing to overwrite.
+- **The remote's tool definitions are screened like a tool result** (Praxen 2026-09-07 `-001`, #6;
+  security assessment F-05). `tools/list` was the one platform-sourced text channel the input
+  canonicalizer did not cover. Descriptions and schema text are now canonicalized once per session, what
+  was stripped is counted in a new `tools_list` audit event, a tool name is never rewritten (one carrying
+  a hidden code point is reported), and the startup line names any tool the shipped tier file does not
+  classify — those are treated as writes. Fail-open per definition: a screening error keeps the definition
+  as received and is counted.
 - **The installer verifies the INSTALLED plugin carries the bundled hook before it says the gate is on**
   (Praxen 2026-09-07 `-002`). `install.sh` used to print "not needed: the bundled hook gates dismiss/close"
   whenever the permission rules were absent, from the clone's own view; a `claude plugin update` failure is
