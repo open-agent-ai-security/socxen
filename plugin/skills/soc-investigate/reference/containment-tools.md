@@ -58,9 +58,28 @@ forbids applying or claiming to have applied a rule change, so both are denied o
 both spellings, exactly like the containment verbs. A future rule-write tool under a new name lands on
 the hook's unknown-tool rule (ask), which is the safety net until it is classified here.
 
-**Detection content**
+**Detection content** — every verb the Worker Remit names: create, update, enable, disable or delete a
+detection rule, a correlation rule or an exclusion rule, and create, update, delete or add records to a
+context table. Only `create_analytics_rule` is live today; the rest are denied ahead of the MCP exposing
+them, so a new detection-content write lands on a deny, not on the unknown-tool rule (Praxen 2026-09-07-005).
 - `create_analytics_rule`
 - `update_analytics_rule`
+- `enable_analytics_rule`
+- `disable_analytics_rule`
+- `delete_analytics_rule`
+- `create_correlation_rule`
+- `update_correlation_rule`
+- `enable_correlation_rule`
+- `disable_correlation_rule`
+- `delete_correlation_rule`
+- `create_exclusion_rule`
+- `update_exclusion_rule`
+- `delete_exclusion_rule`
+- `create_context_table`
+- `update_context_table`
+- `delete_context_table`
+- `add_context_table_records`
+- `delete_context_table_records`
 
 ## Why these and not `create_case` / `update_alert`
 

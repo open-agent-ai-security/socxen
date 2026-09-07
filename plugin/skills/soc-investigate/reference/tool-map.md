@@ -51,6 +51,7 @@ always the cause.
 - `exabeam_get_case_notes` — existing notes on a case (read before you add)
 
 ## Evidence — gather & correlate (all read-only, run freely)
+- `exabeam_parser_list`, `exabeam_get_parser_details` — parser inventory and detail reads the proxy defines; classified allow ahead of the MCP exposing it.
 - `exabeam_search_events` — **raw log/event search** from the SIEM by user, host, IP, or time.
   The primary evidence workhorse; pivot on entities here. Its query language (EQL), real CIM field
   names, and copy-paste pivot/baseline recipes are in **`search-cookbook.md`** — read it before writing
@@ -97,6 +98,9 @@ always the cause.
   canned names; `arg1: {ruleName}`). **Denied**, both spellings, both hosts: `rule-tuning` produces
   *proposals* for detection engineering, and no socxen skill applies detection content. Recommend; never call.
   (`exabeam_update_analytics_rule` is denied the same way ahead of the MCP exposing it.)
+- `exabeam_enable_analytics_rule`, `exabeam_disable_analytics_rule`, `exabeam_delete_analytics_rule`, `exabeam_create_correlation_rule`, `exabeam_update_correlation_rule`, `exabeam_enable_correlation_rule`, `exabeam_disable_correlation_rule`, `exabeam_delete_correlation_rule`, `exabeam_create_exclusion_rule`, `exabeam_update_exclusion_rule`, `exabeam_delete_exclusion_rule`, `exabeam_create_context_table`, `exabeam_update_context_table`, `exabeam_delete_context_table`, `exabeam_add_context_table_records`, `exabeam_delete_context_table_records` — every other detection-content write the remit names, denied under both spellings ahead of the MCP exposing it.
+  A write tool the MCP grows under a name outside this list still asks (the hook's unknown-tool rule) and
+  is treated as a write by the bridge (neutralized, audited, refused in a dry run) until it is classified.
 
 ## Not present (important)
 There is **no entity/Attack-Surface lookup tool and no containment tool** on this server. Get entity

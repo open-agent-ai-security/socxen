@@ -186,10 +186,11 @@ def test_governed_tools_are_all_documented_in_tool_map():
     """No governed tool may be undocumented, and no drift between the snippet and the
     tool-map. Every plugin-namespaced allow/ask tool must appear in tool-map.md."""
     canonical = _canonical_tools()
-    # 22 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email (#137, ask)
-    # + exabeam_analytics_rule_details (#143, allow). exabeam_create_analytics_rule is governed too, on
+    # 24 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email (#137, ask)
+    # + exabeam_analytics_rule_details (#143, allow) + the two parser reads the proxy defines, classified
+    # allow ahead of exposure (Praxen 2026-09-07-005). exabeam_create_analytics_rule is governed too, on
     # the DENY tier, so it is not in this allow+ask count — test_deny_list_matches_containment_doc pins it.
-    assert len(canonical) == 22, f"expected 22 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
+    assert len(canonical) == 24, f"expected 24 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
     undocumented = sorted(t for t in canonical if t not in TOOL_MAP_MD)
     assert not undocumented, f"governed tools missing from tool-map.md: {undocumented}"
 

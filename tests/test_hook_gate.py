@@ -63,15 +63,63 @@ def test_another_servers_tool_gets_no_decision_and_no_record(tmp_path):
     assert not log.exists()
 
 
-@pytest.mark.parametrize("prefix", ["mcp__plugin_socxen_exabeam__", "mcp__plugin_soc_exabeam__", "mcp__exabeam__"])
+@pytest.mark.parametrize("prefix", ["mcp__plugin_socxen_exabeam__", "mcp__plugin_soc_exabeam__", "mcp__exabeam__", "mcp__EXABEAM-prod__"])
 def test_decisions_match_the_shipped_tiers_under_every_prefix(prefix):
     """Exhaustive, in-process (decide() is a plain function; the subprocess contract is tested beside it):
-    every shipped rule under every prefix, and the three tiers are exactly Codex's auto / approve / disabled."""
+    deny and ask apply under EVERY Exabeam-named prefix; allow applies to the bundled bridge only
+    (Praxen 2026-09-07-003) — elsewhere an allow-tier tool gets no decision."""
     tiers = gate.load_tiers(PLUGIN)
-    for tier, expected in (("deny", "deny"), ("ask", "ask"), ("allow", "allow")):
+    name = gate.plugin_name(PLUGIN)
+    for tier, expected in (("deny", "deny"), ("ask", "ask")):
         for rule in SNIPPET[tier]:
-            decision, reason = gate.decide(prefix + bare(rule), tiers)
+            decision, reason = gate.decide(prefix + bare(rule), tiers, bundled=gate.is_bundled(prefix + bare(rule), name))
             assert decision == expected, (tier, rule, decision, reason)
+    for rule in SNIPPET["allow"]:
+        tool = prefix + bare(rule)
+        decision, _ = gate.decide(tool, tiers, bundled=gate.is_bundled(tool, name))
+        assert decision == ("allow" if prefix == "mcp__plugin_socxen_exabeam__" else gate.NO_DECISION), (prefix, rule, decision)
+
+
+def test_the_allow_tier_is_the_bundled_bridges_alone(tmp_path):
+    """Praxen 2026-09-07-003: the prompt-free allow used to apply under any server whose name contained
+    'exabeam'. Now it is granted to `plugin_<name>_exabeam` only, with <name> read from identity.json --
+    so a vendor-keyed copy (soc@exabeam) recognizes ITS bridge, and a manual or third-party server gets
+    the operator's own rules for reads while still getting ask/deny."""
+    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts")["permissionDecision"] == "allow"
+    assert run_hook("mcp__exabeam__exabeam_search_alerts") == NO_DECISION            # manual registration: your rules
+    assert run_hook("mcp__exabeam-prod__exabeam_get_case_details") == NO_DECISION
+    assert run_hook("mcp__exabeam__exabeam_update_alert")["permissionDecision"] == "ask"     # tightening still reaches it
+    assert run_hook("mcp__EXABEAM__exabeam_isolate_host")["permissionDecision"] == "deny"    # any case
+    # a vendor catalog's copy: same hook, its own identity.json says "soc"
+    import shutil
+    vendored = tmp_path / "soc"
+    shutil.copytree(PLUGIN, vendored, ignore=shutil.ignore_patterns("__pycache__"))
+    ident = json.loads((vendored / "identity.json").read_text()); ident["name"] = "soc"
+    (vendored / "identity.json").write_text(json.dumps(ident))
+    out = run_hook("mcp__plugin_soc_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
+    assert out["permissionDecision"] == "allow"
+    out = run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts", env={"CLAUDE_PLUGIN_ROOT": str(vendored)})
+    assert out == NO_DECISION, "under the vendored copy, the upstream key is not its bridge"
+
+
+def test_matcher_and_hook_agree_on_case(tmp_path):
+    """Praxen 2026-09-07-004: the matcher was case-sensitive while the hook lowercased, so the two could
+    disagree about which calls are ours. Now both are case-insensitive."""
+    m = re.compile(HOOKS_JSON["hooks"]["PreToolUse"][0]["matcher"])
+    for name in ("mcp__EXABEAM__exabeam_update_alert", "mcp__Exabeam-Prod__exabeam_update_alert", "mcp__plugin_socxen_exabeam__x"):
+        assert m.search(name) and gate.is_ours(name), name
+    assert not m.search("mcp__github__create_issue") and not gate.is_ours("mcp__github__create_issue")
+
+
+def test_preflight_warns_about_an_exabeam_server_the_gate_does_not_reach():
+    import subprocess
+    sample = ("Checking MCP server health…\n\n"
+              "exabeam: uv run /x/exabeam-mcp-bridge.py - ✓ Connected\n"
+              "siem: uv run /x/exabeam-mcp-bridge.py - ✓ Connected\n"
+              "claude.ai Gmail: https://gmailmcp.googleapis.com/mcp/v1 - ✓ Connected\n"
+              "prod-mcp: https://api.us-west.exabeam.cloud/mcp - ✓ Connected\n")
+    r = subprocess.run(["bash", "-c", f"source '{PLUGIN / 'preflight.sh'}'; gate_reach_warnings"], input=sample, capture_output=True, text=True)
+    assert r.stdout.split() == ["siem", "prod-mcp"], r.stdout
 
 
 def test_safe_operations_are_allowed_so_nothing_prompts_with_nothing_merged():
@@ -162,7 +210,7 @@ def test_gate_never_crashes_on_a_bad_log_path(tmp_path):
     `|| exit 2` every gated call blocked. Logging must never change the decision."""
     import subprocess, json as _json, os
     env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN), SOCXEN_GATE_LOG="~nosuchuser_zz/gate.jsonl")
-    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__exabeam__exabeam_search_alerts"}', capture_output=True, text=True, env=env)
+    proc = subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input='{"tool_name":"mcp__plugin_socxen_exabeam__exabeam_search_alerts"}', capture_output=True, text=True, env=env)
     assert proc.returncode == 0 and _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 

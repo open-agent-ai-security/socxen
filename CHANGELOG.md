@@ -47,6 +47,20 @@ governance model (feature → `dev`, release `dev` → `main`).
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
+- **The gate's reach is decided by identity, not by a name substring; the deny tier is closed over the
+  remit's verbs; the bridge treats an unclassified tool as a write** (Praxen 2026-09-07 findings 003, 004,
+  005). The hook's prompt-free *allow* is granted only to the bundled bridge — the server named
+  `plugin_<this plugin's name>_exabeam`, with the name read from the identity file beside the hook — so a
+  vendor-keyed copy recognizes its own bridge and a manual or third-party Exabeam-named server gets the
+  operator's own rules for reads (it still gets *ask* and *deny*, which only tighten); the matcher and the
+  hook are both case-insensitive, so they cannot disagree about which calls are ours; `preflight` warns
+  when an Exabeam server is registered under a name the gate does not reach. The deny tier now carries
+  every detection-content verb the Worker Remit names (create/update/enable/disable/delete a detection,
+  correlation or exclusion rule; create/update/delete a context table or its records) under both
+  spellings, ahead of the MCP exposing them; the two parser reads the proxy defines are classified
+  *allow* ahead of exposure. In the bridge, writes are the default and the tier file's reads the
+  exception: a tool this release did not classify as a read is neutralized, audited and refused in a dry
+  run until it is classified.
 - **The bridge holds one upstream MCP session per process, says what actually failed, and never retries a
   write** (#153, #154, #155). Under eight concurrent agent sessions on 2026-09-06 the staging proxy rejected
   about half of all tool calls: the bridge had been opening a fresh connection and a fresh MCP session for
