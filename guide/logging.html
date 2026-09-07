@@ -300,7 +300,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tools_list</code></td>
 <td>the remote's tool definitions arrive (once per session)</td>
-<td><code>tool_count</code>, <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code>, <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes)</td>
+<td><code>tool_count</code>, <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code>, <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
 </tr>
 <tr>
 <td><code>tool_start</code></td>

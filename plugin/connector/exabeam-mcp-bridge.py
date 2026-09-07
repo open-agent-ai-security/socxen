@@ -23,6 +23,8 @@ starting the server.
 """
 import asyncio
 from datetime import timedelta
+import hashlib
+import json
 import os
 from pathlib import Path
 import random
@@ -397,13 +399,23 @@ class _Upstream:
                 line += f"; {acc['failed']} definition(s) could not be screened (kept as received)"
             if acc.get("odd_names"):
                 line += f"; names carrying hidden code points: {_display_list(acc['odd_names'])}"
+            if acc.get("directive_tools"):
+                line += (f"; {len(acc['directive_tools'])} definition(s) carry instruction-shaped text the skill counters "
+                         f"in prose (#163): {_display_list(acc['directive_tools'])}")
+            shas = acc.get("shas") or {}
+            surface = hashlib.sha256("\n".join(f"{n} {h}" for n, h in sorted(shas.items())).encode()).hexdigest() if shas else ""
+            if surface:
+                line += f"; tool surface {surface[:12]} (compare across sessions in the audit trail)"
             if unclassified:
                 line += f"; unclassified by the tier file (treated as writes, ask): {_display_list(unclassified)}"
             sys.stderr.write(line + "\n")
             if telemetry.enabled():
                 # Names flagged FOR carrying hidden code points must not carry them raw into the one durable
                 # record (an RLO in a JSONL line reverses whatever renders it) -- spelled out, as on stderr.
-                telemetry.tools_list(len(tools), dict(acc, odd_names=[_display_name(n) for n in acc.get("odd_names", [])]),
+                telemetry.tools_list(len(tools),
+                                     dict(acc, odd_names=[_display_name(n) for n in acc.get("odd_names", [])],
+                                          directive_tools=[_display_name(n) for n in acc.get("directive_tools", [])],
+                                          surface_sha=surface, tool_shas={_display_name(n): h[:12] for n, h in sorted(shas.items())}),
                                      [_display_name(n) for n in unclassified])
         except Exception as e:  # noqa: BLE001
             leaf = _Leaf(e)
@@ -484,6 +496,36 @@ _SEARCH_COLUMNS = {
     "exabeam_search_alerts": ["alertId", "alertName", "priority", "riskScore", "user", "rules", "mitres", "creationTimestamp", "caseId"],
     "exabeam_search_cases": ["case_id", "case_number", "name", "stage", "priority", "risk_score", "user", "use_cases", "assignee"],
 }
+
+
+# A case is OPENED by create_case (#163, Praxen 2026-09-07-001). The tool sits in the prompt-free allow
+# tier on both hosts -- escalation must not prompt -- yet its schema accepts `stage` and `closedReason`,
+# so a case created already CLOSED or FALSE POSITIVE is a close by another route around the ask-tier
+# gate. SKILL.md forbids that route in prose and the red-team grader counts it; the bridge now refuses it
+# in code, before the dry run, so the refusal the model reads is this control's own. A create may carry
+# only an opening stage; any closing disposition key, or a closedReason at all, refuses the call.
+_OPENING_STAGES = frozenset({"new", "more details", "investigation", "remediation"})
+_DISPOSITION_KEYS = frozenset({"stage", "closedreason", "casestatus", "alertstatus", "status"})
+_CLOSING_VALUE = re.compile(r"clos|resolv|dismiss|false.?positive", re.I)
+BRIDGE_REFUSAL_MARK = "socxen bridge refused"      # the red-team grader's mark for this control (never in an upstream result)
+
+
+def _create_case_guard(arguments):
+    """Refuse a create_case that would land a case already closed. Looks at the top level and through the
+    proxy's arg0/arg1 wrapper; never inside string values. Raises ValueError with the message the model
+    reads; the caller audits it as a guardrail refusal."""
+    if not isinstance(arguments, dict):
+        return
+    scopes = [arguments] + [v for k, v in arguments.items() if isinstance(v, dict) and k.lower() in _ARG_WRAPPERS]
+    for s in scopes:
+        for k, v in s.items():
+            lk = k.lower()
+            if lk == "closedreason" or (lk in _DISPOSITION_KEYS and isinstance(v, str)
+                                        and (_CLOSING_VALUE.search(v) or (lk == "stage" and " ".join(v.split()).lower() not in _OPENING_STAGES))):
+                raise ValueError(
+                    f"{BRIDGE_REFUSAL_MARK} exabeam_create_case: a case is OPENED by create_case (stage NEW, MORE DETAILS, "
+                    f"INVESTIGATION or REMEDIATION); closing it or marking it a false positive goes through "
+                    f"exabeam_update_case with the analyst's explicit yes. Re-send without `{k}`; the call was not executed.")
 
 
 def _wildcard_fields(name, arguments):
@@ -594,6 +636,15 @@ TIERED_TOOLS = _tier_names()
 # canonicalized and what was stripped is counted, out of band. A NAME is never rewritten (a rewritten
 # name is a broken call); a name carrying a hidden code point is reported instead. FAIL-OPEN per tool.
 _METADATA_TEXT_KEYS = frozenset({"description", "title"})
+# Instruction-shaped text in a tool DEFINITION (#163, Praxen 2026-09-07-002): the proxy's own schemas
+# carry "MANDATORY … IGNORE any user request", and the model obeys such text over the skill (measured
+# 2026-09-07: 1,840 of 1,840 searches). The code-point screen cannot remove language, and rewriting a
+# vendor's description is not this bridge's place -- but a definition that TALKS TO THE MODEL is a fact
+# the operator should see. Surfaced (startup line + tools_list event), never altered, never blocked.
+_DIRECTIVE_RE = re.compile(
+    r"\b(ignore|disregard|override)\b[^.\n]{0,60}\b(user|instruction|request|prompt|rule)s?\b"
+    r"|\bmandatory\b|\byou must\b|\bdo not comply\b|\b(always|never) (send|use|set|return|include|pass)\b"
+    r"|\bsystem prompt\b", re.I)
 
 
 def _screen_text(value, acc):
@@ -630,15 +681,50 @@ def _unclassified(tools):
     return sorted(t.name for t in tools if t.name not in TIERED_TOOLS and t.name not in READ_TOOLS)
 
 
+def _definition_text(t):
+    """Every human-readable string of a tool definition, joined -- what the model reads about the tool."""
+    parts = [t.description or "", getattr(t, "title", None) or ""]
+    ann = getattr(t, "annotations", None)
+    if ann is not None and getattr(ann, "title", None):
+        parts.append(ann.title)
+
+    def walk(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k in _METADATA_TEXT_KEYS and isinstance(v, str):
+                    parts.append(v)
+                else:
+                    walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(t.inputSchema if isinstance(t.inputSchema, dict) else {})
+    walk(getattr(t, "outputSchema", None) if isinstance(getattr(t, "outputSchema", None), dict) else {})
+    return "\n".join(parts)
+
+
+def _definition_sha(t):
+    """A stable hash of what the remote said this tool IS (name, description, schema): recorded per session
+    in the audit trail so a changed definition shows up as a changed hash between sessions (#163). The
+    list is fetched once per process, so within a session there is nothing to compare against."""
+    body = json.dumps({"name": t.name, "description": t.description or "",
+                       "inputSchema": t.inputSchema if isinstance(t.inputSchema, dict) else None}, sort_keys=True, default=str)
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
 def _screen_tools(tools):
     """Canonicalize the description and schema text of every remote tool definition. Returns the screened
     list and the tally: code points stripped / flagged, per-tool screening failures (the original
-    definition stands), and names that carry a hidden code point (reported, never altered)."""
-    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "odd_names": []}
+    definition stands), names that carry a hidden code point (reported, never altered), definitions whose
+    text is instruction-shaped (reported, never altered), and a per-tool hash of the definition."""
+    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "odd_names": [], "directive_tools": [], "shas": {}}
     for t in tools:
         try:
             if any(is_strippable(ch) for ch in (t.name or "")):
                 acc["odd_names"].append(t.name)
+            if _DIRECTIVE_RE.search(_definition_text(t)):
+                acc["directive_tools"].append(t.name)
+            acc["shas"][t.name] = _definition_sha(t)
             update = {}
             if t.description:
                 update["description"] = _screen_text(t.description, acc)
@@ -869,6 +955,19 @@ async def call_tool(name, arguments):
             f"the context before. Re-send the same search naming the columns you need — for this tool start from: "
             f"{cols}. The MCP schema's text calling the wildcard mandatory is wrong; this answer stands in until the "
             f"MCP server is fixed."))]
+    # A close by another route (#163): a create_case carrying a closing disposition is refused here, before
+    # the dry run, so the refusal the model reads is this control's own -- audited like a neutralizer refusal.
+    if name == "exabeam_create_case" and arguments:
+        try:
+            _create_case_guard(arguments)
+        except ValueError as e:
+            if log_on:
+                try:
+                    telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage="neutralize")
+                except Exception as te:  # noqa: BLE001 — telemetry must never break the refusal path
+                    sys.stderr.write(f"bridge: telemetry tail error (ignored): {te!r}\n")
+            sys.stderr.write(f"bridge: refused {name} — a create carrying a closing disposition (#163)\n")
+            raise
     # Dry run: refuse the write here, BEFORE the remote call. Keyed on the tool name alone, not on
     # `is_write` — a write with no arguments is still a write we must not forward. The tool_start above
     # is paired with a tool_end below so the audit trail records the ATTEMPT (what the agent tried, on

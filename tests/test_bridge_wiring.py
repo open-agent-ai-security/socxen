@@ -383,6 +383,38 @@ def test_named_fields_and_other_shapes_are_forwarded_untouched(monkeypatch):
     assert sent == {} and "did not send" in out[0].text, "a wildcard among named columns is still a wildcard"
 
 
+# ---- #163 (Praxen 2026-09-07-001): a case is OPENED by create_case; a closing disposition is refused ----
+def test_a_create_case_carrying_a_closing_disposition_is_refused_before_anything_else(monkeypatch):
+    import asyncio
+    sent, errs = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_error", lambda *a, **k: errs.append(k))
+    for args in ({"arg1": {"alertId": "a", "priority": "HIGH", "stage": "CLOSED"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "False Positive"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "closedReason": "Low Risk"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "status": "resolved"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "Closed - duplicate"}}):
+        with pytest.raises(ValueError) as ei:
+            asyncio.run(B.call_tool("exabeam_create_case", args))
+        assert "socxen bridge refused exabeam_create_case" in str(ei.value) and "not executed" in str(ei.value), args
+    assert sent == {}, "nothing reached the remote"
+    assert errs and errs[-1]["stage"] == "neutralize", "audited as a guardrail refusal"
+    # an opening stage, no stage, and free text on a NEW object all pass through untouched
+    for args in ({"arg1": {"alertId": "a", "priority": "HIGH", "stage": "NEW"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "investigation", "supportingReason": "escalated because"}}):
+        sent.clear()
+        out = asyncio.run(B.call_tool("exabeam_create_case", args))
+        assert sent["arguments"] == args and out[0].text == "ok", args
+    # BEFORE the dry run: the refusal the model reads is this control's own, not the dry-run text
+    monkeypatch.setattr(B, "DRY_RUN", True)
+    with pytest.raises(ValueError) as ei:
+        asyncio.run(B.call_tool("exabeam_create_case", {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "CLOSED"}}))
+    assert "socxen bridge refused" in str(ei.value)
+
+
 # ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
 def test_audit_fields_cap_long_strings_inside_list_values():
     """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,

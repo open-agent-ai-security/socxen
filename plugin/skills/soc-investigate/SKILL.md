@@ -214,7 +214,10 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 sent — fix the value or omit it), `priority`, `assignee` and `queue`. A
 description, a name, a supporting reason or tags belong to the analyst who wrote them: the bridge drops
 those fields from an update and tells you what it dropped. Write the reason as a case note instead — a
-note appends, an update replaces.
+note appends, an update replaces. **A case is opened by `create_case`**, with an opening stage (`NEW`,
+`MORE DETAILS`, `INVESTIGATION`, `REMEDIATION`) or none: a create carrying `CLOSED`, `FALSE POSITIVE` or a
+`closedReason` is a close by another route and the bridge refuses it — closing goes through `update_case`,
+with the analyst's yes.
 
 ## Reaching a good verdict
 

@@ -77,6 +77,16 @@ required on the credential-bearing endpoint, `-010` the tool surface is not reco
 parser reads absent upstream are the documented "ahead of the MCP exposing it" case, but the model's own
 reference disagrees with the skill on the tool count.
 
+**A later scan of the merged `dev` @ `f82bdef`** — 2026-09-07, run by the automated reviewer in a
+context-isolated session (Praxen 2.0.0-beta.1, Opus 5, standard mode, no threat model, **no audit
+pass**, so its findings are unadjudicated): 0 Critical · 2 High · 6 Medium · 3 Low, remit 67 rules
+58 verified / 9 partial / 0 gaps, RAISE 3.30. Its artifacts could not be pushed by that account and are
+tracked in #163. Both Highs were re-read at their cited lines and fixed on `dev` the same day: a close by
+another route through the allow-tier `create_case` (now refused by the bridge when a create carries a
+closing disposition), and tool definitions screened for hidden code points but not for instruction-shaped
+text (now surfaced on the startup line and in the `tools_list` audit event, with a per-session hash of the
+tool surface).
+
 ## Previous — `dev` @ `16c1f02` (2026-09-06, the 0.8.6 release candidate before #157/#158)
 
 | | |
