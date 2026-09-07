@@ -58,6 +58,21 @@ docs](https://docs.exabeam.com/en/exa-search/all/search-guide/performing-searche
 and from the live `/search/v2/events` examples; a few forms are additionally shown as they appear in
 real in-product queries.
 
+> **Per-endpoint rules — read these before the grammar (#160, measured on 1,000+ live searches).**
+> - **`search_alerts` and `search_cases` take NO free text.** Every clause is `field:"value"`, joined with
+>   `AND` / `OR`. A bare word, a bare name, or a quoted phrase on its own (`phishing`, `t.novak`,
+>   `"svc-backup"`) is rejected with *"Field rawLogs is unknown"* — those endpoints have no raw-log field
+>   to search. Name the field: `user:"t.novak"`, `rules.rule_name:"…"`, `stage:"NEW"`, `name:"token"`.
+> - **`search_events`: quote everything.** `field:"value"` for a field, `"free text"` (in double quotes)
+>   to search raw logs. **Never send bare unquoted text** — `HR-LT-88`, `svc_deploy`, `group membership
+>   change` are rejected the moment they carry a hyphen, an underscore, a digit or a second word
+>   (*"Field value cannot be a free text"* / *"Please check the syntax"*).
+> - **Never send `fields: ["*"]`** — see the request-shape table above. Name the fields, every call.
+> - **A `"Syntax error while query using fields"` (`AAA_ESA_1003_400`) on a well-formed events query is
+>   NOT your filter.** It is a backend failure that affects a whole session from its first search;
+>   rewriting the query will not help. Say so in the report and move on to the alerts/cases evidence, or
+>   retry the identical query once if the session is fresh.
+
 - **Field match:** `field:"value"` — quote the value. `:` and `=` are **interchangeable**
   (`vendor:"Exabeam"` ≡ `vendor="Exabeam"`); Exabeam recommends `=`. Match modes:
   - loose keyword `product:"web application"` (words matched independently),
