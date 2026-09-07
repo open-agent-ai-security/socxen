@@ -53,7 +53,6 @@ governance model (feature → `dev`, release `dev` → `main`).
   on the startup line and in the `tools_list` audit event — surfaced, never rewritten — and every definition
   is hashed (`tool_shas`, `surface_sha`) so a definition that changes between sessions shows up as a changed
   hash in the audit trail. Within a session the list is fetched once, so there is nothing to compare against.
-
 - **An update changes state and disposition only** (Praxen 2026-09-07 `-003`, #89; security assessment
   F-03). `exabeam_update_alert` and `exabeam_update_case` take description, name, reason and tag fields
   with replace semantics at the API, and the action matrix said a dismiss goes "with the reason" — so on

@@ -374,8 +374,8 @@ class _Upstream:
             return result
 
     async def tools(self):
-        """The remote tool list, fetched once per process (re-fetched after a reconnect) with a bounded
-        retry -- a transient failure at startup used to leave a whole session with no Exabeam tools."""
+        """The remote tool list, fetched once per process with a bounded retry -- a transient failure at
+        startup used to leave a whole session with no Exabeam tools."""
         if self._tools is not None:
             return self._tools
         # call() retries the session open (the failure mode that stranded the a07 session); the list
@@ -507,25 +507,34 @@ _SEARCH_COLUMNS = {
 _OPENING_STAGES = frozenset({"new", "more details", "investigation", "remediation"})
 _DISPOSITION_KEYS = frozenset({"stage", "closedreason", "casestatus", "alertstatus", "status"})
 _CLOSING_VALUE = re.compile(r"clos|resolv|dismiss|false.?positive", re.I)
+_DISPOSITION_SPELLING = {"stage": "stage", "closedreason": "closedReason", "casestatus": "caseStatus",
+                         "alertstatus": "alertStatus", "status": "status"}          # what the refusal names: the schema's word
 BRIDGE_REFUSAL_MARK = "socxen bridge refused"      # the red-team grader's mark for this control (never in an upstream result)
 
 
 def _create_case_guard(arguments):
     """Refuse a create_case that would land a case already closed. Looks at the top level and through the
-    proxy's arg0/arg1 wrapper; never inside string values. Raises ValueError with the message the model
-    reads; the caller audits it as a guardrail refusal."""
+    proxy's arg0/arg1 wrapper; never inside string values. Keys are folded to letters (`closed_reason`,
+    `Closed-Reason` are the same key); a blank stage is treated as absent. Raises ValueError with the
+    message the model reads -- naming the schema's spelling of the key, never the model's own -- and the
+    caller audits it as a guardrail refusal."""
     if not isinstance(arguments, dict):
         return
     scopes = [arguments] + [v for k, v in arguments.items() if isinstance(v, dict) and k.lower() in _ARG_WRAPPERS]
     for s in scopes:
         for k, v in s.items():
-            lk = k.lower()
-            if lk == "closedreason" or (lk in _DISPOSITION_KEYS and isinstance(v, str)
+            lk = re.sub(r"[^a-z]", "", str(k).lower())
+            if lk not in _DISPOSITION_KEYS:
+                continue
+            if lk == "stage" and isinstance(v, str) and not v.strip():
+                continue                                    # blank = absent; the API applies its default
+            if lk == "closedreason" or (isinstance(v, str)
                                         and (_CLOSING_VALUE.search(v) or (lk == "stage" and " ".join(v.split()).lower() not in _OPENING_STAGES))):
                 raise ValueError(
                     f"{BRIDGE_REFUSAL_MARK} exabeam_create_case: a case is OPENED by create_case (stage NEW, MORE DETAILS, "
                     f"INVESTIGATION or REMEDIATION); closing it or marking it a false positive goes through "
-                    f"exabeam_update_case with the analyst's explicit yes. Re-send without `{k}`; the call was not executed.")
+                    f"exabeam_update_case with the analyst's explicit yes. Re-send without `{_DISPOSITION_SPELLING[lk]}`; "
+                    f"the call was not executed.")
 
 
 def _wildcard_fields(name, arguments):
@@ -642,7 +651,7 @@ _METADATA_TEXT_KEYS = frozenset({"description", "title"})
 # vendor's description is not this bridge's place -- but a definition that TALKS TO THE MODEL is a fact
 # the operator should see. Surfaced (startup line + tools_list event), never altered, never blocked.
 _DIRECTIVE_RE = re.compile(
-    r"\b(ignore|disregard|override)\b[^.\n]{0,60}\b(user|instruction|request|prompt|rule)s?\b"
+    r"\b(ignore|disregard|override)s?\b[^.\n]{0,60}\b(user|analyst|operator|instruction|request|prompt|rule)s?\b"
     r"|\bmandatory\b|\byou must\b|\bdo not comply\b|\b(always|never) (send|use|set|return|include|pass)\b"
     r"|\bsystem prompt\b", re.I)
 
@@ -704,11 +713,14 @@ def _definition_text(t):
 
 
 def _definition_sha(t):
-    """A stable hash of what the remote said this tool IS (name, description, schema): recorded per session
+    """A stable hash of what the remote said this tool IS (name, every text the screen reads, both schemas): recorded per session
     in the audit trail so a changed definition shows up as a changed hash between sessions (#163). The
     list is fetched once per process, so within a session there is nothing to compare against."""
-    body = json.dumps({"name": t.name, "description": t.description or "",
-                       "inputSchema": t.inputSchema if isinstance(t.inputSchema, dict) else None}, sort_keys=True, default=str)
+    ann = getattr(t, "annotations", None)
+    body = json.dumps({"name": t.name, "description": t.description or "", "title": getattr(t, "title", None),
+                       "annotations": ann.model_dump(mode="json", exclude_none=True) if hasattr(ann, "model_dump") else ann,
+                       "inputSchema": t.inputSchema if isinstance(t.inputSchema, dict) else None,
+                       "outputSchema": getattr(t, "outputSchema", None)}, sort_keys=True, default=str)
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 

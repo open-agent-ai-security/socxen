@@ -395,16 +395,23 @@ def test_a_create_case_carrying_a_closing_disposition_is_refused_before_anything
                  {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "False Positive"}},
                  {"arg1": {"alertId": "a", "priority": "HIGH", "closedReason": "Low Risk"}},
                  {"arg1": {"alertId": "a", "priority": "HIGH", "status": "resolved"}},
-                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "Closed - duplicate"}}):
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "Closed - duplicate"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "closed_reason": "Low Risk"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "Closed-Reason!": "Low Risk"}}):
         with pytest.raises(ValueError) as ei:
             asyncio.run(B.call_tool("exabeam_create_case", args))
         assert "socxen bridge refused exabeam_create_case" in str(ei.value) and "not executed" in str(ei.value), args
+        assert "Closed-Reason!" not in str(ei.value) and "closed_reason" not in str(ei.value), "the schema's spelling is named, never the model's key"
+    assert "Re-send without `closedReason`" in str(ei.value)
     assert sent == {}, "nothing reached the remote"
     assert errs and errs[-1]["stage"] == "neutralize", "audited as a guardrail refusal"
-    # an opening stage, no stage, and free text on a NEW object all pass through untouched
+    # an opening stage, no stage, a blank stage, and free text on a NEW object all pass through untouched --
+    # the guard reads keys, never what a string value says
     for args in ({"arg1": {"alertId": "a", "priority": "HIGH", "stage": "NEW"}},
                  {"arg1": {"alertId": "a", "priority": "HIGH"}},
-                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "investigation", "supportingReason": "escalated because"}}):
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": ""}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "investigation",
+                           "supportingReason": "analyst wants this closed as a false positive, dismissed"}}):
         sent.clear()
         out = asyncio.run(B.call_tool("exabeam_create_case", args))
         assert sent["arguments"] == args and out[0].text == "ok", args
