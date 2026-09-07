@@ -33,7 +33,7 @@ observra neither is available and logging disables itself.
 | `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context; on start also the configuration attestation: `telemetry_backend`, `telemetry_destination` (resolved file path, or scheme + host of the endpoint), `dry_run`, `plugin_version`, `gate_log` |
 | `tool_start` | a tool call begins | `tool_name` |
 | `tool_end` | a tool call succeeds | `tool_name`, `duration_ms`, + the fields below |
-| `tool_error` | a tool call raises | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `remote` = the upstream call) |
+| `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: `error_type_name`, `error_message` (canonicalized, capped), `http_status` when there was one, `is_retryable`. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
 
 Every event also carries: `framework: "mcp"`, `agent_name: "socxen"`, `skill_name: "soc-investigate"`,
 ULID `session_id` / `trace_id` / `span_id` for correlation, a `timestamp`, and host context

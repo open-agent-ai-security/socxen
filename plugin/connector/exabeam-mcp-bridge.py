@@ -22,8 +22,10 @@ Run with --check to validate the connection (and warm the dependency cache) with
 starting the server.
 """
 import asyncio
+from datetime import timedelta
 import os
 from pathlib import Path
+import random
 import re
 import ssl
 import sys
@@ -32,7 +34,7 @@ from urllib.parse import urlparse
 
 import certifi
 import httpx
-from mcp import ClientSession
+from mcp import ClientSession, McpError
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -40,6 +42,7 @@ from mcp.types import TextContent
 
 _VERIFY = ssl.create_default_context(cafile=certifi.where())
 _token = {"value": None, "exp": 0.0}
+_token_lock = None                      # created lazily inside the running loop (single-flight refresh)
 
 
 def load_env(path="~/.exabeam-mcp.env"):
@@ -62,32 +65,339 @@ KEY = CFG.get("EXABEAM_API_KEY", "")
 SECRET = CFG.get("EXABEAM_API_SECRET", "")
 
 
+def _token_fresh():
+    return bool(_token["value"]) and time.time() < _token["exp"] - 60
+
+
 async def get_token():
-    """Mint/refresh the OAuth client-credentials token; cached until ~1 min before expiry."""
-    if _token["value"] and time.time() < _token["exp"] - 60:
+    """Mint/refresh the OAuth client-credentials token; cached until ~1 min before expiry. Single-flight:
+    N concurrent first calls mint ONE token, not N (#154). A refresh that fails while the cached token
+    is still valid keeps the cached token instead of discarding it."""
+    global _token_lock
+    if _token_fresh():
         return _token["value"]
-    p = urlparse(URL)
-    async with httpx.AsyncClient(verify=_VERIFY) as c:
-        r = await c.post(
-            f"{p.scheme}://{p.netloc}/auth/v1/token",
-            json={"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET},
-            headers={"Content-Type": "application/json"},
-            timeout=20,
-        )
-        r.raise_for_status()
-        d = r.json()
-    _token["value"] = d["access_token"]
-    _token["exp"] = time.time() + int(d.get("expires_in", 3600))
-    return _token["value"]
+    if _token_lock is None:
+        _token_lock = asyncio.Lock()
+    async with _token_lock:
+        if _token_fresh():
+            return _token["value"]
+        p = urlparse(URL)
+        try:
+            async with httpx.AsyncClient(verify=_VERIFY) as c:
+                r = await c.post(
+                    f"{p.scheme}://{p.netloc}/auth/v1/token",
+                    json={"grant_type": "client_credentials", "client_id": KEY, "client_secret": SECRET},
+                    headers={"Content-Type": "application/json"},
+                    timeout=20,
+                )
+                r.raise_for_status()
+                d = r.json()
+        except Exception:
+            if _token["value"] and time.time() < _token["exp"]:
+                sys.stderr.write("bridge: token refresh failed; keeping the still-valid cached token\n")
+                return _token["value"]
+            raise
+        _token["value"] = d["access_token"]
+        _token["exp"] = time.time() + int(d.get("expires_in", 3600))
+        return _token["value"]
 
 
-async def remote(op):
-    """Open a fresh authenticated connection to the remote Exabeam MCP and run op(session)."""
-    tok = await get_token()
-    async with streamablehttp_client(URL, headers={"Authorization": f"Bearer {tok}"}) as (r, w, _):
-        async with ClientSession(r, w) as session:
-            await session.initialize()
-            return await op(session)
+# ---- the upstream session (#153 #154 #155) --------------------------------------------------------------
+# One remote MCP session per bridge process, opened lazily and re-opened when it is lost. Before this the
+# bridge opened a NEW session for every tool call -- a fresh TLS connection plus six HTTP exchanges
+# (initialize, initialized, the GET stream, the call, a ~110 KB tools/list re-fetch, DELETE) -- and every
+# session creation ran a synchronous permission RPC on the proxy. Eight agents were enough to make the
+# proxy reject ~50% of session opens (2026-09-06). None of the guardrails move: every read still passes
+# canonicalize, every write still passes neutralize + the gate + the audit trail, a write is attempted
+# exactly once.
+
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_READ_RETRY_DELAYS = (0.3, 0.9)          # seconds, plus jitter -- reads only, never writes
+_CALL_TIMEOUT = timedelta(seconds=120)   # no call may hang the bridge forever (the old design had no bound)
+_LIST_TIMEOUT = timedelta(seconds=30)
+_DROP_TIMEOUT = 10.0             # how long drop() waits for the owner task to send its DELETE and exit
+_OPEN_FAIL_WAIT = 5.0            # how long _open() waits for a failed owner task to finish unwinding
+_BREAKER_TRIP = 5                        # consecutive transport failures ...
+_BREAKER_HOLD = 20.0                     # ... open the breaker for this long
+
+
+class _Leaf:
+    """What actually failed, dug out of the ExceptionGroup that anyio wraps around everything raised inside
+    a session (#153). Before this the audit record said `ExceptionGroup` and nothing else."""
+
+    def __init__(self, exc):
+        leaves = []
+
+        def walk(e):
+            if isinstance(e, BaseExceptionGroup):
+                for sub in e.exceptions:
+                    walk(sub)
+            else:
+                leaves.append(e)
+        walk(exc)
+        if not leaves:
+            leaves = [exc]
+
+        def rank(e):                     # the most informative leaf wins
+            if isinstance(e, httpx.HTTPStatusError):
+                return 0
+            if isinstance(e, McpError):
+                return 1
+            if isinstance(e, httpx.TransportError):
+                return 2
+            return 3
+        e = sorted(leaves, key=rank)[0]
+        self.exc = e
+        self.type_name = type(e).__name__
+        self.status = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None
+        self.message = (str(e) or self.type_name)[:300]
+        transport = isinstance(e, httpx.TransportError)
+        code = getattr(getattr(e, "error", None), "code", None) if isinstance(e, McpError) else None
+        # A timeout is NOT retryable: the query is slow, not transient, and a retry doubles the load on a
+        # proxy that is already struggling while the agent waits out another full read timeout (the stress
+        # gate saw a single read take 3 x 120 s this way). That holds for the SDK's request timeout (below)
+        # and for httpx's own read/write timeouts, which are TransportErrors too (automated review of #157).
+        # A connect or pool timeout is different: nothing was sent, so a retry is cheap and safe.
+        sent_and_timed_out = isinstance(e, (httpx.ReadTimeout, httpx.WriteTimeout))
+        self.retryable = (transport and not sent_and_timed_out) or self.status in _RETRYABLE_STATUS
+        # The session survives an APPLICATION-level JSON-RPC error: the proxy answered on a live session, or
+        # the SDK's own per-request timeout fired (`anyio.fail_after` around the response stream -- the
+        # transport under the session is untouched, review of #157). What kills the transport task is a
+        # status error, a dropped connection, or "Session terminated" (code 32600): then the next call must
+        # reopen (a retry on the dead session hangs).
+        terminated = code == 32600 or "session" in self.message.lower()
+        app_error = isinstance(e, McpError) and not terminated
+        self.session_lost = not app_error
+        self.sent = False                    # set by call(): the request had been sent when this failed
+
+    def summary(self, what):
+        if self.status is not None:
+            return f"HTTP {self.status} on {what}"
+        return f"{self.type_name} on {what}: {_safe_text(self.message, 120)}"
+
+
+from mcp import types as _mt
+
+
+def _list_tools_request():
+    return _mt.ClientRequest(_mt.ListToolsRequest(method="tools/list"))
+
+
+_ListToolsResult = _mt.ListToolsResult
+
+
+class _UpstreamToolError(Exception):
+    """The proxy answered the call with isError=true: the tool ran upstream and failed. Surfaced as an
+    error (audited as tool_error, stage upstream_tool) instead of being flattened into a success."""
+
+
+class _Upstream:
+    def __init__(self):
+        self._session = None
+        self._task = None
+        self._close = None
+        self._lock = None
+        self._tools = None
+        self._streak = 0
+        self._open_until = 0.0
+        self._last_summary = ""
+        self._last_failed_owner = None
+
+    async def _runner(self, tok, ready, close, err):
+        # The session's context managers are entered and exited by THIS task only (anyio requires it).
+        # The session lives until `close` is set; a normal exit sends the DELETE, so a failed call never
+        # leaks a proxy session the way the per-call design did (#154).
+        # The task RETURNS its error (or None): a caller racing against this task reads it from the task
+        # itself, so two generations can never confuse their errors (review of #157). A cancellation is
+        # re-raised as a cancellation -- it is never handed to a caller as if it were the session's error,
+        # because a bare CancelledError escaping a handler takes the whole MCP server down.
+        mine = None
+        try:
+            async with streamablehttp_client(URL, headers={"Authorization": f"Bearer {tok}"}) as (r, w, _):
+                async with ClientSession(r, w) as s:
+                    await s.initialize()
+                    if self._task is asyncio.current_task():     # publish only while still the owner
+                        self._session = mine = s
+                    ready.set()
+                    await close.wait()
+        except asyncio.CancelledError:
+            ready.set()
+            raise
+        except BaseException as e:  # noqa: BLE001 -- reported to the opener through `err`, to callers as the task's result
+            err.append(e)
+            ready.set()
+            return e
+        finally:
+            if mine is not None and self._session is mine:   # never clear a session a NEWER owner has since opened
+                self._session = None
+        return None
+
+    async def _open(self):
+        tok = await get_token()
+        ready, close, err = asyncio.Event(), asyncio.Event(), []
+        task = asyncio.create_task(self._runner(tok, ready, close, err))
+        self._task, self._close = task, close            # registered BEFORE waiting: a cancelled opener can still close it
+        try:
+            await ready.wait()
+        except asyncio.CancelledError:
+            close.set()                                  # the runner exits cleanly (DELETE) once initialize completes
+            raise
+        if err:
+            try:
+                await asyncio.wait_for(task, _OPEN_FAIL_WAIT)
+            except BaseException:  # noqa: BLE001, S110 — the owner task is already failed; its error is err[0], raised next
+                pass
+            self._task = self._close = None
+            raise err[0]
+
+    async def drop(self):
+        if self._close is not None:
+            self._close.set()
+        if self._task is not None:
+            try:
+                await asyncio.wait_for(self._task, _DROP_TIMEOUT)
+            except BaseException:  # noqa: BLE001, S110 — teardown is best effort; the session is gone either way
+                pass
+        self._task = self._close = self._session = None
+
+    async def session(self):
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:
+            if self._session is None or self._task is None or self._task.done():
+                await self.drop()
+                await self._open()
+            return self._session, self._task
+
+    async def _drop_if(self, owner):
+        """Drop the session only while `owner` still owns it. Several calls in flight on one session all
+        fail when it dies; the first to notice reopens it, and the others must not then drop the session
+        it just reopened (the stress gate turned one proxy-side loss into five and tripped the breaker)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:
+            if self._task is owner:
+                await self.drop()
+
+    async def _run_on_session(self, op, s, owner):
+        """Run op(s) but never outlive the session: the transport under a shared session dies in the OWNER
+        task, and a caller blocked on it would otherwise wait out the full read timeout. Racing the call
+        against the owner task turns a transport death into an immediate, attributable error."""
+        op_task = asyncio.ensure_future(op(s))
+        try:
+            done, _ = await asyncio.wait({op_task, owner}, return_when=asyncio.FIRST_COMPLETED)
+        except asyncio.CancelledError:                   # the host cancelled the call: do not orphan the op
+            op_task.cancel()
+            raise
+        if op_task in done:
+            return op_task.result()
+        op_task.cancel()
+        try:
+            await op_task
+        except BaseException:  # noqa: BLE001, S110 — the cancellation (or the op's own error); the owner's error is what is raised
+            pass
+        # The owner's own error, read from the owner (never from shared state, never a cancellation).
+        exc = None
+        if owner.done() and not owner.cancelled():
+            try:
+                exc = owner.result()
+            except BaseException:  # noqa: BLE001, S110 — a runner that raised anyway: treat as an unexplained close
+                exc = None
+        if not isinstance(exc, Exception):
+            exc = RuntimeError("upstream session closed during the call")
+        raise exc
+
+    def _breaker_check(self, what):
+        now = time.time()
+        if now < self._open_until:
+            raise RuntimeError(f"Exabeam MCP: circuit open after {_BREAKER_TRIP} consecutive transport failures "
+                               f"(last: {self._last_summary}); {what} refused for another {self._open_until - now:.0f}s")
+
+    def _note(self, ok, owner=None):
+        if ok:
+            self._streak = 0
+            self._last_failed_owner = None
+        else:
+            if owner is not None and owner is self._last_failed_owner:
+                return                       # N calls in flight on ONE lost session are one failure, not N
+            self._last_failed_owner = owner
+            self._streak += 1
+            if self._streak >= _BREAKER_TRIP:
+                self._open_until = time.time() + _BREAKER_HOLD
+                self._streak = 0
+                sys.stderr.write(f"bridge: {_BREAKER_TRIP} consecutive transport failures — "
+                                 f"holding off the remote for {_BREAKER_HOLD:.0f}s\n")
+
+    async def call(self, op, what, *, retry):
+        """Run op(session). Opening/re-opening the session may be retried for any call (the call has not
+        been sent yet). Once the call itself has been sent it is retried ONLY when `retry` is true (reads),
+        never for a write, whatever the error (#155)."""
+        self._breaker_check(what)
+        attempt = 0
+        while True:
+            try:
+                s, owner = await self.session()
+            except Exception as e:
+                leaf = _Leaf(e)
+                self._last_summary = leaf.summary("initialize")
+                if leaf.status == 401:
+                    _token["exp"] = 0.0
+                self._note(False)
+                if leaf.retryable and attempt < len(_READ_RETRY_DELAYS):
+                    await asyncio.sleep(_READ_RETRY_DELAYS[attempt] + random.uniform(0, 0.3))  # noqa: S311
+                    attempt += 1
+                    continue
+                raise
+            try:
+                result = await self._run_on_session(op, s, owner)
+            except Exception as e:
+                leaf = _Leaf(e)
+                self._last_summary = leaf.summary(what)
+                try:
+                    e.socxen_sent = True                 # the request had been sent: a write's outcome is unknown
+                except Exception:  # noqa: BLE001, S110 — an exception type without a __dict__; the flag is advisory
+                    pass
+                if leaf.status == 401:
+                    _token["exp"] = 0.0                  # a rejected token is not fresh, whatever our clock says
+                if leaf.session_lost:
+                    await self._drop_if(owner)
+                self._note(False, owner)
+                if retry and (leaf.retryable or leaf.session_lost) and attempt < len(_READ_RETRY_DELAYS):
+                    await asyncio.sleep(_READ_RETRY_DELAYS[attempt] + random.uniform(0, 0.3))  # noqa: S311
+                    attempt += 1
+                    continue
+                raise
+            self._note(True)
+            return result
+
+    async def tools(self):
+        """The remote tool list, fetched once per process (re-fetched after a reconnect) with a bounded
+        retry -- a transient failure at startup used to leave a whole session with no Exabeam tools."""
+        if self._tools is not None:
+            return self._tools
+        # call() retries the session open (the failure mode that stranded the a07 session); the list
+        # request itself is a read, so it is retried the same bounded way
+        self._tools = (await self.call(lambda s: s.send_request(
+            _list_tools_request(), _ListToolsResult, request_read_timeout_seconds=_LIST_TIMEOUT), "tools/list", retry=True)).tools
+        return self._tools
+
+    async def warm(self):
+        """Startup: say on stderr whether the remote is reachable. Never fails the process -- the first
+        call retries."""
+        try:
+            tools = await self.tools()
+            sys.stderr.write(f"bridge: remote reachable — {len(tools)} Exabeam tools\n")
+        except Exception as e:  # noqa: BLE001
+            leaf = _Leaf(e)
+            sys.stderr.write(f"bridge: remote NOT reachable ({leaf.summary('tools/list')}) — will retry on the first call\n")
+
+
+UPSTREAM = _Upstream()
+
+
+async def remote(op, what="call", *, retry=False):
+    """Run op(session) on the process's upstream session (kept for the --check path and for tests)."""
+    return await UPSTREAM.call(op, what, retry=retry)
 
 
 server = Server("exabeam")
@@ -281,7 +591,26 @@ def _audit_fields(obj, into=None):
 
 @server.list_tools()
 async def list_tools():
-    return (await remote(lambda s: s.list_tools())).tools
+    t0 = time.perf_counter()
+    try:
+        return await UPSTREAM.tools()
+    except Exception as e:
+        leaf = _Leaf(e)
+        if telemetry.enabled():
+            telemetry.tool_error("tools/list", (time.perf_counter() - t0) * 1000, e, stage="remote",
+                                 error_type_name=leaf.type_name, error_message=_safe_text(leaf.message),
+                                 http_status=leaf.status, is_retryable=leaf.retryable)
+        raise RuntimeError(f"Exabeam MCP unavailable: {leaf.summary('tools/list')}") from e
+
+
+def _safe_text(text, cap=300):
+    """Proxy/tenant-sourced text on its way into the audit record or the agent: canonicalized (invisible
+    smuggling stripped) and bounded. Fail-open to the raw-but-capped text."""
+    try:
+        clean, _ = canonicalize(str(text))
+        return clean[:cap]
+    except Exception:  # noqa: BLE001
+        return str(text)[:cap]
 
 
 @server.call_tool()
@@ -330,9 +659,33 @@ async def call_tool(name, arguments):
         if is_write:
             arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
         stage = "remote"
-        content = (await remote(lambda s: s.call_tool(name, arguments or {}))).content
-        content = _canon_content(content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
+        # reads may be retried on a transport failure; a write is sent exactly once, whatever happens
+        result = await remote(lambda s: s.call_tool(name, arguments or {}, read_timeout_seconds=_CALL_TIMEOUT),
+                              name, retry=not is_write)
+        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
+        if getattr(result, "isError", False):
+            # the tool ran upstream and FAILED: an error, not a success (it used to be flattened into one)
+            stage = "upstream_tool"
+            texts = [t for t, _ in (_block_text(b) for b in content) if t]
+            raise _UpstreamToolError(_safe_text(" ".join(texts) or "upstream tool error"))
+    except _UpstreamToolError as e:
+        if log_on:
+            telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage,
+                                 error_type_name="UpstreamToolError", error_message=str(e), is_retryable=False)
+        raise RuntimeError(f"Exabeam tool error ({name}): {e}") from e
     except Exception as e:
+        if stage == "remote":
+            leaf = _Leaf(e)
+            # A write whose request had gone out when the session died may have committed upstream: say
+            # so, or the agent re-issues it (review of #157). Reads are retried; a write is sent once.
+            unknown = is_write and getattr(e, "socxen_sent", False)
+            suffix = " — the write was sent and its outcome is unknown: verify before re-issuing" if unknown else ""
+            if log_on:
+                telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage,
+                                     error_type_name=leaf.type_name, error_message=_safe_text(leaf.message) + suffix,
+                                     http_status=leaf.status, is_retryable=leaf.retryable)
+            # what the agent reads: the real failure, not "unhandled errors in a TaskGroup"
+            raise RuntimeError(f"Exabeam MCP unavailable: {leaf.summary(name)}{suffix}") from e
         if log_on:
             telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage=stage)
         raise
@@ -350,9 +703,10 @@ async def call_tool(name, arguments):
 
 
 async def _check():
-    tools = (await remote(lambda s: s.list_tools())).tools
+    tools = await UPSTREAM.tools()
     dry = " [DRY RUN - writes refused at the bridge]" if DRY_RUN else ""
     print(f"OK — connected to {URL}; {len(tools)} Exabeam tools available.{dry}")
+    await UPSTREAM.drop()
 
 
 def _plugin_version():
@@ -370,8 +724,13 @@ async def _serve():
     # backend + resolved destination (added by the shim), dry-run state, gate-log location, plugin version.
     telemetry.session_start(dry_run=DRY_RUN, plugin_version=_plugin_version(),
                             gate_log=os.environ.get("SOCXEN_GATE_LOG", "").strip() or "~/.socxen/gate.jsonl")
-    async with stdio_server() as (read, write):
-        await server.run(read, write, server.create_initialization_options())
+    warm = asyncio.create_task(UPSTREAM.warm())     # alongside the stdio handshake, never before it
+    try:
+        async with stdio_server() as (read, write):
+            await server.run(read, write, server.create_initialization_options())
+    finally:
+        warm.cancel()
+        await UPSTREAM.drop()                          # one DELETE, at the end of the process
 
 
 def main():
