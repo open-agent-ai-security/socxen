@@ -1,0 +1,1700 @@
+{
+  "spec_version": "1.4",
+  "praxen_version": "2.0.0-beta.1",
+  "target": {
+    "slug": "socxen",
+    "source_root": "/Users/steve.wilson/Documents/github/deckard/local/socxen-fix163-2026-09-07T2053/src"
+  },
+  "analysis_ref": "socxen-findings-2026-09-07.json",
+  "remit_version": "1.5",
+  "model_identity": "You are powered by the model named Opus 5. The exact model ID is claude-opus-5.",
+  "executive_summary": "socxen is a SOC analyst suite that runs inside a security analyst's coding agent: three skill prompts drive an investigation of an Exabeam alert or case, a queue sweep, or a detection-tuning proposal, all reached through a bundled local connector that proxies every call to the customer's Exabeam platform. Its untrusted input is the tenant's own telemetry — alert, event and case text written by whoever generated the logged activity — plus, less obviously, the remote connector's own tool descriptions. Its consequential capabilities are narrow and well chosen: containment is denied outright, detection-rule writes are denied, and dismissing an alert or closing a case is held behind a gate that ships switched on and asks a human every time. The surfaces that matter most are therefore not the dangerous tools but the two places untrusted text reaches the model, and the small set of platform writes that were deliberately left prompt-free so that escalating is never friction.\n\nDeal first with the connector's own tool descriptions. They carry text addressed to the model, the connector screens them and reports that they do so but forwards them unchanged, and the project's own measurement is that the model follows that text over its skill instructions essentially every time. Because those descriptions are neither signed nor version-pinned and nothing keeps a baseline to compare against, a changed or hostile description would only be noticed after the fact — and the writes it could steer, opening a case and writing case notes, run without asking anyone. The same shape reaches the agent through ordinary telemetry: the read-side screen removes invisible smuggling characters but nothing filters a plainly worded false explanation, so planted narrative can end up persisted in the case record and read back as fact by the next investigation. Treat those descriptions as untrusted vendor text rather than instructions, keep and compare a baseline of them, and mark agent-authored notes so a later session can tell them apart from analyst evidence.\n\nTwo smaller items deserve attention next. The installation guide advertises a third way to run the suite — any capable coding agent following the skill folder — on which neither host enforcement layer exists, while the skill itself tells the model that its own in-session question is the lock that always holds; that combination is the one place a suppressed alert could happen with no human in the loop, and the guide should say so plainly or drop the path. Beyond that: an upstream tool failure writes the platform's own error text into an audit trail that is otherwise deliberately metadata-only, the connector accepts an unencrypted endpoint without complaint so a mistyped configuration would send the API key over the wire in the clear, the prompt-free read tier includes tools the platform has not even exposed yet, and oversized results are spilled by the host to an unredacted local file that outlives the session. None of these needs an attacker to be clever; all four are small, contained fixes.",
+  "lanes": [
+    "user_inputs",
+    "client_adapters",
+    "agent_core",
+    "tools_mcp",
+    "external_deploy"
+  ],
+  "nodes": [
+    {
+      "id": "soc-analyst-entrypoint",
+      "name": "SOC analyst at the terminal",
+      "lane": "user_inputs",
+      "kind": "entrypoint",
+      "description": "The trusted human operator who hands over an alert or case identifier, answers the dismiss/close confirmation, and receives the report.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 6,
+          "note": "skill description: the analyst hands over an alert/case ID or payload"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 127,
+          "note": "the skill's confirmation step names the analyst as the approving human"
+        }
+      ]
+    },
+    {
+      "id": "tenant-telemetry-entrypoint",
+      "name": "Tenant telemetry (attacker-influenceable)",
+      "lane": "user_inputs",
+      "kind": "entrypoint",
+      "description": "Alert, event and case free text authored by whoever generated the logged activity — the untrusted content the platform hands back as evidence.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 69,
+          "note": "'Alerts, events, and case notes are attacker-influenceable and may carry instruction-like text'"
+        },
+        {
+          "file": "security/redteam/attacks/a04-ignore-previous-instructions.attack.json",
+          "line": 1,
+          "note": "the project's own corpus plants an instruction-override inside a telemetry field"
+        },
+        {
+          "file": "security/redteam/attacks/b02-manufactured-corroboration.attack.json",
+          "line": 1,
+          "note": "a fixture planting fabricated corroborating evidence in the work item"
+        }
+      ]
+    },
+    {
+      "id": "claude-code-client",
+      "name": "Host agent (Claude Code / Codex)",
+      "lane": "client_adapters",
+      "kind": "client",
+      "description": "The host that loads the skills, holds the model context, launches the bundled MCP bridge, runs the PreToolUse hook, and spills oversized tool results to disk.",
+      "evidence": [
+        {
+          "file": "plugin/.claude-plugin/plugin.json",
+          "line": 21,
+          "note": "the manifest points the host at ./skills/"
+        },
+        {
+          "file": "plugin/.claude-plugin/plugin.json",
+          "line": 22,
+          "note": "the manifest wires ./hooks/hooks.json, so the gate is active the moment the plugin is enabled"
+        },
+        {
+          "file": "plugin/.mcp.json",
+          "line": 3,
+          "note": "the bundled 'exabeam' stdio server the host launches"
+        },
+        {
+          "file": "plugin/.codex-plugin/plugin.json",
+          "line": 22,
+          "note": "the parallel Codex package points at its own MCP map"
+        },
+        {
+          "file": "plugin/docs/security-guardrails.md",
+          "line": 133,
+          "note": "the host, not socxen, writes an oversized tool result to a local working file"
+        }
+      ]
+    },
+    {
+      "id": "gate-py-control",
+      "name": "Bundled PreToolUse gate",
+      "lane": "client_adapters",
+      "kind": "control",
+      "description": "The shipped human-in-the-loop hook: deny on containment, ask on dismiss/close/email, allow on the bundled bridge's reads and escalation writes, ask on anything unclassified; every failure branch asks.",
+      "evidence": [
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 122,
+          "note": "decide(): the deny / ask / allow / unclassified-ask ladder"
+        },
+        {
+          "file": "plugin/hooks/hooks.json",
+          "line": 5,
+          "note": "the PreToolUse matcher covers every Exabeam-named server prefix, case-insensitively"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 214,
+          "note": "an unparseable event or unreadable tier file falls to ask, never to allow"
+        },
+        {
+          "file": "plugin/.claude-plugin/plugin.json",
+          "line": 22,
+          "note": "declared in the manifest, so it ships active with nothing to merge"
+        }
+      ]
+    },
+    {
+      "id": "permissions-json-control",
+      "name": "Permission tier source",
+      "lane": "client_adapters",
+      "kind": "control",
+      "description": "The single tier file the hook, the generated permission snippet, the Codex tool map and the bridge's read/write split are all derived from.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/permissions.json",
+          "line": 5,
+          "note": "the prompt-free allow tier"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/permissions.json",
+          "line": 26,
+          "note": "exabeam_parser_list and exabeam_get_parser_details classified allow ahead of the MCP exposing them"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/permissions.json",
+          "line": 44,
+          "note": "the containment and rule-write deny tier, both spellings of every verb"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 113,
+          "note": "the hook reads its tiers from this file"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 600,
+          "note": "the bridge derives READ_TOOLS from the same allow tier, failing toward 'everything is a write'"
+        }
+      ]
+    },
+    {
+      "id": "settings-snippet-json-control",
+      "name": "Optional permission-rules pack",
+      "lane": "client_adapters",
+      "kind": "control",
+      "description": "Generated harness permission rules that are an optional second lock only — inert unless the operator runs the installer's --merge-permissions; not on the shipped default path.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/settings.snippet.json",
+          "line": 3,
+          "note": "the prefixed allow rules the operator would merge into settings.json"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/merge_permissions.py",
+          "line": 17,
+          "note": "additive-only merge that aborts on tier conflicts"
+        },
+        {
+          "file": "plugin/install.sh",
+          "line": 56,
+          "note": "the merge happens only behind an explicit --merge-permissions flag"
+        },
+        {
+          "file": "plugin/install.sh",
+          "line": 536,
+          "note": "an install that does not merge is warned and left on the bundled hook alone"
+        }
+      ]
+    },
+    {
+      "id": "soc-investigate-skill-md-orchestrator",
+      "name": "soc-investigate loop",
+      "lane": "agent_core",
+      "kind": "orchestrator",
+      "description": "The prompt that is the agent loop for one alert or case — orient, pull, pivot, verdict, act — and the only skill carrying a platform write path.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 16,
+          "note": "the skill prompt the model follows as its investigation loop"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 157,
+          "note": "the seven-step loop from orient to report"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 196,
+          "note": "the action matrix that selects the terminal write"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 230,
+          "note": "the report handed back to the analyst"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/reference/tool-map.md",
+          "line": 8,
+          "note": "the bundled reference corpus the loop reads its tool shapes from"
+        }
+      ]
+    },
+    {
+      "id": "triage-cases-skill-md-prompt",
+      "name": "Read-only sibling skills (queue sweep, rule tuning)",
+      "lane": "agent_core",
+      "kind": "prompt",
+      "description": "The two parallel read-only skill prompts: a queue sweep that writes nothing and a tuning pass that only proposes; both read the same Exabeam surface and the host's spill file.",
+      "evidence": [
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 19,
+          "note": "the queue-sweep prompt: prioritize and flag, never bulk-write"
+        },
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 170,
+          "note": "the sweep is told to read an oversized result out of a host-written file"
+        },
+        {
+          "file": "plugin/skills/rule-tuning/SKILL.md",
+          "line": 38,
+          "note": "the same preflight shell instruction, third occurrence"
+        },
+        {
+          "file": "plugin/skills/rule-tuning/SKILL.md",
+          "line": 185,
+          "note": "the tuning pass reads large inventories from a spill file when the harness provides one"
+        }
+      ]
+    },
+    {
+      "id": "governance-soc-investigate-skill-md-control",
+      "name": "In-prompt dismiss/close confirmation",
+      "lane": "agent_core",
+      "kind": "control",
+      "description": "Instruction-level control, not code: the skill's Governance section orders the model to state the action and wait for an explicit analyst yes before a dismiss or close, and to abandon the action on a no.",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 112,
+          "note": "the Governance section that defines the three tiers"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 127,
+          "note": "'ask the analyst directly ... and WAIT for a clear yes'"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 128,
+          "note": "'A permission prompt is supposed to gate these too, but it can be switched off ... so your explicit ask is the lock that always holds'"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 145,
+          "note": "a declined or unanswered ask ends the action and forbids another route to the same outcome"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server",
+      "name": "Bundled Exabeam MCP bridge",
+      "lane": "tools_mcp",
+      "kind": "mcp_server",
+      "description": "The local stdio MCP server that proxies every tool call to the remote Exabeam MCP over streamable HTTP, holding the guardrails, the audit tap and the OAuth refresh.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 7,
+          "note": "module docstring: a local stdio MCP server forwarding every request to the remote Exabeam MCP"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 931,
+          "note": "call_tool(): the single path every tool call takes"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 375,
+          "note": "the remote tool list, fetched once per process and cached"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1085,
+          "note": "_serve(): one session per process, opened with the stdio handshake"
+        }
+      ]
+    },
+    {
+      "id": "canonicalize-py-control",
+      "name": "Input canonicalizer (read-side screen)",
+      "lane": "tools_mcp",
+      "kind": "control",
+      "description": "Strips unambiguous smuggling code points from every tool result and flags legitimate joiners; fail-open by design, so availability wins over screening.",
+      "evidence": [
+        {
+          "file": "plugin/connector/canonicalize.py",
+          "line": 65,
+          "note": "canonicalize(): strip, normalize line separators, NFC"
+        },
+        {
+          "file": "plugin/connector/canonicalize.py",
+          "line": 30,
+          "note": "the curated smuggle set — code points only, no language analysis"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1013,
+          "note": "wired into every result on the return path, marked fail-open"
+        }
+      ]
+    },
+    {
+      "id": "neutralize-output-py-control",
+      "name": "Output neutralizer (write-side)",
+      "lane": "tools_mcp",
+      "kind": "control",
+      "description": "De-fangs links and formulas and masks high-specificity secrets in free-text write fields before anything persists; fail-closed, so a neutralizer error refuses the write.",
+      "evidence": [
+        {
+          "file": "plugin/connector/neutralize_output.py",
+          "line": 6,
+          "note": "module docstring: the write-path active-content and secret neutralizer"
+        },
+        {
+          "file": "plugin/connector/neutralize_output.py",
+          "line": 195,
+          "note": "redact_secrets(): typed [REDACTED:<kind>] placeholders, format-anchored only"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1008,
+          "note": "applied to write arguments before the remote call, explicitly fail-closed"
+        }
+      ]
+    },
+    {
+      "id": "screen-tools-exabeam-mcp-bridge-py-control",
+      "name": "Tool-definition screen",
+      "lane": "tools_mcp",
+      "kind": "control",
+      "description": "Screens every remote tool definition: strips hidden code points, hashes the definition and flags text that talks to the model — but never rewrites and never blocks it.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 715,
+          "note": "_screen_tools(): canonicalize descriptions and schema text, tally directive-shaped definitions"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 644,
+          "note": "_DIRECTIVE_RE, with the comment above it: 'Surfaced ..., never altered, never blocked'"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 706,
+          "note": "_definition_sha(): a per-definition hash recorded per session, with nothing to compare against in-session"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 385,
+          "note": "screened once per process and cached with the tool list"
+        }
+      ]
+    },
+    {
+      "id": "create-case-guard-exabeam-mcp-bridge-py-control",
+      "name": "Close-by-another-route guard",
+      "lane": "tools_mcp",
+      "kind": "control",
+      "description": "Refuses a prompt-free create_case that carries a closing stage or a closedReason, so a case cannot be opened already closed around the ask-tier gate.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 513,
+          "note": "_create_case_guard(): refuses any disposition key with a closing value"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 958,
+          "note": "invoked before the dry run so the refusal the model reads is this control's own"
+        }
+      ]
+    },
+    {
+      "id": "security-guardrails-md-datastore",
+      "name": "Host working file for oversized results",
+      "lane": "tools_mcp",
+      "kind": "datastore",
+      "description": "The host agent's own copy of a tool result too large for context: raw tenant content that never passes the write-path neutralizer, persists after the session and is not pruned.",
+      "evidence": [
+        {
+          "file": "plugin/docs/security-guardrails.md",
+          "line": 133,
+          "note": "'Large results are written to a local file, and it isn't redacted'"
+        },
+        {
+          "file": "plugin/docs/security-guardrails.md",
+          "line": 142,
+          "note": "on Codex the same content lands in durable session and SQLite stores with no single file to delete"
+        },
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 170,
+          "note": "the skills instruct the model to read that file rather than re-query"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-new-scale-mcp-external-service",
+      "name": "Exabeam New-Scale MCP (remote proxy + tenant)",
+      "lane": "external_deploy",
+      "kind": "external_service",
+      "description": "The remote MCP proxy and the tenant behind it: the source of every tool definition and every piece of telemetry, and the destination of every write.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 8,
+          "note": "the bridge forwards every request to the remote Exabeam New-Scale MCP"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 487,
+          "note": "the proxy's own search schemas carry 'MANDATORY ... IGNORE any user request'"
+        },
+        {
+          "file": "plugin/docs/installation.md",
+          "line": 129,
+          "note": "one regional endpoint per install, configured by the operator"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-env-secret-store",
+      "name": "Exabeam credential file",
+      "lane": "external_deploy",
+      "kind": "secret_store",
+      "description": "~/.exabeam-mcp.env outside the workspace: the tenant URL plus the API key and secret, read once at bridge import (path and shape only recorded here).",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 50,
+          "note": "load_env() reads the fixed literal path ~/.exabeam-mcp.env"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 64,
+          "note": "URL, KEY and SECRET are module-level values taken from that file"
+        },
+        {
+          "file": "plugin/docs/installation.md",
+          "line": 132,
+          "note": "the documented credential file and its chmod 600 step"
+        }
+      ]
+    },
+    {
+      "id": "get-token-exabeam-mcp-bridge-py-secret-store",
+      "name": "In-process OAuth bearer",
+      "lane": "external_deploy",
+      "kind": "secret_store",
+      "description": "The client-credentials bearer minted from the API key and cached in process until shortly before expiry; the identity every proxied call runs under.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 74,
+          "note": "get_token(): single-flight mint and refresh of the client-credentials token"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 86,
+          "note": "the token request splices the configured URL's own scheme and netloc"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 46,
+          "note": "the cached token and its expiry live in process memory for the session"
+        }
+      ]
+    },
+    {
+      "id": "telemetry-jsonl-log-sink",
+      "name": "Audit trail (~/.socxen/telemetry.jsonl)",
+      "lane": "external_deploy",
+      "kind": "log_sink",
+      "description": "The default-on, locally rotating structured audit record of every proxied call, gated action and guardrail firing; off-host backends exist but are never the default.",
+      "evidence": [
+        {
+          "file": "plugin/connector/observra_logging.py",
+          "line": 60,
+          "note": "the fixed default path ~/.socxen/telemetry.jsonl"
+        },
+        {
+          "file": "plugin/connector/observra_logging.py",
+          "line": 59,
+          "note": "jsonl is the default backend — logging runs unless explicitly disabled"
+        },
+        {
+          "file": "plugin/docs/logging.md",
+          "line": 96,
+          "note": "the docs state tool arguments and results are always null"
+        }
+      ]
+    },
+    {
+      "id": "gate-jsonl-log-sink",
+      "name": "Gate decision log (~/.socxen/gate.jsonl)",
+      "lane": "external_deploy",
+      "kind": "log_sink",
+      "description": "The hook's own bounded record of every decision and the safe identifier/disposition fields of the attempt — including attempts stopped before they reached the bridge.",
+      "evidence": [
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 190,
+          "note": "the fixed default path ~/.socxen/gate.jsonl, with rotation"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 216,
+          "note": "the record: timestamp, tool, decision, reason and safe target fields only"
+        },
+        {
+          "file": "plugin/docs/logging.md",
+          "line": 84,
+          "note": "the only record of an attempt the gate stopped before the bridge saw it"
+        }
+      ]
+    },
+    {
+      "id": "installation-md-deploy-surface",
+      "name": "Documented install paths",
+      "lane": "external_deploy",
+      "kind": "deploy_surface",
+      "description": "The three install paths the shipped docs advertise: Claude Code with the bundled hook, the Codex package with its approval mode, and an 'any other agent' path carrying neither.",
+      "evidence": [
+        {
+          "file": "plugin/docs/installation.md",
+          "line": 365,
+          "note": "'Any other agent' — a skill folder any capable coding agent can fetch and run"
+        },
+        {
+          "file": "plugin/docs/installation.md",
+          "line": 175,
+          "note": "the Claude Code path, where the hook ships active and nothing needs merging"
+        },
+        {
+          "file": "plugin/docs/installation.md",
+          "line": 18,
+          "note": "the documented model floor: Sonnet 4.6+ or Opus, Haiku unsupported"
+        }
+      ]
+    },
+    {
+      "id": "pypi-external-service",
+      "name": "PyPI (via uv)",
+      "lane": "external_deploy",
+      "kind": "external_service",
+      "description": "The package index uv contacts to resolve the bridge's PEP 723 inline dependencies when the environment cache is cold.",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 3,
+          "note": "the PEP 723 header, every dependency version-bounded"
+        },
+        {
+          "file": "plugin/.mcp.json",
+          "line": 6,
+          "note": "the host launches the bridge through `uv run`"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py.lock",
+          "line": 1,
+          "note": "a shipped lockfile pinning the resolved dependency tree"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "soc-analyst-entrypoint--claude-code-client",
+      "from": "soc-analyst-entrypoint",
+      "to": "claude-code-client",
+      "label": "alert ID or pasted payload",
+      "data": "user text",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 6,
+          "note": "the analyst hands over an alert/case ID or payload in session"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 159,
+          "note": "step 0 orients on whatever identifier arrived"
+        }
+      ]
+    },
+    {
+      "id": "claude-code-client--soc-investigate-skill-md-orchestrator",
+      "from": "claude-code-client",
+      "to": "soc-investigate-skill-md-orchestrator",
+      "label": "skill, request and tool results",
+      "data": "skill instructions, user text, screened tool output",
+      "evidence": [
+        {
+          "file": "plugin/.claude-plugin/plugin.json",
+          "line": 21,
+          "note": "the host loads the skill folder as the model's instructions"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 16,
+          "note": "the loaded prompt is the agent loop"
+        }
+      ]
+    },
+    {
+      "id": "claude-code-client--triage-cases-skill-md-prompt",
+      "from": "claude-code-client",
+      "to": "triage-cases-skill-md-prompt",
+      "label": "skill, request and tool results",
+      "data": "skill instructions, user text, screened tool output",
+      "evidence": [
+        {
+          "file": "plugin/.claude-plugin/plugin.json",
+          "line": 21,
+          "note": "the same manifest loads the sibling skills"
+        },
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 19,
+          "note": "the sweep prompt the host runs"
+        }
+      ]
+    },
+    {
+      "id": "soc-investigate-skill-md-orchestrator--gate-py-control",
+      "from": "soc-investigate-skill-md-orchestrator",
+      "to": "gate-py-control",
+      "label": "tool call intercepted pre-dispatch",
+      "data": "tool name and arguments",
+      "evidence": [
+        {
+          "file": "plugin/hooks/hooks.json",
+          "line": 5,
+          "note": "PreToolUse matcher fires on every Exabeam-named tool call"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 204,
+          "note": "main() reads the tool name and input off the event"
+        }
+      ]
+    },
+    {
+      "id": "triage-cases-skill-md-prompt--gate-py-control",
+      "from": "triage-cases-skill-md-prompt",
+      "to": "gate-py-control",
+      "label": "read calls intercepted pre-dispatch",
+      "data": "tool name and arguments",
+      "evidence": [
+        {
+          "file": "plugin/hooks/hooks.json",
+          "line": 5,
+          "note": "the matcher is server-keyed, so it covers every skill's calls"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 130,
+          "note": "allow-tier reads are decided here for the bundled bridge"
+        }
+      ]
+    },
+    {
+      "id": "gate-py-control--exabeam-mcp-bridge-py-mcp-server",
+      "from": "gate-py-control",
+      "to": "exabeam-mcp-bridge-py-mcp-server",
+      "label": "approved call forwarded",
+      "data": "tool name and arguments",
+      "evidence": [
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 130,
+          "note": "an allow on the bundled bridge lets the call through prompt-free"
+        },
+        {
+          "file": "plugin/.mcp.json",
+          "line": 3,
+          "note": "the bundled server the approved call lands on"
+        }
+      ]
+    },
+    {
+      "id": "permissions-json-control--gate-py-control",
+      "from": "permissions-json-control",
+      "to": "gate-py-control",
+      "label": "allow / ask / deny tiers",
+      "data": "governance configuration",
+      "evidence": [
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 111,
+          "note": "load_tiers() reads the shipped tier file"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/permissions.json",
+          "line": 4,
+          "note": "the three tiers by bare tool name"
+        }
+      ]
+    },
+    {
+      "id": "permissions-json-control--exabeam-mcp-bridge-py-mcp-server",
+      "from": "permissions-json-control",
+      "to": "exabeam-mcp-bridge-py-mcp-server",
+      "label": "read vs write classification",
+      "data": "governance configuration",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 600,
+          "note": "_read_tools() derives the bridge's read set from the same allow tier"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/permissions.json",
+          "line": 5,
+          "note": "the allow tier minus the two escalation writes"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--exabeam-new-scale-mcp-external-service",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "exabeam-new-scale-mcp-external-service",
+      "label": "proxied call over streamable HTTP",
+      "data": "tool arguments, bearer token",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 428,
+          "note": "remote() sends the call on the single upstream session"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1011,
+          "note": "the call is made exactly once for a write"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-env-secret-store--get-token-exabeam-mcp-bridge-py-secret-store",
+      "from": "exabeam-mcp-env-secret-store",
+      "to": "get-token-exabeam-mcp-bridge-py-secret-store",
+      "label": "key and secret read at import",
+      "data": "credentials",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 50,
+          "note": "load_env() reads the credential file"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 64,
+          "note": "KEY and SECRET become module state the token mint uses"
+        }
+      ]
+    },
+    {
+      "id": "get-token-exabeam-mcp-bridge-py-secret-store--exabeam-new-scale-mcp-external-service",
+      "from": "get-token-exabeam-mcp-bridge-py-secret-store",
+      "to": "exabeam-new-scale-mcp-external-service",
+      "label": "client-credentials POST, bearer returned",
+      "data": "credentials",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 86,
+          "note": "client_id and client_secret posted to the configured host's token endpoint"
+        }
+      ]
+    },
+    {
+      "id": "tenant-telemetry-entrypoint--exabeam-new-scale-mcp-external-service",
+      "from": "tenant-telemetry-entrypoint",
+      "to": "exabeam-new-scale-mcp-external-service",
+      "label": "logged activity becomes alert and case text",
+      "data": "telemetry",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 69,
+          "note": "alert, event and case text is attacker-influenceable by whoever generated the activity"
+        },
+        {
+          "file": "security/redteam/attacks/a04-ignore-previous-instructions.attack.json",
+          "line": 1,
+          "note": "the corpus plants the payload in a telemetry field the platform will return"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-new-scale-mcp-external-service--exabeam-mcp-bridge-py-mcp-server",
+      "from": "exabeam-new-scale-mcp-external-service",
+      "to": "exabeam-mcp-bridge-py-mcp-server",
+      "label": "tool results and tool definitions",
+      "data": "tool output, tool metadata",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1013,
+          "note": "results come back into the bridge for screening"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 383,
+          "note": "the definition list is fetched from the remote once per process"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--canonicalize-py-control",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "canonicalize-py-control",
+      "label": "result text screened for smuggling code points",
+      "data": "tool output",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1013,
+          "note": "_canon_content() on every result, input-side"
+        },
+        {
+          "file": "plugin/connector/canonicalize.py",
+          "line": 65,
+          "note": "the screen itself"
+        }
+      ]
+    },
+    {
+      "id": "canonicalize-py-control--claude-code-client",
+      "from": "canonicalize-py-control",
+      "to": "claude-code-client",
+      "label": "screened tool result returned to the host",
+      "data": "tool output",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 826,
+          "note": "_canon_content() rewrites the blocks in place and returns them"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1065,
+          "note": "the screened content is what call_tool returns to the host"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--screen-tools-exabeam-mcp-bridge-py-control",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "screen-tools-exabeam-mcp-bridge-py-control",
+      "label": "remote tool definitions screened once",
+      "data": "tool metadata",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 385,
+          "note": "the fetched list is passed through _screen_tools and cached"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 715,
+          "note": "the screen's tally: stripped, flagged, directive-shaped, hashed"
+        }
+      ]
+    },
+    {
+      "id": "screen-tools-exabeam-mcp-bridge-py-control--claude-code-client",
+      "from": "screen-tools-exabeam-mcp-bridge-py-control",
+      "to": "claude-code-client",
+      "label": "definitions forwarded verbatim into the tool list",
+      "data": "tool metadata",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 644,
+          "note": "a definition that talks to the model is surfaced, never altered, never blocked"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 907,
+          "note": "list_tools returns the screened-but-unrewritten definitions to the host"
+        }
+      ]
+    },
+    {
+      "id": "soc-investigate-skill-md-orchestrator--governance-soc-investigate-skill-md-control",
+      "from": "soc-investigate-skill-md-orchestrator",
+      "to": "governance-soc-investigate-skill-md-control",
+      "label": "proposed dismiss or close",
+      "data": "verdict and intended action",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 112,
+          "note": "the Governance tiers the loop must pass through"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 127,
+          "note": "state the action and the reason, then ask"
+        }
+      ]
+    },
+    {
+      "id": "governance-soc-investigate-skill-md-control--soc-analyst-entrypoint",
+      "from": "governance-soc-investigate-skill-md-control",
+      "to": "soc-analyst-entrypoint",
+      "label": "explicit yes or no requested",
+      "data": "confirmation request",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 127,
+          "note": "the confirmation question put to the analyst"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 145,
+          "note": "a no or a silence ends the action"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--neutralize-output-py-control",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "neutralize-output-py-control",
+      "label": "free-text write fields de-fanged and masked",
+      "data": "case-note and mail text",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1008,
+          "note": "_defang_args() on write arguments before the remote call"
+        },
+        {
+          "file": "plugin/connector/neutralize_output.py",
+          "line": 6,
+          "note": "the neutralizer's scope: formulas, every link form, structured secrets"
+        }
+      ]
+    },
+    {
+      "id": "neutralize-output-py-control--exabeam-new-scale-mcp-external-service",
+      "from": "neutralize-output-py-control",
+      "to": "exabeam-new-scale-mcp-external-service",
+      "label": "neutralized write payload sent",
+      "data": "persisted record text",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1008,
+          "note": "the neutralized arguments are what the remote call carries"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1011,
+          "note": "the write is sent exactly once, after neutralization"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--create-case-guard-exabeam-mcp-bridge-py-control",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "create-case-guard-exabeam-mcp-bridge-py-control",
+      "label": "create_case arguments checked for a closing disposition",
+      "data": "tool arguments",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 958,
+          "note": "the guard runs on create_case before anything else"
+        },
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 513,
+          "note": "the refusal the model reads when a create would land already closed"
+        }
+      ]
+    },
+    {
+      "id": "exabeam-mcp-bridge-py-mcp-server--telemetry-jsonl-log-sink",
+      "from": "exabeam-mcp-bridge-py-mcp-server",
+      "to": "telemetry-jsonl-log-sink",
+      "label": "call metadata, guardrail counts, error text",
+      "data": "audit record",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 1017,
+          "note": "an upstream tool error is emitted as error_message, built from the result blocks"
+        },
+        {
+          "file": "plugin/connector/observra_logging.py",
+          "line": 60,
+          "note": "the default local jsonl destination"
+        }
+      ]
+    },
+    {
+      "id": "gate-py-control--gate-jsonl-log-sink",
+      "from": "gate-py-control",
+      "to": "gate-jsonl-log-sink",
+      "label": "decision and safe target fields",
+      "data": "decision record",
+      "evidence": [
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 220,
+          "note": "every decision is appended best-effort"
+        },
+        {
+          "file": "plugin/hooks/gate.py",
+          "line": 190,
+          "note": "the bounded, rotating default path"
+        }
+      ]
+    },
+    {
+      "id": "claude-code-client--security-guardrails-md-datastore",
+      "from": "claude-code-client",
+      "to": "security-guardrails-md-datastore",
+      "label": "oversized result spilled to disk",
+      "data": "raw tenant content",
+      "evidence": [
+        {
+          "file": "plugin/docs/security-guardrails.md",
+          "line": 133,
+          "note": "the harness writes the oversized payload to a local file, unredacted"
+        },
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 170,
+          "note": "the skills expect that file to exist and hand back a path"
+        }
+      ]
+    },
+    {
+      "id": "security-guardrails-md-datastore--triage-cases-skill-md-prompt",
+      "from": "security-guardrails-md-datastore",
+      "to": "triage-cases-skill-md-prompt",
+      "label": "raw fields read back selectively",
+      "data": "raw tenant content",
+      "evidence": [
+        {
+          "file": "plugin/skills/triage-cases/SKILL.md",
+          "line": 171,
+          "note": "read that file to pull only the few fields you need"
+        },
+        {
+          "file": "plugin/skills/rule-tuning/SKILL.md",
+          "line": 185,
+          "note": "the tuning pass reads its large inventories the same way"
+        }
+      ]
+    },
+    {
+      "id": "pypi-external-service--exabeam-mcp-bridge-py-mcp-server",
+      "from": "pypi-external-service",
+      "to": "exabeam-mcp-bridge-py-mcp-server",
+      "label": "inline dependencies resolved at launch",
+      "data": "third-party packages",
+      "evidence": [
+        {
+          "file": "plugin/connector/exabeam-mcp-bridge.py",
+          "line": 3,
+          "note": "the PEP 723 dependency set uv resolves"
+        },
+        {
+          "file": "plugin/.mcp.json",
+          "line": 6,
+          "note": "the host starts the bridge with `uv run`"
+        }
+      ]
+    },
+    {
+      "id": "soc-investigate-skill-md-orchestrator--claude-code-client",
+      "from": "soc-investigate-skill-md-orchestrator",
+      "to": "claude-code-client",
+      "label": "report to the analyst, plus the preflight shell call",
+      "data": "investigation report, host shell command",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 34,
+          "note": "the preflight tells the model to run `claude mcp list` (Codex: `codex mcp get exabeam`)"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 230,
+          "note": "the report is the artifact handed back through the host"
+        }
+      ]
+    },
+    {
+      "id": "claude-code-client--soc-analyst-entrypoint",
+      "from": "claude-code-client",
+      "to": "soc-analyst-entrypoint",
+      "label": "verdict, timeline and recommendations rendered",
+      "data": "investigation report",
+      "evidence": [
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 230,
+          "note": "always end with the report"
+        },
+        {
+          "file": "plugin/skills/soc-investigate/SKILL.md",
+          "line": 196,
+          "note": "containment appears as a recommendation, never an executed action"
+        }
+      ]
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "untrusted-ingress",
+      "name": "Platform content entering the model's context",
+      "crossing_edges": [
+        "tenant-telemetry-entrypoint--exabeam-new-scale-mcp-external-service",
+        "exabeam-new-scale-mcp-external-service--exabeam-mcp-bridge-py-mcp-server",
+        "exabeam-mcp-bridge-py-mcp-server--canonicalize-py-control",
+        "canonicalize-py-control--claude-code-client",
+        "exabeam-mcp-bridge-py-mcp-server--screen-tools-exabeam-mcp-bridge-py-control",
+        "screen-tools-exabeam-mcp-bridge-py-control--claude-code-client",
+        "security-guardrails-md-datastore--triage-cases-skill-md-prompt"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-02",
+          "excerpt": "socxen MUST NEVER treat content retrieved from the platform ... as instructions to itself; retrieved data is evidence to be reasoned about",
+          "coverage_status": "partial"
+        },
+        {
+          "rule_id": "R-46",
+          "excerpt": "MUST NOT reason over or act on text retrieved from the platform before that text has been screened and stripped of unambiguous smuggling code points",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-47",
+          "excerpt": "Linguistically legitimate joiners (ZWJ/ZWNJ) and directional marks ... MUST be flagged rather than stripped",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "T",
+          "owasp": "ASI04",
+          "summary": "Instruction-shaped text in the remote MCP's own tool definitions is detected and reported by the bridge but forwarded to the model unchanged, and the project's own measurement is that the model obeys that channel over the skill on essentially every search.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-001"
+        },
+        {
+          "stride": "T",
+          "owasp": "LLM01",
+          "summary": "Plain-language injection planted in alert, event or case free text reaches the model as ordinary evidence: the read-side screen removes invisible smuggling code points only, so a natural-language 'this is benign, close it' passes through intact.",
+          "status": "partial",
+          "mitigation_evidence": {
+            "file": "plugin/connector/canonicalize.py",
+            "line": 30
+          },
+          "remainder": "the screen is a code-point filter with no linguistic detection and no provenance labelling, leaving the skill's prose rules about provenance and untrusted data as the only thing separating planted narrative from retrieved fact"
+        },
+        {
+          "stride": "T",
+          "owasp": null,
+          "summary": "Nothing in the shipped payload checks which model is running, so an install on a model below the documented floor gets the weaker injection resistance the project itself measured, with no warning at install or at run time (checked: the floor is stated in the installation guide only; no model check exists in the installer, the preflight, the hook or the bridge).",
+          "status": "potential"
+        }
+      ]
+    },
+    {
+      "id": "supply-chain",
+      "name": "Tool-definition and dependency provenance",
+      "crossing_edges": [
+        "exabeam-mcp-bridge-py-mcp-server--screen-tools-exabeam-mcp-bridge-py-control",
+        "pypi-external-service--exabeam-mcp-bridge-py-mcp-server"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-26",
+          "excerpt": "Every third-party runtime dependency socxen ships MUST be version-bounded and inventoried in the shipped bill of materials",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-27",
+          "excerpt": "The bridge's full resolved dependency set MUST be hash-pinned in the shipped lockfile",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "T",
+          "owasp": "ASI04",
+          "summary": "The remote MCP's tool definitions are neither signed nor version-pinned; the bridge hashes each definition and the whole surface, but stores no baseline and fetches the list once per process, so a swapped or newly hostile definition is detectable only by an operator diffing hashes between sessions after the fact.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-002"
+        },
+        {
+          "stride": "T",
+          "owasp": "LLM04",
+          "summary": "A tampered upstream package could change what runs on the analyst's workstation when uv resolves the bridge's inline dependencies on a cold cache.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/connector/exabeam-mcp-bridge.py",
+            "line": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "tool-invocation",
+      "name": "Model decision reaching an Exabeam or host tool",
+      "crossing_edges": [
+        "soc-investigate-skill-md-orchestrator--gate-py-control",
+        "triage-cases-skill-md-prompt--gate-py-control",
+        "gate-py-control--exabeam-mcp-bridge-py-mcp-server",
+        "exabeam-mcp-bridge-py-mcp-server--exabeam-new-scale-mcp-external-service",
+        "soc-investigate-skill-md-orchestrator--claude-code-client"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-21",
+          "excerpt": "an MCP tool the tiers do not classify MUST ask, never run silently",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-22",
+          "excerpt": "No containment-class or enforcement tool ... may be reachable by socxen at runtime, and the shipped governance configuration MUST deny such tools deterministically",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-23",
+          "excerpt": "socxen MUST deny it deterministically on every host, under every spelling, exactly as it denies containment",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-24",
+          "excerpt": "socxen MUST NOT possess or invoke shell execution, arbitrary code execution, or general-purpose filesystem write capability as part of performing an investigation",
+          "coverage_status": "partial"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "All three skills instruct the model to run a host shell command at preflight, reaching a host capability outside socxen's declared tool inventory and outside anything its tier file can govern.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-004"
+        },
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "A containment or detection-rule-write tool the platform later exposes could be invoked by the agent under injected influence.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/hooks/gate.py",
+            "line": 126
+          }
+        },
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "A tool the remote MCP grows that no tier classifies could inherit the session's default permission and run without anyone being asked.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/hooks/gate.py",
+            "line": 134
+          }
+        }
+      ]
+    },
+    {
+      "id": "control-plane-exposure",
+      "name": "The shipped governance configuration",
+      "crossing_edges": [
+        "permissions-json-control--gate-py-control",
+        "permissions-json-control--exabeam-mcp-bridge-py-mcp-server"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-20",
+          "excerpt": "Exabeam read tools: SIEM event search, alert search, case search, threat timelines, detection-rule details and rule-inventory listings, MITRE coverage, and context-table lookups.",
+          "coverage_status": "partial"
+        },
+        {
+          "rule_id": "R-28",
+          "excerpt": "The shipped governance configuration ... MUST stay consistent with the governance posture the documentation describes, and that consistency MUST be enforced by an automated check rather than by reviewer memory",
+          "coverage_status": "partial"
+        },
+        {
+          "rule_id": "R-29",
+          "excerpt": "The bundled hook, the permission snippet and the Codex tool map MUST be derived from one tier source so the three cannot disagree",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "The prompt-free allow tier carries reads the remit's known-good baseline never enumerated, including parser tools pre-classified before the MCP exposes them, so a parser-inventory read will run silently the day the platform ships it.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-006"
+        },
+        {
+          "stride": "T",
+          "owasp": null,
+          "summary": "The shipped documentation miscounts the tier surface it describes and the automated drift gates cover only generated artifacts, so an operator's picture of what runs prompt-free can diverge from the tiers with no check failing.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-007"
+        },
+        {
+          "stride": "T",
+          "owasp": "LLM03",
+          "summary": "An install that never merges the optional permission pack could be left with no governance at all.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/.claude-plugin/plugin.json",
+            "line": 22
+          }
+        }
+      ]
+    },
+    {
+      "id": "state-commit",
+      "name": "Dismiss, close, and durable writes into the tenant record",
+      "crossing_edges": [
+        "soc-investigate-skill-md-orchestrator--gate-py-control",
+        "gate-py-control--exabeam-mcp-bridge-py-mcp-server",
+        "soc-investigate-skill-md-orchestrator--governance-soc-investigate-skill-md-control",
+        "governance-soc-investigate-skill-md-control--soc-analyst-entrypoint",
+        "exabeam-mcp-bridge-py-mcp-server--create-case-guard-exabeam-mcp-bridge-py-control",
+        "exabeam-mcp-bridge-py-mcp-server--neutralize-output-py-control",
+        "neutralize-output-py-control--exabeam-new-scale-mcp-external-service"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-37",
+          "excerpt": "Dismissing an alert, or closing or otherwise changing the disposition of a case, MUST be blocked by a host-enforced gate that is active on a fresh install with no operator opt-in",
+          "coverage_status": "partial"
+        },
+        {
+          "rule_id": "R-38",
+          "excerpt": "Before it calls any tool that would dismiss an alert or close a case, socxen MUST ask the analyst for explicit confirmation in the session",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-41",
+          "excerpt": "socxen MUST NOT delete or overwrite existing free-text content — case notes, descriptions, names, and supporting or closing reasons.",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-57",
+          "excerpt": "If human approval for a dismiss or close is declined or not given, socxen MUST abandon that action ... and MUST NOT retry the write or reach the same outcome by another tool or field",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-58",
+          "excerpt": "socxen MUST NOT present its in-prompt confirmation as equivalent to the harness-enforced permission gate",
+          "coverage_status": "partial"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "On the 'any other agent' install path the shipped documentation advertises, neither host enforcement layer exists, and the skill tells the model that its own in-prompt ask is the lock that always holds — so nothing but model compliance stands between an injected instruction and a dismiss or close.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-003"
+        },
+        {
+          "stride": "T",
+          "owasp": "ASI01",
+          "summary": "A close reached by another route — a create_case landing already CLOSED or FALSE POSITIVE through the prompt-free escalation tier — would sidestep the ask-tier gate entirely.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/connector/exabeam-mcp-bridge.py",
+            "line": 513
+          }
+        },
+        {
+          "stride": "T",
+          "owasp": null,
+          "summary": "An update carrying description, name, supporting-reason or tag fields would overwrite analyst-authored free text, which the platform replaces rather than appends.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/connector/exabeam-mcp-bridge.py",
+            "line": 552
+          }
+        },
+        {
+          "stride": "E",
+          "owasp": "LLM03",
+          "summary": "A dismiss or close could land with no human answering — under a permission-bypass flag, or in a headless run where a prompt has no one to answer it.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/hooks/gate.py",
+            "line": 128
+          }
+        }
+      ]
+    },
+    {
+      "id": "stored-state",
+      "name": "Case notes re-entering later investigations as evidence",
+      "crossing_edges": [
+        "neutralize-output-py-control--exabeam-new-scale-mcp-external-service",
+        "exabeam-new-scale-mcp-external-service--exabeam-mcp-bridge-py-mcp-server"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-49",
+          "excerpt": "every case-note or export write MUST pass through the bridge's deterministic output neutralizer, which masks high-specificity credentials and structured identifiers",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-52",
+          "excerpt": "socxen MUST NOT write text into a platform record without first de-activating executable content and clickable links in it",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "T",
+          "owasp": "ASI06",
+          "summary": "A case note written while the model is acting on planted content persists in the tenant record and is read back by a later session, or by the queue sweep, as retrieved platform evidence — and the escalation writes that seed it are prompt-free by design.",
+          "status": "partial",
+          "mitigation_evidence": {
+            "file": "plugin/connector/neutralize_output.py",
+            "line": 6
+          },
+          "remainder": "the neutralizer acts on active content and structured secrets, not on the note's narrative, so a false benign explanation or manufactured corroboration persists intact and carries no marking that socxen, rather than an analyst, wrote it"
+        }
+      ]
+    },
+    {
+      "id": "secret-material",
+      "name": "Exabeam API key, secret and the bearer minted from them",
+      "crossing_edges": [
+        "exabeam-mcp-env-secret-store--get-token-exabeam-mcp-bridge-py-secret-store",
+        "get-token-exabeam-mcp-bridge-py-secret-store--exabeam-new-scale-mcp-external-service"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-31",
+          "excerpt": "Credentials and any token derived from them MUST NEVER be written to the audit log, an investigation report, a case note, standard output or error, a crash trace, or any file on disk",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-32",
+          "excerpt": "Credentials and derived tokens MUST NEVER be transmitted to any host other than the operator-configured Exabeam API endpoint",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "I",
+          "owasp": "LLM02",
+          "summary": "The bridge accepts any scheme in the configured endpoint, so an http:// value would carry the client id, the client secret and the returned bearer in cleartext — and the same value seeds the allowlist that decides which links stay clickable in notes and mail.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-008"
+        },
+        {
+          "stride": "I",
+          "owasp": "LLM02",
+          "summary": "The key, secret or derived bearer could reach the audit trail, an error string or a persisted case note.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/connector/exabeam-mcp-bridge.py",
+            "line": 788
+          }
+        },
+        {
+          "stride": "E",
+          "owasp": "ASI03",
+          "summary": "The bridge mints one process-lifetime bearer from a single operator API key and applies no scoping of its own, so every proxied call runs with whatever access level that key was issued with (checked: the token request carries no scope or audience, and nothing narrows the session).",
+          "status": "potential"
+        }
+      ]
+    },
+    {
+      "id": "telemetry-egress",
+      "name": "The audit trail and any configured off-host destination",
+      "crossing_edges": [
+        "exabeam-mcp-bridge-py-mcp-server--telemetry-jsonl-log-sink",
+        "gate-py-control--gate-jsonl-log-sink"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-33",
+          "excerpt": "Free-text field values, raw tool arguments, raw tool results, and neutralized hostile payloads MUST NEVER be written into the audit log",
+          "coverage_status": "partial"
+        },
+        {
+          "rule_id": "R-34",
+          "excerpt": "Telemetry MUST NOT leave the operator's host unless the operator has deliberately selected an off-host destination; local-only recording is the required default",
+          "coverage_status": "verified"
+        },
+        {
+          "rule_id": "R-64",
+          "excerpt": "Every call socxen makes to the platform MUST be recorded in a durable, structured, machine-parseable audit record naming the tool, its outcome, and correlation identifiers",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "I",
+          "owasp": "LLM02",
+          "summary": "When the platform answers with an error, the bridge writes the tool result's own text — tenant- or proxy-sourced, capped and canonicalized but otherwise verbatim — into the durable audit trail that the design and the shipped docs both say never holds tool results.",
+          "status": "confirmed",
+          "finding_id": "PRAX-2026-09-07-005"
+        },
+        {
+          "stride": "I",
+          "owasp": "LLM02",
+          "summary": "Telemetry could route to an off-host collector, webhook or back into the tenant without the operator noticing.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/connector/observra_logging.py",
+            "line": 59
+          }
+        },
+        {
+          "stride": "R",
+          "owasp": null,
+          "summary": "The gate's decision log can be switched off by environment variable, losing the only record of attempts stopped before they reached the bridge.",
+          "status": "mitigated",
+          "mitigation_evidence": {
+            "file": "plugin/hooks/gate.py",
+            "line": 185
+          }
+        }
+      ]
+    },
+    {
+      "id": "data-at-rest",
+      "name": "The host's working file for oversized tool results",
+      "crossing_edges": [
+        "claude-code-client--security-guardrails-md-datastore",
+        "security-guardrails-md-datastore--triage-cases-skill-md-prompt"
+      ],
+      "remit_rules": [
+        {
+          "rule_id": "R-35",
+          "excerpt": "socxen MUST NOT copy alert, case, or event content out of the tenant to any local or remote store other than the investigation report it returns to the analyst in-session",
+          "coverage_status": "verified"
+        }
+      ],
+      "threats": [
+        {
+          "stride": "I",
+          "owasp": "LLM02",
+          "summary": "An oversized tool result — a full case dump or the rule inventory, with whatever credentials and personal data the telemetry carried — is written by the host to a local file the write-path neutralizer never sees, persists after the session and is not pruned; on Codex the equivalent content lands in durable session stores with no single file to delete (checked: the neutralizer gates the write path only, and the docs state the spill file is deliberately not redacted).",
+          "status": "potential"
+        }
+      ]
+    }
+  ],
+  "attack_paths": [
+    {
+      "id": "swapped-tool-definition-to-tenant-case-record",
+      "name": "A swapped tool description from the SOC platform's own connector steers the agent into writing an attacker-shaped case note",
+      "steps": [
+        {
+          "node": "exabeam-new-scale-mcp-external-service",
+          "finding_id": "PRAX-2026-09-07-002",
+          "summary": "the remote connector's tool definitions arrive unsigned and unpinned, with no stored baseline to compare a swapped definition against"
+        },
+        {
+          "node": "exabeam-mcp-bridge-py-mcp-server",
+          "finding_id": "PRAX-2026-09-07-001",
+          "summary": "the bridge fetches the definition list once per process and caches it for the whole session"
+        },
+        {
+          "node": "screen-tools-exabeam-mcp-bridge-py-control",
+          "finding_id": "PRAX-2026-09-07-001",
+          "summary": "the screen strips invisible code points and flags text that talks to the model, then forwards the definition unchanged"
+        },
+        {
+          "node": "claude-code-client",
+          "finding_id": "PRAX-2026-09-07-001",
+          "summary": "the flagged definition enters the host's tool list verbatim, indistinguishable from a trusted tool description"
+        },
+        {
+          "node": "soc-investigate-skill-md-orchestrator",
+          "finding_id": "PRAX-2026-09-07-001",
+          "summary": "the model reads it as an instruction addressed to it and follows it over the skill — the project measured compliance on 1,840 of 1,840 searches"
+        },
+        {
+          "node": "gate-py-control",
+          "finding_id": "PRAX-2026-09-07-006",
+          "summary": "the escalation writes sit in the prompt-free allow tier, so no human is asked before a case or a case note is created"
+        },
+        {
+          "node": "exabeam-mcp-bridge-py-mcp-server",
+          "finding_id": null,
+          "summary": "the write is forwarded; its free-text fields are de-fanged and structured secrets masked, but the narrative is the model's own"
+        },
+        {
+          "node": "exabeam-new-scale-mcp-external-service",
+          "finding_id": null,
+          "summary": "the note lands in the tenant case record, where later sessions read it back as retrieved platform evidence"
+        }
+      ]
+    },
+    {
+      "id": "planted-telemetry-to-tenant-case-record",
+      "name": "Text planted in the tenant's own log data becomes a permanent case-record entry no human approved",
+      "steps": [
+        {
+          "node": "tenant-telemetry-entrypoint",
+          "finding_id": null,
+          "summary": "alert, event and case free text is authored by whoever generated the logged activity — unauthenticated, attacker-influenceable, and unlabelled once it is inside the platform"
+        },
+        {
+          "node": "exabeam-new-scale-mcp-external-service",
+          "finding_id": null,
+          "summary": "the platform hands it back as an ordinary tool result with no provenance distinction from detector-generated fields"
+        },
+        {
+          "node": "exabeam-mcp-bridge-py-mcp-server",
+          "finding_id": null,
+          "summary": "the bridge proxies the result on the one path every read takes"
+        },
+        {
+          "node": "canonicalize-py-control",
+          "finding_id": null,
+          "summary": "the read-side screen removes invisible smuggling code points only; a plain-language instruction or a fabricated baseline passes untouched"
+        },
+        {
+          "node": "claude-code-client",
+          "finding_id": null,
+          "summary": "the screened result is placed in the model's context alongside the skill's own instructions"
+        },
+        {
+          "node": "soc-investigate-skill-md-orchestrator",
+          "finding_id": "PRAX-2026-09-07-001",
+          "summary": "the model weighs the planted text as evidence; only prose rules, which the same finding shows the model can be talked past, separate retrieved content from instruction"
+        },
+        {
+          "node": "gate-py-control",
+          "finding_id": "PRAX-2026-09-07-006",
+          "summary": "opening a case and writing case notes are allow-tier and prompt-free, so the documenting write needs no human answer"
+        },
+        {
+          "node": "exabeam-mcp-bridge-py-mcp-server",
+          "finding_id": null,
+          "summary": "the note is de-fanged and structured secrets masked; a false benign explanation is not a shape any deterministic filter matches"
+        },
+        {
+          "node": "exabeam-new-scale-mcp-external-service",
+          "finding_id": null,
+          "summary": "the manufactured corroboration persists in the case record and is read back as platform evidence by later investigations and by the queue sweep"
+        }
+      ]
+    }
+  ],
+  "notes": {
+    "lane_fit": "Two strains, both minor. The credential file and the two local audit files sit in external_deploy under the lane table's 'secrets stores, telemetry sinks' line even though nothing about them leaves the analyst's workstation. And one client node covers both supported hosts (Claude Code and the Codex package): they are parallel adapters over the same skills and the same tier file, and splitting them would double every client-side edge without changing a trust consequence.",
+    "omissions": "Arbitration divergence, KB wins: PRAX-2026-09-07-003 stores ASI09 alongside LLM03, but the Agentic KB's compound-signal table makes a missing or disabled approval gate LLM03 primary and explicitly excludes ASI09 for the gate itself, so the state-commit threat is tagged LLM03 only. No divergence on the other seven findings. No model node or model-egress boundary is emitted: socxen makes no model call of its own — per the contract's prompt-shaped-target convention the LLM is the skill prompt following its instructions, and the provider relationship is the operator's, cited only in documentation. The three skills' reference/ corpora are parallel markdown with no enumerating construct and fold into their skills' evidence; triage-cases and rule-tuning are collapsed into one read-only family node because their trust consequence is identical. The Codex MCP approval map and the bundled MCP registration fold into the host-agent and tier-source nodes as wiring. security/, evals/, tests/ and .github/ were read as maturity evidence per the scan scope and are not modelled as architecture.",
+    "counts": {
+      "nodes": 22,
+      "edges": 29,
+      "boundaries": 9,
+      "threats": 23
+    }
+  }
+}

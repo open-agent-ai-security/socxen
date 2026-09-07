@@ -38,7 +38,40 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
+## Current status — `fix/praxen-163` @ `8eb6c24` (2026-09-07, PR #164: the two #163 Highs fixed)
+
+| | |
+|---|---|
+| Scanned | **`fix/praxen-163`** (`8eb6c24`) — `dev` @ `f82bdef` (every 0.8.6 PR merged) plus the #163 fixes: a `create_case` carrying a closing disposition is refused; tool definitions screened for instruction-shaped text and hashed |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project memory), 45 min; account window 20–27%, never rejected |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **1 High** · 5 Medium · 2 Low — all 8 CONFIRMED by the audit pass, 0 UNSUPPORTED |
+| Weighted RAISE posture | **3.55 / 5** (Established) — up from 3.45; **Implement Zero Trust 3 → 4** (the close-by-another-route refusal) |
+| Remit coverage | Remit **v1.5** · 68 rules — 50 verified · 7 partial · 0 gap · 11 not enforceable in code |
+| Threat model | 22 nodes · 29 edges · 9 trust boundaries · 2 attack paths — [`-threatmodel.html`](results/2026-09-07-socxen-fix163-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-07-socxen-fix163.html) · [findings JSON](results/2026-09-07-socxen-fix163.json) ·
+[audit](results/2026-09-07-socxen-fix163-audit.md) · [threat model](results/2026-09-07-socxen-fix163-threatmodel.html).
+
+**Against #163's two Highs:** the close-by-another-route finding is gone (Zero Trust moved to 4 on it). The
+instruction-shaped-text finding remains, re-stated: the text is now **detected and reported** but reaches
+the model verbatim — the scan wants it treated as untrusted markup (wrapped in a provenance marker or
+replaced by a neutral summary), not only reported. That is a maintainer decision: rewriting a vendor's
+tool description is a do-harm risk, and the skill and the wildcard redirect already counter the known
+directives; recorded as open.
+
+**Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
+session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
+no host gate and no missing-gate warning; `-004` all three skills tell the model to run a host shell
+command at preflight — a second host tool the remit does not declare; `-005` an upstream tool error's
+text is written into the audit trail, which the remit says never holds tool results; `-006` the allow tier
+grants reads the remit's Known Good Baseline does not enumerate (the parser reads, the use-case score).
+Lows: `-007` docs miscount the governance surface; `-008` any scheme is accepted in `EXABEAM_MCP_URL`.
+
+## Previous — `fix/gate-reach` @ `16dea29` (a pre-rebase branch commit; the scanned tree is recorded in the artifacts) (2026-09-06, the stress-gate tree: `dev` + #157 + #158)
 
 | | |
 |---|---|
