@@ -98,7 +98,10 @@ def build_bom(timestamp):
     names = set(re.findall(r"\bexabeam_[a-z_]+", toolmap))
     # A tool denied "ahead of the MCP exposing it" is a proxy-only name, not a live tool: the count is
     # what the live MCP exposes, which is what tool-map.md's own header states (cross-checked below).
-    proxy_only = set(re.findall(r"`(exabeam_[a-z_]+)`[^\n]*ahead of the MCP exposing it", toolmap))
+    proxy_only = set()
+    for line in toolmap.splitlines():                   # every name on a line that carries the phrase
+        if "ahead of the MCP exposing it" in line:
+            proxy_only |= set(re.findall(r"`(exabeam_[a-z_]+)`", line))
     tool_count = len(names - proxy_only)
     header_count = int(re.search(r"The (\d+) tools exposed by the live MCP", toolmap).group(1))
     if header_count != tool_count:

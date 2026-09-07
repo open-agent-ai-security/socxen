@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^mcp__[A-Za-z0-9._-]*[Ee]xabeam[A-Za-z0-9._-]*__",
+        "matcher": "^mcp__[A-Za-z0-9._-]*[Ee][Xx][Aa][Bb][Ee][Aa][Mm][A-Za-z0-9._-]*__",
         "hooks": [
           {
             "type": "command",

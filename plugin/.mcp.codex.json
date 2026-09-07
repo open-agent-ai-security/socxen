@@ -46,7 +46,39 @@
       "exabeam_create_analytics_rule",
       "create_analytics_rule",
       "exabeam_update_analytics_rule",
-      "update_analytics_rule"
+      "update_analytics_rule",
+      "exabeam_enable_analytics_rule",
+      "enable_analytics_rule",
+      "exabeam_disable_analytics_rule",
+      "disable_analytics_rule",
+      "exabeam_delete_analytics_rule",
+      "delete_analytics_rule",
+      "exabeam_create_correlation_rule",
+      "create_correlation_rule",
+      "exabeam_update_correlation_rule",
+      "update_correlation_rule",
+      "exabeam_enable_correlation_rule",
+      "enable_correlation_rule",
+      "exabeam_disable_correlation_rule",
+      "disable_correlation_rule",
+      "exabeam_delete_correlation_rule",
+      "delete_correlation_rule",
+      "exabeam_create_exclusion_rule",
+      "create_exclusion_rule",
+      "exabeam_update_exclusion_rule",
+      "update_exclusion_rule",
+      "exabeam_delete_exclusion_rule",
+      "delete_exclusion_rule",
+      "exabeam_create_context_table",
+      "create_context_table",
+      "exabeam_update_context_table",
+      "update_context_table",
+      "exabeam_delete_context_table",
+      "delete_context_table",
+      "exabeam_add_context_table_records",
+      "add_context_table_records",
+      "exabeam_delete_context_table_records",
+      "delete_context_table_records"
     ],
     "tools": {
       "exabeam_get_case_details": {
@@ -104,6 +136,12 @@
         "approval_mode": "auto"
       },
       "exabeam_create_case_notes": {
+        "approval_mode": "auto"
+      },
+      "exabeam_parser_list": {
+        "approval_mode": "auto"
+      },
+      "exabeam_get_parser_details": {
         "approval_mode": "auto"
       },
       "exabeam_update_alert": {

@@ -142,7 +142,7 @@ def _dry_run_guard():
     """Just the dry-run block. Anchored on the main try's first statement, because the guard contains a
     nested try of its own and a naive search for `    try:` stops inside it."""
     body = _call_tool_body()
-    i = body.index("if DRY_RUN and name in WRITE_TOOLS:")
+    i = body.index("if DRY_RUN and is_write_tool(name):")
     return body[i:body.index("    try:\n        if is_write:", i)]
 
 
@@ -166,17 +166,18 @@ def test_truthy_accepts_only_explicit_affirmatives():
 
 
 def test_dry_run_refuses_on_the_tool_name_not_on_having_arguments():
-    """`is_write` is `name in WRITE_TOOLS and bool(arguments)`. Keying the refusal on that would forward
-    an argument-less write to the tenant, which is still a write."""
+    """`is_write` is `is_write_tool(name) and bool(arguments)`. Keying the refusal on that would forward
+    an argument-less write to the tenant, which is still a write. (Writes are the default since Praxen
+    2026-09-07-005: `is_write_tool` is "not a classified read", so an unknown tool is refused too.)"""
     body = _call_tool_body()
-    assert "if DRY_RUN and name in WRITE_TOOLS:" in body, (
+    assert "if DRY_RUN and is_write_tool(name):" in body, (
         "the dry-run guard must key on the tool name, not on is_write")
 
 
 def test_dry_run_refuses_before_the_remote_call():
     """A refusal after `await remote(...)` refuses nothing — the write has already happened."""
     body = _call_tool_body()
-    assert body.index("if DRY_RUN and name in WRITE_TOOLS:") < body.index("await remote("), (
+    assert body.index("if DRY_RUN and is_write_tool(name):") < body.index("await remote("), (
         "the dry-run guard must come before the remote call")
 
 
