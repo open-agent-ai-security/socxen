@@ -58,6 +58,23 @@ docs](https://docs.exabeam.com/en/exa-search/all/search-guide/performing-searche
 and from the live `/search/v2/events` examples; a few forms are additionally shown as they appear in
 real in-product queries.
 
+> **Per-endpoint rules — read these before the grammar (#160, measured on 1,000+ live searches).**
+> - **`search_alerts` and `search_cases` take NO free text.** Every clause is `field:"value"`, joined with
+>   `AND` / `OR`. A bare word, a bare name, or a quoted phrase on its own (`phishing`, `t.novak`,
+>   `"svc-backup"`) is rejected with *"Field rawLogs is unknown"* — those endpoints have no raw-log field
+>   to search. Name the field: `user:"t.novak"`, `rules.rule_name:"…"`, `stage:"NEW"`, `name:"token"`.
+> - **`search_events`: quote everything.** `field:"value"` for a field, `"free text"` (in double quotes)
+>   to search raw logs. **Never send bare unquoted text** — `HR-LT-88`, `svc_deploy`, `group membership
+>   change` are rejected the moment they carry a hyphen, an underscore, a digit or a second word
+>   (*"Field value cannot be a free text"* / *"Please check the syntax"*).
+> - **Never send `fields: ["*"]`** (see the request-shape table above). The bridge does not forward a
+>   wildcard search: you get the endpoint's column list back as the result, and you re-send naming the
+>   columns you need. That stands in for the MCP schema text that wrongly calls the wildcard mandatory,
+>   until the MCP server is fixed.
+> - **A `"Syntax error while query using fields"` (`AAA_ESA_1003_400`) on a well-formed events query is
+>   NOT your filter.** It is a backend failure that affects a whole session from its first search;
+>   rewriting the query will not help. Say so in the report and move on to the alerts/cases evidence.
+
 - **Field match:** `field:"value"` — quote the value. `:` and `=` are **interchangeable**
   (`vendor:"Exabeam"` ≡ `vendor="Exabeam"`); Exabeam recommends `=`. Match modes:
   - loose keyword `product:"web application"` (words matched independently),
@@ -308,7 +325,7 @@ a floor, not a total: `totalRows` is the true count even when you only pulled `l
 ## Quality bar for a query
 
 - **Tight window.** Start narrow (the alert window ± hours); widen only with a reason.
-- **Named fields over `*`** once you know what you're after — skimmable evidence, cheaper calls.
+- **Named fields over `*`** — skimmable evidence, cheaper calls (the bridge does not forward a wildcard search).
 - **Count with `totalRows`, not aggregation.** A targeted filter + `totalRows` turns "I saw some" into a
   number — and it works through the MCP tool, which drops `groupBy`/`distinct` (see tested-reality note).
 - **Cite it.** Every row that lands in the report names the query/tool that produced it (report-template).
