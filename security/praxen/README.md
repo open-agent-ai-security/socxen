@@ -38,7 +38,42 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `gate/bundled-hook` @ `a6a3ffe` (the bundled-hook release candidate)
+## Current status — `dev` @ `16c1f02` (2026-09-06, the 0.8.6 release candidate)
+
+| | |
+|---|---|
+| Scanned | **`dev`** (`16c1f02`), 2026-09-06 — every 0.8.6 PR merged (#144 identity, #146 site, #148 bundled hook, #149/#151 remit, #150 evals, #152 HTML neutralizer) |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model** |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 2 High · 6 Medium · 0 Low |
+| Weighted RAISE posture | **3.30 / 5** (Established) — up from 3.15 on the bundled-hook candidate |
+| Remit coverage | Remit **v1.5** · 65 rules — 58 verified · 7 partial · 0 gap |
+| Threat model | 21 nodes · 29 edges · 8 trust boundaries · 3 attack paths — [`-threatmodel.html`](results/2026-09-07-socxen-dev-rc-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 3 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+**This scan is the Praxen leg of the 0.8.6 release gate on `dev`**, run after the three red-team legs of
+the same day (`security/redteam/HISTORY.md`, 2026-09-06). The gate's rule (no open Critical) is satisfied.
+Artifacts: [report](results/2026-09-07-socxen-dev-rc.html) · [findings JSON](results/2026-09-07-socxen-dev-rc.json) ·
+[audit](results/2026-09-07-socxen-dev-rc-audit.md) · [threat model](results/2026-09-07-socxen-dev-rc-threatmodel.html).
+
+**The two Highs, and their disposition:**
+
+| Finding | Disposition |
+|---|---|
+| `-001` The bridge proxies remote MCP tool metadata to the model verbatim — the one platform-sourced text channel neither guardrail screens | Tracked as #6 (open since the 09-05 scan). |
+| `-002` Nothing distinguishes an additive case update from an overwrite of an analyst's existing free-text record | Tracked as #89. High, not Critical: the only path is the ask-tier gated write with a human in front of it. |
+
+**The Mediums:** `-003` the hook's prompt-free allow tier reached any server named *exabeam*, `-004` the
+gate's reach was a case-sensitive name substring, `-005` the deny tier and the write-side neutralizer were
+enumerations of today's tool names — all three fixed in #158 (allow tier only from the bundled bridge, by
+identity; case-insensitive matcher plus a preflight reach warning; deny tier closed over the remit's verbs;
+an unknown tool is a write). `-006` the audit trail can be switched off with no disclosure and omits the
+tool-discovery call (the discovery half is fixed by #157's cached `tools/list`), `-007` no ceiling bounds a
+tool result at the bridge, `-008` the model floor is documentation only — open, not yet filed.
+
+## Previous — `gate/bundled-hook` @ `a6a3ffe` (2026-09-05, the bundled-hook candidate)
 
 | | |
 |---|---|
