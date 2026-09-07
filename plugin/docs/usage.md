@@ -82,7 +82,7 @@ The last line is always one of three **taxonomy outcomes**:
 |---|---|
 | `raised` | Escalated for human review — a case opened or kept open. This is the right call for a confirmed threat *and* for a genuinely inconclusive one. |
 | `auto_closed` | Investigated and concluded benign enough to close, without a clear false-positive explanation. |
-| `fp_closed` | Suppressed as a false positive because a *positive* benign explanation was found — known automation, a documented change, expected admin behavior. "I found nothing" is not one; that is `raised`. |
+| `fp_closed` | Suppressed as a false positive — the dismiss/close call succeeded in this session *and* a *positive* benign explanation was found (a false-positive verdict left for the analyst to dismiss is `raised`) — known automation, a documented change, expected admin behavior. "I found nothing" is not one; that is `raised`. |
 
 A link in a note that looks broken — `hxxps://…[.]…` — is deliberate: it was defanged on the way into
 Exabeam so an exported artifact cannot be clicked or executed. See [security guardrails](security-guardrails.md).
