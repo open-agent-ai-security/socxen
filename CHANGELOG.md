@@ -47,7 +47,8 @@ governance model (feature → `dev`, release `dev` → `main`).
   fields on those two tools (`alertStatus`/`priority`; `stage`, a supported `closedReason`, `priority`,
   `assignee`, `queue`), drops everything else before the call, names the dropped fields in the reply and
   in the audit record (names, never values), and the skill says the reason belongs in a case note, which
-  appends. `create_case` is untouched: a new object has nothing to overwrite.
+  appends. A `closedReason` outside the API's vocabulary refuses the close rather than closing the case
+  with no disposition (automated review). `create_case` is untouched: a new object has nothing to overwrite.
 - **The remote's tool definitions are screened like a tool result** (Praxen 2026-09-07 `-001`, #6;
   security assessment F-05). `tools/list` was the one platform-sourced text channel the input
   canonicalizer did not cover. Descriptions and schema text are now canonicalized once per session, what

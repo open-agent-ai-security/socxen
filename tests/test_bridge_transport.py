@@ -105,6 +105,8 @@ class MockProxy:
                         {"name": "exabeam_create_case_notes", "description": "x", "inputSchema": {"type": "object"}},
                         # a definition no tier classifies, smuggling a zero-width space and a bidi override
                         # in its description and a zero-width space in a parameter description (#6)
+                        # a NAME carrying a bidi override: never rewritten, reported spelled out (U+202E)
+                        {"name": "exabeam\u202e_odd", "description": "x", "inputSchema": {"type": "object"}},
                         {"name": "exabeam_new_thing", "description": "search\u200b events\u202e now",
                          "title": "New\u200bThing", "annotations": {"title": "A\u200bT", "readOnlyHint": True},
                          "outputSchema": {"type": "object", "description": "out\u200bput"},
@@ -463,15 +465,19 @@ def test_tool_metadata_is_canonicalized_names_untouched_and_the_startup_line_say
         assert new.inputSchema["properties"]["q"]["description"] == "thequery", "and from the schema text"
         assert new.title == "NewThing" and new.annotations.title == "AT" and new.outputSchema["description"] == "output"
         assert new.annotations.readOnlyHint is True, "the rest of the annotation is untouched"
-        assert [t.name for t in tools] == ["exabeam_search_alerts", "exabeam_create_case_notes", "exabeam_new_thing"]
+        assert [t.name for t in tools] == ["exabeam_search_alerts", "exabeam_create_case_notes", "exabeam\u202e_odd", "exabeam_new_thing"]
         assert B.UPSTREAM._screen["stripped"] == 6 and B.UPSTREAM._screen["failed"] == 0
+        assert B.UPSTREAM._screen["odd_names"] == ["exabeam\u202e_odd"], "the definition keeps its name verbatim"
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     line = err.getvalue()
     assert "6 hidden code point(s) stripped" in line, line
-    assert "unclassified by the tier file (treated as writes, ask): exabeam_new_thing" in line, line
+    assert "names carrying hidden code points: exabeamU+202E_odd" in line, line
+    assert "unclassified by the tier file (treated as writes, ask): exabeam_new_thing, exabeamU+202E_odd" in line, line
     ev = [d for t, d in tel.events if t == "tools_list"]
-    assert ev and ev[0]["metadata_stripped"] == 6 and ev[0]["unclassified_tools"] == ["exabeam_new_thing"]
+    assert ev and ev[0]["metadata_stripped"] == 6
+    assert ev[0]["odd_names"] == ["exabeamU+202E_odd"] and ev[0]["unclassified_tools"] == ["exabeam_new_thing", "exabeamU+202E_odd"]
+    assert "\u202e" not in repr(ev), "the audit record never carries the hidden code point raw (automated review of #159)"
     assert proxy.count("tools/list") == 1, "screened once, cached with the list"
 
 
@@ -520,7 +526,7 @@ def test_tools_list_retries_at_startup_and_is_cached(monkeypatch):
         nonlocal proxy
         proxy = await _with_proxy(monkeypatch, init_fail=1)
         tools = await B.list_tools()
-        assert {t.name for t in tools} == {"exabeam_search_alerts", "exabeam_create_case_notes", "exabeam_new_thing"}
+        assert {t.name for t in tools} == {"exabeam_search_alerts", "exabeam_create_case_notes", "exabeam\u202e_odd", "exabeam_new_thing"}
         n = proxy.count("tools/list")
         await B.list_tools()
         assert proxy.count("tools/list") == n, "cached for the process"

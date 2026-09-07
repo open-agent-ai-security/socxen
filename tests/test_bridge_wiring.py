@@ -260,10 +260,14 @@ def test_a_case_update_keeps_a_supported_closed_reason_and_drops_free_text(monke
                                           "closedReason": "False Positive or Duplicate", "assignee": "alice"}}, \
         "a supported closed reason is forwarded in the API's own spelling, whatever the model's casing"
     sent.clear()
-    out = asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
-        "caseId": "c1", "stage": "CLOSED", "closedReason": "because the model said so"}}))
-    assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED"}}
-    assert "closedReason (not a supported value)" in out[-1].text
+    # an unsupported reason REFUSES the close (automated review of #159): a case closed with no disposition
+    # is a worse record than a refused close the analyst can re-issue; the model's value is not echoed
+    with pytest.raises(ValueError) as ei:
+        asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
+            "caseId": "c1", "stage": "CLOSED", "closedReason": "because the model said so"}}))
+    assert "not a supported closed reason" in str(ei.value) and "Low Risk" in str(ei.value)
+    assert "because the model said so" not in str(ei.value)
+    assert sent == {}, "nothing was sent"
 
 
 def test_dropped_field_names_are_bounded_and_never_the_models_text(monkeypatch):

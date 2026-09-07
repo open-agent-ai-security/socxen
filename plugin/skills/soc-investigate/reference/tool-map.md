@@ -40,7 +40,7 @@ Write-tool fields (required in **bold**):
 - `exabeam_create_case_notes` → `arg1: {` **`caseId`** `,` **`note`** `}`
 - `exabeam_create_case` → `arg1: {` **`alertId`** `,` **`priority`** `, assignee, stage, queue, closedReason, supportingReason }`
 - `exabeam_update_alert` → `arg1: {` **`alertId`** `, alertStatus (e.g. "DISMISSED"), priority }` — the bridge drops `alertDescription`, `alertName` and `tags` from an update (they replace analyst text; #89) and says so in the reply
-- `exabeam_update_case` → `arg1: {` **`caseId`** `, stage, closedReason (a supported value: "Already Mitigated or Resolved", "False Positive or Duplicate", "Low Risk", "Rule Misconfiguration", "Policy or Setup Issue", "Other"), assignee, priority, queue }` — the bridge drops `supportingReason`, `tags`, `useCases`, any other `closedReason` text and the alert fields; the reason goes in a case note
+- `exabeam_update_case` → `arg1: {` **`caseId`** `, stage, closedReason (a supported value: "Already Mitigated or Resolved", "False Positive or Duplicate", "Low Risk", "Rule Misconfiguration", "Policy or Setup Issue", "Other"), assignee, priority, queue }` — the bridge drops `supportingReason`, `tags`, `useCases` and the alert fields (the reasoning goes in a case note), and REFUSES the call outright when `closedReason` is not one of the supported values (a close never lands without its disposition)
 
 If a call returns a schema/validation error, **swap `arg0`↔`arg1` before anything else** — that's almost
 always the cause.

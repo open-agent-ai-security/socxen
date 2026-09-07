@@ -401,7 +401,10 @@ class _Upstream:
                 line += f"; unclassified by the tier file (treated as writes, ask): {_display_list(unclassified)}"
             sys.stderr.write(line + "\n")
             if telemetry.enabled():
-                telemetry.tools_list(len(tools), acc, unclassified)
+                # Names flagged FOR carrying hidden code points must not carry them raw into the one durable
+                # record (an RLO in a JSONL line reverses whatever renders it) -- spelled out, as on stderr.
+                telemetry.tools_list(len(tools), dict(acc, odd_names=[_display_name(n) for n in acc.get("odd_names", [])]),
+                                     [_display_name(n) for n in unclassified])
         except Exception as e:  # noqa: BLE001
             leaf = _Leaf(e)
             sys.stderr.write(f"bridge: remote NOT reachable ({leaf.summary('tools/list')}) — will retry on the first call\n")
@@ -492,9 +495,13 @@ def _state_only(name, obj, dropped):
             if lk == "closedreason":
                 canon = _CLOSED_REASONS.get(" ".join(v.split()).lower()) if isinstance(v, str) else None
                 if canon is None:
-                    dropped.append((k, "not a supported value"))
-                else:
-                    out[k] = canon
+                    # Refuse, never drop-and-proceed: a close that lands without its disposition is a worse
+                    # record than a refused close the analyst can re-issue (automated review of #159). The
+                    # value itself is not echoed -- it is model text.
+                    raise ValueError(
+                        f"{k} is not a supported closed reason; the close was NOT sent. Use one of: "
+                        f"{', '.join(_CLOSED_REASONS.values())} — or omit it and put the reasoning in a case note.")
+                out[k] = canon
             else:
                 out[k] = v
         else:
@@ -844,16 +851,17 @@ async def call_tool(name, arguments):
         # (action.dryRunRefused), not in text the model reads.
         return [TextContent(type="text", text=(
             f"Permission to use `{name}` was not granted; the call was not executed."))]
-    # An update carries state and disposition only (#89): drop the rest here, BEFORE neutralization and
-    # the call, and say so in the reply. Deterministic, keyed on the tool name; the values never leave.
-    dropped = []
-    if name in _STATE_FIELDS and arguments:
-        arguments = _state_only(name, arguments, dropped)
     # `stage` names the layer that failed, for the audit record: a neutralizer refusal is a guardrail
     # acting (fail-closed), not an upstream fault.
     stage = "neutralize"
+    dropped = []
     try:
         if is_write:
+            # An update carries state and disposition only (#89): drop the rest here, BEFORE neutralization
+            # and the call, and say so in the reply. Deterministic, keyed on the tool name; the values never
+            # leave. An unsupported closedReason REFUSES the call (fail-closed, audited like a neutralizer refusal).
+            if name in _STATE_FIELDS:
+                arguments = _state_only(name, arguments, dropped)
             arguments = _defang_args(arguments, defang_notes)        # output-side (a10) — fail-closed
         stage = "remote"
         # reads may be retried on a transport failure; a write is sent exactly once, whatever happens

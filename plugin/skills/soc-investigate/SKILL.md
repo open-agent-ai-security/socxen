@@ -210,7 +210,8 @@ Take the workflow action — don't merely say you would. Two exceptions: **dismi
 (it lives outside this MCP).
 
 **An update changes state and disposition only.** `update_alert` carries `alertStatus` and `priority`;
-`update_case` carries `stage`, a supported `closedReason`, `priority`, `assignee` and `queue`. A
+`update_case` carries `stage`, a supported `closedReason` (any other value is refused, the close is not
+sent — fix the value or omit it), `priority`, `assignee` and `queue`. A
 description, a name, a supporting reason or tags belong to the analyst who wrote them: the bridge drops
 those fields from an update and tells you what it dropped. Write the reason as a case note instead — a
 note appends, an update replaces.
