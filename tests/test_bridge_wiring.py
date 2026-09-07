@@ -157,6 +157,20 @@ def test_non_text_block_passes_through():
 
 
 # ---- write-tool coverage (no un-defanged mutating path) ----
+def test_an_unclassified_tool_is_treated_as_a_write(monkeypatch):
+    """Praxen 2026-09-07-005: the write-side controls were an enumeration of today's tool names, so a
+    newly exposed tool sailed past them. Writes are the default now: only the tier file's reads are reads."""
+    assert B.is_write_tool("exabeam_frobnicate_everything")
+    assert B.is_write_tool("exabeam_create_case_notes") and B.is_write_tool("exabeam_update_alert")
+    assert not B.is_write_tool("exabeam_search_alerts") and not B.is_write_tool("exabeam_get_case_details")
+    assert "exabeam_create_case" not in B.READ_TOOLS and "exabeam_create_case_notes" not in B.READ_TOOLS
+    # in a dry run the unknown tool is refused like any write, before anything is sent
+    import asyncio
+    monkeypatch.setattr(B, "DRY_RUN", True)
+    out = asyncio.run(B.call_tool("exabeam_frobnicate_everything", {"arg1": {"note": "x"}}))
+    assert "was not granted" in out[0].text
+
+
 def test_write_tools_cover_all_mutating_tools():
     assert B.WRITE_TOOLS == {"exabeam_update_alert", "exabeam_update_case",
                              "exabeam_create_case", "exabeam_create_case_notes",

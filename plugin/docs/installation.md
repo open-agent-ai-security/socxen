@@ -184,11 +184,17 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > the same split Codex applies from the same tier file (verified headless in default permission mode,
 > 2026-09-06). Your own rules still win: a `deny` on one of these tools removes it from the model's tool
 > list before the hook runs, and an `ask` still prompts — the hook's *allow* only removes the default
-> prompt (both verified live the same day). The hook
-> fires for the bundled server under any plugin key and for any manually wired server whose name
-> contains `exabeam` (`claude mcp add exabeam …`); the permission rules below recognize only the bundled
-> key and a server named exactly `exabeam`, so if you wire by hand, **name it `exabeam`**. The hook runs as a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on
-> Windows) and `python3` 3.7+ on `PATH`; without `python3` every gated call is refused, not allowed.
+> prompt (both verified live the same day). Two reaches, deliberately different: the *ask* and *deny*
+> tiers apply to **any** MCP server whose name contains `exabeam` in any case — the bundled bridge, a
+> manual registration, a third party's server — because tightening is always safe; the prompt-free
+> *allow* applies **only to the bundled bridge**, the server whose name is `plugin_<this plugin's
+> name>_exabeam`, which the hook recognizes from the identity file shipped beside it. On a manually wired
+> server (`claude mcp add exabeam …`) the reads therefore follow your own permission rules and may
+> prompt — the same rule the permission snippet below already encodes, where the allow rules exist under
+> the bundled prefix only. If you wire by hand, **name it `exabeam`** so the gate reaches it; `preflight`
+> warns when it sees an Exabeam server registered under a name the gate does not reach. The hook runs as
+> a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on Windows) and `python3`
+> 3.7+ on `PATH`; without `python3` every gated call is refused, not allowed.
 
 ### Claude Code — the optional permission rules
 

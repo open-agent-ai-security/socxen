@@ -313,6 +313,26 @@ gate_state_codex() {
   fi
 }
 
+# Lines of `claude mcp list` ("<name>: <command or url> - <status>") whose command/url mentions Exabeam
+# but whose NAME does not: the gate is keyed on the server name, so such a registration escapes it
+# (Praxen 2026-09-07-004). Reads stdin so it is testable without the CLI.
+gate_reach_warnings() {
+  awk -F': ' '
+    /^[^ ][^:]*: / {
+      name = $1; rest = substr($0, length($1) + 3)
+      lname = tolower(name); lrest = tolower(rest)
+      if (index(lrest, "exabeam") > 0 && index(lname, "exabeam") == 0) print name
+    }'
+}
+
+check_gate_reach() {
+  command -v claude >/dev/null 2>&1 || return 0
+  local missed
+  missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')"
+  [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook and the permission rules key on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
+  return 0
+}
+
 check_gate() {
   local platform="$1" state
   case "$platform" in
@@ -328,6 +348,7 @@ check_gate() {
         *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
       esac ;;
     claude)
+      check_gate_reach
       state="$(gate_state_claude)"
       case "$state" in
         on)  ok "Human-in-the-loop gate ON — the bundled hook asks on dismiss/close and denies containment, and the permission rules are merged too" ;;

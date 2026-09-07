@@ -372,6 +372,35 @@ import observra_logging as telemetry
 WRITE_TOOLS = {"exabeam_update_alert", "exabeam_update_case",
                "exabeam_create_case", "exabeam_create_case_notes",
                "exabeam_send_email"}    # mail leaving the platform is a write (#137)
+# Writes are the DEFAULT, reads the exception (Praxen 2026-09-07-005): a tool this release did not
+# classify as a read is neutralized, audited and refused in a dry run until someone classifies it,
+# instead of sailing past an enumeration that only knew today's names. The reads are the allow tier of
+# the shipped tier file minus the two escalation writes; an unreadable tier file means NO reads, so the
+# failure direction is "a read is treated as a write", never the reverse.
+_ESCALATION_WRITES = {"exabeam_create_case", "exabeam_create_case_notes"}
+
+
+def _read_tools():
+    root = Path(__file__).resolve().parent.parent / "skills" / "soc-investigate"
+    try:
+        import json as _json
+        try:
+            tiers = _json.loads((root / "permissions.json").read_text())["tiers"]
+            allow = set(tiers["allow"]["tools"])
+        except FileNotFoundError:
+            perms = _json.loads((root / "settings.snippet.json").read_text())["permissions"]
+            allow = {r.rsplit("__", 1)[-1] for r in perms.get("allow", [])}
+        return frozenset(allow - _ESCALATION_WRITES)
+    except Exception as e:  # noqa: BLE001 — fail toward "everything is a write"
+        sys.stderr.write(f"bridge: tier file unreadable ({e!r}) — every tool is treated as a write until it is\n")
+        return frozenset()
+
+
+READ_TOOLS = _read_tools()
+
+
+def is_write_tool(name):
+    return name not in READ_TOOLS
 # Free-text write fields a payload can ride in — the ONLY fields we neutralize. IDs / enums / state
 # fields (caseId, alertId, priority, stage, queue, assignee, alertStatus, useCases) are left untouched so
 # a formula/URL-shaped identifier can't be silently corrupted into a failed or misdirected write.
@@ -565,12 +594,12 @@ async def call_tool(name, arguments):
     hygiene_removed = [] if log_on else None
     hygiene_kept = [] if log_on else None
     screen_failures = [] if log_on else None
-    is_write = name in WRITE_TOOLS and bool(arguments)
+    is_write = is_write_tool(name) and bool(arguments)
     # Dry run: refuse the write here, BEFORE the remote call. Keyed on the tool name alone, not on
     # `is_write` — a write with no arguments is still a write we must not forward. The tool_start above
     # is paired with a tool_end below so the audit trail records the ATTEMPT (what the agent tried, on
     # which object, to what disposition) even though nothing was sent.
-    if DRY_RUN and name in WRITE_TOOLS:
+    if DRY_RUN and is_write_tool(name):
         try:
             if log_on:
                 # Mark the record as a refusal. The emit layer's own `result` field means "the MCP call
