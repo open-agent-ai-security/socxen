@@ -30,7 +30,9 @@ the most common first-call error:
 > on cases/events returns *millions* of characters in a single result and overflows the context window —
 > a self-inflicted DoS, not an infra failure. **Always name the fields you need** and set `orderBy`
 > yourself (e.g. `["riskScore DESC"]`). The named-field recipes in `search-cookbook.md` are
-> authoritative; the schema's "MANDATORY `["*"]`" text is not. Note the casing split: **alerts** return
+> authoritative; the schema's "MANDATORY `["*"]`" text is not — and the bridge enforces it: a search sent
+> with `["*"]` is not forwarded; the result you get back is the column list to re-send with (a workaround
+> for the MCP server's schema text, kept until the server is fixed). Note the casing split: **alerts** return
 > camelCase (`alertId`, `riskScore`, `creationTimestamp`, …); **cases** return snake_case (`case_id`,
 > `case_number`, `stage`, `priority`, `risk_score`, `use_cases`, `name` — no creation-time field is
 > exposed on `search_cases`).

@@ -308,6 +308,11 @@ observra neither is available and logging disables itself.</p>
 <td><code>tool_name</code></td>
 </tr>
 <tr>
+<td><code>tool_end</code> with <code>action.wildcardFieldsRedirected: true</code></td>
+<td>a search asked for every column (<code>fields: ["*"]</code>) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text (#160), kept until the server is fixed</td>
+<td><code>tool_name</code></td>
+</tr>
+<tr>
 <td><code>tool_end</code></td>
 <td>a tool call succeeds</td>
 <td><code>tool_name</code>, <code>duration_ms</code>, + the fields below</td>

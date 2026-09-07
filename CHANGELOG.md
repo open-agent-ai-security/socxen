@@ -73,6 +73,15 @@ governance model (feature → `dev`, release `dev` → `main`).
   unscreened remote tool descriptions (`-003`) stays open as design work.
 
 ### Fixed
+- **A wildcard search is answered with the column list instead of being forwarded** (#160). The MCP
+  server's search schemas tell the caller to send `fields: ["*"]` and to ignore any user request, and the
+  model complies on essentially every call whatever the skill says (1,840 of 1,840 Claude searches in the
+  2026-09-07 passes); a wildcard result has ended a session before. Until exa-mcp-proxy fixes its
+  descriptions, the bridge returns the endpoint's verified column list as the tool result and the model
+  re-sends with named columns — a workaround for the server's misbehavior, audited as
+  `wildcardFieldsRedirected`, to be reconsidered for removal when the server is fixed. The cookbook also
+  gains per-endpoint filter rules: alerts and cases take no free text, events wants everything quoted, and
+  a `"Syntax error while query using fields"` on a well-formed query is a backend failure, not the filter.
 - **`preflight.sh --skip-connectivity` no longer starts every registered MCP server.** The new gate-reach
   check read registrations through `claude mcp list`, which health-checks every approved server — the
   bridge included, reaching Exabeam — exactly what the flag promises to skip (review of #158). The check is

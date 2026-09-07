@@ -67,13 +67,13 @@ real in-product queries.
 >   to search raw logs. **Never send bare unquoted text** — `HR-LT-88`, `svc_deploy`, `group membership
 >   change` are rejected the moment they carry a hyphen, an underscore, a digit or a second word
 >   (*"Field value cannot be a free text"* / *"Please check the syntax"*).
-> - **Prefer named fields.** `fields: ["*"]` is a legitimate search but returns every column of every
->   row, so pair it with a small `limit` and a tight window; naming the fields you need keeps the result
->   readable (see the request-shape table above).
+> - **Never send `fields: ["*"]`** (see the request-shape table above). The bridge does not forward a
+>   wildcard search: you get the endpoint's column list back as the result, and you re-send naming the
+>   columns you need. That stands in for the MCP schema text that wrongly calls the wildcard mandatory,
+>   until the MCP server is fixed.
 > - **A `"Syntax error while query using fields"` (`AAA_ESA_1003_400`) on a well-formed events query is
 >   NOT your filter.** It is a backend failure that affects a whole session from its first search;
->   rewriting the query will not help. Say so in the report and move on to the alerts/cases evidence, or
->   retry the identical query once if the session is fresh.
+>   rewriting the query will not help. Say so in the report and move on to the alerts/cases evidence.
 
 - **Field match:** `field:"value"` — quote the value. `:` and `=` are **interchangeable**
   (`vendor:"Exabeam"` ≡ `vendor="Exabeam"`); Exabeam recommends `=`. Match modes:

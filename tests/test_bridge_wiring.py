@@ -350,6 +350,39 @@ def test_dropped_field_names_reach_the_audit_record_without_values(monkeypatch):
     assert "SECRET-TEXT" not in repr(ends)
 
 
+# ---- #160: a wildcard search is answered with the column list, not sent (workaround for the proxy's schema) ----
+@pytest.mark.parametrize("tool,first_col", [("exabeam_search_events", "time"), ("exabeam_search_alerts", "alertId"),
+                                            ("exabeam_search_cases", "case_id")])
+def test_a_wildcard_search_is_answered_with_the_column_list_and_not_sent(monkeypatch, tool, first_col):
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    out = asyncio.run(B.call_tool(tool, {"arg0": {"filter": 'user:"x"', "fields": ["*"], "limit": 5}}))
+    assert sent == {}, "nothing reached the remote"
+    assert "did not send" in out[0].text and first_col in out[0].text and "until the MCP server is fixed" in out[0].text
+    assert ends[-1]["action_fields"] == {"wildcardFieldsRedirected": True}
+
+
+def test_named_fields_and_other_shapes_are_forwarded_untouched(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    for tool, args in (
+        ("exabeam_search_events", {"arg0": {"filter": "", "fields": ["time", "user"], "limit": 5}}),   # named
+        ("exabeam_search_alerts", {"arg0": {"filter": "caseId:null", "limit": 5}}),                     # no fields key
+        ("exabeam_get_alert_details", {"arg0": {"alertId": "a1", "fields": ["*"]}}),                    # not a search tool
+    ):
+        sent.clear()
+        out = asyncio.run(B.call_tool(tool, args))
+        assert sent["arguments"] == args and out[0].text == "ok", (tool, args)
+    sent.clear()
+    out = asyncio.run(B.call_tool("exabeam_search_cases", {"arg0": {"filter": "", "fields": ["name", "*"], "limit": 5}}))
+    assert sent == {} and "did not send" in out[0].text, "a wildcard among named columns is still a wildcard"
+
+
 # ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
 def test_audit_fields_cap_long_strings_inside_list_values():
     """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,
