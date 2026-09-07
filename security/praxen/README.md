@@ -58,10 +58,15 @@ Artifacts: [report](results/2026-09-07-socxen-fix163.html) · [findings JSON](re
 
 **Against #163's two Highs:** the close-by-another-route finding is gone (Zero Trust moved to 4 on it). The
 instruction-shaped-text finding remains, re-stated: the text is now **detected and reported** but reaches
-the model verbatim — the scan wants it treated as untrusted markup (wrapped in a provenance marker or
-replaced by a neutral summary), not only reported. That is a maintainer decision: rewriting a vendor's
-tool description is a do-harm risk, and the skill and the wildcard redirect already counter the known
-directives; recorded as open.
+the model verbatim, and the scan wants it treated as untrusted markup, not only reported.
+
+**Maintainer decision (Steve Wilson, 2026-09-07): accepted as-is, and not a High in principle.** Tool
+definitions are static per proxy release and carry no tenant data; the only party who can put text there
+is Exabeam's own MCP server. A careless description is a *bug* — we hit exactly one (#160, the wildcard
+directive) and it produced a self-inflicted DoS, not an attack — and if Exabeam's own infrastructure were
+compromised, tool descriptions would be the least of it. Detection and reporting stay (the startup line,
+the `tools_list` event); the bridge does not rewrite a vendor's descriptions. Our severity: Medium. This
+is recorded here as the waiver the release gate asks for on an open High.
 
 **Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
 session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
