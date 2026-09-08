@@ -31,7 +31,7 @@ too consequential to leave to an automatic prompt that can be switched off.
 Everything here runs through the **Exabeam New-Scale MCP** (the `exabeam_*` tools, e.g.
 `exabeam_search_alerts`, `exabeam_get_alert_details`). socxen **bundles** this connection — it
 auto-registers when the plugin is installed — so it's usually already there. Confirm you can see
-`exabeam_*` tools; if unsure, run `claude mcp list` (Codex: `codex mcp get exabeam`) and look for
+`exabeam_*` tools; if unsure, ask the analyst to run `claude mcp list` (Codex: `codex mcp get exabeam`) in a terminal and look for
 `exabeam`.
 
 If it's **not** connected, do not improvise, guess, or invent alert data. It's almost always one of two
