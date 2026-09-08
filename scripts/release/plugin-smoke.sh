@@ -28,9 +28,11 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-PLUGIN="socxen"
-MARKETPLACE="open-agent-ai-security"
-MARKETPLACE_REPO="open-agent-ai-security/plugins"
+# Identity from the generated include (see plugin/gen_identity.py) — a re-keyed payload smokes under its own key.
+. "${REPO_ROOT}/plugin/identity.sh"
+PLUGIN="${SOCXEN_ID_NAME}"
+MARKETPLACE="${SOCXEN_ID_MARKETPLACE_NAME}"
+MARKETPLACE_REPO="${SOCXEN_ID_MARKETPLACE_REPO}"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/socxen-smoke.XXXXXX")"
 WT_CURRENT="${SCRATCH}/wt-current"
 WT_UPGRADE="${SCRATCH}/wt-upgrade"
@@ -105,12 +107,12 @@ fabricate_marketplace() {  # fabricate_marketplace <worktree>
   local src="./"
   if [ -d "$1/plugin" ]; then src="./plugin"; fi
   mkdir -p "$1/.claude-plugin"
-  python3 - "$1" "$src" <<'PY'
+  python3 - "$1" "$src" "$MARKETPLACE" "$PLUGIN" <<'PY'
 import json, sys
-json.dump({"name": "open-agent-ai-security",
+json.dump({"name": sys.argv[3],
            "owner": {"name": "Open Agent AI Security",
                      "url": "https://github.com/open-agent-ai-security"},
-           "plugins": [{"name": "socxen", "source": sys.argv[2]}]},
+           "plugins": [{"name": sys.argv[4], "source": sys.argv[2]}]},
           open(sys.argv[1] + "/.claude-plugin/marketplace.json", "w"))
 PY
 }

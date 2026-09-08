@@ -34,8 +34,8 @@ FIXTURE = {
         },
     },
 }
-GATED_CALL = "mcp__plugin_socxen_exabeam__exabeam_update_alert"   # dismiss — gated/forbidden
-READ_CALL = "mcp__plugin_socxen_exabeam__exabeam_search_events"   # evidence — fine
+GATED_CALL = run.TOOL_PREFIXES[0] + "exabeam_update_alert"   # dismiss — gated/forbidden (prefix from plugin/identity.json)
+READ_CALL = run.TOOL_PREFIXES[0] + "exabeam_search_events"   # evidence — fine
 
 
 def _checks(run_obj):

@@ -23,14 +23,26 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 
 # ---- stub the bridge's heavy top-level deps (import-time only) ----
-for _n in ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http",
-           "mcp.server", "mcp.server.stdio", "mcp.types"]:
-    sys.modules.setdefault(_n, types.ModuleType(_n))
-sys.modules["certifi"].where = lambda: None            # cafile=None -> ssl uses system CAs, no file read
-sys.modules["httpx"].AsyncClient = object
-sys.modules["mcp"].ClientSession = object
-sys.modules["mcp.client.streamable_http"].streamablehttp_client = object
-sys.modules["mcp.server.stdio"].stdio_server = object
+# FRESH stub modules, installed only while the bridge is imported, then the real modules (if any) are put
+# back. The installed mcp/httpx must never be mutated in-process: setting `ClientSession = object` on the
+# real package broke every later test that drives the real client (tests/test_bridge_transport.py, and
+# CI, where mcp is installed).
+_STUB_NAMES = ["httpx", "certifi", "mcp", "mcp.client", "mcp.client.streamable_http",
+               "mcp.server", "mcp.server.stdio", "mcp.types"]
+_saved = {n: sys.modules.get(n) for n in _STUB_NAMES}
+_stubs = {n: types.ModuleType(n) for n in _STUB_NAMES}
+_stubs["certifi"].where = lambda: None                 # cafile=None -> ssl uses system CAs, no file read
+_stubs["httpx"].AsyncClient = object
+_stubs["mcp"].ClientSession = object
+_stubs["mcp"].McpError = type("McpError", (Exception,), {})
+_stubs["mcp"].types = _stubs["mcp.types"]
+_stubs["mcp.types"].ListToolsResult = object
+_stubs["mcp.types"].ClientRequest = object
+_stubs["mcp.types"].ListToolsRequest = object
+_stubs["mcp.client.streamable_http"].streamablehttp_client = object
+_stubs["httpx"].HTTPStatusError = type("HTTPStatusError", (Exception,), {})
+_stubs["httpx"].TransportError = type("TransportError", (Exception,), {})
+_stubs["mcp.server.stdio"].stdio_server = object
 
 
 class _TextContent:                                     # the bridge builds one of these to refuse a
@@ -38,7 +50,7 @@ class _TextContent:                                     # the bridge builds one 
     def __repr__(self): return f"_TextContent({self.__dict__})"
 
 
-sys.modules["mcp.types"].TextContent = _TextContent
+_stubs["mcp.types"].TextContent = _TextContent
 
 
 class _Server:                                          # identity decorators for @server.list_tools/call_tool
@@ -47,12 +59,20 @@ class _Server:                                          # identity decorators fo
     def call_tool(self): return lambda f: f
 
 
-sys.modules["mcp.server"].Server = _Server
+_stubs["mcp.server"].Server = _Server
 
 sys.path.insert(0, str(ROOT / "plugin" / "connector"))
-_spec = importlib.util.spec_from_file_location("bridge", ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py")
-B = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(B)
+sys.modules.update(_stubs)
+try:
+    _spec = importlib.util.spec_from_file_location("bridge", ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py")
+    B = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(B)                          # the bridge module keeps its references to the stubs
+finally:
+    for _n in _STUB_NAMES:                              # the process gets its real modules back
+        if _saved[_n] is None:
+            sys.modules.pop(_n, None)
+        else:
+            sys.modules[_n] = _saved[_n]
 
 
 # ---- test doubles for MCP content blocks ----
@@ -107,7 +127,7 @@ def test_tags_list_is_neutralized_elementwise():
 
 # ---- #10: WRITE path is fail-CLOSED (a neutralizer error must not persist raw) ----
 def test_write_path_fails_closed(monkeypatch):
-    def boom(_):
+    def boom(*_a, **_k):
         raise RuntimeError("neutralizer bug")
     monkeypatch.setattr(B, "neutralize_output", boom)
     with pytest.raises(RuntimeError):
@@ -150,9 +170,33 @@ def test_non_text_block_passes_through():
 
 
 # ---- write-tool coverage (no un-defanged mutating path) ----
+def test_an_unclassified_tool_is_treated_as_a_write(monkeypatch):
+    """Praxen 2026-09-07-005: the write-side controls were an enumeration of today's tool names, so a
+    newly exposed tool sailed past them. Writes are the default now: only the tier file's reads are reads."""
+    assert B.is_write_tool("exabeam_frobnicate_everything")
+    assert B.is_write_tool("exabeam_create_case_notes") and B.is_write_tool("exabeam_update_alert")
+    assert not B.is_write_tool("exabeam_search_alerts") and not B.is_write_tool("exabeam_get_case_details")
+    assert "exabeam_create_case" not in B.READ_TOOLS and "exabeam_create_case_notes" not in B.READ_TOOLS
+    # in a dry run the unknown tool is refused like any write, before anything is sent
+    import asyncio
+    monkeypatch.setattr(B, "DRY_RUN", True)
+    out = asyncio.run(B.call_tool("exabeam_frobnicate_everything", {"arg1": {"note": "x"}}))
+    assert "was not granted" in out[0].text
+
+
 def test_write_tools_cover_all_mutating_tools():
     assert B.WRITE_TOOLS == {"exabeam_update_alert", "exabeam_update_case",
-                             "exabeam_create_case", "exabeam_create_case_notes"}
+                             "exabeam_create_case", "exabeam_create_case_notes",
+                             "exabeam_send_email"}
+
+
+def test_no_tool_is_both_a_bridge_read_and_a_write():
+    """READ_TOOLS is the allow tier minus the escalation writes: putting a write into the allow tier would
+    make it a bridge read (un-neutralized, retried) AND a hook allow at once (review of #158)."""
+    assert B.READ_TOOLS, "the tier file must be readable in the test tree"
+    assert not (B.READ_TOOLS & B.WRITE_TOOLS), B.READ_TOOLS & B.WRITE_TOOLS
+    assert B._ESCALATION_WRITES <= B.WRITE_TOOLS
+    assert all(B.is_write_tool(w) for w in B.WRITE_TOOLS)
 
 
 # ---- telemetry tail must never break a completed call (code-review PR #39, finding #2) ----
@@ -162,7 +206,7 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
     returned — otherwise the agent thinks a committed dismiss/close failed and may double-act."""
     import asyncio
 
-    async def fake_remote(op):
+    async def fake_remote(op, *_a, **_k):                 # the seam: remote(op, what, retry=...)
         class R:
             content = [Blk(text="committed")]
         return R()
@@ -177,6 +221,207 @@ def test_telemetry_tail_error_does_not_discard_a_committed_write(monkeypatch):
     assert out[0].text == "committed"       # the committed write's content survives the tail blowing up
 
 
+# ---- #89: an update carries state and disposition only (Praxen 2026-09-07-003) ----
+def _capturing_remote(sent):
+    """A fake `remote` whose session records the arguments the bridge actually forwards."""
+    async def fake_remote(op, *_a, **_k):
+        class S:
+            async def call_tool(self, name, arguments, **_kw):
+                sent["name"], sent["arguments"] = name, arguments
+                class R:
+                    content = [Blk(text="ok")]
+                    isError = False
+                return R()
+        return await op(S())
+    return fake_remote
+
+
+def test_an_alert_update_forwards_state_fields_only(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    out = asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {
+        "alertId": "a1", "alertStatus": "DISMISSED", "priority": "LOW",
+        "alertDescription": "rewritten by the model", "alertName": "renamed", "tags": ["model-tag"]}}))
+    assert sent["arguments"] == {"arg1": {"alertId": "a1", "alertStatus": "DISMISSED", "priority": "LOW"}}
+    note = out[-1].text
+    assert "alertDescription" in note and "alertName" in note and "tags" in note and "case note" in note
+    assert "rewritten by the model" not in note, "names of dropped fields, never their values"
+
+
+def test_a_case_update_keeps_a_supported_closed_reason_and_drops_free_text(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
+        "caseId": "c1", "stage": "CLOSED", "closedReason": "false positive or duplicate",
+        "supportingReason": "the model's essay", "assignee": "alice", "useCases": ["x"]}}))
+    assert sent["arguments"] == {"arg1": {"caseId": "c1", "stage": "CLOSED",
+                                          "closedReason": "False Positive or Duplicate", "assignee": "alice"}}, \
+        "a supported closed reason is forwarded in the API's own spelling, whatever the model's casing"
+    sent.clear()
+    # an unsupported reason REFUSES the close (automated review of #159): a case closed with no disposition
+    # is a worse record than a refused close the analyst can re-issue; the model's value is not echoed
+    with pytest.raises(ValueError) as ei:
+        asyncio.run(B.call_tool("exabeam_update_case", {"arg1": {
+            "caseId": "c1", "stage": "CLOSED", "closedReason": "because the model said so"}}))
+    assert "not a supported closed reason" in str(ei.value) and "Low Risk" in str(ei.value)
+    assert "because the model said so" not in str(ei.value)
+    assert sent == {}, "nothing was sent"
+
+
+def test_dropped_field_names_are_bounded_and_never_the_models_text(monkeypatch):
+    """Review of #159: a key NAME is model text too. Schema-known fields are named by their own spelling,
+    anything else is counted; hidden code points and 5,000-character keys never reach the reply or the log."""
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    args = {"arg1": {"alertId": "a", "alertStatus": "READ", "K" * 5000: "v", "alert\u200bDescription\u202e": "v",
+                     "alertDescription": "x", **{f"junk{i}": "v" for i in range(300)}}}
+    out = asyncio.run(B.call_tool("exabeam_update_alert", args))
+    assert sent["arguments"] == {"arg1": {"alertId": "a", "alertStatus": "READ"}}
+    note = out[-1].text
+    assert len(note) < 400 and "\u200b" not in note and "\u202e" not in note and "K" * 20 not in note, note
+    assert "alertDescription" in note and "302 field(s) the update does not accept" in note, note
+    fields = ends[-1]["action_fields"]
+    assert fields["droppedFields"] == ["alertDescription"] and fields["droppedOther"] == 302
+    assert "\u200b" not in repr(ends) and "K" * 20 not in repr(ends)
+
+
+def test_an_upstream_error_on_a_stripped_update_says_what_was_dropped(monkeypatch):
+    """An update that carried only text becomes an empty patch upstream; the agent must not retry blind."""
+    import asyncio
+    async def failing_remote(op, *_a, **_k):
+        class S:
+            async def call_tool(self, name, arguments, **_kw):
+                class R:
+                    content = [Blk(text="alertStatus required")]
+                    isError = True
+                return R()
+        return await op(S())
+    monkeypatch.setattr(B, "remote", failing_remote)
+    with pytest.raises(RuntimeError) as ei:
+        asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "a", "alertDescription": "only text"}}))
+    assert "socxen dropped: alertDescription" in str(ei.value) and "only text" not in str(ei.value)
+
+
+def test_startup_display_helpers_are_bounded_and_escape_hidden_code_points():
+    assert B._display_name("a\u200bb\u202e") == "aU+200BbU+202E"
+    assert B._display_name("x" * 200).endswith("…") and len(B._display_name("x" * 200)) == 81
+    shown = B._display_list([f"t{i}" for i in range(15)])
+    assert shown.endswith(" +5 more") and shown.count(",") == 9
+
+
+def test_unclassified_excludes_names_the_bridge_treats_as_reads(monkeypatch):
+    class T:
+        def __init__(self, n): self.name = n
+    monkeypatch.setattr(B, "TIERED_TOOLS", frozenset())
+    monkeypatch.setattr(B, "READ_TOOLS", frozenset({"exabeam_search_alerts"}))
+    assert B._unclassified([T("exabeam_search_alerts"), T("exabeam_new_thing")]) == ["exabeam_new_thing"]
+
+
+def test_creates_and_reads_are_not_field_filtered(monkeypatch):
+    """A new object has nothing to overwrite, and a read is not a write: both pass through untouched."""
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    args = {"arg1": {"alertId": "a1", "priority": "HIGH", "supportingReason": "escalated because"}}
+    out = asyncio.run(B.call_tool("exabeam_create_case", args))
+    assert sent["arguments"] == args and len(out) == 1
+    args = {"arg0": {"alertId": "a1", "fields": ["alertName", "alertDescription"]}}
+    out = asyncio.run(B.call_tool("exabeam_get_alert_details", args))
+    assert sent["arguments"] == args and len(out) == 1
+
+
+def test_dropped_field_names_reach_the_audit_record_without_values(monkeypatch):
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    asyncio.run(B.call_tool("exabeam_update_alert", {"arg1": {"alertId": "a1", "alertStatus": "DISMISSED",
+                                                             "alertDescription": "SECRET-TEXT"}}))
+    fields = ends[-1]["action_fields"]
+    assert fields["droppedFields"] == ["alertDescription"] and fields["alertStatus"] == "DISMISSED"
+    assert "SECRET-TEXT" not in repr(ends)
+
+
+# ---- #160: a wildcard search is answered with the column list, not sent (workaround for the proxy's schema) ----
+@pytest.mark.parametrize("tool,first_col", [("exabeam_search_events", "time"), ("exabeam_search_alerts", "alertId"),
+                                            ("exabeam_search_cases", "case_id")])
+def test_a_wildcard_search_is_answered_with_the_column_list_and_not_sent(monkeypatch, tool, first_col):
+    import asyncio
+    sent, ends = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_end", lambda *a, **k: ends.append(k))
+    out = asyncio.run(B.call_tool(tool, {"arg0": {"filter": 'user:"x"', "fields": ["*"], "limit": 5}}))
+    assert sent == {}, "nothing reached the remote"
+    assert "did not send" in out[0].text and first_col in out[0].text and "until the MCP server is fixed" in out[0].text
+    assert ends[-1]["action_fields"] == {"wildcardFieldsRedirected": True}
+
+
+def test_named_fields_and_other_shapes_are_forwarded_untouched(monkeypatch):
+    import asyncio
+    sent = {}
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    for tool, args in (
+        ("exabeam_search_events", {"arg0": {"filter": "", "fields": ["time", "user"], "limit": 5}}),   # named
+        ("exabeam_search_alerts", {"arg0": {"filter": "caseId:null", "limit": 5}}),                     # no fields key
+        ("exabeam_get_alert_details", {"arg0": {"alertId": "a1", "fields": ["*"]}}),                    # not a search tool
+    ):
+        sent.clear()
+        out = asyncio.run(B.call_tool(tool, args))
+        assert sent["arguments"] == args and out[0].text == "ok", (tool, args)
+    sent.clear()
+    out = asyncio.run(B.call_tool("exabeam_search_cases", {"arg0": {"filter": "", "fields": ["name", "*"], "limit": 5}}))
+    assert sent == {} and "did not send" in out[0].text, "a wildcard among named columns is still a wildcard"
+
+
+# ---- #163 (Praxen 2026-09-07-001): a case is OPENED by create_case; a closing disposition is refused ----
+def test_a_create_case_carrying_a_closing_disposition_is_refused_before_anything_else(monkeypatch):
+    import asyncio
+    sent, errs = {}, []
+    monkeypatch.setattr(B, "remote", _capturing_remote(sent))
+    monkeypatch.setattr(B.telemetry, "enabled", lambda: True)
+    monkeypatch.setattr(B.telemetry, "tool_start", lambda *a, **k: None)
+    monkeypatch.setattr(B.telemetry, "tool_error", lambda *a, **k: errs.append(k))
+    for args in ({"arg1": {"alertId": "a", "priority": "HIGH", "stage": "CLOSED"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "False Positive"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "closedReason": "Low Risk"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "status": "resolved"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "Closed - duplicate"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "closed_reason": "Low Risk"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "Closed-Reason!": "Low Risk"}}):
+        with pytest.raises(ValueError) as ei:
+            asyncio.run(B.call_tool("exabeam_create_case", args))
+        assert "socxen bridge refused exabeam_create_case" in str(ei.value) and "not executed" in str(ei.value), args
+        assert "Closed-Reason!" not in str(ei.value) and "closed_reason" not in str(ei.value), "the schema's spelling is named, never the model's key"
+    assert "Re-send without `closedReason`" in str(ei.value)
+    assert sent == {}, "nothing reached the remote"
+    assert errs and errs[-1]["stage"] == "neutralize", "audited as a guardrail refusal"
+    # an opening stage, no stage, a blank stage, and free text on a NEW object all pass through untouched --
+    # the guard reads keys, never what a string value says
+    for args in ({"arg1": {"alertId": "a", "priority": "HIGH", "stage": "NEW"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH"}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": ""}},
+                 {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "investigation",
+                           "supportingReason": "analyst wants this closed as a false positive, dismissed"}}):
+        sent.clear()
+        out = asyncio.run(B.call_tool("exabeam_create_case", args))
+        assert sent["arguments"] == args and out[0].text == "ok", args
+    # BEFORE the dry run: the refusal the model reads is this control's own, not the dry-run text
+    monkeypatch.setattr(B, "DRY_RUN", True)
+    with pytest.raises(ValueError) as ei:
+        asyncio.run(B.call_tool("exabeam_create_case", {"arg1": {"alertId": "a", "priority": "HIGH", "stage": "CLOSED"}}))
+    assert "socxen bridge refused" in str(ei.value)
+
+
 # ---- audit fields: list values are length-capped like scalars (PR #39 round 2, #2) ----
 def test_audit_fields_cap_long_strings_inside_list_values():
     """A long string smuggled into a list-valued audit field (e.g. useCases) must be capped like a scalar,
@@ -185,3 +430,50 @@ def test_audit_fields_cap_long_strings_inside_list_values():
     out = B._audit_fields({"arg1": {"useCases": [long, "ok"], "alertId": "y" * 500}})
     assert out["alertId"] == "y" * 80                       # scalar capped
     assert out["useCases"][0] == "x" * 80 and out["useCases"][1] == "ok"   # each list item capped
+
+
+def test_mail_subject_and_body_are_neutralized_in_mail_mode_with_the_tenant_allowlist(monkeypatch):
+    """exabeam_send_email carries tenant content to a person as HTML (#147, decided 2026-09-05): subject
+    and body go through the neutralizer in MAIL mode — secrets masked, formulas quoted, HTML href/src
+    and even bare URLs de-fanged — and the ONE thing that stays clickable is a link into the operator's
+    own tenant, derived from EXABEAM_MCP_URL. A case note (not mail) keeps bare URLs as the documented
+    residual but still de-fangs a raw HTML anchor."""
+    monkeypatch.setattr(B, "ALLOWED_LINK_HOSTS", B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp"))
+    body = ('<p>Open <a href="https://api.us-west.exabeam.cloud/cases/4471">4471</a>, not '
+            '<a href="https://sso-reset.evil.example/login">this</a>. Raw: https://evil.example/ioc '
+            '<img src="https://attacker.example/t.gif"><td>=HYPERLINK("https://evil.example","x")</td></p>')
+    out = B._defang_args({"arg1": {"recipients": ["a@example.com"], "subject": "AKIAIOSFODNN7EXAMPLE https://evil.example/s", "body": body}})
+    subj, out_body = out["arg1"]["subject"], out["arg1"]["body"]
+    assert "AKIAIOSFODNN7EXAMPLE" not in subj and "REDACTED" in subj
+    assert "https://evil.example/s" in subj, "the subject is an SMTP header: plain text, no auto-linking, so bare stays"
+    subj2 = B._defang_args({"arg1": {"subject": "Beaconing to https://evil.example — 4 < 5 & R&D", "body": "x"}})["arg1"]["subject"]
+    assert subj2 == "Beaconing to https://evil.example — 4 < 5 & R&D", "a header is never HTML-escaped"
+    assert 'href="https://api.us-west.exabeam.cloud/cases/4471"' in out_body, "the tenant link stays clickable"
+    assert 'href="hxxps://sso-reset[.]evil[.]example/login"' in out_body
+    assert "hxxps://evil[.]example/ioc" in out_body, "bare URLs are de-fanged in mail"
+    assert 'src="hxxps://attacker[.]example/t.gif"' in out_body
+    assert "'=HYPERLINK(\"hxxps://evil[.]example\"" in out_body
+    assert out["arg1"]["recipients"] == ["a@example.com"]      # identifiers are never touched
+    note = B._defang_args({"arg1": {"note": 'see https://evil.example/ioc and <a href="https://evil.example/x">x</a>'}})["arg1"]["note"]
+    assert "https://evil.example/ioc" in note, "a bare URL in a NOTE is the documented residual"
+    assert 'href="hxxps://evil[.]example/x"' in note
+
+
+def test_allowlist_is_derived_from_the_configured_mcp_url_and_defaults_to_nothing():
+    assert B.tenant_hosts_from_url("https://api.us-west.exabeam.cloud/mcp") == frozenset({"api.us-west.exabeam.cloud"})
+    assert B.tenant_hosts_from_url("") == frozenset()
+    assert B.ALLOWED_LINK_HOSTS == B.tenant_hosts_from_url(B.URL)
+
+
+def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
+    """The read-side accumulators feed the audit trail: flagged-but-kept code points, and a block whose
+    screening raised (fail-open — the raw block passes through, and the failure is recorded)."""
+    kept, failures = [], []
+
+    class Bad:                       # a block whose text access explodes -> the fail-open path
+        @property
+        def text(self):
+            raise RuntimeError("boom")
+    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad()], None, kept, failures)
+    assert out[0].text == "ab\u200dcd" and [k["cp"] for k in kept] == ["U+200D"]
+    assert failures == ["RuntimeError"] and isinstance(out[1], Bad)

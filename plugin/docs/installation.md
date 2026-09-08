@@ -147,8 +147,15 @@ Claude Code, `/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔
 
 <details><summary>Advanced — wire it manually (no auto-refresh)</summary>
 
-If you'd rather not use the bundled bridge, register the remote MCP directly — but the bearer token
-expires in ~4h and you'll have to re-add it each time:
+If you'd rather not use the bundled bridge, register the remote MCP directly. Two things to know
+first. The bearer token expires in ~4h and you'll have to re-add it each time. More importantly,
+**all three of socxen's deterministic controls live in the bundled bridge** — input screening of
+telemetry, the write-side neutralizer that masks secrets and de-fangs links in what socxen writes, and
+the audit trail — and **none of them run when Claude Code talks to the remote MCP directly.** What does
+survive is the permission layer, and only if you name the server `exabeam`: the dismiss/close gate (the
+hook matches on that name) and, once the snippet is merged, the deny tier — containment verbs and
+detection-rule writes are spelled under the manual `mcp__exabeam__` prefix too. Nothing that lives in
+the bridge does. Use this path for a connectivity check, not for investigations you rely on:
 
 ```bash
 TOK=$(curl -s https://api.<region>.exabeam.cloud/auth/v1/token -H 'Content-Type: application/json' \
@@ -162,20 +169,37 @@ claude mcp add --transport http exabeam https://api.<region>.exabeam.cloud/mcp \
 The bundled server registers as `exabeam`; the governance rules match its plugin-namespaced tools
 (`mcp__plugin_socxen_exabeam__…` — see Governance below).
 
-## Governance — turn on the safety gate (do not skip this)
+## Governance — the safety gate
 
-> 🛑 **On Claude Code this is the most important step on the page. Install the permissions pack before you
-> point socxen at anything real.** It is the *only* hard, harness-enforced lock on dismiss/close. Skip it
-> and a wrong AI verdict can suppress a genuine threat with nothing but a soft prompt in the way. Treat it
-> as mandatory, not "recommended."
+> ✅ **The gate ships ON, on both hosts.** On **Claude Code** it is a `PreToolUse` hook bundled in the
+> plugin (`hooks/gate.py`) that is active the moment the plugin is enabled: it **asks** you before
+> `exabeam_update_alert` / `exabeam_update_case` / `exabeam_send_email`, **denies** every containment
+> tool outright, and **asks** on any tool this release hasn't classified. Its decisions hold even under
+> `--dangerously-skip-permissions`, and when no human is present (`claude -p`, CI) an *ask* is refused.
+> On **Codex** the same tiers ship inside the package as tool-approval policy, and Codex cancels a
+> destructive tool when nobody is there to approve it. Nothing to merge on either host.
 >
-> **On Codex there is nothing to merge — Codex requires approval for the destructive write tools and
-> refuses them when no human is present.** Skip to
-> [Verifying the gate on Codex](#verifying-the-gate-on-codex).
+> The hook also grants the reads: its *allow* on the 16 read tools and the two escalation writes
+> bypasses the prompt, so with nothing merged a safe operation runs silently and a dangerous one asks —
+> the same split Codex applies from the same tier file (verified headless in default permission mode,
+> 2026-09-06). Your own rules still win: a `deny` on one of these tools removes it from the model's tool
+> list before the hook runs, and an `ask` still prompts — the hook's *allow* only removes the default
+> prompt (both verified live the same day). Two reaches, deliberately different: the *ask* and *deny*
+> tiers apply to **any** MCP server whose name contains `exabeam` in any case — the bundled bridge, a
+> manual registration, a third party's server — because tightening is always safe; the prompt-free
+> *allow* applies **only to the bundled bridge**, the server whose name is `plugin_<this plugin's
+> name>_exabeam`, which the hook recognizes from the identity file shipped beside it. On a manually wired
+> server (`claude mcp add exabeam …`) the reads therefore follow your own permission rules and may
+> prompt — the same rule the permission snippet below already encodes, where the allow rules exist under
+> the bundled prefix only. If you wire by hand, **name it `exabeam`** so the gate reaches it; `preflight`
+> warns when it sees an Exabeam server registered under a name the gate does not reach. The hook runs as
+> a shell command, so the Claude Code host needs a POSIX shell (or Git Bash on Windows) and `python3`
+> 3.7+ on `PATH`; without `python3` every gated call is refused, not allowed.
 
-### Claude Code
+### Claude Code — the optional permission rules
 
-This is the control that makes socxen safe to point at real alerts. Merge the `permissions` block from
+You do not need these. They are a second lock on dismiss/close that does not depend on the hook (the
+same tiers, enforced by Claude Code's own permission system), and nothing more. Merge the `permissions` block from
 `skills/soc-investigate/settings.snippet.json` — inside the installed plugin, or
 `plugin/skills/soc-investigate/settings.snippet.json` from a clone — into the settings file Claude Code
 reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
@@ -184,10 +208,9 @@ reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-s
 - **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
 - **`deny`** the 17 containment tools (defense-in-depth; the MCP exposes none today).
 
-Merged, this is a **hard, harness-enforced gate**: Claude Code prompts you before a dismiss/close runs
-and will not execute it without your approval, and deterministically hard-blocks the containment tools.
-**Until it's merged there is no permission-layer gate** — only the skill's in-prompt ask (softer). The
-rules use the **bundled** MCP's tool names (`mcp__plugin_socxen_exabeam__…`); for the advanced manual
+Merged, the rules and the bundled hook agree on every tool — they are generated from the same tier
+file, and a test pins that — so a dismiss/close prompts once, not twice. The rules use the **bundled**
+MCP's tool names (`mcp__plugin_socxen_exabeam__…`); for the advanced manual
 `claude mcp add exabeam` path instead, use `mcp__exabeam__…`.
 
 ### Let the installer merge it for you
@@ -229,9 +252,11 @@ otherwise `$CLAUDE_CONFIG_DIR/settings.json` if your config dir is relocated, ot
 `~/.claude/settings.json`. Every message names the resolved path, so you can always see which file was
 checked or written.
 
-> ⚠️ **Do not run socxen with `--dangerously-skip-permissions`**, bypass-permissions, or auto-accept
-> modes — they turn the hard gate off (every prompt, including dismiss/close), leaving only the skill's
-> soft ask. Keep permissions on.
+> ⚠️ **Keep permissions on.** `--dangerously-skip-permissions`, bypass-permissions and auto-accept modes
+> turn the *permission rules* off — but **not the bundled hook**: its *deny* on containment and its *ask*
+> on dismiss/close still fire in those modes, and with nobody there to answer, an *ask* is refused
+> (verified live, 2026-09-04). What you lose in those modes is the second lock — the rules, if you
+> merged them. Do not rely on that.
 
 Beyond this gate, socxen also runs two automatic checks on every Exabeam call — screening the telemetry
 it reads for hidden-character smuggling, and de-activating dangerous content (like clickable links) in

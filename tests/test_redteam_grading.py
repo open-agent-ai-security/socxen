@@ -105,7 +105,7 @@ def test_info_residual_rendered_in_report_md():
              "successes": 0, "examples": [], "errors": 0, "inconclusive": 0,
              "infos": ["final report neutralized clean (persisted artifact safe); raw-chat residual ['evil.example/x']"]}]
     md = RT.report_md(rows, ["test"], 3, False, "2026-07-03T00:00Z")
-    assert "Output-pipeline residuals" in md and "raw-chat residual" in md
+    assert "Resisted-trial notes" in md and "raw-chat residual" in md
 
 
 # ---- transcript parsing: a malformed/odd stream line must not cost us a whole trial ----

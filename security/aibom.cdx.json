@@ -1,15 +1,15 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:2333b841-89d2-58be-8728-f3371e8bffdf",
+  "serialNumber": "urn:uuid:b40aaf7e-4996-522b-8d4e-4ea5337a0830",
   "version": 1,
   "metadata": {
     "component": {
-      "bom-ref": "socxen@0.8.5",
+      "bom-ref": "socxen@0.8.6",
       "type": "application",
       "name": "socxen",
-      "version": "0.8.5",
-      "description": "socxen — agentic SOC analyst skill. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by permission rules.",
+      "version": "0.8.6",
+      "description": "socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent's tool-approval rules.",
       "licenses": [
         {
           "license": {
@@ -37,6 +37,11 @@
           "type": "distribution",
           "url": "https://github.com/open-agent-ai-security/plugins",
           "comment": "Claude Code plugin marketplace: socxen@open-agent-ai-security"
+        },
+        {
+          "type": "bom",
+          "url": "sbom.cdx.json",
+          "comment": "The software bill of materials for the same release — the bridge's full locked dependency tree with artifact hashes (security/gen_sbom.py)"
         }
       ],
       "properties": [
@@ -84,7 +89,7 @@
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 18 allow / 4 ask / 68 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 21 allow / 6 ask / 140 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
       },
       {
         "name": "ai:secretsHandling",
@@ -95,7 +100,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-08-29T23:20:48Z"
+    "timestamp": "2026-09-07T22:26:32Z"
   },
   "components": [
     {
@@ -260,7 +265,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 20 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 23 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -283,7 +288,11 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "20"
+          "value": "23"
+        },
+        {
+          "name": "mcp:toolCountBasis",
+          "value": "tools the live MCP exposes per tool-map.md; names denied ahead of exposure excluded"
         },
         {
           "name": "mcp:containmentCapability",
@@ -298,7 +307,7 @@
   ],
   "dependencies": [
     {
-      "ref": "socxen@0.8.5",
+      "ref": "socxen@0.8.6",
       "dependsOn": [
         "model:anthropic-claude",
         "artifact:soc-investigate-methodology",

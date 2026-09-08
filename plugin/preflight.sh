@@ -9,10 +9,10 @@
 # human-in-the-loop gate is stored differently, so only the gate check branches.
 #
 # This script NEVER writes. Not to settings.json, not to config.toml, not to the
-# credentials file. On Claude Code the gate ships off and `install.sh --merge-permissions`
-# is the (consent-gated) thing that turns it on; on Codex the gate ships in the plugin and
-# there is nothing to merge. A fixer here would re-import the consent problem the Codex
-# packaging just removed, so this stays a mirror, not a hand.
+# credentials file. On both hosts the gate ships inside the plugin (a PreToolUse hook on Claude
+# Code, approval policy on Codex). The Claude permission rules are an optional second lock that
+# `install.sh --merge-permissions` writes with consent; a fixer here would re-import that consent
+# problem, so this stays a mirror, not a hand.
 #
 # Usage:
 #   preflight.sh                       detect the host agent and check everything
@@ -22,8 +22,25 @@
 #
 # Exit: 0 when nothing failed, 1 when something did. Warnings do not fail.
 #
-# install.sh sources this file for the shared checks; sourcing defines functions and runs
-# nothing. The UI helpers are only defined if the caller has not already defined them.
+# install.sh sources this file for the shared checks; sourcing defines functions and reads the
+# identity include — it runs no checks. The UI helpers are only defined if the caller has not
+# already defined them.
+
+# Identity from identity.sh (GENERATED from identity.json by gen_identity.py; no python3 needed). The same
+# SOCXEN_PLUGIN / SOCXEN_MARKETPLACE overrides install.sh honors apply here, so a remediation message
+# names the key the operator actually installed. Both halves come from the same source or neither does:
+# a key stitched from one real half and one guessed half is one no marketplace serves.
+_PF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_PF_DIR/identity.sh" ]; then . "$_PF_DIR/identity.sh"; fi
+PLUGIN_NAME="${SOCXEN_PLUGIN:-${SOCXEN_ID_NAME:-}}"
+_PF_MKT="${SOCXEN_MARKETPLACE:-${SOCXEN_ID_MARKETPLACE_NAME:-}}"
+if [ -n "$PLUGIN_NAME" ] && [ -n "$_PF_MKT" ]; then
+  PLUGIN_KEY="${PLUGIN_NAME}@${_PF_MKT}"
+else
+  PLUGIN_NAME="${PLUGIN_NAME:-plugin}"
+  PLUGIN_KEY="<plugin>@<marketplace>  (identity.sh missing — regenerate with python3 $_PF_DIR/gen_identity.py)"
+fi
+
 
 # ---- ui (only if the sourcing script has not already provided these) ----
 # Palette as a function, not a one-shot assignment: --no-color is parsed inside preflight_main,
@@ -79,10 +96,47 @@ check_toolchain() {
     warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
   fi
   if command -v python3 >/dev/null 2>&1; then
-    ok "python3 present"
+    if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' 2>/dev/null; then
+      ok "python3 present ($(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null))"
+    else
+      fail "python3 is older than 3.7 — the bundled dismiss/close gate (hooks/gate.py) cannot run on it, and the hook fails closed (every gated call refused). Install a current python3."
+    fi
   else
-    warn "python3 not found — plugin-state detection and the governance-gate check will be degraded"
+    # A failure only where the gate needs it: on Claude Code the bundled hook is python3. On Codex the gate
+    # is approval policy and the bridge runs under uv's own interpreter, so a python3-less Codex host is a
+    # healthy install and "warnings do not fail" holds (review, 2026-09-05).
+    if [ "${PF_PLATFORM:-}" = claude ]; then
+      fail "python3 not found — the bundled dismiss/close gate (hooks/gate.py) cannot execute. The hook is wired to fail closed (every gated call is refused until python3 is on PATH), so install python3: https://www.python.org/downloads/"
+    else
+      warn "python3 not found — fine on this host (the gate is approval policy here); on a Claude Code host the bundled hook would need it"
+    fi
   fi
+}
+
+# The bundled hook, as INSTALLED: the copy Claude Code actually loads (claude plugin list --json), enabled,
+# with hooks/hooks.json in it. The plugin copy this script sits in proves nothing about the install --
+# a clone with the hook beside an older installed version read "gate ON" (review, 2026-09-05).
+# Prints: "on <version> <path>" | "off <version> <path>" (installed copy has no hook) | "none" | "unknown".
+installed_hook_state() {
+  local json key="${PLUGIN_KEY:-socxen@open-agent-ai-security}"
+  command -v claude >/dev/null 2>&1 || { printf 'unknown'; return; }
+  command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
+  json="$(claude plugin list --json 2>/dev/null)" || { printf 'unknown'; return; }
+  printf '%s' "$json" | python3 -c '
+import json, os, sys
+key = sys.argv[1]
+try:
+    plugins = json.load(sys.stdin)
+except Exception:
+    print("unknown"); sys.exit(0)
+hits = [p for p in plugins if p.get("id") == key and p.get("enabled", True)]
+if not hits:
+    print("none"); sys.exit(0)
+p = hits[0]
+path = p.get("installPath") or ""
+state = "on" if path and os.path.isfile(os.path.join(path, "hooks", "hooks.json")) else "off"
+print(state, p.get("version") or "unknown", path)
+' "$key" 2>/dev/null || printf 'unknown'
 }
 
 # Sets CREDS_OK=1 when the file exists and carries all three keys. Reports the file mode but
@@ -129,9 +183,9 @@ check_connectivity() {
 
 # ---- gate check (the only part that differs by host) ----
 
-# Claude Code: the gate lives in the operator's settings.json and ships OFF.
-# Three outcomes, not two — without python3 the check CANNOT run, and "cannot verify" must never
-# be reported as "OFF" or users go re-merging a working gate.
+# Claude Code: this reads the OPTIONAL permission rules in the operator's settings.json; the gate
+# itself is the bundled hook (checked in check_gate). Three outcomes, not two — without python3 the
+# check CANNOT run, and "cannot verify" must never be reported as "OFF".
 gate_state_claude() {
   local settings="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
   command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
@@ -163,17 +217,79 @@ PY
 # This does not resolve TOML — it detects that an override exists and refuses to claim
 # green, which is the conservative half of the job and the only half worth doing here. An
 # override that TIGHTENS the gate reads as "overridden" too; safe direction, and rare.
+# Prints: yes (a gated write's approval_mode is loosened somewhere) | no | unverifiable (a config.toml
+# does not parse -- reported as "cannot verify", never as gate ON).
+#
+# Codex accepts every TOML spelling of the same override -- section header, dotted key, inline table,
+# quoted keys -- and four review rounds each found a spelling a regex missed (#139). So the file is
+# PARSED wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
+# approval_mode is anything but approve. The awk scan below is the fallback for a host without it.
 codex_write_override() {
-  local f
+  local f verdict
   for f in "${CODEX_HOME:-$HOME/.codex}/config.toml" "./.codex/config.toml"; do
     [ -f "$f" ] || continue
+    if command -v python3 >/dev/null 2>&1 && python3 -c 'import tomllib' 2>/dev/null; then
+      verdict="$(python3 - "$f" <<'PY' 2>/dev/null
+import sys, tomllib
+GATED = {"exabeam_update_alert", "exabeam_update_case"}
+try:
+    with open(sys.argv[1], "rb") as fh:
+        cfg = tomllib.load(fh)
+except Exception:
+    print("unverifiable"); sys.exit(0)
+def loosened(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in GATED and isinstance(v, dict):
+                mode = v.get("approval_mode")
+                if mode is not None and str(mode).strip().lower() != "approve":
+                    return True
+            if loosened(v):
+                return True
+    elif isinstance(node, list):
+        return any(loosened(x) for x in node)
+    return False
+print("yes" if loosened(cfg) else "no")
+PY
+)"
+      case "$verdict" in
+        yes) printf 'yes'; return ;;
+        unverifiable) printf 'unverifiable'; return ;;
+        no) continue ;;
+      esac
+    fi
+    # Fallback without tomllib: three TOML spellings say the same thing, and Codex accepts all of them:
+    #   [mcp_servers.exabeam.tools.exabeam_update_alert]   approval_mode = "never"     (section header)
+    #   [mcp_servers.exabeam]  tools.exabeam_update_alert.approval_mode = "never"      (dotted key)
+    #   tools = { exabeam_update_alert = { approval_mode = "never" } }                 (inline table)
+    # A line is a loosening when a gated tool is in scope (the enclosing section, a dotted key, or its own
+    # inline table, the key quoted or bare) and the approval_mode it carries is anything but approve
+    # (either quote style). Inline tables are walked tool by tool inside their own balanced {…}, so
+    # neither a sibling's "approve" nor a sibling gated tool can mask a loosened one. Comment lines are
+    # not settings.
     awk '
-      /^[[:space:]]*\[/ {
-        ingate = ($0 ~ /tools\.exabeam_update_(alert|case)\]/) ? 1 : 0
-        next
-      }
-      ingate && /approval_mode/ {
-        if ($0 !~ /"approve"/) { print "loose"; exit }
+      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\x27]approve["\x27]/) }
+      /^[[:space:]]*#/ { next }
+      /^[[:space:]]*\[/ { sec = $0; next }
+      {
+        line = $0
+        if (line !~ /approval_mode/) next
+        if ((sec " " line) !~ /exabeam_update_(alert|case)/) next
+        if (line !~ /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
+          if (loose(line)) { print "loose"; exit }
+          next
+        }
+        s = line                                                                   # inline table(s), key bare or quoted
+        while (match(s, /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/)) {
+          rest = substr(s, RSTART + RLENGTH); depth = 1; body = ""
+          for (i = 1; i <= length(rest) && depth > 0; i++) {
+            c = substr(rest, i, 1)
+            if (c == "{") depth++; else if (c == "}") depth--
+            if (depth > 0) body = body c
+          }
+          if (loose(body)) { print "loose"; exit }
+          s = rest
+        }
       }
     ' "$f" | grep -q loose && { printf 'yes'; return; }
   done
@@ -187,11 +303,41 @@ gate_state_codex() {
   [ -n "$out" ] || { printf 'unknown'; return; }
   if printf '%s' "$out" | grep -q 'default_tools_approval_mode: *approve' \
      && printf '%s' "$out" | grep -q 'disabled_tools:'; then
-    [ "$(codex_write_override)" = "yes" ] && { printf 'overridden'; return; }
+    case "$(codex_write_override)" in
+      yes) printf 'overridden'; return ;;
+      unverifiable) printf 'unverifiable'; return ;;
+    esac
     printf 'on'
   else
     printf 'off'
   fi
+}
+
+# Lines of `claude mcp list` ("<name>: <command or url> - <status>") whose command/url mentions Exabeam
+# but whose NAME does not: the gate is keyed on the server name, so such a registration escapes it
+# (Praxen 2026-09-07-004). Reads stdin so it is testable without the CLI.
+gate_reach_warnings() {
+  awk -F': ' '
+    /^[^ ][^:]*: / {
+      name = $1; rest = substr($0, length($1) + 3)
+      lname = tolower(name); lrest = tolower(rest)
+      if (index(lrest, "exabeam") > 0 && index(lname, "exabeam") == 0) print name
+    }'
+}
+
+check_gate_reach() {
+  command -v claude >/dev/null 2>&1 || return 0
+  # `claude mcp list` health-checks every approved server, i.e. it STARTS the bridge and reaches Exabeam --
+  # exactly what --skip-connectivity promises not to do (review of #158).
+  [ "${SKIP_CONN:-0}" = 1 ] && { skip "Gate-reach check skipped (--skip-connectivity: 'claude mcp list' would start every registered MCP server)"; return 0; }
+  local missed
+  # `claude mcp list` exits non-zero when ANY registered server fails its health check -- an ordinary state
+  # on a working machine -- and under `set -euo pipefail` that status would abort the whole Governance
+  # section before a single gate verdict printed (automated review of #158). The listing it did print is
+  # still what we need; the status is not.
+  missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')" || true
+  [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook and the permission rules key on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
+  return 0
 }
 
 check_gate() {
@@ -201,17 +347,32 @@ check_gate() {
       state="$(gate_state_codex)"
       case "$state" in
         on)  ok "Human-in-the-loop gate ON — containment disabled by the plugin; Codex requires approval for the destructive write tools and refuses them with no human present" ;;
+        unverifiable)
+             warn "Cannot verify the gate — a config.toml does not parse as TOML, so per-tool overrides on update_alert/update_case cannot be read; fix the file (codex would reject it too)" ;;
         overridden)
              fail "Gate WEAKENED by local config — a config.toml sets a per-tool approval_mode on update_alert/update_case; dismiss/close may run unattended" ;;
-        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add socxen@open-agent-ai-security" ;;
+        off) fail "Gate is not active on the resolved Exabeam server — reinstall: codex plugin add ${PLUGIN_KEY}" ;;
         *)   warn "Cannot verify the gate — no 'exabeam' server resolved (is the plugin installed and enabled?)" ;;
       esac ;;
     claude)
+      check_gate_reach
       state="$(gate_state_claude)"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — dismiss/close require approval" ;;
-        off) warn "Gate is OFF — merge it with: install.sh --merge-permissions" ;;
-        *)   warn "Cannot verify the gate (needs python3) — not the same as OFF; check manually" ;;
+        on)  ok "Human-in-the-loop gate ON — the permission rules are merged (dismiss/close in the ask tier, containment denied); the bundled hook gates the same when the installed plugin carries it" ;;
+        off) local hook hstate hver hpath
+             hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="${hook#* * }"
+             case "$hstate" in
+               on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
+                    ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
+               off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;
+               none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY:-socxen@open-agent-ai-security}) and no permission rules are merged; install it (install.sh)" ;;
+               *)   if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
+                      warn "Cannot verify the installed plugin (needs the claude CLI with 'plugin list --json' and python3). This plugin copy carries the bundled hook, but only the INSTALLED copy gates — check 'claude plugin list'"
+                    else
+                      fail "Gate is OFF — no bundled hook in this plugin copy, the install cannot be verified, and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
+                    fi ;;
+             esac ;;
+        *)   warn "Cannot verify the permission rules (needs python3) — not the same as OFF. Note the bundled hook also needs python3: without it every gated call is refused (fail-closed), not allowed" ;;
       esac ;;
     *)
       skip "Gate check skipped — no host agent detected" ;;
@@ -243,9 +404,10 @@ preflight_main() {
   esac
   [ "$platform" = "auto" ] && platform=""
   [ -n "$platform" ] || platform="$(detect_platform)"
+  PF_PLATFORM="$platform"
   _palette          # re-derive now that --no-color has actually been parsed
 
-  printf '\n%s   socxen preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+  printf '\n%s   %s preflight%s  %s(read-only — nothing is written)%s\n' "$BOLD" "$PLUGIN_NAME" "$RST" "$DIM" "$RST"
 
   head2 "Host agent"
   case "$platform" in

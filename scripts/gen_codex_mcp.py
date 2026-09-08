@@ -8,9 +8,9 @@
 socxen's human-in-the-loop gate is expressed twice, because the two host agents
 enforce it in different places:
 
-  Claude Code  settings.snippet.json -> permissions.allow / ask / deny, merged by the
-               operator into settings.json. The gate ships OFF; nothing enforces it
-               until someone merges it (PRAX-001).
+  Claude Code  settings.snippet.json -> the tier source the bundled PreToolUse hook reads
+               (the gate ships ON), and the permissions.allow / ask / deny block an operator
+               may merge into settings.json as an optional second lock.
 
   Codex        .mcp.codex.json -> the same three tiers as approval modes on the
                plugin-bundled server. Codex reads this straight out of the installed

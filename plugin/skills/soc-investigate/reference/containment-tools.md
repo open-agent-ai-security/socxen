@@ -48,6 +48,39 @@ way: additions are fine, silent removals are not.
 - `delete_file`
 - `run_script_on_host`
 
+## Also denied: detection-content writes
+
+Not containment, but the same posture — actions socxen **must never perform**, only propose. The live
+Exabeam MCP grew `exabeam_create_analytics_rule` (2026-09: builds and creates a detection rule
+server-side from one of six canned names) and the proxy defines `exabeam_update_analytics_rule`. The
+`rule-tuning` skill's contract is *proposals for detection engineering to act on*, and `SKILL.md`
+forbids applying or claiming to have applied a rule change, so both are denied on both hosts, under
+both spellings, exactly like the containment verbs. A future rule-write tool under a new name lands on
+the hook's unknown-tool rule (ask), which is the safety net until it is classified here.
+
+**Detection content** — every verb the Worker Remit names: create, update, enable, disable or delete a
+detection rule, a correlation rule or an exclusion rule, and create, update, delete or add records to a
+context table. Only `create_analytics_rule` is live today; the rest are denied ahead of the MCP exposing
+them, so a new detection-content write lands on a deny, not on the unknown-tool rule (Praxen 2026-09-07-005).
+- `create_analytics_rule`
+- `update_analytics_rule`
+- `enable_analytics_rule`
+- `disable_analytics_rule`
+- `delete_analytics_rule`
+- `create_correlation_rule`
+- `update_correlation_rule`
+- `enable_correlation_rule`
+- `disable_correlation_rule`
+- `delete_correlation_rule`
+- `create_exclusion_rule`
+- `update_exclusion_rule`
+- `delete_exclusion_rule`
+- `create_context_table`
+- `update_context_table`
+- `delete_context_table`
+- `add_context_table_records`
+- `delete_context_table_records`
+
 ## Why these and not `create_case` / `update_alert`
 
 Opening a case or dismissing an alert is **workflow** — it routes and documents, and is easily
@@ -62,7 +95,7 @@ These are Nova's normalized (server-stripped) names. Every tool the Exabeam MCP 
 the `exabeam_<verb>` convention (see `tool-map.md`), so a containment tool would most likely arrive as
 `exabeam_isolate_host`. `settings.snippet.json` therefore denies **both spellings** of every name here
 — bare and `exabeam_`-prefixed — in **both namespaces** (the bundled plugin's
-`mcp__plugin_socxen_exabeam__` and the manual-wiring `mcp__exabeam__`), and a repo invariant test
+`mcp__plugin_socxen_exabeam__` — the prefix derives from `name` in `plugin/identity.json`, from which the snippet is generated — and the manual-wiring `mcp__exabeam__`), and a repo invariant test
 (`test_deny_list_matches_containment_doc`) keeps this file and the snippet in sync — that sync is what
 makes the gate real. If a live tool list ever shows a containment tool under a *different* name, add
 it here and the test will demand the matching deny rules.

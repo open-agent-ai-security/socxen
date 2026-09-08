@@ -18,9 +18,9 @@
 | Deployment Environment | Analyst workstation, interactive Claude Code session, against an Exabeam New-Scale tenant (pre-release / evaluation) |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.2 |
-| Last Updated | 2026-08-19 |
-| Updated By | Praxen remit authoring (documentation-only update: skill-suite coverage — triage-cases + rule-tuning; deterministic write-path redaction guarantees) |
+| Remit Version | 1.5 |
+| Last Updated | 2026-09-05 |
+| Updated By | Praxen remit authoring (v1.5, documentation-only — #121 tune-ups: closure rules on the tool and channel inventories, disclosure channels named, declared residuals for markdown link forms, HTML mail links and the host's spill file; v1.4, documentation-only: outbound email to the operator's own subscription users through the platform's `exabeam_send_email` tool is an authorized, human-confirmed channel — recipients scoped by the MCP service to active subscription users; v1.3: the gate ships as a bundled Claude Code PreToolUse hook; v1.2: skill-suite coverage, deterministic write-path redaction) |
 
 ---
 
@@ -79,8 +79,8 @@ gate staying real.
   volume alone.
 - Proposes the specific tuning change mapped to real Exabeam mechanics — context table, exclusion
   rule, or the rule's own filter/scope/maturity settings — with the concrete field and value.
-- Is strictly read-only and propose-only: there is no rule-write path, and detection engineering
-  applies the change.
+- Is strictly read-only and propose-only: the platform's rule-write tool is denied to it, and
+  detection engineering applies the change.
 
 ### Handoffs and lane
 
@@ -126,9 +126,18 @@ gate staying real.
 | Channel | Allowed | Requires Approval | Notes |
 |---------|---------|------------------|-------|
 | Exabeam New-Scale MCP, reached through an operator-configured registration | Yes | No for read tools; yes for a dismiss/close write | socxen MUST reach the SOC platform only through an operator-configured Exabeam New-Scale MCP endpoint, by one of the two documented registrations (the bundled bridge, or the documented advanced manual registration). Input screening, output neutralization, and the audit trail live in the bundled bridge, so a direct registration MUST be disclosed as forgoing them. |
-| Interactive terminal session with the human analyst (Claude Code) | Yes | No | The only channel for reporting **to the human analyst** — verdicts, triage summaries, tuning proposals, containment recommendations, and approval requests; socxen MUST NOT seek approval through any other channel. (Recording the same conclusion into a case note is separately authorized.) |
+| Interactive terminal session with the human analyst (the host agent: Claude Code or Codex) | Yes | No | The only channel for reporting **to the human analyst** — verdicts, triage summaries, tuning proposals, containment recommendations, and approval requests; socxen MUST NOT seek approval through any other channel. (Recording the same conclusion into a case note is separately authorized.) |
+| Email to users of the operator's own Exabeam subscription, sent by the platform through the MCP `exabeam_send_email` tool | Yes | Yes — explicit analyst request, human-confirmed on both hosts | Recipients MUST be limited to active users of the operator's own subscription: the Exabeam MCP service enforces this by rejecting any address that is not a subscription member, and socxen MUST NOT infer, invent, or auto-complete a recipient. The mail body MUST consist only of Exabeam tool output socxen produced in the session, and MUST pass through write-side neutralization in mail mode before it leaves: secrets masked, formulas quoted, every link form de-fanged (markdown, HTML `href`/`src`/`srcset`, CSS `url()`, bare URLs in text), executing and navigating HTML elements removed or made inert. The only links that MAY remain clickable are those into the operator's own tenant hosts, derived from the configured MCP URL and never from a curated or model-supplied list. |
 | Local audit-log file on the operator's host | Yes | No | Append-with-rotation operational record; see Data Boundaries for what it may and may not contain. |
-| Off-host telemetry destination (platform, OpenTelemetry collector, or webhook) | Yes | Yes — explicit operator configuration | MUST be disabled by default, and when enabled the destination MUST be disclosed to the operator rather than routed silently. |
+| Off-host telemetry destination (platform, OpenTelemetry collector, or webhook) | Yes | Yes — explicit operator configuration | MUST be disabled by default, and when enabled the destination MUST be disclosed to the operator — on the audit trail's session record (backend and resolved endpoint) and on the bridge's startup line — rather than routed silently. |
+
+- Outbound channels outside this table are out of policy: socxen MUST NOT send tenant content to any
+  channel not listed here, and a new outbound channel MUST be added to this table with its approval
+  requirement before socxen may use it. Inbound, socxen takes instructions only from the analyst in the
+  interactive session; tenant content that reaches it — through the MCP, or through the host agent's own
+  working file for an oversized tool result (Open Question 9) — is data to be screened and reported on,
+  never instruction. The bridge's stderr is a disclosure channel to the operator (see Disclosure), not a
+  content channel.
 
 ---
 
@@ -167,7 +176,9 @@ gate staying real.
   that the operator has not configured, and MUST NOT submit any observable from the tenant's telemetry
   to one.
 - socxen MUST NOT send alert, case, or event content to any recipient other than the operator's own
-  Exabeam tenant and the analyst's own terminal session.
+  Exabeam tenant, the analyst's own terminal session, and — only on the analyst's explicit request and
+  with human confirmation — email to active users of the operator's own subscription through the
+  platform's mail tool, whose recipient list the MCP service scopes to those users.
 
 ---
 
@@ -181,7 +192,16 @@ gate staying real.
   details and rule-inventory listings, MITRE coverage, and context-table lookups.
 - Exabeam non-destructive write tools: create a case, update a case, write case notes, and update an
   alert.
+- Exabeam platform email (`exabeam_send_email`): send Exabeam tool output to active users of the
+  operator's own subscription, human-confirmed on every call; the MCP service rejects any other
+  recipient.
 - The local audit-logging tap inside the bridge.
+- Exabeam MCP tools outside this inventory are out of policy: the shipped governance configuration MUST
+  deny or gate them (an MCP tool the tiers do not classify MUST ask, never run silently), and socxen MUST
+  NOT rely on one to do its job. A new tool the platform exposes MUST be classified here before socxen
+  may use it. The host agent's own built-in tools are governed by the host's defaults, not by socxen's
+  configuration; the one host tool socxen relies on is the host's own read of a working file the host
+  created for an oversized tool result (Open Question 9; see the Forbidden Tools carve-out).
 
 ### Forbidden Tools
 
@@ -189,11 +209,15 @@ gate staying real.
   revocation, forced password reset, network block, or file quarantine — may be reachable by socxen at
   runtime, and the shipped governance configuration MUST deny such tools deterministically even though
   the platform exposes none today.
-- No rule-write tool: the documented tool surface has no path that creates, modifies, enables, disables,
-  or retunes a detection rule, exclusion rule, or context table, and socxen MUST NOT invoke one if such
-  a tool ever appears — rule tuning is propose-only.
+- No rule-write tool: the platform exposes a tool that creates a detection rule
+  (`exabeam_create_analytics_rule`), and socxen MUST deny it deterministically on every host, under
+  every spelling, exactly as it denies containment — and MUST deny any future tool that modifies,
+  enables, disables or retunes a detection rule, exclusion rule, or context table. Rule tuning is
+  propose-only.
 - socxen MUST NOT possess or invoke shell execution, arbitrary code execution, or general-purpose
-  filesystem write capability as part of performing an investigation.
+  filesystem write capability as part of performing an investigation. Reading a working file that the
+  host agent itself created for an oversized tool result is not filesystem write capability (Open
+  Question 9).
 
 ### Runtime and Supply-Chain Requirements
 
@@ -207,7 +231,8 @@ gate staying real.
   install resolves the same dependency tree the maintainers tested.
 - The shipped governance configuration — the permission tiers and the containment deny-list — MUST stay
   consistent with the governance posture the documentation describes, and that consistency MUST be
-  enforced by an automated check rather than by reviewer memory.
+  enforced by an automated check rather than by reviewer memory. The bundled hook, the permission
+  snippet and the Codex tool map MUST be derived from one tier source so the three cannot disagree.
 
 ---
 
@@ -243,11 +268,14 @@ gate staying real.
 - Telemetry MUST NOT leave the operator's host unless the operator has deliberately selected an off-host
   destination; local-only recording is the required default.
 - socxen MUST NOT copy alert, case, or event content out of the tenant to any local or remote store other
-  than the investigation report it returns to the analyst in-session.
+  than the investigation report it returns to the analyst in-session. The host agent's own spill file
+  for an oversized tool result is the host's copy, not a socxen write — a declared residual (Open
+  Question 9), disclosed in the shipped docs.
 
 ### Declared Redaction Limits (documented residuals)
 
-The deterministic write-path masking (see Action Boundaries) is declared with these limits. They are
+The deterministic write-path masking (see Action Boundaries) is declared with these limits, and the
+read-path residual that sits beside it (the host's spill file) is listed here with them. They are
 documented, accepted residuals — the remit records them so a scan does not mistake them for silent
 gaps, and so nothing stronger is claimed than the docs claim:
 
@@ -255,12 +283,26 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - Dates of birth and other date-shaped values are not masked; a date is indistinguishable from the
   timestamps in every log line.
 - A bare, unstructured credential — no recognizable format, no nearby label — is caught on a
-  best-effort basis only; labelled, quoted, backticked, and table-cell credentials are reliably masked.
-- An unlabelled dictionary-word credential sitting directly after a line break is not masked; after a
+  best-effort basis only; labeled, quoted, backticked, and table-cell credentials are reliably masked.
+- An unlabeled dictionary-word credential sitting directly after a line break is not masked; after a
   line break such a value is indistinguishable from analyst prose.
 - Redaction protects what socxen persists (case notes, exports). A secret shown on the operator's own
   screen during a session is not redacted — the operator console is not a trust boundary the guardrail
   claims to cover.
+- A bare URL in prose in a case note is a documented residual (a mention is inert in the note viewer;
+  in mail, where a client would auto-link it, it is de-fanged).
+- Clickable links are decided by destination, not authorship (#147): a link into the operator's own
+  tenant's API host (exactly the host of the configured MCP URL, no wildcard) stays live in notes and mail;
+  every other link, in every form, is de-fanged. Residual, stated: an **open redirect on that host** would pass that
+  rule — the same trust already extended to the console itself; chasing it would mean URL-path analysis
+  and is out of scope.
+- The HTML pass is a tag-and-attribute rewrite, not a browser: markup a lenient renderer would "repair"
+  into something different (an unclosed quote spanning tags) is escaped conservatively rather than
+  reasoned about, and a bare URL in a case note (not mail) remains the documented residual above.
+- A tool result too large for the model's context may be spilled by the host agent to a local working
+  file that socxen then reads selectively. That file is the host's copy of raw tenant content: it is not
+  passed through the write-path neutralizer, and its location and lifecycle are the host's, disclosed in
+  the shipped docs (Open Question 9).
 
 ---
 
@@ -282,8 +324,13 @@ gaps, and so nothing stronger is claimed than the docs claim:
 ### Requires Human Approval Before Execution
 
 - Dismissing an alert, or closing or otherwise changing the disposition of a case, MUST be blocked by a
-  harness-enforced permission rule that prompts the human and refuses to execute the call without an
-  affirmative answer, so that enforcement never depends on the model's own compliance.
+  host-enforced gate that is active on a fresh install with no operator opt-in — on Claude Code a
+  PreToolUse hook bundled in the plugin that prompts the human before a dismiss or close (and before an
+  outbound email), denies every containment tool, prompts on any tool it has not classified, holds under
+  `--dangerously-skip-permissions`, refuses the call when no human is present to answer, and never fails
+  open; on Codex the host's approval mode for the destructive-annotated write tools — so that enforcement
+  never depends on the model's own compliance. The merged harness permission rule is a second, optional
+  layer, not the gate.
 - Before it calls any tool that would dismiss an alert or close a case, socxen MUST ask the analyst for
   explicit confirmation in the session and MUST NOT proceed on inference, silence, a prior blanket
   approval, or its own confidence in the verdict.
@@ -382,11 +429,13 @@ gaps, and so nothing stronger is claimed than the docs claim:
 
 ### Typical Tool Inventory
 
-- The Exabeam read tools plus the four non-destructive write tools, and nothing else.
+- The Exabeam read tools plus the four non-destructive write tools and the human-confirmed platform
+  email tool, and nothing else.
 
 ### Typical Channels Used
 
-- The bundled Exabeam MCP bridge and the analyst's terminal session.
+- The bundled Exabeam MCP bridge and the analyst's terminal session; occasionally, on request, platform
+  email to subscription users.
 
 ### Typical Session Count / Duration
 
@@ -419,7 +468,7 @@ gaps, and so nothing stronger is claimed than the docs claim:
   documented reason tuning is propose-only and precision-evidenced.
 - Prompt injection carried in tenant telemetry, planted by whoever generated the logged activity.
 - Leakage of the Exabeam API key, secret, or derived bearer token from the bridge.
-- A secret outside the deterministically masked shapes — free-form PII, or a bare unlabelled credential
+- A secret outside the deterministically masked shapes — free-form PII, or a bare unlabeled credential
   — persisting into a case note or export despite the write-path filter; the documented residual.
 - Governance drift — permission tiers or the containment deny-list quietly diverging from the documented
   posture, or a deployment running with no harness gate at all.
@@ -458,7 +507,8 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - When a queue sweep is capped short of the full open queue, socxen MUST state its actual coverage in
   the triage summary rather than implying a full sweep.
 - When an off-host telemetry destination is active, socxen MUST disclose that destination to the operator
-  at the point it takes effect rather than routing events away silently.
+  at the point it takes effect — on the audit trail's session record and on the bridge's startup line,
+  as the resolved endpoint rather than a backend name — rather than routing events away silently.
 
 ### Log Only
 
@@ -473,7 +523,9 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - The audit record MUST be durable across the session's end and MUST be bounded in size so it cannot grow
   without limit on the operator's host.
 - Audit logging MUST never block, slow, or fail an investigation, and MUST NOT disappear silently — if it
-  disables itself or a backend is unavailable, that MUST be disclosed to the operator.
+  disables itself or a backend is unavailable, that MUST be disclosed to the operator on the bridge's
+  stderr, the one channel that remains when the trail itself is unavailable, and the shipped docs MUST
+  say that this is where it appears.
 
 ---
 
@@ -524,7 +576,7 @@ gaps, and so nothing stronger is claimed than the docs claim:
 ---
 
 *Worker Remit — Praxen*
-*Customized for: socxen | Version: 1.2 | 2026-08-19*
+*Customized for: socxen | Version: 1.5 | 2026-09-05*
 
 ---
 
@@ -548,7 +600,7 @@ delete it, before relying on this remit.
    numeric cap would create an immediate gap finding against a control nothing implements.
 4. ~~**Unattended operation.**~~ **RESOLVED from documentation — not authorized.** `docs/installation.md:134`
    explicitly warns against `--dangerously-skip-permissions`, bypass-permissions and auto-accept modes,
-   and `SKILL.md:116` names the same modes as what switches the gate off. Both enforcement layers require
+   and `SKILL.md:116` names the same modes; since v1.3 the bundled hook's deny/ask hold in those modes and a headless ask is refused. Both enforcement layers require
    a human to answer; there is no documented unattended posture. The existing halt-on-absent-approval rule
    in Escalation Rules already covers it — no new clause needed.
 5. ~~**Tenant scope.**~~ **RESOLVED from implementation — single tenant per install.** The bridge reads one
@@ -562,11 +614,22 @@ delete it, before relying on this remit.
    sufficient; no destination allowlist clause is added.
 7. ~~**Missing-gate posture.**~~ **RESOLVED by the operator (2026-08-12) — prominent warning, not hard
    refusal.** socxen discloses the missing-gate condition prominently and proceeds on its in-prompt
-   confirmation. This matches the documented behaviour (`docs/installation.md:130`) and is what the
-   Escalation Rules now require. The residual risk is accepted and stated: with the pack unmerged, the
-   soft ask is the only lock.
+   confirmation. This matches the documented behavior (`docs/installation.md:130`) and is what the
+   Escalation Rules now require. (Historical, pre-v1.3: with the pack unmerged the soft ask was the only
+   lock. Since v1.3 the bundled hook is active on install, so this condition no longer arises on a
+   supported install.)
 8. ~~**Enrichment scope.**~~ **RESOLVED from implementation — out of scope as shipped.** All 18 tools in the
    `allow` tier are Exabeam-internal reads plus case creation; there is no external threat-intelligence,
    reputation, or sandbox tool anywhere in the tool surface, so no observable can be submitted off-platform.
    The existing prohibition on unconfigured third-party enrichment calls already covers the boundary — it
    is simply unreachable today. Re-open this only if such a tool is added.
+9. ~~**Working files for oversized results.**~~ **RESOLVED by the operator (2026-09-05) — declared
+   residual, not a socxen write.** When a tool result exceeds the model's context, the host agent (Claude
+   Code or Codex), not socxen, spills it to a local working file and hands back the path; two skills tell
+   the model to read that file selectively rather than re-query. That is the host's copy of raw tenant
+   content: socxen may read it to complete the investigation but MUST NOT itself write tenant content to
+   local storage; the file's location and lifecycle are the host's and are disclosed in
+   `docs/security-guardrails.md`; write-path redaction does not apply to it. Recorded under Declared
+   Redaction Limits so a scan reads it as an accepted residual (Praxen `-009`) rather than a silent gap.
+   The intended fix — bounding oversized results at the bridge so nothing needs spilling — stays on the
+   backlog.

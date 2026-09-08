@@ -5,7 +5,7 @@
 
 # Exabeam MCP — real tool surface
 
-The 20 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact
+The 23 tools exposed by the live MCP (`k8s-mcp-server`, discovered via `list_tools`). Use these exact
 names. Grouped by how they serve the investigation loop.
 
 ## Calling convention (read this first)
@@ -15,6 +15,9 @@ the most common first-call error:
 
 - **Read / get / search tools → `arg0`.** e.g. `exabeam_get_case_details` → `{"arg0": {"caseId": "…"}}`;
   `exabeam_search_alerts` → `{"arg0": {"filter": "…", "fields": ["alertId","alertName","priority","riskScore","user","rules","creationTimestamp"], "limit": 25, "orderBy": ["riskScore DESC"], "startTime": "…", "endTime": "…"}}`.
+  **One exception:** `exabeam_analytics_rule_details` takes `arg0` as a **bare string** (the rule id:
+  `{"arg0": "C_MCP_…"}`), not a wrapper object — a schema error there is not fixed by the `arg0`↔`arg1`
+  swap below; send the bare string.
 - **Write tools → `arg1`** (NOT `arg0`): `exabeam_create_case`, `exabeam_create_case_notes`,
   `exabeam_update_alert`, `exabeam_update_case`.
 - **No-arg tools → call with `{}`** (verified via `list_tools`: no `arg0`/`arg1`, empty schema):
@@ -27,7 +30,9 @@ the most common first-call error:
 > on cases/events returns *millions* of characters in a single result and overflows the context window —
 > a self-inflicted DoS, not an infra failure. **Always name the fields you need** and set `orderBy`
 > yourself (e.g. `["riskScore DESC"]`). The named-field recipes in `search-cookbook.md` are
-> authoritative; the schema's "MANDATORY `["*"]`" text is not. Note the casing split: **alerts** return
+> authoritative; the schema's "MANDATORY `["*"]`" text is not — and the bridge enforces it: a search sent
+> with `["*"]` is not forwarded; the result you get back is the column list to re-send with (a workaround
+> for the MCP server's schema text, kept until the server is fixed). Note the casing split: **alerts** return
 > camelCase (`alertId`, `riskScore`, `creationTimestamp`, …); **cases** return snake_case (`case_id`,
 > `case_number`, `stage`, `priority`, `risk_score`, `use_cases`, `name` — no creation-time field is
 > exposed on `search_cases`).
@@ -35,9 +40,9 @@ the most common first-call error:
 Write-tool fields (required in **bold**):
 
 - `exabeam_create_case_notes` → `arg1: {` **`caseId`** `,` **`note`** `}`
-- `exabeam_create_case` → `arg1: {` **`alertId`** `,` **`priority`** `, assignee, stage, queue, closedReason, supportingReason }`
-- `exabeam_update_alert` → `arg1: {` **`alertId`** `, alertStatus (e.g. "DISMISSED"), alertDescription, alertName, priority, tags }`
-- `exabeam_update_case` → `arg1: {` **`caseId`** `, stage, closedReason, supportingReason, assignee, priority, queue, tags, useCases }`
+- `exabeam_create_case` → `arg1: {` **`alertId`** `,` **`priority`** `, assignee, stage, queue, supportingReason }` — opens a case: `stage` may only be `NEW`, `MORE DETAILS`, `INVESTIGATION` or `REMEDIATION`, and `closedReason` is not accepted; a create carrying a closing disposition is refused by the bridge (#163) — close through `update_case` after the analyst's yes
+- `exabeam_update_alert` → `arg1: {` **`alertId`** `, alertStatus (e.g. "DISMISSED"), priority }` — the bridge drops `alertDescription`, `alertName` and `tags` from an update (they replace analyst text; #89) and says so in the reply
+- `exabeam_update_case` → `arg1: {` **`caseId`** `, stage, closedReason (a supported value: "Already Mitigated or Resolved", "False Positive or Duplicate", "Low Risk", "Rule Misconfiguration", "Policy or Setup Issue", "Other"), assignee, priority, queue }` — the bridge drops `supportingReason`, `tags`, `useCases` and the alert fields (the reasoning goes in a case note), and REFUSES the call outright when `closedReason` is not one of the supported values (a close never lands without its disposition)
 
 If a call returns a schema/validation error, **swap `arg0`↔`arg1` before anything else** — that's almost
 always the cause.
@@ -48,6 +53,7 @@ always the cause.
 - `exabeam_get_case_notes` — existing notes on a case (read before you add)
 
 ## Evidence — gather & correlate (all read-only, run freely)
+- `exabeam_parser_list`, `exabeam_get_parser_details` — parser inventory and detail reads the proxy defines; classified allow ahead of the MCP exposing it.
 - `exabeam_search_events` — **raw log/event search** from the SIEM by user, host, IP, or time.
   The primary evidence workhorse; pivot on entities here. Its query language (EQL), real CIM field
   names, and copy-paste pivot/baseline recipes are in **`search-cookbook.md`** — read it before writing
@@ -67,14 +73,36 @@ always the cause.
 ## Understand what fired
 - `exabeam_get_correlation_rule_details` — what a correlation rule keys on (fast FP/TP tell)
 - `exabeam_correlation_rule_list` / `exabeam_analytics_rule_list` — list correlation / analytics rules
+- `exabeam_analytics_rule_details` — one analytics / detection-management rule by id *(allow)*. **Odd calling
+  convention:** `arg0` is a bare string, the rule id (e.g. `{"arg0": "C_MCP_C_FF-PC-…"}`), not a wrapper object.
 - `exabeam_get_mitre_coverage` — MITRE ATT&CK coverage for the technique
 - `exabeam_get_use_case_score` — use-case detection score
 
 ## Act (args under `arg1` — see Calling convention)
 - `exabeam_create_case` — escalate an alert into a case *(allow — escalation is safe)*
 - `exabeam_create_case_notes` — document the investigation *(allow)*
+- `exabeam_send_email` — send mail from the platform to a person *(ask — human-confirmed on **both** hosts,
+  #137)*. Schema (verified via `list_tools`, 2026-09-02): `arg1: {` **`recipients`** `: [email…],` **`subject`**
+  `,` **`body`** `}` — `body` is an **HTML fragment** (≤ 8000 chars) rendered as-is into a template, and the MCP
+  restricts it to content produced by an Exabeam read tool. Do not infer recipients: an empty list makes the
+  tool return the subscription's users to choose from. **Recipients are scoped by the MCP service to active
+  users of the operator's own subscription** — any other address is rejected (with suggestions), so mail
+  cannot leave the tenant's user base. `subject` and `body` run through the write-side neutralizer in
+  **mail mode** (#147): secrets masked, formulas quoted, every link form de-fanged — markdown, HTML
+  `href`/`src`/`srcset`, CSS `url()`, and bare URLs in the text — scripts/iframes/forms/handlers removed;
+  **a link on the tenant's own API host stays clickable** (exactly the host of `EXABEAM_MCP_URL`, nothing
+  else — no wildcard). Any other host renders de-fanged. Review the body before approving a send.
 - `exabeam_update_alert` — **dismiss/update an alert** *(ASK — gated; a wrong dismissal hides a threat)*
 - `exabeam_update_case` — **update/close a case** *(ASK — gated)*
+
+## Never (denied on both hosts)
+- `exabeam_create_analytics_rule` — creates a detection rule in the tenant (server builds it from one of six
+  canned names; `arg1: {ruleName}`). **Denied**, both spellings, both hosts: `rule-tuning` produces
+  *proposals* for detection engineering, and no socxen skill applies detection content. Recommend; never call.
+  (`exabeam_update_analytics_rule` is denied the same way ahead of the MCP exposing it.)
+- `exabeam_enable_analytics_rule`, `exabeam_disable_analytics_rule`, `exabeam_delete_analytics_rule`, `exabeam_create_correlation_rule`, `exabeam_update_correlation_rule`, `exabeam_enable_correlation_rule`, `exabeam_disable_correlation_rule`, `exabeam_delete_correlation_rule`, `exabeam_create_exclusion_rule`, `exabeam_update_exclusion_rule`, `exabeam_delete_exclusion_rule`, `exabeam_create_context_table`, `exabeam_update_context_table`, `exabeam_delete_context_table`, `exabeam_add_context_table_records`, `exabeam_delete_context_table_records` — every other detection-content write the remit names, denied under both spellings ahead of the MCP exposing it.
+  A write tool the MCP grows under a name outside this list still asks (the hook's unknown-tool rule) and
+  is treated as a write by the bridge (neutralized, audited, refused in a dry run) until it is classified.
 
 ## Not present (important)
 There is **no entity/Attack-Surface lookup tool and no containment tool** on this server. Get entity

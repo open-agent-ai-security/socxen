@@ -8,7 +8,7 @@
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.8.5-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.8.6-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -20,9 +20,10 @@
 socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make it
 safe to point at a live tenant. Three skills work **Exabeam New-Scale** through the Exabeam MCP — one case, the
 whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
-database, no approval queue: the analyst at the terminal is the human-in-the-loop, and once you turn the
-governance gate on (below) the consequential action (dismiss/close) is held back by **two locks** —
-your host agent's tool-approval rules *and* the skill asking you first — never left to the model alone.
+database, no approval queue: the analyst at the terminal is the human-in-the-loop, and the consequential
+action (dismiss/close) is held back by **two locks out of the box** — a gate the plugin ships and your
+host enforces (a bundled hook on Claude Code, tool-approval policy on Codex) *and* the skill asking you
+first — never left to the model alone.
 On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
 destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
 there the same as on Claude, `codex exec` included.
@@ -33,7 +34,7 @@ there the same as on Claude, `codex exec` included.
 |---|---|---|
 | **`soc-investigate`** | the analyst | One alert or case, first look to written verdict: gathers evidence, pivots on entities, weighs competing hypotheses, reaches a threat / false-positive verdict, and acts. |
 | **`triage-cases`** | the shift lead | The open queue rather than one case: clusters by attack shape, ranks by corroborated signal (risk score is one input, not the answer), returns a "start here" list plus the noise worth tuning. Read-only across the sweep — never closes in bulk. |
-| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: there is no rule-write path. |
+| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: the MCP's rule-write tool is denied on both hosts. |
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
@@ -62,16 +63,17 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
 ## Setup
 
 With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
-`~/.exabeam-mcp.env`) and **turn on the governance safety gate**. The setup guide does the lifting:
+`~/.exabeam-mcp.env`) and, optionally, **merge the permission rules** as a second lock. The setup guide does the lifting:
 
 ### → [Full setup: docs/installation.md](docs/installation.md)
 
-> ⚠️ **The governance permission pack is not optional.** Until you merge it, there is *no* hard gate on
-> dismiss/close — only the skill's soft in-prompt ask stands between the model and a suppressed alert.
-> Do not point socxen at alerts you care about until it's on. The
-> **[setup guide](docs/installation.md#governance--turn-on-the-safety-gate-do-not-skip-this)** walks you
+> ✅ **The gate ships ON.** On Claude Code a bundled hook asks before dismiss/close and denies containment
+> the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
+> ship as tool-approval policy. The permission pack below is **optional** — a second lock that does not
+> depend on the hook. The
+> **[setup guide](docs/installation.md#governance--the-safety-gate)** walks you
 > through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
-> default and `-y` does not authorise it — the flag is the consent. The merge is additive-only, backs
+> default and `-y` does not authorize it — the flag is the consent. The merge is additive-only, backs
 > your settings file up first, and refuses if a rule already sits in a different tier.
 
 Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /

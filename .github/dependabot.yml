@@ -1,0 +1,15 @@
+# Copyright 2026 Exabeam, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Keeps the SHA-pinned GitHub Actions current (Dependabot understands full-SHA pins and rewrites the
+# trailing "# vX.Y.Z" comment with them), so pinning does not turn into silent rot. (#131)
+# The bridge's Python dependencies are locked by uv (plugin/connector/exabeam-mcp-bridge.py.lock) and
+# audited in CI with pip-audit; Dependabot's pip ecosystem does not read PEP 723 script locks, so that
+# tree is covered by the audit step and by Dependabot security alerts, not by version-update PRs.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies"]

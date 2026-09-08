@@ -12,9 +12,13 @@ when you need it.
 
 - **[Installation & setup](installation.md)** — **start here.** Install from the community marketplace
   on Claude Code or Codex,
-  add your Exabeam credentials, and — the step that matters most — turn on the **governance permission
-  gate** that makes socxen safe to point at real alerts. Also covers updating, fleet auto-update, running
+  add your Exabeam credentials, and — optionally — merge the **permission rules** as a second lock
+  (the human-in-the-loop gate itself ships ON, on both hosts, and reads already run without a prompt). Also covers updating, fleet auto-update, running
   the skill from any other agent, and uninstalling.
+
+- **[Using the skills](usage.md)** — what to say, what happens, and what socxen asks you before it acts:
+  the investigation loop, the two locks on dismiss/close on each host, what it will never do, how to read
+  the report and its three outcomes, and how triage and tuning hand off.
 
 - **[Security guardrails](security-guardrails.md)** — the two always-on defenses against hostile content
   planted in your telemetry: screening hidden-character *smuggling* out of what socxen reads, and

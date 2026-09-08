@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://open-agent-ai-security.github.io/socxen/sitemap.xml

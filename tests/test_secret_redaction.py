@@ -226,7 +226,7 @@ def test_punctuation_only_value_is_not_a_secret():
 def test_alphabetic_value_after_bare_newline_is_a_documented_residual():
     """DOCUMENTED RESIDUAL (see module docstring + security-guardrails.md): after a bare line break, an
     all-alphabetic value is indistinguishable from prose ('credential\\nRotation is required'), so the
-    shape guard spares it. Labelled, quoted, and table forms ARE caught. Asserted so the residual is a
+    shape guard spares it. Labeled, quoted, and table forms ARE caught. Asserted so the residual is a
     recorded decision rather than an accident."""
     text = "Recovered credential\ncorrecthorsebatterystaple"
     assert redact(text) == text
@@ -324,8 +324,8 @@ def test_card_redaction_does_not_swallow_the_following_space():
 
 @pytest.mark.parametrize("template", ['password: "%s"', "password: '%s'", "api_key = \"%s\""])
 def test_quote_wrapped_values_are_masked(template):
-    """Pinning behaviour that arrived UNINTENDED: dropping quotes from the value class (a fix aimed at
-    backticks and link parens) made quote-wrapped values redactable as a side effect. It is the behaviour
+    """Pinning behavior that arrived UNINTENDED: dropping quotes from the value class (a fix aimed at
+    backticks and link parens) made quote-wrapped values redactable as a side effect. It is the behavior
     we want, but nothing asserted it, and per #120 the suite would not notice it regressing. NOTE the
     JSON-shaped form ({"password": "..."}) is still a MISS -- the closing quote sits between keyword and
     separator, so `[:=]` is not adjacent. Tracked in #118 with a d04 fixture."""

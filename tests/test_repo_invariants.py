@@ -16,6 +16,7 @@ Run:  uv run --with pytest pytest -q tests/
 """
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,8 @@ def _load(path):
     return json.loads((ROOT / path).read_text())
 
 PLUGIN = _load("plugin/.claude-plugin/plugin.json")
+IDENTITY = _load("plugin/identity.json")
+PLUGIN_PREFIX = f"mcp__plugin_{IDENTITY['name']}_{_load('plugin/skills/soc-investigate/permissions.json')['server']}__"
 MCP = _load("plugin/.mcp.json")
 SETTINGS = _load("plugin/skills/soc-investigate/settings.snippet.json")
 PERMS = SETTINGS["permissions"]
@@ -183,7 +186,11 @@ def test_governed_tools_are_all_documented_in_tool_map():
     """No governed tool may be undocumented, and no drift between the snippet and the
     tool-map. Every plugin-namespaced allow/ask tool must appear in tool-map.md."""
     canonical = _canonical_tools()
-    assert len(canonical) == 20, f"expected 20 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
+    # 24 = the original 20 (16 reads + 2 creates + 2 gated updates) + exabeam_send_email (#137, ask)
+    # + exabeam_analytics_rule_details (#143, allow) + the two parser reads the proxy defines, classified
+    # allow ahead of exposure (Praxen 2026-09-07-005). exabeam_create_analytics_rule is governed too, on
+    # the DENY tier, so it is not in this allow+ask count — test_deny_list_matches_containment_doc pins it.
+    assert len(canonical) == 24, f"expected 24 governed Exabeam tools, got {len(canonical)}: {sorted(canonical)}"
     undocumented = sorted(t for t in canonical if t not in TOOL_MAP_MD)
     assert not undocumented, f"governed tools missing from tool-map.md: {undocumented}"
 
@@ -222,7 +229,7 @@ def test_no_in_repo_marketplace():
     assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (
         "unexpected plugin/.claude-plugin/marketplace.json — socxen installs via "
         "open-agent-ai-security/plugins; see plugin/docs/installation.md")
-    assert PLUGIN["name"] == "socxen"
+    assert PLUGIN["name"] == IDENTITY["name"]
 
 
 # =====================================================================
@@ -439,6 +446,30 @@ def test_install_sources_preflight_instead_of_duplicating_it():
             f"{fn} was re-inlined into install.sh — it must come from preflight.sh")
 
 
+def test_install_never_claims_the_hook_gates_without_checking_the_installed_plugin():
+    """Praxen 2026-09-07-002: a false "gate ON" is the dangerous direction. The bundled hook gates only
+    from the INSTALLED plugin, and a failed `claude plugin update` is downgraded to a warning, so the
+    installer must ask `installed_hook_state()` before any reassuring line -- and every such line must
+    sit inside that check's `on)` arm."""
+    lines = INSTALL_SH.splitlines()
+    checks = [i for i, l in enumerate(lines) if "$(installed_hook_state)" in l]
+    assert checks, "install.sh no longer asks installed_hook_state() before reporting the gate"
+    first_check = checks[0]
+    arm_start = next(i for i, l in enumerate(lines) if i > first_check and l.strip().startswith("case \"$HOOK_STATE\" in"))
+    on_lines = [i for i, l in enumerate(lines) if i > arm_start and re.match(r"\s*on\)", l)]
+    # each `on)` arm ends at its own `;;`
+    arms = [(o, next(j for j in range(o, len(lines)) if lines[j].rstrip().endswith(";;"))) for o in on_lines]
+    reassuring = [i for i, l in enumerate(lines)
+                  if not l.lstrip().startswith("#")
+                  and re.search(r"(gate ON via the bundled hook|hook.*(already gates|gates dismiss|asks on dismiss|denies containment|still fire))", l)]
+    assert reassuring, "expected the installer to still explain what the hook gates, inside the on) arm"
+    for i in reassuring:
+        assert i > first_check, f"install.sh:{i + 1} claims the hook gates before the installed plugin is checked"
+        assert any(o <= i <= e for o, e in arms), (
+            f"install.sh:{i + 1} claims the hook gates outside the installed_hook_state() on) arm")
+    assert "not needed: the bundled hook" not in INSTALL_SH, "the unconditional reassurance is back"
+
+
 def _shell_code_only(text):
     """Shell source with comments and quoted strings removed.
 
@@ -455,9 +486,9 @@ def _shell_code_only(text):
 def test_preflight_never_writes():
     """preflight.sh is a mirror, not a hand.
 
-    On Claude Code the gate ships off and turning it on is a consent-gated action that
-    belongs to install.sh --merge-permissions. On Codex the gate ships inside the plugin
-    and there is nothing to merge. A fixer here would re-import exactly the consent
+    On both hosts the gate ships inside the plugin (a hook on Claude Code, approval policy on
+    Codex). The Claude permission rules are an optional second lock whose merge is a consent-gated
+    action that belongs to install.sh --merge-permissions. A fixer here would re-import exactly the consent
     problem the Codex packaging removed, so mutation stays out of this file."""
     code = _shell_code_only(PREFLIGHT_SH)
     forbidden = [
@@ -507,6 +538,43 @@ def test_preflight_reports_cannot_verify_separately_from_off():
 
 
 
+def test_send_email_is_human_gated_on_both_hosts():
+    """#137 (PM decision, Matt, 2026-08-30): mail leaving the platform to a person is a human-confirm
+    action on BOTH hosts — before this it was unclassified, so the split between hosts was an accident
+    of their defaults. Pins: the snippet asks (both prefixes), the generated Codex map says approve,
+    and both dry-run layers treat it as a write."""
+    for prefix in (PLUGIN_PREFIX, "mcp__exabeam__"):
+        assert prefix + "exabeam_send_email" in ASK, f"send_email not on the ask tier under {prefix}"
+    assert not tier_has(ALLOW, "exabeam_send_email") and not tier_has(DENY, "exabeam_send_email")
+    codex = json.loads((ROOT / "plugin" / ".mcp.codex.json").read_text())
+    assert codex["exabeam"]["tools"]["exabeam_send_email"]["approval_mode"] == "approve", (
+        "the generated Codex map does not require a human for send_email")
+    assert "exabeam_send_email" in (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text().split("WRITE_TOOLS")[1][:400]
+    assert "exabeam_send_email" in (ROOT / "evals" / "run.py").read_text().split("WRITE_TOOLS")[1][:400]
+
+
+def test_identity_artifacts_are_generated_from_identity_json():
+    """The plugin's identity lives in ONE place (plugin/identity.json); both manifests and every permission
+    rule are generated from it by plugin/gen_identity.py. A hand edit to a generated file is drift that
+    would silently split the key from the namespace the gate matches on — so --check must be clean, and
+    the generated name must be the one the rules actually use."""
+    import subprocess
+    r = subprocess.run([sys.executable, str(ROOT / "plugin" / "gen_identity.py"), "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr or r.stdout
+    assert PLUGIN["name"] == IDENTITY["name"]
+    assert _load("plugin/.codex-plugin/plugin.json")["name"] == IDENTITY["name"]
+    assert all(t.startswith(PLUGIN_PREFIX) for t in ALLOW), "allow tier not under the identity's plugin prefix"
+    assert PLUGIN["version"] == IDENTITY["version"] == _load("plugin/.codex-plugin/plugin.json")["version"]
+    # The shell include install.sh / preflight.sh source (no python3 on the host) carries the same identity.
+    sh = dict(line.split("=", 1) for line in (ROOT / "plugin" / "identity.sh").read_text().splitlines()
+              if line and not line.startswith("#"))
+    assert sh["SOCXEN_ID_NAME"].strip("'") == IDENTITY["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_NAME"].strip("'") == IDENTITY["marketplace"]["name"]
+    assert sh["SOCXEN_ID_MARKETPLACE_REPO"].strip("'") == IDENTITY["marketplace"]["repo"]
+    assert sh["SOCXEN_ID_MCP_SERVER"].strip("'") == IDENTITY["mcpServer"] == list(MCP["mcpServers"])[0]
+    assert "|| echo socxen" not in INSTALL_SH and "|| echo socxen" not in PREFLIGHT_SH, "no literal identity fallback"
+
+
 def test_skill_states_the_taxonomy_report_contract():
     """derive_outcome() reads a `Taxonomy outcome:` line out of the report, and grading treats a missing
     line as UNMEASURABLE — which the red-team grader then scores as not-landed, i.e. a pass. The line was
@@ -522,6 +590,74 @@ def test_skill_states_the_taxonomy_report_contract():
     tmpl = (SKILL_DIR / "reference" / "report-template.md").read_text()
     assert "Taxonomy outcome:" in tmpl, "report-template.md omits the Taxonomy outcome line"
 
+
+
+def test_docs_describe_the_gate_that_ships():
+    """Praxen PRAX-2026-09-05-008: the docs contradicted the shipped gate — one page said the hook holds under
+    --dangerously-skip-permissions, another that those modes turn the gate off; one said a manual `exabeam`
+    server bypasses the hook when the matcher covers it; the skill body still named the snippet as the gate."""
+    inst = (ROOT / "plugin" / "docs" / "installation.md").read_text()
+    guide = ROOT / "guide" / "installation.html"
+    for text, where in ((inst, "installation.md"),) + (((guide.read_text(), "guide/installation.html"),) if guide.is_file() else ()):
+        assert "does not go through the plugin's hook" not in text, where
+        assert "turn the hard gate off" not in text, where
+        assert "cannot grant silent reads" not in text, where
+        assert "still fire in those modes" in text, f"{where} must say the hook's deny/ask hold under skip-permissions"
+        assert "under a name the hook does not match" not in text, f"{where}: neither the hook nor the rules cover another server name"
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "hooks/gate.py" in body, "the skill body must name the bundled hook as the Claude-side gate"
+    hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())
+    matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
+    assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
+def test_skill_says_what_to_stop_doing():
+    """#91 / Praxen 0.6.9 -010/-012: the skill said how to ask and never what to do after a refusal, nor
+    that out-of-lane requests are declined. Both are gate-bypass shapes if left to improvisation."""
+    body = (SKILL_DIR / "SKILL.md").read_text()
+    assert "the action is over" in body and "Do not retry the call" in body, "no abandon-after-refusal rule"
+    assert "reach the same outcome by another route" in body, "the workaround path must be named"
+    assert "Stay in your lanes" in body and "Decline it" in body, "no decline clause"
+
+
+def test_manual_mcp_path_discloses_what_it_forgoes():
+    """#86: the manual-registration path bypasses screening, neutralization and the audit trail — the
+    install guide and the guardrails page must say so, not just mention the token expiry."""
+    inst = (ROOT / "plugin" / "docs" / "installation.md").read_text()
+    assert "none of them run when Claude Code talks to the remote MCP directly" in inst
+    guard = (ROOT / "plugin" / "docs" / "security-guardrails.md").read_text()
+    assert "bypasses all three" in guard
+
+
+def test_rule_write_tools_are_denied_and_documented():
+    """#143: the live MCP grew a rule-creating write; rule-tuning is proposals-only, so it is denied on
+    both hosts under both spellings, and the tool map says never."""
+    for name in ("exabeam_create_analytics_rule", "create_analytics_rule"):
+        for ns in (PLUGIN_PREFIX, f"mcp__{next(iter(MCP['mcpServers']))}__"):
+            assert f"{ns}{name}" in DENY, f"{ns}{name} not denied"
+    assert "exabeam_create_analytics_rule" in TOOL_MAP_MD and "Never (denied on both hosts)" in TOOL_MAP_MD
+    codex = _load("plugin/.mcp.codex.json")
+    assert "exabeam_create_analytics_rule" in codex["exabeam"]["disabled_tools"]
+
+
+def test_sbom_is_current_and_mirrors_the_lockfile():
+    """The SBOM is derived from the bridge's uv lockfile and nothing else: every locked package is a
+    component with its version and at least one artifact hash, the direct dependencies are exactly the
+    lock manifest's, the root references the AI BOM and the AI BOM references it back, and the
+    committed copy is not stale (the same --check CI runs)."""
+    import subprocess, sys, tomllib
+    r = subprocess.run([sys.executable, str(ROOT / "security" / "gen_sbom.py"), "--check"], capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode == 0, r.stdout + r.stderr
+    lock = tomllib.loads((ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py.lock").read_text())
+    sbom = json.loads((ROOT / "security" / "sbom.cdx.json").read_text())
+    comps = {(c["name"], c["version"]): c for c in sbom["components"]}
+    assert comps.keys() == {(p["name"], p["version"]) for p in lock["package"]}, "SBOM components != locked packages"
+    assert all(c["hashes"] and c["purl"] == f"pkg:pypi/{n}@{v}" for (n, v), c in comps.items())
+    direct = {c["name"] for c in sbom["components"] if any(p["value"] == "direct" for p in c["properties"])}
+    assert direct == {r["name"] for r in lock["manifest"]["requirements"]}
+    root = sbom["metadata"]["component"]
+    assert any(x["type"] == "bom" and x["url"] == "aibom.cdx.json" for x in root["externalReferences"])
+    aibom = json.loads((ROOT / "security" / "aibom.cdx.json").read_text())
+    assert any(x["type"] == "bom" and x["url"] == "sbom.cdx.json" for x in aibom["metadata"]["component"]["externalReferences"])
+    assert root["bom-ref"] == aibom["metadata"]["component"]["bom-ref"], "both BOMs describe the same release"
 
 
 if __name__ == "__main__":
