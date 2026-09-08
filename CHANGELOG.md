@@ -46,8 +46,11 @@ one hook-leg attempt was voided by an account rate-limit window and re-run. The 
 `create_case` after a decline): Codex 5/5, hook leg 5/5 on the re-drive after a taxonomy-label fix. Praxen
 2.0.0-beta.1 (Claude Opus 5, high thinking, with threat model) on the #164 tree at `8eb6c24`: 0 Critical,
 1 High accepted at Medium with the maintainer's waiver on record in the Praxen README, 5 Medium, 2 Low,
-RAISE 3.55; the commits after the scan are review fixes listed in HISTORY. 761 unit tests, 23/23 fixtures
-lint clean, guide current.
+RAISE 3.55. The shipped bridge differs from the scanned one by two reviewed commits that only tighten the
+scanned controls — disposition keys folded to letters, a blank stage treated as absent, the refusal naming
+the schema's key, a wider directive pattern, a fuller definition hash — with `gate.py` and `permissions.json`
+byte-identical; both are listed in HISTORY. 761 unit tests with the optional test dependencies installed
+(observra, mcp, httpx; those files skip without them), 23/23 fixtures lint clean, guide current.
 
 ### Added
 - **The human-in-the-loop gate ships ON for Claude Code — a bundled `PreToolUse` hook** (`plugin/hooks/`,
