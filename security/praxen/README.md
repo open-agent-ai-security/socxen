@@ -38,7 +38,47 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — `fix/praxen-163` @ `8eb6c24` (2026-09-07, PR #164: the two #163 Highs fixed)
+## Current status — remit v1.6 @ `0b4e72a` (2026-09-08, #168: a common-sense upgrade to the remit, with a rescan)
+
+| | |
+|---|---|
+| Scanned | **`remit/168-boundary-by-author`** (`0b4e72a`) — `main` @ `4cc6a1c` (0.8.6 as shipped) plus documentation only: the Worker Remit at **v1.6**, one added scan-instruction question, three skill lines that now tell the *analyst* to run the MCP status command, and an installer note on the "any other agent" path. No code under `plugin/` changed. |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, no threat model (documentation-only change; the 0.8.6 threat model below stands), in a clean headless session (no conversation context, no project memory), 29 min |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **0 High** · 5 Medium · 4 Low — all 9 CONFIRMED by the audit pass, 0 UNSUPPORTED, 0 remit defects |
+| Weighted RAISE posture | **3.45 / 5** (Established) |
+| Remit coverage | Remit **v1.6** · 71 rules — 66 verified · 5 partial · 0 gap · 0 not enforceable in code |
+
+RAISE categories: Limit Your Domain 4 · Balance Your Knowledge Base 3 · Implement Zero Trust 3 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-08-socxen-remit168-pass2.html) · [findings JSON](results/2026-09-08-socxen-remit168-pass2.json) ·
+[audit](results/2026-09-08-socxen-remit168-pass2-audit.md) · [text](results/2026-09-08-socxen-remit168-pass2.txt).
+
+**What changed in the remit (v1.5 → v1.6, #168, #169).** The untrusted-content boundary is drawn by *who
+authored the content*, not by the channel it arrived on: telemetry — alert fields, event records, search
+results, case notes, context-table records, rule descriptions — is untrusted; the bundled Exabeam MCP's
+tool definitions are the integration's configuration at the provenance boundary (hashed per session,
+screened, surfaced, never rewritten; trusted only while `EXABEAM_MCP_URL` names Exabeam's own
+infrastructure). Residuals the code carries are declared beside the rules that carry them, in the same
+form the redaction limits already use — the sweep-time case-write path, the fail-open read screen, the
+"any other agent" install path, the absent stored baseline. One obligation per bullet where the extractor
+had been splitting rules differently between runs; the in-session ask stated as the model-side layer
+beneath the host gate; mail-recipient eligibility declared as the MCP service's enforcement; the tool
+baseline enumerated by name from the shipped allow tier; the redaction and evidence-gap rules split into
+their enforced and conduct halves.
+
+**Against the 0.8.6 High.** The instruction-shaped-definitions finding does not recur as a High: the
+definitions grade at the provenance boundary as the stored-baseline Medium (`-001`; #6). The queue
+sweep's read-only rule — not scored in the 0.8.6 scan — now grades Medium with its residual declared
+(`-003`; the durable question is #92, unscheduled). The other Mediums: upstream error text in the audit
+trail (`-002`, #173), on-screen redaction as measured conduct (`-004`; the corpus's d-class), and
+plain-language injection resistance as doctrine (`-005`; the a- and b-class fixtures). Lows: doc tool
+counts (`-006`, #175), gate reach keyed on the server name (`-007`, documented), no https check on the
+endpoint (`-008`, #174), the model floor as documentation (`-009`, known). The fail-open read screen is
+#172.
+
+## Previous — `fix/praxen-163` @ `8eb6c24` (2026-09-07, PR #164: the two #163 Highs fixed)
 
 | | |
 |---|---|
@@ -79,7 +119,7 @@ open High. The premise — exactly one party can write those descriptions — is
 endpoint: it holds while `EXABEAM_MCP_URL` names the vendor's own infrastructure, and Low `-008` in the
 same scan records that the bridge accepts any URL scheme there. A mis-pointed endpoint is operator error
 or an already-compromised environment, outside this model too, but the waiver rests on it and says so
-(raised by the PM at the 0.8.6 promotion, #166).
+(raised by the PM at the 0.8.6 promotion, #166). Remit v1.6 (#168) draws this boundary explicitly — the definitions are the integration's configuration at the provenance boundary, hashed, screened and surfaced, with the stored-baseline residual declared — so a later scan grades them there; this block stays as the disposition record for the v1.5 scan.
 
 **Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
 session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
