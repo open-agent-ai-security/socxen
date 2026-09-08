@@ -56,6 +56,12 @@ These are the load-bearing ones — resolve each **in code**, and state which la
    the no-egress claim, and whether the log records the gated actions the docs promise.
 6. **Model floor.** Docs state Sonnet 4.6+/Opus supported, Haiku unsupported. Determine whether that
    is enforced anywhere or is documentation only.
+7. **Tool-definition provenance.** The remit treats the bundled Exabeam MCP's tool definitions as the
+   integration's configuration at the provenance boundary (Trusted Services / Integrations; Runtime and
+   Supply-Chain Requirements), not as platform content at the ingress boundary. Verify in code the
+   per-session hash (`_definition_sha`, `surface_sha`, `tool_shas` in the `tools_list` audit event), the
+   code-point screen, and that instruction-shaped text is surfaced (`directive_tools`) and never
+   rewritten; read the absent stored baseline as the documented residual it is (#6), not as an ingress gap.
 
 ## Notes
 

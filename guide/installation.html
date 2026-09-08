@@ -580,6 +580,9 @@ codex plugin add socxen@open-agent-ai-security
 </code></pre>
 <h2 id="any-other-agent">Any other agent</h2>
 <p>socxen is just a skill folder in the repo — any capable coding agent can fetch and run it:</p>
+<p><strong>Unsupported for production use — evaluation only.</strong> This path carries none of socxen's host gate
+(the bundled hook or Codex approval policy), none of the bridge's guardrails (input screening, write-side
+neutralization, the create-case guard) and no audit trail. The only lock is the skill's in-prompt ask.</p>
 <blockquote>
 <p>Clone <code>https://github.com/open-agent-ai-security/socxen</code> and follow its <code>soc-investigate</code> skill to
 investigate Exabeam alert &lt;id&gt;, using the Exabeam New-Scale MCP.</p>
