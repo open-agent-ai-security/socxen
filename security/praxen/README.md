@@ -42,7 +42,7 @@ platform, that is the class of defect that must not reach a tag.
 
 | | |
 |---|---|
-| Scanned | **`fix/praxen-163`** (`8eb6c24`) — `dev` @ `f82bdef` (every 0.8.6 PR merged) plus the #163 fixes: a `create_case` carrying a closing disposition is refused; tool definitions screened for instruction-shaped text and hashed |
+| Scanned | **`fix/praxen-163`** (`8eb6c24`) — `dev` @ `f82bdef` (every 0.8.6 PR merged) plus the #163 fixes: a `create_case` carrying a closing disposition is refused; tool definitions screened for instruction-shaped text and hashed Two later commits on the branch touch the bridge and only tighten what was scanned (HISTORY, release top-up row); `gate.py` and `permissions.json` shipped byte-identical to this tree. |
 | Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project memory), 45 min; account window 20–27%, never rejected |
 | **Critical findings** | **0 — gate PASSES** |
 | Other findings | **1 High** · 5 Medium · 2 Low — all 8 CONFIRMED by the audit pass, 0 UNSUPPORTED |
@@ -75,7 +75,11 @@ makes it Medium is that its impact was bounded (a self-inflicted DoS, now interc
 every consequential action downstream is deterministically controlled — including, as of this PR, the
 `create_case` route. Detection and reporting stay (the startup line, the `tools_list` event); the bridge
 does not rewrite a vendor's descriptions. Recorded here as the waiver the release gate asks for on an
-open High.
+open High. The premise — exactly one party can write those descriptions — is a premise about the
+endpoint: it holds while `EXABEAM_MCP_URL` names the vendor's own infrastructure, and Low `-008` in the
+same scan records that the bridge accepts any URL scheme there. A mis-pointed endpoint is operator error
+or an already-compromised environment, outside this model too, but the waiver rests on it and says so
+(raised by the PM at the 0.8.6 promotion, #166).
 
 **Mediums, all new:** `-002` the per-definition hash has nothing to compare against (persist the previous
 session's hashes under `~/.socxen/` and compare at startup); `-003` the "any other agent" install path has
