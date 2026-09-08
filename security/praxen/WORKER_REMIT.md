@@ -202,9 +202,9 @@ gate staying real.
 
 - Exabeam read tools, by name — the prompt-free allow tier as shipped in `permissions.json`:
   `exabeam_analytics_rule_details`, `exabeam_analytics_rule_list`, `exabeam_context_table_list`, `exabeam_correlation_rule_list`, `exabeam_get_alert_details`, `exabeam_get_alert_threat_timeline`, `exabeam_get_case_details`, `exabeam_get_case_notes`, `exabeam_get_case_threat_timeline`, `exabeam_get_context_table_records`, `exabeam_get_correlation_rule_details`, `exabeam_get_mitre_coverage`, `exabeam_get_parser_details`, `exabeam_get_use_case_score`, `exabeam_parser_list`, `exabeam_search_alerts`, `exabeam_search_cases`, `exabeam_search_events`, `exabeam_threat_summary`.
-  Of these, `exabeam_get_parser_details`, `exabeam_parser_list` and `exabeam_get_use_case_score` are
-  classified ahead of the MCP exposing them or of any skill workflow using them; they are reads and are
-  listed here so the baseline and the shipped tier are the same list.
+  Of these, `exabeam_get_parser_details` and `exabeam_parser_list` are classified ahead of the MCP
+  exposing them or of any skill workflow using them; they are reads and are listed here so the baseline
+  and the shipped tier are the same list.
 - Exabeam non-destructive write tools: create a case, update a case, write case notes, and update an
   alert.
 - Exabeam platform email (`exabeam_send_email`): send Exabeam tool output to active users of the
@@ -249,7 +249,6 @@ gate staying real.
   enforced by an automated check rather than by reviewer memory. The bundled hook, the permission
   snippet and the Codex tool map MUST be derived from one tier source so the three cannot disagree.
 
----
 - Tool definitions from the bundled Exabeam MCP MUST be hashed per session (each definition and the
   whole surface) and screened for hidden code points before they reach the model; instruction-shaped
   text in a definition MUST be surfaced on the startup line and in the audit trail and MUST NOT be
@@ -257,7 +256,9 @@ gate staying real.
   conflict is reported.
   Documented residual: no baseline of the surface is stored between sessions, so a changed definition is
   visible only by comparing the per-session hashes in the audit trail after the fact (#6; Praxen
-  2026-09-07-002, accepted at Medium).
+  2026-09-07-002 in the `fix/praxen-163` scan, Medium).
+
+---
 
 ## Data Boundaries
 
@@ -543,9 +544,9 @@ gaps, and so nothing stronger is claimed than the docs claim:
 
 ### Alert Operator (Do Not Halt)
 
-- When a read fails, the bridge MUST return the real failure to the model and the audit trail — the
-  error class, the HTTP status where there is one, and whether it was retryable — never a generic error,
-  so an evidence gap is visible where a verdict is formed.
+- When a read fails, the bridge MUST return the real failure — the error class or HTTP status to the
+  model, and the class, the HTTP status where there is one, and whether it was retryable to the audit
+  trail — never a generic error, so an evidence gap is visible where a verdict is formed.
 - When evidence gathering is incomplete — a read tool fails, times out, or returns truncated results —
   socxen MUST surface that gap in its report rather than silently reaching a verdict on a reduced
   evidence base.
