@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overview · socxen Docs</title>
-<meta name="description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
+<title>socxen Documentation · socxen Docs</title>
+<meta name="description" content="socxen is an agentic SOC analyst for Exabeam New-Scale, delivered as a plugin for Claude Code and OpenAI Codex. Hand it an alert or a case and it…">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/index.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
-<meta property="og:title" content="Overview · socxen Docs">
-<meta property="og:description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
+<meta property="og:title" content="socxen Documentation · socxen Docs">
+<meta property="og:description" content="socxen is an agentic SOC analyst for Exabeam New-Scale, delivered as a plugin for Claude Code and OpenAI Codex. Hand it an alert or a case and it…">
 <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/index.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Overview · socxen Docs">
-<meta name="twitter:description" content="An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.">
+<meta name="twitter:title" content="socxen Documentation · socxen Docs">
+<meta name="twitter:description" content="socxen is an agentic SOC analyst for Exabeam New-Scale, delivered as a plugin for Claude Code and OpenAI Codex. Hand it an alert or a case and it…">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Overview", "description": "An agentic SOC skill suite for Exabeam New-Scale \u2014 a plugin for Claude Code and OpenAI Codex.",
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "socxen Documentation", "description": "socxen is an agentic SOC analyst for Exabeam New-Scale, delivered as a plugin for Claude Code and OpenAI Codex. Hand it an alert or a case and it\u2026",
   "url": "https://open-agent-ai-security.github.io/socxen/guide/index.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
@@ -262,170 +262,127 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#the-three-skills">The three skills</a></li><li><a href="#what-it-does">What it does</a></li><li><a href="#setup">Setup</a></li><li><a href="#documentation">Documentation</a></li><li><a href="#layout">Layout</a></li><li><a href="#how-its-tested">How it's tested</a></li><li><a href="#status">Status</a></li><li><a href="#project-sponsor">Project sponsor</a></li><li><a href="#license">License</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html" class="active">Overview</a><ul class="docs-subnav"><li><a href="#where-to-start">Where to start</a></li><li><a href="#the-three-skills">The three skills</a></li><li><a href="#how-socxen-works-in-90-seconds">How socxen works (in 90 seconds)</a></li><li><a href="#the-guardrails-in-brief">The guardrails, in brief</a></li><li><a href="#quick-reference">Quick reference</a></li></ul></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
   <main class="docs-main">
-    <article class="prose"><h1 id="socxen">socxen</h1>
-<p><strong>An agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.</strong></p>
-<p><a href="https://open-agent-ai-security.github.io/project-levels/"><img alt="Project level: Incubator" src="https://img.shields.io/badge/project_level-incubator-d29922"></a>
-<a href="https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg"></a>
-<a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/.claude-plugin/plugin.json"><img alt="version" src="https://img.shields.io/badge/version-v0.8.6-blue"></a>
-<a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
-<a href="https://www.python.org/downloads/"><img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue.svg"></a></p>
+    <article class="prose"><h1 id="socxen-documentation">socxen Documentation</h1>
+<p><strong>socxen</strong> is an agentic SOC analyst for <strong>Exabeam New-Scale</strong>, delivered as a plugin for Claude Code and
+OpenAI Codex. Hand it an alert or a case and it investigates the way a careful analyst would: gathers the
+evidence itself, builds the timeline, reaches a threat / false-positive verdict, and acts — with the
+human-in-the-loop gate on dismiss and close <strong>shipped on</strong>, containment <strong>recommended, never executed</strong>, and
+every call on an audit trail.</p>
 <blockquote>
-<p>⚠️ <strong>Pre-release software — for evaluation purposes only.</strong> socxen is under active development and is
-provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
-for production SOC operations or point it at alerts whose disposition matters without a human
-reviewing every action.</p>
+<p><em>Every claim traceable to a call it made. Every irreversible action behind a human's yes.</em></p>
 </blockquote>
-<p>socxen is an <strong>agentic SOC skill suite</strong> plus the deterministic guardrails and governance that make it
-safe to point at a live tenant. Three skills work <strong>Exabeam New-Scale</strong> through the Exabeam MCP — one case, the
-whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
-database, no approval queue: the analyst at the terminal is the human-in-the-loop, and the consequential
-action (dismiss/close) is held back by <strong>two locks out of the box</strong> — a gate the plugin ships and your
-host enforces (a bundled hook on Claude Code, tool-approval policy on Codex) <em>and</em> the skill asking you
-first — never left to the model alone.
-On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
-destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
-there the same as on Claude, <code>codex exec</code> included.</p>
+<p><em>socxen is an open-source project sponsored by <a href="https://www.exabeam.com/">Exabeam</a>, published by the
+<a href="https://open-agent-ai-security.github.io/">Open Agent and AI Security community</a>.</em></p>
+<h2 id="where-to-start">Where to start</h2>
+<table>
+<thead>
+<tr>
+<th>If you are…</th>
+<th>Read this first</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Installing socxen for the first time</td>
+<td><a href="installation.html">Installation &amp; setup</a> — the community marketplace on Claude Code or Codex, one credentials file, and what the gate does on each host</td>
+</tr>
+<tr>
+<td>About to run your first investigation</td>
+<td><a href="usage.html">Using the skills</a> — what to say, what happens, what socxen asks you before it acts, and how to read the report</td>
+</tr>
+<tr>
+<td>Wanting to see a real one end to end</td>
+<td><a href="example.html">Example investigation</a> — a coordinated credential-access case, from intake to verdict</td>
+</tr>
+<tr>
+<td>Wondering why a link in a case note looks "broken"</td>
+<td><a href="security-guardrails.html">Security guardrails</a> — the two always-on defenses against hostile content in your telemetry, and what they do not cover</td>
+</tr>
+<tr>
+<td>Asked "what did the agent actually do?"</td>
+<td><a href="logging.html">Audit logging</a> — the on-by-default audit trail: what is recorded, what deliberately is not, where it lives</td>
+</tr>
+<tr>
+<td>Evaluating socxen's security posture</td>
+<td>The red-team ledger, the Praxen scans and the security policy live in the repository: <a href="https://github.com/open-agent-ai-security/socxen/tree/main/security"><code>security/</code></a> · <a href="https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md"><code>SECURITY.md</code></a></td>
+</tr>
+<tr>
+<td>Contributing, or reading the operator-level README</td>
+<td><a href="https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a> · <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/README.md">the plugin README</a></td>
+</tr>
+</tbody>
+</table>
 <h2 id="the-three-skills">The three skills</h2>
 <table>
 <thead>
 <tr>
 <th>Skill</th>
-<th>Whose work it is</th>
+<th>Ask it</th>
 <th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong><code>soc-investigate</code></strong></td>
-<td>the analyst</td>
-<td>One alert or case, first look to written verdict: gathers evidence, pivots on entities, weighs competing hypotheses, reaches a threat / false-positive verdict, and acts.</td>
+<td><em>"Investigate alert 4821."</em> · <em>"Is this a real threat?"</em></td>
+<td>One alert or case at depth: evidence, timeline, MITRE ATT&amp;CK mapping, verdict, then the non-destructive action — open a case, dismiss an alert, write notes — and a containment recommendation for a human to carry out.</td>
 </tr>
 <tr>
 <td><strong><code>triage-cases</code></strong></td>
-<td>the shift lead</td>
-<td>The open queue rather than one case: clusters by attack shape, ranks by corroborated signal (risk score is one input, not the answer), returns a "start here" list plus the noise worth tuning. Read-only across the sweep — never closes in bulk.</td>
+<td><em>"What should I look at first?"</em> · <em>"Morning triage."</em></td>
+<td>Sweeps the open queue, clusters cases by attack shape, ranks them by corroborated signal, and returns a short "start here" list plus the noise clusters worth tuning. Read-only.</td>
 </tr>
 <tr>
 <td><strong><code>rule-tuning</code></strong></td>
-<td>the detection engineer</td>
-<td>Finds rules that are <em>noisy</em>, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: the MCP's rule-write tool is denied on both hosts.</td>
+<td><em>"Which rules waste our time?"</em> · <em>"Reduce alert noise."</em></td>
+<td>Separates loud rules from noisy ones and proposes specific tuning mapped to real Exabeam mechanics — a context table, an exclusion, the rule's own settings. Proposes; never changes a rule.</td>
 </tr>
 </tbody>
 </table>
-<p>Each hands off to the others: a single case to <code>soc-investigate</code>, a noise cluster to <code>rule-tuning</code>.</p>
-<h2 id="what-it-does">What it does</h2>
+<h2 id="how-socxen-works-in-90-seconds">How socxen works (in 90 seconds)</h2>
+<ol>
+<li><strong>You hand it the work</strong> — an alert ID, a case ID, or a pasted payload — in your Claude Code or Codex session.</li>
+<li><strong>It gathers evidence through the Exabeam MCP</strong>, via a bundled connector that screens what comes back, and reasons only over what it retrieved. Content in your telemetry is evidence, never instructions.</li>
+<li><strong>It reaches a verdict and acts within the gate.</strong> Escalating and annotating run freely; dismissing an alert or closing a case asks you first, every time; containment is written up for you to perform.</li>
+<li><strong>Everything is on the record</strong> — the calls, the gated decision, the guardrail firings — in a local audit trail, on by default.</li>
+</ol>
+<pre class="mermaid">flowchart LR
+  A["Analyst<br/>alert · case · payload"] --> S{{"socxen skill"}}
+  S --> C["Bundled connector<br/>screen · neutralize · audit"]
+  C <--> X["Exabeam New-Scale MCP"]
+  S --> G{"Human-in-the-loop gate"}
+  G --> W["Escalate · annotate<br/>(runs freely)"]
+  G --> H["Dismiss · close<br/>(asks you first)"]
+  S --> R["Report<br/>verdict · timeline · outcome"]
+</pre>
+<h2 id="the-guardrails-in-brief">The guardrails, in brief</h2>
 <ul>
-<li>🔍 <strong>Investigates</strong> on the real Exabeam read surface — <code>search_events</code> (SIEM logs),
-  <code>search_alerts</code>/<code>search_cases</code>, threat timelines, rule details, MITRE coverage, context tables.</li>
-<li>⚖️ <strong>Decides</strong> against a disciplined bar — a false-positive close requires a <em>positive</em> benign
-  explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.</li>
-<li>🗂️ <strong>Prioritizes at fleet scale</strong> — sweeps the open queue, clusters it by attack shape, and makes the
-  urgent cases impossible to miss instead of re-triaging the same noise every shift.</li>
-<li>🔧 <strong>Tunes the source of the noise</strong> — separates high-volume-low-precision rules from high-volume-
-  high-precision ones, so the fix lands on the detection instead of on the analyst.</li>
-<li>✍️ <strong>Acts</strong> — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
-  <strong>recommends</strong> containment for you to perform in EDR/IAM (the Exabeam MCP has none).</li>
-<li>🔒 <strong>Stops where it should</strong> — dismiss/close sits behind a hard, harness-enforced approval rule;
-  containment is never executed. On Claude Code you switch that gate on during setup; on Codex it ships
-  with the plugin.</li>
-<li>🛡️ <strong>Treats telemetry as hostile</strong> — log data is attacker-influenced by construction, so socxen strips
-  hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
-  content (formulas, clickable links) <strong>and masks credentials and structured identifiers</strong> (API keys,
-  tokens, private keys, SSNs, card numbers) before they can persist into a case note or export.</li>
-<li>🧾 <strong>Logs what it did</strong> — a structured, bounded, privacy-preserving audit record of every action and
-  every time a guardrail fired, on by default. ~16 µs/event, non-blocking, local.</li>
+<li><strong>The gate ships on.</strong> A dismiss or close always asks the analyst; containment tools are refused outright; any tool the gate has not classified asks rather than runs. It holds even when the host runs with permission prompts switched off.</li>
+<li><strong>What it reads is screened.</strong> Hidden-character smuggling is stripped from telemetry before the model sees it; the connector's own tool definitions are hashed and screened too.</li>
+<li><strong>What it writes is de-activated.</strong> Spreadsheet formulas, clickable links and secrets are neutralized in anything socxen persists — case notes, updates, outbound mail.</li>
+<li><strong>What it did is recorded.</strong> Tool calls, gated decisions and guardrail firings, never case content, in <code>~/.socxen/telemetry.jsonl</code>.</li>
 </ul>
-<h2 id="setup">Setup</h2>
-<p>With the plugin installed, two one-time steps remain — <strong>connect Exabeam</strong> (drop your API key in
-<code>~/.exabeam-mcp.env</code>) and, optionally, <strong>merge the permission rules</strong> as a second lock. The setup guide does the lifting:</p>
-<h3 id="full-setup-docsinstallationmd">→ <a href="installation.html">Full setup: docs/installation.md</a></h3>
-<blockquote>
-<p>✅ <strong>The gate ships ON.</strong> On Claude Code a bundled hook asks before dismiss/close and denies containment
-the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
-ship as tool-approval policy. The permission pack below is <strong>optional</strong> — a second lock that does not
-depend on the hook. The
-<strong><a href="installation.html#governance-the-safety-gate">setup guide</a></strong> walks you
-through merging it by hand, or <code>install.sh --merge-permissions</code> will do it for you. Nothing merges by
-default and <code>-y</code> does not authorize it — the flag is the consent. The merge is additive-only, backs
-your settings file up first, and refuses if a rule already sits in a different tier.</p>
-</blockquote>
-<p>Then ask it to <em>"investigate alert &lt;id&gt;"</em> (or paste an alert/case) — or <em>"triage the queue"</em> /
-<em>"find noisy rules"</em> to reach the other two skills. The host agent routes on what you ask for.</p>
-<h2 id="documentation">Documentation</h2>
-<table>
-<thead>
-<tr>
-<th>Guide</th>
-<th>What's in it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong><a href="installation.html">Installation &amp; setup</a></strong></td>
-<td>install, Exabeam credentials, the governance gate (<strong>start here</strong>), updating</td>
-</tr>
-<tr>
-<td><strong><a href="security-guardrails.html">Security guardrails</a></strong></td>
-<td>what socxen screens for in untrusted telemetry — and what it deliberately doesn't</td>
-</tr>
-<tr>
-<td><strong><a href="logging.html">Audit logging</a></strong></td>
-<td>exactly what's recorded, where the log lives, how to control or route it</td>
-</tr>
-<tr>
-<td><strong><a href="https://github.com/open-agent-ai-security/socxen#how-its-built">Architecture</a></strong></td>
-<td>how the layers fit together — methodology, capability, authority, guardrails, evidence — and why they're separate</td>
-</tr>
-<tr>
-<td><strong><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/skills/soc-investigate/SKILL.md">Methodology</a></strong></td>
-<td>how it investigates; <code>reference/</code> has the tool map, search cookbook, enrichment playbook, report template, and worked examples (<code>reference/examples/</code>). Regression tests live in the repo's <a href="https://github.com/open-agent-ai-security/socxen/tree/main/evals"><code>evals/</code></a>.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="layout">Layout</h2>
-<pre><code>.claude-plugin/          plugin.json (Claude Code manifest — installs via open-agent-ai-security/plugins)
-.codex-plugin/           plugin.json (Codex manifest — same skills, same catalog)
-.mcp.json                bundled Exabeam MCP for Claude Code — auto-registers on install
-.mcp.codex.json          the same bridge for Codex, carrying the approval gate (generated)
-skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
-skills/triage-cases/     SKILL.md — queue sweep (shift lead)
-skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
-connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
-docs/                    installation · security-guardrails · logging
-install.sh               convenience installer, Claude Code (idempotent)
-preflight.sh             read-only diagnostics, either host agent
-</code></pre>
-<h2 id="how-its-tested">How it's tested</h2>
-<p>Claims about agent safety are worth what the testing behind them is worth, so the testing is public and
-every release is gated on it: socxen is <strong>red-teamed</strong> with prompt-injection fixtures run against a live
-model — graded on whether the attack <em>landed</em>, not on whether the model sounded cautious — and
-<strong>behavior-verified</strong> against a declared policy, with no release shipping on an open Critical finding.
-Methodology, per-run results and the known residuals:
-<strong><a href="https://github.com/open-agent-ai-security/socxen/tree/main/security">security/</a></strong>.</p>
-<h2 id="status">Status</h2>
-<p>Pre-release, for evaluation — validated end-to-end against a live Exabeam staging MCP
-(install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
-playbook, and a worked investigation. The version badge above and the
-<a href="https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md">changelog</a> track the current
-release; run <code>claude plugin list</code> (or <code>codex plugin list</code>) for your installed version. Sharing with
-testers; feedback welcome.</p>
-<p><strong>Codex support is packaged and red-team gated, not yet field-proven.</strong> The install, the bundled bridge
-and the shipped approval gate are verified end to end against <code>codex-cli</code> 0.146.0, and the red-team gate
-has run on <strong>GPT-5.6 Terra</strong> (the Sonnet-tier analogue) at <code>model_reasoning_effort = "medium"</code> — 20
-attacks × 5 trials, zero landings in the blocking classes (<code>security/redteam/HISTORY.md</code>, 2026-08-27).
-Not yet done on an OpenAI model: the routing evals, and the <strong>Sol</strong> release sweep. <strong>Luna</strong> is the
-Haiku-tier analogue and is not supported. Treat the Codex path as gated but young.</p>
-<h2 id="project-sponsor">Project sponsor</h2>
-<p>socxen is sponsored by <a href="https://www.exabeam.com/">Exabeam</a>. Exabeam contributed the initial code and
-continues to provide ongoing support and contributions to the project as part of its commitment to
-security in an increasingly agentic world.</p>
-<h2 id="license">License</h2>
-<p>Apache-2.0 — see <code>LICENSE</code> / <code>NOTICE</code>.</p></article>
-    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/README.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
+<p>Details, and the honest list of what these do not cover: <a href="security-guardrails.html">Security guardrails</a>.</p>
+<h2 id="quick-reference">Quick reference</h2>
+<ul>
+<li>Install: <code>claude plugin marketplace add open-agent-ai-security/plugins</code> then <code>claude plugin install socxen@open-agent-ai-security</code> (Codex: <code>codex plugin marketplace add …</code> / <code>codex plugin add …</code>)</li>
+<li>Credentials: <code>~/.exabeam-mcp.env</code> — the Exabeam MCP URL, API key and secret; see <a href="installation.html">Installation</a></li>
+<li>Skills: <code>soc-investigate</code> · <code>triage-cases</code> · <code>rule-tuning</code></li>
+<li>Audit trail: <code>~/.socxen/telemetry.jsonl</code> — see <a href="logging.html">Audit logging</a></li>
+<li>Check your setup: <code>preflight.sh</code> in the installed plugin — see <a href="installation.html">Installation § Preflight</a></li>
+</ul>
+<p>For version history see the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md">CHANGELOG</a>; for the release gate behind each version, <a href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md"><code>security/redteam/HISTORY.md</code></a>.</p></article>
+    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/index.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js"
+        integrity="sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF" crossorigin="anonymous"></script>
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'dark', fontFamily: '"Inter", system-ui, sans-serif',
+  themeVariables: { primaryColor: '#13233b', primaryBorderColor: '#2a3b57', primaryTextColor: '#e8eef7', lineColor: '#8aa0bd', fontSize: '14px' } });
+mermaid.run({ querySelector: '.prose pre.mermaid' });
+</script>
 </body>
 </html>

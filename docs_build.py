@@ -9,7 +9,8 @@
 
 BUILD-ONLY: not part of the shipped plugin. Mirrors praxen/docs_build.py so the sister sites read as one
 family (same left-nav shell, same theme inlined per page, same SEO/GEO head), with one difference:
-socxen's docs live in several places — the operator guide is plugin/README.md, the guides are
+socxen's docs live in several places — the docs front page is plugin/docs/index.md (the operator
+README stays on GitHub), the guides are
 plugin/docs/*.md, the methodology is each skill's SKILL.md, and the assurance record is security/ —
 so PAGES lists (source path, output name, nav label) and links are rewritten per source directory.
 The guide is USER documentation only: install, use, what happens to your data, the audit trail, and a
@@ -38,7 +39,7 @@ SITE_NAME = "socxen"
 
 # (source path from repo root, output name in guide/, nav label)
 PAGES = [
-    ("plugin/README.md",                                                            "index",               "Overview"),
+    ("plugin/docs/index.md",                                                        "index",               "Overview"),
     ("plugin/docs/installation.md",                                                 "installation",        "Installation & setup"),
     ("plugin/docs/usage.md",                                                        "usage",               "Using the skills"),
     ("plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md", "example",        "Example investigation"),
