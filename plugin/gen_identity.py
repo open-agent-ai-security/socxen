@@ -94,7 +94,9 @@ def shell_include(identity, perms):
     return "\n".join(lines) + "\n"
 
 
-DOC_GLOBS = ("README.md", "docs/**/*.md", "skills/**/*.md", "install.sh", "preflight.sh")
+DOC_GLOBS = ("README.md", "docs/**/*.md", "skills/**/*.md")      # prose: rewritten on a re-key
+SHELL_FILES = ("install.sh", "preflight.sh")                        # take their identity from identity.sh —
+                                                                    # never rewritten; a literal key fails --check
 
 
 def previous_identity():
@@ -259,6 +261,12 @@ def main(argv):
         readme = HERE / "README.md"
         if readme.exists() and (lic not in readme.read_text() or f"badge/license-{badge_slug(lic)}-" not in readme.read_text()):
             names.append("plugin/README.md (does not name this distribution's license)")
+        key = install_key(identity)
+        literal = [f for f in SHELL_FILES if (HERE / f).is_file()
+                   and re.search(rf"(?<!{_BEFORE}){re.escape(key)}(?!{_AFTER})", (HERE / f).read_text())]
+        if literal:
+            names.append(", ".join(f"plugin/{f}" for f in literal) + " (carries the install key as a literal — the shell "
+                         "scripts read the identity from identity.sh; a literal is what a re-key would leave behind)")
         if names:
             print("stale (run python3 plugin/gen_identity.py): " + ", ".join(names), file=sys.stderr)
             return 1
