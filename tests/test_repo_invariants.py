@@ -664,6 +664,42 @@ if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+def test_gen_identity_rekey_leaves_longer_identifiers_alone(tmp_path):
+    """#182 review note: the rewrite matches the previous key and repo at identifier boundaries only. A
+    longer identifier that merely starts with them (`socxen@open-agent-ai-security-dev`, a sibling
+    catalog's `open-agent-ai-security/plugins-dev`) names something else — it survives a re-key
+    byte-for-byte, and the regeneration says so."""
+    import shutil, subprocess, sys, json
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    sibling = work / "docs" / "sibling.md"
+    fixture = ("Install the real thing with `claude plugin install socxen@open-agent-ai-security`.\n"
+               "Not `socxen@open-agent-ai-security-dev`, not `xsocxen@open-agent-ai-security`, and the catalog is\n"
+               "open-agent-ai-security/plugins — never open-agent-ai-security/plugins-dev.\n"
+               "A shell default moves with the key: ${PLUGIN_KEY:-socxen@open-agent-ai-security}\n")
+    sibling.write_text(fixture)
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    after = sibling.read_text()
+    assert after == ("Install the real thing with `claude plugin install soc@exabeam`.\n"
+                     "Not `socxen@open-agent-ai-security-dev`, not `xsocxen@open-agent-ai-security`, and the catalog is\n"
+                     "Exabeam/plugins — never open-agent-ai-security/plugins-dev.\n"
+                     "A shell default moves with the key: ${PLUGIN_KEY:-soc@exabeam}\n")
+    assert "soc@exabeam-dev" not in after and "xsoc@exabeam" not in after and "Exabeam/plugins-dev" not in after
+    assert "longer identifier(s) untouched" in out and "docs/sibling.md:2" in out and "docs/sibling.md:3" in out
+    # the live instance the review found: install.sh documents its own boundary handling with a -dev key
+    installer = (work / "install.sh").read_text()
+    if "socxen@open-agent-ai-security-dev" in (ROOT / "plugin" / "install.sh").read_text():
+        assert "socxen@open-agent-ai-security-dev" in installer and "soc@exabeam-dev" not in installer
+    # and the regeneration is still idempotent and clean afterwards
+    again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "install key" not in again and sibling.read_text() == after
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
 def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):
     """#180: a vendor catalog re-keys the plugin by patching identity.json and regenerating. The guides
     then must name THAT distribution's install key and marketplace repo, not the community's — read from
