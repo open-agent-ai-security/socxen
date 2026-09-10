@@ -345,7 +345,7 @@ every call on an audit trail.</p>
 <ol>
 <li><strong>You hand it the work</strong> — an alert ID, a case ID, or a pasted payload — in your Claude Code or Codex session.</li>
 <li><strong>It gathers evidence through the Exabeam MCP</strong>, via a bundled connector that screens what comes back, and reasons only over what it retrieved. Content in your telemetry is evidence, never instructions.</li>
-<li><strong>It reaches a verdict and acts within the gate.</strong> Escalating and annotating run freely; dismissing an alert or closing a case asks you first, every time; containment is written up for you to perform.</li>
+<li><strong>It reaches a verdict and acts within the gate.</strong> Escalating and annotating pass the gate (on Codex the host still asks — Exabeam's annotation of those tools, not socxen's); dismissing an alert or closing a case asks you first, every time; containment is written up for you to perform.</li>
 <li><strong>Everything is on the record</strong> — the calls, the gated decision, the guardrail firings — in a local audit trail, on by default.</li>
 </ol>
 <pre class="mermaid">flowchart LR
@@ -353,14 +353,14 @@ every call on an audit trail.</p>
   S --> C["Bundled connector<br/>screen · neutralize · audit"]
   C <--> X["Exabeam New-Scale MCP"]
   S --> G{"Human-in-the-loop gate"}
-  G --> W["Escalate · annotate<br/>(runs freely)"]
+  G --> W["Escalate · annotate<br/>(passes the gate)"]
   G --> H["Dismiss · close<br/>(asks you first)"]
   S --> R["Report<br/>verdict · timeline · outcome"]
 </pre>
 <h2 id="the-guardrails-in-brief">The guardrails, in brief</h2>
 <ul>
 <li><strong>The gate ships on.</strong> A dismiss or close always asks the analyst; containment tools are refused outright; any tool the gate has not classified asks rather than runs. It holds even when the host runs with permission prompts switched off.</li>
-<li><strong>What it reads is screened.</strong> Hidden-character smuggling is stripped from telemetry before the model sees it; the connector's own tool definitions are hashed and screened too.</li>
+<li><strong>What it reads is screened.</strong> Hidden-character smuggling is stripped from telemetry before the model sees it; the tool definitions the Exabeam MCP hands it are hashed and screened too.</li>
 <li><strong>What it writes is de-activated.</strong> Spreadsheet formulas, clickable links and secrets are neutralized in anything socxen persists — case notes, updates, outbound mail.</li>
 <li><strong>What it did is recorded.</strong> Tool calls, gated decisions and guardrail firings, never case content, in <code>~/.socxen/telemetry.jsonl</code>.</li>
 </ul>
@@ -371,7 +371,7 @@ every call on an audit trail.</p>
 <li>Credentials: <code>~/.exabeam-mcp.env</code> — the Exabeam MCP URL, API key and secret; see <a href="installation.html">Installation</a></li>
 <li>Skills: <code>soc-investigate</code> · <code>triage-cases</code> · <code>rule-tuning</code></li>
 <li>Audit trail: <code>~/.socxen/telemetry.jsonl</code> — see <a href="logging.html">Audit logging</a></li>
-<li>Check your setup: <code>preflight.sh</code> in the installed plugin — see <a href="installation.html">Installation § Preflight</a></li>
+<li>Check your setup: <code>preflight.sh</code> in the installed plugin — see <a href="installation.html">Installation</a></li>
 </ul>
 <p>For version history see the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md">CHANGELOG</a>; for the release gate behind each version, <a href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md"><code>security/redteam/HISTORY.md</code></a>.</p></article>
     <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/index.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
@@ -382,7 +382,7 @@ every call on an audit trail.</p>
 <script>
 mermaid.initialize({ startOnLoad: false, theme: 'dark', fontFamily: '"Inter", system-ui, sans-serif',
   themeVariables: { primaryColor: '#13233b', primaryBorderColor: '#2a3b57', primaryTextColor: '#e8eef7', lineColor: '#8aa0bd', fontSize: '14px' } });
-mermaid.run({ querySelector: '.prose pre.mermaid' });
+document.fonts.ready.then(() => mermaid.run({ querySelector: '.prose pre.mermaid' }));
 </script>
 </body>
 </html>

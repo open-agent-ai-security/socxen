@@ -40,7 +40,7 @@ every call on an audit trail.
 
 1. **You hand it the work** — an alert ID, a case ID, or a pasted payload — in your Claude Code or Codex session.
 2. **It gathers evidence through the Exabeam MCP**, via a bundled connector that screens what comes back, and reasons only over what it retrieved. Content in your telemetry is evidence, never instructions.
-3. **It reaches a verdict and acts within the gate.** Escalating and annotating run freely; dismissing an alert or closing a case asks you first, every time; containment is written up for you to perform.
+3. **It reaches a verdict and acts within the gate.** Escalating and annotating pass the gate (on Codex the host still asks — Exabeam's annotation of those tools, not socxen's); dismissing an alert or closing a case asks you first, every time; containment is written up for you to perform.
 4. **Everything is on the record** — the calls, the gated decision, the guardrail firings — in a local audit trail, on by default.
 
 ```mermaid
@@ -49,7 +49,7 @@ flowchart LR
   S --> C["Bundled connector<br/>screen · neutralize · audit"]
   C <--> X["Exabeam New-Scale MCP"]
   S --> G{"Human-in-the-loop gate"}
-  G --> W["Escalate · annotate<br/>(runs freely)"]
+  G --> W["Escalate · annotate<br/>(passes the gate)"]
   G --> H["Dismiss · close<br/>(asks you first)"]
   S --> R["Report<br/>verdict · timeline · outcome"]
 ```
@@ -57,7 +57,7 @@ flowchart LR
 ## The guardrails, in brief
 
 - **The gate ships on.** A dismiss or close always asks the analyst; containment tools are refused outright; any tool the gate has not classified asks rather than runs. It holds even when the host runs with permission prompts switched off.
-- **What it reads is screened.** Hidden-character smuggling is stripped from telemetry before the model sees it; the connector's own tool definitions are hashed and screened too.
+- **What it reads is screened.** Hidden-character smuggling is stripped from telemetry before the model sees it; the tool definitions the Exabeam MCP hands it are hashed and screened too.
 - **What it writes is de-activated.** Spreadsheet formulas, clickable links and secrets are neutralized in anything socxen persists — case notes, updates, outbound mail.
 - **What it did is recorded.** Tool calls, gated decisions and guardrail firings, never case content, in `~/.socxen/telemetry.jsonl`.
 
@@ -69,6 +69,6 @@ Details, and the honest list of what these do not cover: [Security guardrails](s
 - Credentials: `~/.exabeam-mcp.env` — the Exabeam MCP URL, API key and secret; see [Installation](installation.md)
 - Skills: `soc-investigate` · `triage-cases` · `rule-tuning`
 - Audit trail: `~/.socxen/telemetry.jsonl` — see [Audit logging](logging.md)
-- Check your setup: `preflight.sh` in the installed plugin — see [Installation § Preflight](installation.md)
+- Check your setup: `preflight.sh` in the installed plugin — see [Installation](installation.md)
 
 For version history see the [CHANGELOG](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md); for the release gate behind each version, [`security/redteam/HISTORY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md).
