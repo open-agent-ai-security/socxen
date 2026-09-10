@@ -118,7 +118,7 @@ check_toolchain() {
 # a clone with the hook beside an older installed version read "gate ON" (review, 2026-09-05).
 # Prints: "on <version> <path>" | "off <version> <path>" (installed copy has no hook) | "none" | "unknown".
 installed_hook_state() {
-  local json key="${PLUGIN_KEY:-socxen@open-agent-ai-security}"
+  local json key="$PLUGIN_KEY"
   command -v claude >/dev/null 2>&1 || { printf 'unknown'; return; }
   command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
   json="$(claude plugin list --json 2>/dev/null)" || { printf 'unknown'; return; }
@@ -365,7 +365,7 @@ check_gate() {
                on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
                     ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
                off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;
-               none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY:-socxen@open-agent-ai-security}) and no permission rules are merged; install it (install.sh)" ;;
+               none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}) and no permission rules are merged; install it (install.sh)" ;;
                *)   if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
                       warn "Cannot verify the installed plugin (needs the claude CLI with 'plugin list --json' and python3). This plugin copy carries the bundled hook, but only the INSTALLED copy gates — check 'claude plugin list'"
                     else

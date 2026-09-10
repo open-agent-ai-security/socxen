@@ -20,9 +20,11 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
   default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
   Opus. Smaller models (e.g. Haiku) are **not supported** for this skill.
 
-  On **Codex**, the red-team gate has run on **GPT-5.6 Terra** at `model_reasoning_effort = "medium"`
-  (2026-08-27: zero landings in the blocking classes — see `security/redteam/HISTORY.md`). The routing
-  evals have not yet been run against an OpenAI model, and the Sol sweep has not been run.
+  On **Codex**, the red-team gate has run the **full 22-fixture corpus** on **GPT-5.6 Terra** at
+  `model_reasoning_effort = "medium"` against the 0.8.6 tree — 2026-09-06 (0 landed) and 2026-09-07
+  (110/110 resisted, 0 dead drives); see `security/redteam/HISTORY.md`. The routing evals have *not*
+  been run against an OpenAI model — `evals/run.py` has no Codex host yet — and the Sol sweep has not
+  been run.
 
   The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
   strongest at release — and map by capability, not by name:
@@ -38,14 +40,20 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
   at that level. Codex accepts `minimal | low | medium | high | xhigh`; there is no `auto`. A run at a
   different effort is a different result, so quote the effort alongside the number.
 
-  Until that run lands, treat the Codex path as *packaged, not proven* — the same conservative reading
-  you would give any un-gated release.
+  Adversarial-input coverage on Codex is therefore current with the shipped tree. What is outstanding
+  there is the **routing** corpus and the Sol sweep — so treat skill *routing* on Codex as unmeasured
+  until those land, rather than the path as a whole as un-gated.
 - **An Exabeam New-Scale API key + secret** (OAuth client-credentials), from the New-Scale platform
   (role-gated; the MCP inherits the key's access level). You wire it up in *Connect the Exabeam MCP*
   below — the skill uses read tools to gather evidence and case/alert tools to act.
 - **[`uv`](https://docs.astral.sh/uv/)** — runs the connector's bridge; it auto-installs its own Python
   dependencies, so there's nothing for you to `pip install`.
 - **Network access** for your agent's LLM provider during analysis.
+
+> **Installing from a vendor catalog?** A vendor that republishes socxen under its own name serves
+> it under *that* catalog's marketplace and plugin key, so the `marketplace add` / install commands
+> below do not apply — use the ones in that catalog's own README. Everything after installation on
+> this page (credentials, the gate, troubleshooting) applies unchanged.
 
 ## Claude Code
 
