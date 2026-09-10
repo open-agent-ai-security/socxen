@@ -700,6 +700,33 @@ def test_gen_identity_rekey_leaves_longer_identifiers_alone(tmp_path):
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
 
 
+def test_gen_identity_check_refuses_an_install_key_literal_in_the_shell_scripts(tmp_path):
+    """install.sh and preflight.sh take the identity from identity.sh (#144), so they are out of the
+    re-key rewrite (a string replacement should not be editing shipped shell); instead --check refuses
+    a literal install key in them, which is exactly what a re-key would otherwise leave behind. The
+    longer identifier install.sh documents in a comment (`…-dev`) is not a literal key."""
+    import shutil, subprocess, sys
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    pf = work / "preflight.sh"
+    pf.write_text(pf.read_text() + '\nKEY_FALLBACK="socxen@open-agent-ai-security"\n')
+    r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
+    assert r.returncode == 1 and "plugin/preflight.sh" in r.stderr and "literal" in r.stderr, r.stderr
+    assert "install.sh" not in r.stderr
+    # and a re-key leaves the shell scripts byte-identical
+    before = (work / "install.sh").read_bytes()
+    pf.write_text(pf.read_text().replace('\nKEY_FALLBACK="socxen@open-agent-ai-security"\n', ""))
+    import json
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert (work / "install.sh").read_bytes() == before and "install.sh" not in out
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
 def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
     """A vendor catalog that serves the payload under its own terms sets `license` in identity.json
     (Exabeam/plugins does: LicenseRef-Exabeam-Enterprise-Agreement). Regenerating then relicenses the
