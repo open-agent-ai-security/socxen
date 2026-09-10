@@ -35,6 +35,7 @@ and regenerates — nothing else in the payload is touched.
 Stdlib only; the payload ships this file, so an installed copy can regenerate itself.
 """
 import json
+import re
 import shlex
 import sys
 from pathlib import Path
@@ -126,20 +127,29 @@ def doc_files():
                 seen.add(f); yield f
 
 
+_AFTER = r"[A-Za-z0-9_-]"      # a character that continues an identifier: the previous key or repo followed by
+_BEFORE = r"[A-Za-z0-9_]"      # one is a longer, different name (`…-dev`) and is not ours to rewrite. A leading
+                               # hyphen is allowed: the shell's `${VAR:-default}` puts one right before a default.
+
+
 def rewrite_docs(prev, identity):
     """Replace the previous install key and marketplace repo with the current ones in the shipped prose
-    and the shell fallbacks. Exact strings only; nothing else in the prose is touched."""
+    and the shell fallbacks. Exact strings at identifier boundaries; nothing else in the prose is touched.
+    An occurrence that continues into a longer identifier (`socxen@open-agent-ai-security-dev`) names
+    something else and is left alone — and reported, so the maintainer sees what did not move."""
     subs = [(prev["key"], install_key(identity)), (prev["repo"], identity["marketplace"]["repo"])]
     subs = [(a, b) for a, b in subs if a and a != b]
-    changed = []
+    changed, kept = [], []
     for f in doc_files():
         text = f.read_text()
         new = text
         for a, b in subs:
-            new = new.replace(a, b)
+            new = re.sub(rf"(?<!{_BEFORE}){re.escape(a)}(?!{_AFTER})", lambda _m, b=b: b, new)
+            for m in re.finditer(re.escape(a), new):            # whatever remains sits inside a longer identifier
+                kept.append(f"{f.relative_to(HERE.parent)}:{new.count(chr(10), 0, m.start()) + 1}")
         if new != text:
             f.write_text(new); changed.append(f)
-    return changed
+    return changed, kept
 
 
 def build(identity, perms):
@@ -183,13 +193,14 @@ def main(argv):
         print(f"identity artifacts in sync with plugin/identity.json (name={identity['name']!r}, "
               f"prefix={prefixes(identity, perms['server'])['plugin']!r})")
         return 0
-    changed = rewrite_docs(prev, identity) if prev else []      # before identity.sh is rewritten below
+    changed, kept = rewrite_docs(prev, identity) if prev else ([], [])   # before identity.sh is rewritten below
     for k, text in want.items():
         OUT[k].write_text(text)
     n = sum(len(v) for v in json.loads(want["snippet"])["permissions"].values())
     print(f"wrote {', '.join(str(OUT[k].relative_to(HERE.parent)) for k in OUT)} — name={identity['name']!r}, "
           f"version {identity['version']}, {n} permission rules"
-          + (f"; install key {prev['key']} → {install_key(identity)} in {len(changed)} file(s)" if changed else ""))
+          + (f"; install key {prev['key']} → {install_key(identity)} in {len(changed)} file(s)" if changed else "")
+          + (f"; left {len(kept)} longer identifier(s) untouched: {', '.join(kept)}" if kept else ""))
     return 0
 
 
