@@ -92,6 +92,56 @@ def shell_include(identity, perms):
     return "\n".join(lines) + "\n"
 
 
+DOC_GLOBS = ("README.md", "docs/**/*.md", "skills/**/*.md", "install.sh", "preflight.sh")
+
+
+def previous_identity():
+    """The identity the shipped prose was last generated for: the committed identity.sh (#180).
+    A vendor catalog re-keys the plugin by patching identity.json and regenerating; the guides then
+    still name the previous distribution's install key. Reading the previous key from identity.sh lets
+    the generator rewrite exactly that key (and the marketplace repo) in the prose — a no-op for the
+    distribution that wrote it, a clean rename for a re-keyed copy, and reproducible from a fresh export."""
+    sh = OUT["shell"]
+    if not sh.exists():
+        return None
+    vals = {}
+    for line in sh.read_text().splitlines():
+        if line.startswith("SOCXEN_ID_") and "=" in line:
+            k, v = line.split("=", 1)
+            vals[k] = shlex.split(v)[0] if v else ""
+    if not all(k in vals for k in ("SOCXEN_ID_NAME", "SOCXEN_ID_MARKETPLACE_REPO", "SOCXEN_ID_MARKETPLACE_NAME")):
+        return None
+    return {"key": f"{vals['SOCXEN_ID_NAME']}@{vals['SOCXEN_ID_MARKETPLACE_NAME']}", "repo": vals["SOCXEN_ID_MARKETPLACE_REPO"]}
+
+
+def install_key(identity):
+    return f"{identity['name']}@{identity['marketplace']['name']}"
+
+
+def doc_files():
+    seen = set()
+    for g in DOC_GLOBS:
+        for f in sorted(HERE.glob(g)):
+            if f.is_file() and f not in seen and f != OUT["shell"]:
+                seen.add(f); yield f
+
+
+def rewrite_docs(prev, identity):
+    """Replace the previous install key and marketplace repo with the current ones in the shipped prose
+    and the shell fallbacks. Exact strings only; nothing else in the prose is touched."""
+    subs = [(prev["key"], install_key(identity)), (prev["repo"], identity["marketplace"]["repo"])]
+    subs = [(a, b) for a, b in subs if a and a != b]
+    changed = []
+    for f in doc_files():
+        text = f.read_text()
+        new = text
+        for a, b in subs:
+            new = new.replace(a, b)
+        if new != text:
+            f.write_text(new); changed.append(f)
+    return changed
+
+
 def build(identity, perms):
     common = {k: identity[k] for k in ("name", "version", "description", "author", "homepage", "repository", "license")}
     claude = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["claude"], "skills": "./skills/"}
@@ -121,19 +171,25 @@ def main(argv):
     check_server(identity, perms)
     want = {k: (v if isinstance(v, str) else render(v)) for k, v in build(identity, perms).items()}
     stale = [k for k, text in want.items() if (OUT[k].read_text() if OUT[k].exists() else "") != text]
+    prev = previous_identity()
     if check:
-        if stale:
-            print("stale (run python3 plugin/gen_identity.py): " + ", ".join(str(OUT[k].relative_to(HERE.parent)) for k in stale),
-                  file=sys.stderr)
+        names = [str(OUT[k].relative_to(HERE.parent)) for k in stale]
+        guide = HERE / "docs" / "installation.md"
+        if guide.exists() and install_key(identity) not in guide.read_text():
+            names.append(str(guide.relative_to(HERE.parent)) + " (does not name this distribution's install key)")
+        if names:
+            print("stale (run python3 plugin/gen_identity.py): " + ", ".join(names), file=sys.stderr)
             return 1
         print(f"identity artifacts in sync with plugin/identity.json (name={identity['name']!r}, "
               f"prefix={prefixes(identity, perms['server'])['plugin']!r})")
         return 0
+    changed = rewrite_docs(prev, identity) if prev else []      # before identity.sh is rewritten below
     for k, text in want.items():
         OUT[k].write_text(text)
     n = sum(len(v) for v in json.loads(want["snippet"])["permissions"].values())
     print(f"wrote {', '.join(str(OUT[k].relative_to(HERE.parent)) for k in OUT)} — name={identity['name']!r}, "
-          f"version {identity['version']}, {n} permission rules")
+          f"version {identity['version']}, {n} permission rules"
+          + (f"; install key {prev['key']} → {install_key(identity)} in {len(changed)} file(s)" if changed else ""))
     return 0
 
 
