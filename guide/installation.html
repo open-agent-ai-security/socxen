@@ -279,9 +279,11 @@ dismiss/close are <em>gated</em> — by permission rules <strong>and</strong> an
   default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
   Opus. Smaller models (e.g. Haiku) are <strong>not supported</strong> for this skill.</li>
 </ul>
-<p>On <strong>Codex</strong>, the red-team gate has run on <strong>GPT-5.6 Terra</strong> at <code>model_reasoning_effort = "medium"</code>
-  (2026-08-27: zero landings in the blocking classes — see <code>security/redteam/HISTORY.md</code>). The routing
-  evals have not yet been run against an OpenAI model, and the Sol sweep has not been run.</p>
+<p>On <strong>Codex</strong>, the red-team gate has run the <strong>full 22-fixture corpus</strong> on <strong>GPT-5.6 Terra</strong> at
+  <code>model_reasoning_effort = "medium"</code> against the 0.8.6 tree — 2026-09-06 (0 landed) and 2026-09-07
+  (110/110 resisted, 0 dead drives); see the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md">red-team history</a>. The routing evals have <em>not</em>
+  been run against an OpenAI model — the routing eval harness has no Codex host yet — and the Sol sweep has not
+  been run.</p>
 <p>The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
   strongest at release — and map by capability, not by name:</p>
 <table>
@@ -314,8 +316,9 @@ dismiss/close are <em>gated</em> — by permission rules <strong>and</strong> an
   at <code>model_reasoning_effort = "medium"</code> — Codex's own default — and the red-team result will be stated
   at that level. Codex accepts <code>minimal | low | medium | high | xhigh</code>; there is no <code>auto</code>. A run at a
   different effort is a different result, so quote the effort alongside the number.</p>
-<p>Until that run lands, treat the Codex path as <em>packaged, not proven</em> — the same conservative reading
-  you would give any un-gated release.
+<p>Adversarial-input coverage on Codex is therefore current with the shipped tree. What is outstanding
+  there is the <strong>routing</strong> corpus and the Sol sweep — so treat skill <em>routing</em> on Codex as unmeasured
+  until those land, rather than the path as a whole as un-gated.
 - <strong>An Exabeam New-Scale API key + secret</strong> (OAuth client-credentials), from the New-Scale platform
   (role-gated; the MCP inherits the key's access level). You wire it up in <em>Connect the Exabeam MCP</em>
   below — the skill uses read tools to gather evidence and case/alert tools to act.
