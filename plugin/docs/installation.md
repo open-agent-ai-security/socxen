@@ -50,11 +50,6 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
   dependencies, so there's nothing for you to `pip install`.
 - **Network access** for your agent's LLM provider during analysis.
 
-> **Installing from a vendor catalog?** A vendor that republishes socxen under its own name serves
-> it under *that* catalog's marketplace and plugin key, so the `marketplace add` / install commands
-> below do not apply — use the ones in that catalog's own README. Everything after installation on
-> this page (credentials, the gate, troubleshooting) applies unchanged.
-
 ## Claude Code
 
 Install from the plugin marketplace. From your terminal:
