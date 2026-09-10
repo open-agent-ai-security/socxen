@@ -662,3 +662,42 @@ def test_sbom_is_current_and_mirrors_the_lockfile():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):
+    """#180: a vendor catalog re-keys the plugin by patching identity.json and regenerating. The guides
+    then must name THAT distribution's install key and marketplace repo, not the community's — read from
+    the previously generated identity.sh, rewritten as exact strings, reproducible from a fresh export,
+    and a no-op for the distribution that wrote them."""
+    import shutil, subprocess, sys, json
+    src = ROOT / "plugin"
+    work = tmp_path / "plugin"
+    shutil.copytree(src, work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    guide = work / "docs" / "installation.md"
+    before = guide.read_text()
+    assert "socxen@open-agent-ai-security" in before and "open-agent-ai-security/plugins" in before
+    # upstream identity: regenerating changes nothing in the prose
+    subprocess.run(gen, check=True, capture_output=True, text=True)
+    assert guide.read_text() == before
+    # a re-key: name + marketplace patched, then regenerate
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
+    assert r.returncode == 1 and "install key" in r.stderr, "before regenerating, --check names the guide as stale"
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "socxen@open-agent-ai-security → soc@exabeam" in out
+    after = guide.read_text()
+    assert "soc@exabeam" in after and "Exabeam/plugins" in after
+    assert "socxen@open-agent-ai-security" not in after and "open-agent-ai-security/plugins" not in after
+    for f in ("README.md", "docs/index.md", "preflight.sh"):
+        assert "socxen@open-agent-ai-security" not in (work / f).read_text(), f
+    assert "SOCXEN_ID_NAME=soc" in (work / "identity.sh").read_text()
+    # idempotent, and --check is clean afterwards
+    again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "install key" not in again and guide.read_text() == after
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    # the prose was touched only where the key or repo appeared: the same lines changed, nothing else
+    b, a = before.splitlines(), after.splitlines()
+    assert len(b) == len(a) and all(x == y or ("open-agent-ai-security" in x) for x, y in zip(b, a))
