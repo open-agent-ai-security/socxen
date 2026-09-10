@@ -9,8 +9,8 @@
 
 BUILD-ONLY: not part of the shipped plugin. Mirrors praxen/docs_build.py so the sister sites read as one
 family (same left-nav shell, same theme inlined per page, same SEO/GEO head), with one difference:
-socxen's docs live in several places — the operator guide is plugin/README.md, the guides are
-plugin/docs/*.md, the methodology is each skill's SKILL.md, and the assurance record is security/ —
+socxen's docs live in several places — the docs front page is plugin/docs/index.md (the operator
+README stays on GitHub), the guides are plugin/docs/*.md, the methodology is each skill's SKILL.md, and the assurance record is security/ —
 so PAGES lists (source path, output name, nav label) and links are rewritten per source directory.
 The guide is USER documentation only: install, use, what happens to your data, the audit trail, and a
 worked example. Methodology (SKILL.md), the red-team program, the Praxen remit and results, the evals and
@@ -38,7 +38,7 @@ SITE_NAME = "socxen"
 
 # (source path from repo root, output name in guide/, nav label)
 PAGES = [
-    ("plugin/README.md",                                                            "index",               "Overview"),
+    ("plugin/docs/index.md",                                                        "index",               "Overview"),
     ("plugin/docs/installation.md",                                                 "installation",        "Installation & setup"),
     ("plugin/docs/usage.md",                                                        "usage",               "Using the skills"),
     ("plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md", "example",        "Example investigation"),
@@ -57,7 +57,7 @@ MERMAID_SCRIPT = f"""<script src="https://cdn.jsdelivr.net/npm/mermaid@{MERMAID_
 <script>
 mermaid.initialize({{ startOnLoad: false, theme: 'dark', fontFamily: '"Inter", system-ui, sans-serif',
   themeVariables: {{ primaryColor: '#13233b', primaryBorderColor: '#2a3b57', primaryTextColor: '#e8eef7', lineColor: '#8aa0bd', fontSize: '14px' }} }});
-mermaid.run({{ querySelector: '.prose pre.mermaid' }});
+document.fonts.ready.then(() => mermaid.run({{ querySelector: '.prose pre.mermaid' }}));
 </script>"""
 
 
@@ -222,8 +222,6 @@ def render_all():
         body, has_mermaid = render_mermaid_blocks(body)
         m = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.DOTALL)
         title = html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else label
-        if title.lower() == "socxen":                        # the Overview h1 is the site name itself
-            title = label
         nav = left_nav(out_name, onpage_toc(md.toc_tokens))
         out[f"guide/{out_name}.html"] = page_html(theme_css, title, nav, body, src, out_name, meta_description(body, label),
                                                   MERMAID_SCRIPT if has_mermaid else "")
