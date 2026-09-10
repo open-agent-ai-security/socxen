@@ -662,3 +662,158 @@ def test_sbom_is_current_and_mirrors_the_lockfile():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_gen_identity_rekey_leaves_longer_identifiers_alone(tmp_path):
+    """#182 review note: the rewrite matches the previous key and repo at identifier boundaries only. A
+    longer identifier that merely starts with them (`socxen@open-agent-ai-security-dev`, a sibling
+    catalog's `open-agent-ai-security/plugins-dev`) names something else — it survives a re-key
+    byte-for-byte, and the regeneration says so."""
+    import shutil, subprocess, sys, json
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    sibling = work / "docs" / "sibling.md"
+    fixture = ("Install the real thing with `claude plugin install socxen@open-agent-ai-security`.\n"
+               "Not `socxen@open-agent-ai-security-dev`, not `xsocxen@open-agent-ai-security`, and the catalog is\n"
+               "open-agent-ai-security/plugins — never open-agent-ai-security/plugins-dev.\n"
+               "A shell default moves with the key: ${PLUGIN_KEY:-socxen@open-agent-ai-security}\n")
+    sibling.write_text(fixture)
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    after = sibling.read_text()
+    assert after == ("Install the real thing with `claude plugin install soc@exabeam`.\n"
+                     "Not `socxen@open-agent-ai-security-dev`, not `xsocxen@open-agent-ai-security`, and the catalog is\n"
+                     "Exabeam/plugins — never open-agent-ai-security/plugins-dev.\n"
+                     "A shell default moves with the key: ${PLUGIN_KEY:-soc@exabeam}\n")
+    assert "soc@exabeam-dev" not in after and "xsoc@exabeam" not in after and "Exabeam/plugins-dev" not in after
+    assert "longer identifier(s) untouched" in out and "docs/sibling.md:2" in out and "docs/sibling.md:3" in out
+    # the live instance the review found: install.sh documents its own boundary handling with a -dev key
+    installer = (work / "install.sh").read_text()
+    if "socxen@open-agent-ai-security-dev" in (ROOT / "plugin" / "install.sh").read_text():
+        assert "socxen@open-agent-ai-security-dev" in installer and "soc@exabeam-dev" not in installer
+    # and the regeneration is still idempotent and clean afterwards
+    again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "install key" not in again and sibling.read_text() == after
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
+def test_gen_identity_check_refuses_an_install_key_literal_in_the_shell_scripts(tmp_path):
+    """install.sh and preflight.sh take the identity from identity.sh (#144), so they are out of the
+    re-key rewrite (a string replacement should not be editing shipped shell); instead --check refuses
+    a literal install key in them, which is exactly what a re-key would otherwise leave behind. The
+    longer identifier install.sh documents in a comment (`…-dev`) is not a literal key."""
+    import shutil, subprocess, sys
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    pf = work / "preflight.sh"
+    pf.write_text(pf.read_text() + '\nKEY_FALLBACK="socxen@open-agent-ai-security"\n')
+    r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
+    assert r.returncode == 1 and "plugin/preflight.sh" in r.stderr and "literal" in r.stderr, r.stderr
+    assert "install.sh" not in r.stderr
+    # and a re-key leaves the shell scripts byte-identical
+    before = (work / "install.sh").read_bytes()
+    pf.write_text(pf.read_text().replace('\nKEY_FALLBACK="socxen@open-agent-ai-security"\n', ""))
+    import json
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert (work / "install.sh").read_bytes() == before and "install.sh" not in out
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
+def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
+    """A vendor catalog that serves the payload under its own terms sets `license` in identity.json
+    (Exabeam/plugins does: LicenseRef-Exabeam-Enterprise-Agreement). Regenerating then relicenses the
+    copy in every file that states a license — each SPDX header, the README's badge and License
+    section, identity.sh, the manifests — so the copy says one thing about its terms, a license
+    scanner reads the same answer its LICENSE gives, and --check holds it there. The LICENSE text
+    itself is a catalog's whole-file overlay, not the generator's."""
+    import shutil, subprocess, sys, json
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    readme = work / "README.md"
+    old, new = "Apache-2.0", "LicenseRef-Exabeam-Enterprise-Agreement"
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("gen_identity_copy", work / "gen_identity.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)     # HERE = the copy
+
+    def headers(root):
+        out = {}
+        for f, i in mod.spdx_headers():
+            out.setdefault(i, []).append(str(f.relative_to(root)))
+        return out
+
+    before = headers(work)
+    assert set(before) == {old} and len(before[old]) >= 30, sorted(before)
+    # the README names the license only where it means this copy's license: its own SPDX header, the badge,
+    # the License section — a fourth mention would be prose the relicense must not touch; decide, then adjust
+    assert readme.read_text().count(old) == 3 and "badge/license-Apache_2.0-" in readme.read_text()
+    ident = json.loads((work / "identity.json").read_text())
+    ident["license"] = new
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
+    assert r.returncode == 1 and "SPDX header" in r.stderr and "README.md" in r.stderr, r.stderr
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert f"license {old} → {new} in" in out, out
+    after = headers(work)
+    assert set(after) == {new} and len(after[new]) == len(before[old]), sorted(after)
+    text = readme.read_text()
+    assert old not in text
+    assert f"[![License: {new}](https://img.shields.io/badge/license-LicenseRef_Exabeam_Enterprise_Agreement-blue.svg)](LICENSE)" in text
+    assert f"{new} — see `LICENSE` / `NOTICE`." in text
+    sh = (work / "identity.sh").read_text()
+    assert f"SOCXEN_ID_LICENSE={new}" in sh and f"# SPDX-License-Identifier: {new}" in sh
+    for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        assert json.loads((work / m).read_text())["license"] == new, m
+    assert (work / "LICENSE").read_text() == (ROOT / "plugin" / "LICENSE").read_text()
+    # idempotent, and --check is clean afterwards
+    again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert " → " not in again and headers(work) == after and readme.read_text() == text
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
+def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):
+    """#180: a vendor catalog re-keys the plugin by patching identity.json and regenerating. The guides
+    then must name THAT distribution's install key and marketplace repo, not the community's — read from
+    the previously generated identity.sh, rewritten as exact strings, reproducible from a fresh export,
+    and a no-op for the distribution that wrote them."""
+    import shutil, subprocess, sys, json
+    src = ROOT / "plugin"
+    work = tmp_path / "plugin"
+    shutil.copytree(src, work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    guide = work / "docs" / "installation.md"
+    before = guide.read_text()
+    assert "socxen@open-agent-ai-security" in before and "open-agent-ai-security/plugins" in before
+    # upstream identity: regenerating changes nothing in the prose
+    subprocess.run(gen, check=True, capture_output=True, text=True)
+    assert guide.read_text() == before
+    # a re-key: name + marketplace patched, then regenerate
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
+    assert r.returncode == 1 and "install key" in r.stderr, "before regenerating, --check names the guide as stale"
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "socxen@open-agent-ai-security → soc@exabeam" in out
+    after = guide.read_text()
+    assert "soc@exabeam" in after and "Exabeam/plugins" in after
+    assert "socxen@open-agent-ai-security" not in after and "open-agent-ai-security/plugins" not in after
+    for f in ("README.md", "docs/index.md", "preflight.sh"):
+        assert "socxen@open-agent-ai-security" not in (work / f).read_text(), f
+    assert "SOCXEN_ID_NAME=soc" in (work / "identity.sh").read_text()
+    # idempotent, and --check is clean afterwards
+    again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "install key" not in again and guide.read_text() == after
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    # the prose was touched only where the key or repo appeared: the same lines changed, nothing else
+    b, a = before.splitlines(), after.splitlines()
+    assert len(b) == len(a) and all(x == y or ("open-agent-ai-security" in x) for x, y in zip(b, a))
