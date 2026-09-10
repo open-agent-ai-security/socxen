@@ -4,6 +4,7 @@
 # Sourced by install.sh and preflight.sh so the identity is read without python3.
 SOCXEN_ID_NAME=socxen
 SOCXEN_ID_VERSION=0.8.6
+SOCXEN_ID_LICENSE=Apache-2.0
 SOCXEN_ID_MCP_SERVER=exabeam
 SOCXEN_ID_MARKETPLACE_REPO=open-agent-ai-security/plugins
 SOCXEN_ID_MARKETPLACE_NAME=open-agent-ai-security
