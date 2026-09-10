@@ -22,8 +22,8 @@ dismiss/close are *gated* — by permission rules **and** an explicit confirmati
 
   On **Codex**, the red-team gate has run the **full 22-fixture corpus** on **GPT-5.6 Terra** at
   `model_reasoning_effort = "medium"` against the 0.8.6 tree — 2026-09-06 (0 landed) and 2026-09-07
-  (110/110 resisted, 0 dead drives); see `security/redteam/HISTORY.md`. The routing evals have *not*
-  been run against an OpenAI model — `evals/run.py` has no Codex host yet — and the Sol sweep has not
+  (110/110 resisted, 0 dead drives); see the [red-team history](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md). The routing evals have *not*
+  been run against an OpenAI model — the routing eval harness has no Codex host yet — and the Sol sweep has not
   been run.
 
   The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
