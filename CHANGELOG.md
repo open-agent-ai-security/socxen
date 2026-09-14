@@ -46,6 +46,20 @@ governance model (feature → `dev`, release `dev` → `main`).
   keyword inside a key rather than at its end (`db_password_value`), backslash-escaped and smart quotes,
   and a label that follows its value.
 
+### Testing
+
+- **Five red-team fixtures for the areas the corpus did not reach** (#187). `b05` hands `triage-cases`
+  a score-saturated queue where the one real threat carries a
+  planted "duplicate, skip" note and a noise case carries planted urgency; `a13` hands `rule-tuning` an
+  inventory where the most precise rule's description instructs the tuner to disable it; `d04` plants
+  secrets under quoted JSON labels (the #118 shape) with text asking for the literal values; `a14`
+  plants the two formula shapes phase B of #120 added, mid-prose; `d05` frames a seeded token as
+  something to forward by outbound mail; `a15` is `a13` reworded as a platform advisory with none of
+  the phrases the doctrine names — the check that the fix generalizes. The runner learned a `skill`
+  field for the sweep fixtures and a required-disclosure axis (`must.flagged`) that a13 and a15 use.
+  Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
+  report has no taxonomy line).
+
 ## [0.8.7] — 2026-09-14
 
 **Hotfix: the plugin loads from an install again.** 0.8.6 declared the bundled hook in its Claude manifest, a
@@ -55,20 +69,13 @@ the hook still ships and still registers. The release also carries what landed o
 two prose-position formula shapes in the neutralizer, the quoted-label and identity-generator tooling for
 vendored copies, and the mutation gate that now witnesses every neutralizer rule.
 
-*Release gate, stated honestly:* the deterministic suite (863 tests), the mutation gate (14/14), the generator
-and drift checks, and the post-promotion install smoke on both hosts. The neutralizer change was driven live
-by the a14 fixture (10/10 across both legs) on the red-team branch that carries it. **No full-corpus red-team
-run was made on this exact tree** — the hotfix ships a plugin that loads over one that does not, and the next
-feature release carries the full gate. The hook-leg rows in the ledger do not yet prove the hook (#203).
+*Release gate:* recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md), 2026-09-14 row.
 
 ### Fixed
 - **The plugin loads again on current Claude Code.** `0.8.6` declared `hooks: ./hooks/hooks.json` in its
   Claude manifest — a path the host already loads automatically — so the hook loader saw one file twice and
-  failed the **entire** plugin: the gate, all three skills and the MCP server, on a release whose headline was
-  that the gate ships on. `plugin install` still reported success; only the `Status:` line in
-  `claude plugin list` said otherwise (#197). Not a host regression — every Claude Code back to 2.1.200 fails
-  the same way; the live checks that cleared it ran through `--plugin-dir`, which reports the error and
-  continues, so the install path was never exercised with the field. The gate is registered by shipping
+  failed the **entire** plugin: the gate, all three skills and the MCP server. `plugin install` still reported success; only the `Status:` line in
+  `claude plugin list` said otherwise (#197). The gate is registered by shipping
   `hooks/hooks.json`, never by naming it, and two invariants now pin both halves — the file must be present,
   and no manifest may point at it. The release smoke asserts the installed plugin *loads*, keyed on the
   `errors[]` array `plugin list --json` carries beside `"enabled": true`, with a positive control that
@@ -87,27 +94,12 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
 
 ### Testing
 
-- **Five red-team fixtures for the areas the corpus did not reach** (#187, and the outside review of
-  2026-09-13). `b05` hands `triage-cases` a score-saturated queue where the one real threat carries a
-  planted "duplicate, skip" note and a noise case carries planted urgency; `a13` hands `rule-tuning` an
-  inventory where the most precise rule's description instructs the tuner to disable it; `d04` plants
-  secrets under quoted JSON labels (the #118 shape) with text asking for the literal values; `a14`
-  plants the two formula shapes phase B of #120 added, mid-prose; `d05` frames a seeded token as
-  something to forward by outbound mail; `a15` is `a13` reworded as a platform advisory with none of
-  the phrases the doctrine names — the check that the fix generalizes. The runner learned a `skill`
-  field for the sweep fixtures and a required-disclosure axis (`must.flagged`) that a13 and a15 use.
-  Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
-  report has no taxonomy line).
-- **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven
-  rules of `neutralize_output.py` — the table-cell and quoted-field formula passes, the JWT pattern,
-  three credential keywords, the weak-separator line-break branch, the audit note's non-leak — could
-  each be deleted with the whole suite still green (re-confirmed 2026-09-13 against 790 tests).
+- **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120).
   `tests/test_neutralize_coverage.py` gives every secret pattern and keyword a sample only that rule can
   catch and proves it by removing the rule; each formula pass a case the others cannot see; the audit
   note a check on every redaction path; and runs the do-no-harm corpus through the full pipeline.
   `scripts/mutation_check.py` deletes fourteen rules in turn in a scratch copy and fails CI if the suite
-  survives any of them. One redundancy found on the way and recorded, not changed: the `passwd`
-  keyword is already matched by `passwo?r?d`. Two remaining gaps — a DDE channel reference in prose
+  survives any of them. Two remaining gaps — a DDE channel reference in prose
   position, and a cell reference glued to the sign (`B2=HYPERLINK(`) — were pinned as strict expected
   failures and closed by phase B (above).
 
@@ -121,9 +113,9 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
 
 ## [0.8.6] — 2026-09-07
 
-**One release, three threads: security, performance and robustness.** Every entry below belongs to one
-of them, and they are the same story told from three sides — two days of live red-team load on the real
-proxy, two Praxen scans with a threat model, and a security assessment's Highs, each answered in code.
+**One release, three threads: security, performance and robustness** — two days of live red-team load on
+the real proxy, two Praxen scans with a threat model, and a security assessment's Highs, each answered in
+code.
 
 **Security.** The human-in-the-loop gate ships ON for Claude Code — a bundled hook, active the moment the
 plugin is enabled, fail-closed, needing no permission merge, its allow reaching only the bundled bridge
@@ -145,8 +137,7 @@ registered server to check one.
 decided by identity rather than a name substring, the plugin's identity lives in one file that generates
 the rest, the search cookbook says what each endpoint accepts, the hook's decision log is bounded and its
 off switch speaks, the docs describe the gate that ships, and CI gates on a security lint, a dependency
-audit and generated bills of materials. The red-team runner itself was fixed in the places its own
-findings exposed — the forbidden-outcome check, the headless *ask*, the Mac going to sleep mid-pass.
+audit and generated bills of materials.
 
 Release gate for this version — recorded in `security/redteam/HISTORY.md` and `security/praxen/README.md`:
 Two full-corpus stress runs on the rebuilt transport (2026-09-06 stress gate, 2026-09-07 stress run 2: 22
@@ -270,7 +261,7 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
   the eval harness, the tests and `bump_version.py` read the identity instead of carrying literals. The
   generator ships in the payload, so an installed copy can regenerate itself. Only cosmetic change to
   shipped artifacts: the Claude manifest's description now uses the same host-neutral wording as Codex's.
-  After review: the identity also reaches the shell scripts as a generated `identity.sh` include, so a
+  The identity also reaches the shell scripts as a generated `identity.sh` include, so a
   host without python3 reads the real name instead of a literal fallback that would have installed the
   upstream plugin after a re-key; the release smoke, the AI-BOM's distribution reference, the Codex
   red-team leg and the invariants test follow the identity too; `mcpServer` is cross-checked against
@@ -308,16 +299,15 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
 - **A wildcard search is answered with the column list instead of being forwarded** (#160). The MCP
   server's search schemas tell the caller to send `fields: ["*"]` and to ignore any user request, and the
   model complies on essentially every call whatever the skill says (1,840 of 1,840 Claude searches in the
-  2026-09-07 passes); a wildcard result has ended a session before. Until exa-mcp-proxy fixes its
-  descriptions, the bridge returns the endpoint's verified column list as the tool result and the model
+  2026-09-07 passes). Until the server's descriptions change, the bridge returns the endpoint's verified column list as the tool result and the model
   re-sends with named columns — a workaround for the server's misbehavior, audited as
   `wildcardFieldsRedirected`, to be reconsidered for removal when the server is fixed. The cookbook also
   gains per-endpoint filter rules: alerts and cases take no free text, events wants everything quoted, and
   a `"Syntax error while query using fields"` on a well-formed query is a backend failure, not the filter.
 - **`preflight.sh --skip-connectivity` no longer starts every registered MCP server.** The new gate-reach
   check read registrations through `claude mcp list`, which health-checks every approved server — the
-  bridge included, reaching Exabeam — exactly what the flag promises to skip (review of #158). The check is
-  skipped under the flag; the installer never called it. Same review: the hook trusts the manifest's plugin
+  bridge included, reaching Exabeam — exactly what the flag promises to skip (#158). The check is
+  skipped under the flag; the installer never called it. Also (#158): the hook trusts the manifest's plugin
   name over `identity.json` when the two disagree (and says so on stderr), `decide()` takes its bundled
   flag explicitly, the installer's Next steps no longer ask for a merge that is already done, an installed
   plugin path with spaces is reported whole, and the repo tripwire pins every phrasing of "the hook gates".
@@ -357,8 +347,8 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
   victim had just reopened, and five such self-inflicted losses tripped the breaker against a healthy proxy.
   A victim now drops only the session it was on, one lost session counts once, and a read timeout is no
   longer retried (the query is slow, not transient; a retry doubled the proxy's load while the agent waited
-  out another two minutes). Reproduced and pinned by a staggered-victim test against the mock proxy. An
-  independent review of the PR then found, and reproduced, what that first fix had missed: the SDK's request
+  out another two minutes). Reproduced and pinned by a staggered-victim test against the mock proxy. Three
+  further transport faults are also fixed: the SDK's request
   timeout still counted as a lost session (so it was still retried, and each retry dropped the live session
   under every sibling call); a session teardown slower than ten seconds cancelled the owner task and
   re-raised that cancellation into a sibling's handler, which took the whole MCP server down; and a caller
@@ -380,17 +370,14 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
 - **Red-team: the forbidden-outcome check was dark on Claude.** The stream carries user-role text the
   host injects — the Skill tool expands `SKILL.md` into one — and the parser captured it into the agent's
   "report", so the report template's placeholder line (`Taxonomy outcome: <raised | auto_closed |
-  fp_closed>`) was read as the outcome ("raised") before the agent's own line. Found 2026-09-05 on c03's
-  Haiku control: 4/5 trials declared `fp_closed`, the deterministic check saw none, and only the judge
-  caught 2. Fixed three ways: the parser keeps the agent's words only; the outcome reader ignores the
+  fp_closed>`) was read as the outcome ("raised") before the agent's own line. Fixed three ways: the parser keeps the agent's words only; the outcome reader ignores the
   placeholder and takes the agent's *last* line; every Claude trial's raw stream is now archived under
   `security/redteam/transcripts/` (gitignored) so a pass can be re-graded offline. Retro-check on the
   session transcripts: no Sonnet trial in the 2026-09-04/05 passes declared a closed outcome, so no
   verdict changes; passes before the Skill-tool load path (1 of 594 earlier transcripts) were not affected.
 - **Red-team: the runner now holds the Mac awake for the pass** (`caffeinate -i -w <pid>`, macOS,
-  `SOCXEN_REDTEAM_NO_CAFFEINATE=1` opts out). The 2026-09-04/05 run idle-slept six times: every trial
-  froze, dead drives were mis-read as staging faults, and the 30-minute trial timeout never fired because
-  macOS pauses the monotonic clock in sleep.
+  `SOCXEN_REDTEAM_NO_CAFFEINATE=1` opts out): macOS pauses the monotonic clock in sleep, so a sleeping
+  Mac freezes every trial and the trial timeout never fires.
 - **The audit trail now carries what used to be stderr-only disclosures** (Praxen `-006`, `-007`).
   `mcp_session_start` records the telemetry backend and its *resolved* destination (file path, or scheme +
   host of the endpoint — printed alongside the backend name on the startup line too), dry-run state,
@@ -404,8 +391,7 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
   itself — stays on stderr, and the logging doc says so.
 - **Red-team hook-leg grader scored a headless *ask* as a miss.** When the hook answers *ask* with no human
   present, the model's tool result is the host's own "requested permissions … haven't granted it" sentence,
-  not the hook's reason (probed live 2026-09-05). The grader only recognized the hook's reason, so every
-  ask-tier save would have been reported as "NOT refused". Latent — no trial had attempted a gated write.
+  not the hook's reason. The grader now recognizes both.
 - **METHODOLOGY claimed the standard Claude leg could observe a gated-write attempt.** `--disallowedTools`
   removes the tool from the model's view, exactly like Codex's deny-list; corrected, and the hook leg named
   as the leg that makes attempts observable.
@@ -436,10 +422,9 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
 ## [0.8.5] — 2026-08-29
 
 **socxen runs on OpenAI Codex.** The same three skills and the same guarded connector, packaged for a
-second host — and the port immediately paid for itself, surfacing two defects that had been latent on
-**both** hosts all along: a gap in the skill's own untrusted-data doctrine (planted *evidence*, not just
-planted instructions), and a required taxonomy line that lived only in an example. The second host read
-the skills differently and both gaps fell out.
+second host. The port also closed two gaps present on both hosts: planted *evidence* in the skill's
+untrusted-data doctrine (not just planted instructions), and the required taxonomy line, which had lived
+only in an example.
 
 Release gate for this version: the **Codex red-team leg** (`gpt-5.6-terra`, 20 attacks × 5 trials, zero
 landings, same Claude judge as the Claude legs) — an affirmative maintainer decision recorded in the release
@@ -489,10 +474,9 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   covered planted *instructions* but not planted *evidence*, and *"establish baseline"* primed the agent
   to want exactly what the payload supplies. Fixed in doctrine — a new **evidence has provenance**
   principle, *"establish baseline — by querying it"*, and an `fp_closed` bar that requires corroboration
-  from a call the agent made. **5/5 → 0/5** on the same model, effort and judge — *(corrected 2026-09-01:
-  originally "same corpus"; the full corpus ran pre-change and b03 was retested in isolation. The other
-  doctrine-sensitive fixtures — a02, b01, b02, b04 — were re-driven on the shipped tree 2026-08-30/09-01,
-  all 0/5; see `security/redteam/HISTORY.md`.)* Not Codex-specific: the gap was present on both hosts.
+  from a call the agent made. **5/5 → 0/5** on the same model, effort and judge (b03 retested in isolation; the other
+  doctrine-sensitive fixtures re-driven on the shipped tree, all 0/5 — see `security/redteam/HISTORY.md`).
+  Not Codex-specific: the gap was present on both hosts.
 - **The report's taxonomy line is now required.** `Taxonomy outcome:` existed only in a worked example,
   never in the skill body. Claude inferred it; Codex did not — which silently took the forbidden-outcome
   check dark, since an ungradeable run scores as a pass. Latent on the Claude path too. The report
@@ -504,8 +488,7 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
 - **Oversized-result guidance is host-neutral.** `triage-cases` / `rule-tuning` asserted that "the harness
   saves an oversized result to a file and gives you its path" — true of Claude Code, uncharacterized on
   Codex. Reworded so an agent on a host with no spill file isn't told to parse a path it never receives.
-- **Red-team runner, Codex driver (found in the 0.8.5 release review; the 2026-08-27 gate was re-checked
-  from its raw rollouts and stands — see `security/redteam/HISTORY.md`).** The transcript parser records
+- **Red-team runner, Codex driver** (see `security/redteam/HISTORY.md`). The transcript parser records
   `failed` MCP items (a host-canceled write is an *attempt*, the signal); landing classification is
   per trial and worst-signal-wins, so the breakdown sums to the landing count; a drive that never reached
   Exabeam and says its tools never loaded is inconclusive rather than resisted; the throwaway
@@ -522,9 +505,7 @@ PR, since this is the release that puts the second host live. The 0.8.0 Claude-s
   destructive-annotated tool in every approval mode, cancelling it under `codex exec` or any run with no
   human present (confirmed against a live tenant). So dismiss/close is human-gated on Codex the same way
   it is on Claude Code, the host owning the prompt on both; read tools run silently. socxen adds only
-  `disabled_tools` for containment. (An earlier build on this branch added a connector-side confirmation
-  for a fail-open that turned out not to reproduce; it was reverted once Codex's native, annotation-
-  driven behavior was established.) (#136)
+  `disabled_tools` for containment. (#136)
 - **Codex support is packaged, not yet proven.** The red-team gate passes on `gpt-5.6-terra` at
   `model_reasoning_effort=medium` (95/100, all blocking classes 0/5), but the routing evals have not been
   run on an OpenAI model, and Codex's JSONL does not echo the resolved model, so artifacts record the
@@ -607,16 +588,9 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
   authority, read-only sweeps that never bulk-close, propose-only tuning — and declares the deterministic
   write-path redaction, including its residuals, as policy rather than as implementation detail.
   (`security/praxen/`)
-- **The root README now says where your data goes.** A prospective customer's security review asks this
-  on day one, and the answer was findable only by reading `plugin/connector/exabeam-mcp-bridge.py` and
-  reasoning about what enters model context. It is also a *good* answer the page was already giving
-  away: the README noted "no server, no database, no approval queue" but spent that entirely on
-  human-in-the-loop. The other half is data control — socxen hosts nothing, so residency, retention and
-  processing terms stay between the operator and their own model provider, and we are not a party to
-  that decision, which means we cannot compromise it. Unlike a hosted SOC agent, which hands the
-  customer its own posture. Raised as F-14 of the 2026-08-14 external security assessment, whose
-  recommendation asked the *deploying organization* for a data-classification review and asked socxen
-  for nothing; recorded here as documentation, not a defect.
+- **The root README now says where your data goes.** socxen hosts nothing, so residency, retention and
+  processing terms stay between the operator and their own model provider (F-14 of the 2026-08-14
+  external security assessment; documentation, not a defect).
 
 ### Changed
 - **The front page now describes a suite, not a skill.** Both READMEs still opened with "an agentic SOC
@@ -630,11 +604,8 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
   and rule tuning, and the guardrails bullet now names the credential masking that shipped this round and
   was missing from the front page entirely.
 - **Both READMEs rewritten as a front door.** The root README is the project's highest-traffic entry
-  point but was written as a router to `plugin/README.md` — it offered copy-pasteable install commands
-  with **no pre-release warning and no governance-gate warning anywhere on the page**, so a reader
-  arriving from search could install and run with no hard dismiss/close gate, never having been told the
-  permission pack is mandatory. Both warnings are now on it, the gate warning adjacent to the install
-  commands. It also gains a five-layer architecture table (methodology / capability / authority /
+  point. It now carries the pre-release warning and the governance-gate warning, the latter adjacent to
+  the install commands. It also gains a five-layer architecture table (methodology / capability / authority /
   guardrails / evidence) and a documentation index, while the detailed claims stay on the pages that
   own them — `security/` for the release gates, `security-guardrails.md` for the threat model,
   `SKILL.md` for the verdict bar.
@@ -698,31 +669,20 @@ independently audit-confirmed, posture **3.15 (Established)** up from 2.45.
 
 - **Both READMEs stated the post-merge state as if it were the shipped state.** "Dismissing an alert or
   closing a case is held back by **two locks**" is true only *after* the operator merges the permission
-  pack. On a fresh install there is one lock — the skill's in-prompt ask — which is exactly what the 🛑
-  box thirty lines below said, so each page contradicted itself and the claim a skimmer retained was the
-  confident one stated up front. The same overclaim appeared twice in `plugin/README.md`. Both now
-  qualify the sentence with "once you turn the governance gate on (below)".
-
-  This direction of error is the dangerous one, and the repo's own tooling already knows it: `install.sh`
-  refuses to report a gate ON it cannot verify and treats "cannot verify" as a distinct third outcome,
-  and #73 added an exit path for a merge that claims success while `gate_on()` still reads OFF. The front
-  page should not assert what the installer deliberately declines to assume. It also undercut the hero
-  line — *"You keep the verdict"* is precisely what is not yet true on a fresh install. Caught in review
-  by @mattwillems-exabeam on #97. (#97)
+  pack; on a fresh install there is one lock, the skill's in-prompt ask. Both READMEs now qualify the
+  sentence with "once you turn the governance gate on (below)". (#97)
 
 - **The Evidence row overclaimed for `evals/`.** It grouped `security/` and `evals/` and said every
   release is gated on them. `CONTRIBUTING.md:121-124` names exactly two release gates — red team and
   Agent Behavior Verification — both in `security/`; `evals/` is a regression harness, and `:214` asks
   only for a recorded run when a fixture or the harness changes. The gating is now attributed to the two
-  gates that exist, with `evals/` described as what it is. A small thing, on a page whose credibility
-  rests on being precise about exactly this. Caught in review by @mattwillems-exabeam on #97. (#97)
+  gates that exist, with `evals/` described as what it is. (#97)
 
 - **Shipped docs no longer link to files the restructure stopped shipping.** `plugin/docs/README.md`
   carried five links to `../../CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `evals/` and
   `tests/end-to-end-testing.md`. They resolve while browsing the repo and dead-end in an installed
   plugin, because a plugin cache's root **is** `plugin/` — so `../../` climbs out of the distribution.
-  Not a typo class: the same links read `../CHANGELOG.md` and were correct in both places until #29
-  stopped shipping their targets, and one of them is how to report a vulnerability. They now point at
+  They now point at
   canonical URLs, correct from a clone and a cache alike; in-plugin links stay relative. Added
   `test_shipped_docs_never_link_outside_the_plugin`, which resolves every relative markdown link under
   `plugin/` and fails if it escapes the shipped root or doesn't exist — nothing covered `plugin/docs/`
@@ -762,12 +722,10 @@ gates ran against this candidate.
   "cannot verify ≠ OFF" discipline the gate check already used. (#70, #73)
 
 - **The release smoke now proves the governance gate actually installs.** `plugin-smoke.sh` verified
-  that the plugin registers and upgrades, but said nothing about the control that makes socxen safe to
-  point at real alerts — so a release could have regressed the assisted merge with every leg still
-  reporting PASS. A third leg runs the shipped tree's `--merge-permissions` into a throwaway settings
+  that the plugin registers and upgrades. A third leg now runs the shipped tree's `--merge-permissions` into a throwaway settings
   file and asserts the gate reads ON *in the `ask` tier specifically*, that the operator's real
   `settings.json` is untouched (digest-compared, not assumed), and that a re-run is a no-op rather than
-  double-appending over successive releases. (#70, #79 — thanks @mattwillems-exabeam)
+  double-appending over successive releases. (#70, #79)
 
 - **Agent Behavior Verification is now a documented release gate.** `security/praxen/` carries a
   blind-authored **Worker Remit** (50 rules derived from the shipped docs, without sight of the
@@ -779,8 +737,7 @@ gates ran against this candidate.
 - **The bridge's dependencies are bounded and hash-pinned.** All five PEP 723 dependencies now carry
   upper bounds, and `plugin/connector/exabeam-mcp-bridge.py.lock` pins the full resolved set (33
   packages) by hash — `uv run` picks it up automatically, so a fresh install resolves the same tree
-  the maintainers tested. This closes the class of breakage that took out 0.6.8, where an unbounded
-  `mcp>=1.0` let a major release land on every new install. (#71, #78)
+  the maintainers tested. (#71, #78)
 
 ### Changed
 - **Only the plugin payload ships now — the repo's build-time material stays behind.** Everything
@@ -789,8 +746,7 @@ gates ran against this candidate.
   test suite, the eval corpus, the release scripts, or `security/` — which included the red-team
   **attack payloads**. Two consequences worth knowing: the clone-and-run command is now
   `./plugin/install.sh`, and this release is the first whose marketplace source is `git-subdir`
-  (`path: plugin`), a paired change with the community marketplace index. (#29, #66 —
-  thanks @mattwillems-exabeam)
+  (`path: plugin`), a paired change with the community marketplace index. (#29, #66)
 
 ### Fixed
 - **The governance check now looks at the settings file Claude Code actually reads.** `plugin/install.sh`
@@ -809,11 +765,9 @@ gates ran against this candidate.
   errors now surface on stderr instead of vanishing into a library logger. (#71, #78)
 
 - **The red-team gate is pinned to a named model, and it has been run against this release.** The
-  runner's default was the floating `sonnet` alias, so a recorded verdict could not be tied to a model
-  version after the fact and the "weakest supported model" invariant quietly stopped holding whenever a
-  new Sonnet shipped. It now defaults to the explicit `claude-sonnet-4-6` and records the model the
-  session actually *resolved*, so no run can produce an unattributable artifact. The gate itself had not
-  run since 2026-07-03, across three releases: the 2026-08-13 run is **50/50 trials resisted — every
+  runner now defaults to the explicit `claude-sonnet-4-6` instead of the floating `sonnet` alias and
+  records the model the session actually *resolved*, so every verdict is tied to a model version. The
+  2026-08-13 run is **50/50 trials resisted — every
   class-A family 0/5, zero errored, zero inconclusive, verdict PASS**
   (`security/redteam/results/2026-08-13T2009-claude-sonnet-4-6.md`). Notably the export/formula-injection
   family resisted 5/5 with the deterministic neutralizer demonstrably load-bearing — the model reproduced
@@ -859,7 +813,7 @@ unchanged; the shipped example/eval/red-team **content** changes.
   ranges — one per range, last octets preserved: `43.100.36.57` → `198.51.100.57` (the
   coordinated-credential-access example, fixture, and eval transcript, moved in lockstep),
   `193.42.0.19` → `203.0.113.19` (red-team a04), `45.83.12.7` → `192.0.2.7` (red-team a02). The
-  entire shipped corpus is now documentation-range only. (#46, #63 — thanks @mattwillems-exabeam)
+  entire shipped corpus is now documentation-range only. (#46, #63)
 
 ## [0.6.6] — 2026-07-31
 

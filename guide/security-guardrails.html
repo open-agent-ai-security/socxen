@@ -356,10 +356,8 @@ never qualify. socxen cannot reliably tell a legitimate
 third-party link from a disguised malicious one, so every other link is treated the same way — the small
 inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.</p>
 <p>One residual, stated rather than solved: an open redirect <em>on that host</em> passes this rule — the same
-trust you already extend to the API endpoint itself. (An earlier cut also allowed every host under the
-region domain; a region is shared by every tenant in it, so that was dropped.)</p>
+trust you already extend to the API endpoint itself.</p>
 <h2 id="what-these-guardrails-do-not-do">What these guardrails do <em>not</em> do</h2>
-<p>Keep expectations honest:</p>
 <ul>
 <li><strong>Email.</strong> <code>exabeam_send_email</code> lets socxen mail Exabeam tool output to a person, and it is
   human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to <strong>active users of your

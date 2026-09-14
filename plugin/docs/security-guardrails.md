@@ -108,12 +108,9 @@ third-party link from a disguised malicious one, so every other link is treated 
 inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
 
 One residual, stated rather than solved: an open redirect *on that host* passes this rule — the same
-trust you already extend to the API endpoint itself. (An earlier cut also allowed every host under the
-region domain; a region is shared by every tenant in it, so that was dropped.)
+trust you already extend to the API endpoint itself.
 
 ## What these guardrails do *not* do
-
-Keep expectations honest:
 
 - **Email.** `exabeam_send_email` lets socxen mail Exabeam tool output to a person, and it is
   human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to **active users of your

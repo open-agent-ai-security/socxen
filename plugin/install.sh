@@ -418,11 +418,8 @@ check_connectivity
 # Three outcomes, not two: without python3 the check CANNOT run, which must read as "cannot verify",
 # never as "gate is OFF" (that would send users re-merging a working gate).
 head2 "Governance"
-# Check and merge the settings file Claude Code will actually READ. Hardcoding
-# ~/.claude/settings.json was survivable while this block only reported the gate's state (it could
-# read a file the running Claude Code ignores, and mis-report ON — the dangerous direction); once we
-# can WRITE it, the same assumption would merge the gate into a file that never takes effect, i.e.
-# a green "gate ON" protecting nothing. CLAUDE_CONFIG_DIR relocates Claude's config dir (the release
+# Check and merge the settings file Claude Code will actually READ: a gate merged into a file the
+# running Claude Code ignores would report ON while protecting nothing. CLAUDE_CONFIG_DIR relocates Claude's config dir (the release
 # smoke script isolates whole installs with it), and SOCXEN_SETTINGS_FILE is the explicit override —
 # same escape hatch EXABEAM_ENV_FILE gives the credentials path, and what lets an automated test
 # exercise the merge without writing the operator's real settings.

@@ -4,9 +4,7 @@
 """socxen's human-in-the-loop gate for Claude Code, shipped INSIDE the plugin as a PreToolUse hook.
 
 Why this exists. Claude Code lets a plugin ship code that takes part in permission decisions, but not
-permission rules: rules are the operator's to set. Until this hook, socxen's gate on dismiss/close lived
-only in `settings.snippet.json`, inert until an operator merged it, and switched off entirely by
-`--dangerously-skip-permissions`. A PreToolUse hook is active the moment the plugin is enabled, its
+permission rules: rules are the operator's to set. A PreToolUse hook is active the moment the plugin is enabled, its
 `deny` holds even under `--dangerously-skip-permissions`, and its `ask` forces a human prompt in every
 mode and is refused when no human is present — the same posture the Codex package gets from
 `default_tools_approval_mode`. Verified live on 2026-09-04 (issue #9's two open questions).
@@ -86,7 +84,7 @@ def plugin_name(plugin_root: Path):
     it from the manifest (.claude-plugin/plugin.json), so that is the authority; identity.json is the source
     the manifest is generated from and the fallback. When both are present and disagree (an overlaid copy
     that was not regenerated), say so on stderr and trust the manifest -- silently trusting identity.json
-    would make every bundled read fall through to a prompt (review of #158). None when neither is readable,
+    would make every bundled read fall through to a prompt (#158). None when neither is readable,
     which means no server can be recognized as the bundled bridge: reads then fall through, never allow."""
     names = {}
     for rel in (".claude-plugin/plugin.json", "identity.json"):

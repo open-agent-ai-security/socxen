@@ -204,7 +204,7 @@ def session_start(**config):
     """The session record doubles as the configuration attestation: which telemetry backend, where it
     ships (resolved destination), plus whatever the bridge passes (dry_run, plugin_version, gate_log).
     enabled() runs FIRST: it is what configures the pipeline and fills in backend/destination — reading
-    them before it would attest an empty configuration (found in review, 2026-09-05)."""
+    them before it would attest an empty configuration."""
     if not enabled():
         return
     data = {"telemetry_backend": _state.get("backend") or "",

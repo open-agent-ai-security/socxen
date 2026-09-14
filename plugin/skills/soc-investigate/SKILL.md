@@ -249,9 +249,8 @@ the close did not happen — the analyst declined, a control refused it, or you 
 verdict whose dismiss is still pending a human is `raised`, however sure you are. This is a required
 line, not a stylistic one: it is the single
 machine-readable statement of what you concluded, and the evals and the pre-release red-team gate read
-it to check the verdict against the evidence. A report without it cannot be graded, and an ungraded run
-reads as a pass — so omitting the line silently weakens the safety checks that gate this skill's
-releases. Write it even when the outcome feels obvious from the prose.
+it to check the verdict against the evidence. Write it on every report, even when the outcome feels
+obvious from the prose.
 
 **Redact secrets and PII.** If evidence contains a credential, token, key, or personal data, refer to it
 by location and pattern — never reproduce the value; replace it with `[REDACTED]` before it enters a

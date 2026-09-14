@@ -243,8 +243,7 @@ PY
 # does not parse -- reported as "cannot verify", never as gate ON).
 #
 # Codex accepts every TOML spelling of the same override -- section header, dotted key, inline table,
-# quoted keys -- and four review rounds each found a spelling a regex missed (#139). So the file is
-# PARSED wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
+# quoted keys -- so the file is PARSED (#139) wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
 # approval_mode is anything but approve. The awk scan below is the fallback for a host without it.
 codex_write_override() {
   local f verdict
@@ -350,7 +349,7 @@ gate_reach_warnings() {
 check_gate_reach() {
   command -v claude >/dev/null 2>&1 || return 0
   # `claude mcp list` health-checks every approved server, i.e. it STARTS the bridge and reaches Exabeam --
-  # exactly what --skip-connectivity promises not to do (review of #158).
+  # exactly what --skip-connectivity promises not to do (#158).
   [ "${SKIP_CONN:-0}" = 1 ] && { skip "Gate-reach check skipped (--skip-connectivity: 'claude mcp list' would start every registered MCP server)"; return 0; }
   local missed
   # `claude mcp list` exits non-zero when ANY registered server fails its health check -- an ordinary state
