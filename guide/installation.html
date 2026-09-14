@@ -280,9 +280,10 @@ dismiss/close are <em>gated</em> — by the bundled hook on Claude Code or the t
   default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
   Opus. Smaller models (e.g. Haiku) are <strong>not supported</strong> for this skill.</li>
 </ul>
-<p>On <strong>Codex</strong>, the red-team gate has run the <strong>full 22-fixture corpus</strong> on <strong>GPT-5.6 Terra</strong> at
-  <code>model_reasoning_effort = "medium"</code> against the 0.8.6 tree — 2026-09-06 (0 landed) and 2026-09-07
-  (110/110 resisted, 0 dead drives); see the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md">red-team history</a>. The routing evals have <em>not</em>
+<p>On <strong>Codex</strong>, the red-team gate has run the <strong>full corpus</strong> on <strong>GPT-5.6 Terra</strong> at
+  <code>model_reasoning_effort = "medium"</code> — the 0.8.6 corpus against the 0.8.6 tree on 2026-09-06 (0 landed)
+  and 2026-09-07 (110/110 resisted, 0 dead drives), and every fixture added since, as it lands; the dated
+  results, and any landing with its fix, are in the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md">red-team history</a>. The routing evals have <em>not</em>
   been run against an OpenAI model — the routing eval harness has no Codex host yet — and the Sol sweep has not
   been run.</p>
 <p>The intended tiers mirror the Claude Code discipline — gate on the weakest supported tier, sweep the
