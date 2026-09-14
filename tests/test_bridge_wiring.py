@@ -477,3 +477,48 @@ def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
     out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad()], None, kept, failures)
     assert out[0].text == "ab\u200dcd" and [k["cp"] for k in kept] == ["U+200D"]
     assert failures == ["RuntimeError"] and isinstance(out[1], Bad)
+
+
+# ---- #174: the credentials never cross the network in the clear ------------------------------------------
+
+@pytest.mark.parametrize("url", [
+    "https://api.us-west.exabeam.cloud/mcp",
+    "HTTPS://API.EU.EXABEAM.CLOUD/mcp",              # scheme and host are case-insensitive
+    "  https://api.sg.exabeam.cloud/mcp  ",          # whitespace the env parser may leave
+    "https://mcp.internal.example:8443/mcp",         # a private deployment is still https
+    "http://127.0.0.1:8765/mcp",                     # loopback: a local mock, nothing leaves the machine
+    "http://localhost:8765/mcp",
+    "http://[::1]:8765/mcp",
+])
+def test_url_transport_check_accepts_https_and_loopback_http(url):
+    assert B.url_transport_problem(url) is None
+
+
+@pytest.mark.parametrize("url, expect", [
+    ("http://api.us-west.exabeam.cloud/mcp", "in the clear"),
+    ("http://mcp.internal.example/mcp", "in the clear"),
+    ("http://127.0.0.1.evil.example/mcp", "in the clear"),      # a host that merely STARTS like loopback is not loopback
+    ("ftp://api.us-west.exabeam.cloud/mcp", "only https://"),
+    ("api.us-west.exabeam.cloud/mcp", "no scheme or host"),       # the scheme was left off
+    ("https://", "no scheme or host"),
+    ("", "no scheme or host"),
+    ('"https://api.us-west.exabeam.cloud/mcp"', "no scheme or host"),   # quoted in the env file: never worked, now says why
+])
+def test_url_transport_check_refuses_cleartext_and_malformed(url, expect):
+    problem = B.url_transport_problem(url)
+    assert problem and expect in problem, problem
+    assert "EXABEAM_MCP_URL" in problem                        # the operator sees which setting to fix
+
+
+def test_main_refuses_to_start_on_a_cleartext_url_before_posting_anything(monkeypatch, capsys):
+    """The check runs in main(), after the missing-credentials check and before the token request, so a
+    cleartext URL is a failed server start with a one-line reason -- never a silent cleartext session."""
+    monkeypatch.setattr(B, "URL", "http://api.us-west.exabeam.cloud/mcp")
+    monkeypatch.setattr(B, "KEY", "k"); monkeypatch.setattr(B, "SECRET", "s")
+    posted = []
+    monkeypatch.setattr(B.asyncio, "run", lambda coro: posted.append(coro))   # reaching here would mean we started
+    with pytest.raises(SystemExit) as e:
+        B.main()
+    assert e.value.code == 1 and not posted
+    err = capsys.readouterr().err
+    assert "refusing to start" in err and "in the clear" in err and "traceback" not in err.lower()

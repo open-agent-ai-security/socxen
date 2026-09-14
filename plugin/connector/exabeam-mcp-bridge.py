@@ -24,6 +24,7 @@ starting the server.
 import asyncio
 from datetime import timedelta
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -63,6 +64,38 @@ def load_env(path="~/.exabeam-mcp.env"):
 
 CFG = load_env()
 URL = CFG.get("EXABEAM_MCP_URL", "")
+
+
+def _is_loopback(host):
+    """`localhost`, any 127.x.x.x, or ::1 -- a destination the credentials cannot leave the machine for."""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def url_transport_problem(url):
+    """Why this URL must not carry the credentials, or None if it may (#174, Praxen Low -008/-009).
+    The bridge posts the client id and secret to `<scheme>://<host>/auth/v1/token` and the minted bearer on
+    every call, so the scheme decides whether they cross the network in the clear. Required: `https`. The
+    one carve-out is plain `http` to a loopback host (a local mock, a developer's proxy) -- nothing leaves
+    the machine. Pure and deterministic; the message names what was configured so a typo is a one-line fix."""
+    try:
+        p = urlparse((url or "").strip())
+    except ValueError as e:
+        return f"EXABEAM_MCP_URL could not be parsed ({e}); expected https://api.<region>.exabeam.cloud/mcp"
+    scheme, host = (p.scheme or "").lower(), (p.hostname or "").lower()
+    if scheme == "https" and host:
+        return None
+    if scheme == "http" and _is_loopback(host):
+        return None                                   # loopback: the credentials never leave this machine
+    if not scheme or not host:
+        return (f"EXABEAM_MCP_URL={url!r} has no scheme or host; expected https://api.<region>.exabeam.cloud/mcp "
+                f"(the value must start with https://)")
+    return (f"EXABEAM_MCP_URL={url!r} uses {scheme}://, which would send the client id, secret and bearer token "
+            f"in the clear; only https:// is accepted (plain http is allowed to a loopback host only)")
 KEY = CFG.get("EXABEAM_API_KEY", "")
 SECRET = CFG.get("EXABEAM_API_SECRET", "")
 
@@ -1115,6 +1148,11 @@ def main():
             "EXABEAM_MCP_URL, EXABEAM_API_KEY, EXABEAM_API_SECRET "
             "(see docs/installation.md, section Credentials).\n"
         )
+        sys.exit(1)
+    problem = url_transport_problem(URL)
+    if problem:                                   # #174: never post credentials over a scheme we do not trust
+        sys.stderr.write(f"exabeam-mcp-bridge: refusing to start -- {problem}. Fix ~/.exabeam-mcp.env and "
+                         "restart the host agent (preflight.sh checks this too).\n")
         sys.exit(1)
     # Announce loudly. A dry run mistaken for a live one wastes an exercise; a live run mistaken for a
     # dry one writes to a real tenant, so this is never silent in either direction.

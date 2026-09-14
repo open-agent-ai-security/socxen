@@ -155,7 +155,29 @@ check_credentials() {
     warn "Credentials file present but missing:$missing"
     return
   fi
-  CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present)"
+  # #174: the bridge refuses to start over any scheme but https (plain http to a loopback host excepted),
+  # so say so here, before it is ever started, with the value that needs fixing.
+  local url host
+  url="$(grep -m1 '^EXABEAM_MCP_URL=' "$ENV_FILE" | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+  case "$url" in
+    https://*) ;;
+    http://*)
+      host="${url#http://}"; host="${host%%/*}"
+      case "$host" in
+        \[*\]*) host="${host%%]*}]" ;;          # bracketed IPv6: keep through the closing bracket
+        *)       host="${host%%:*}" ;;           # else drop a :port
+      esac
+      case "$host" in
+        localhost|\[::1\]) ;;
+        *) if ! printf '%s' "$host" | grep -Eq '^127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+             fail "EXABEAM_MCP_URL uses http:// to a non-loopback host (${host}) — the bridge refuses to start rather than send the client id, secret and bearer token in the clear; use https://"
+             return
+           fi ;;
+      esac ;;
+    *) fail "EXABEAM_MCP_URL must start with https:// (found: ${url:-<empty>}) — the bridge refuses to start over any other scheme"
+       return ;;
+  esac
+  CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present, https)"
   perms="$(stat -f '%A' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE" 2>/dev/null || echo '?')"
   [ "$perms" = "600" ] || warn "  $ENV_FILE is mode $perms — consider: chmod 600 $ENV_FILE"
 }
@@ -166,7 +188,7 @@ check_connectivity() {
   if [ "${SKIP_CONN:-0}" = 1 ]; then
     skip "MCP connectivity check skipped (--skip-connectivity)"
   elif [ "$CREDS_OK" = 0 ]; then
-    skip "MCP connectivity check skipped — add credentials first"
+    skip "MCP connectivity check skipped — fix the credentials file first (see above)"
   elif ! command -v uv >/dev/null 2>&1; then
     skip "MCP connectivity check skipped — uv not installed"
   elif [ ! -f "$bridge" ]; then
