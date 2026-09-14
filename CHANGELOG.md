@@ -8,7 +8,20 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.8.7] — 2026-09-14
+
+**Hotfix: the plugin loads from an install again.** 0.8.6 declared the bundled hook in its Claude manifest, a
+file the host already loads by convention, and the loader refused the whole plugin — gate, skills and MCP
+server — on both catalogs, while `plugin install` reported success. The manifest no longer names the hook;
+the hook still ships and still registers. The release also carries what landed on `dev` since 0.8.6: the
+two prose-position formula shapes in the neutralizer, the quoted-label and identity-generator tooling for
+vendored copies, and the mutation gate that now witnesses every neutralizer rule.
+
+*Release gate, stated honestly:* the deterministic suite (863 tests), the mutation gate (15/15), the generator
+and drift checks, and the post-promotion install smoke on both hosts. The neutralizer change was driven live
+by the a14 fixture (10/10 across both legs) on the red-team branch that carries it. **No full-corpus red-team
+run was made on this exact tree** — the hotfix ships a plugin that loads over one that does not, and the next
+feature release carries the full gate. The hook-leg rows in the ledger do not yet prove the hook (#203).
 
 ### Fixed
 - **The plugin loads again on current Claude Code.** `0.8.6` declared `hooks: ./hooks/hooks.json` in its
@@ -48,6 +61,15 @@ governance model (feature → `dev`, release `dev` → `main`).
   keyword is already matched by `passwo?r?d`. Two remaining gaps are pinned as strict expected
   failures for the follow-up: a DDE channel reference in prose position, and a cell reference glued to
   the sign (`B2=HYPERLINK(`).
+
+### Tooling
+
+- **A vendored copy follows its own identity** (#182, #183, #184, #185): the identity generator rewrites
+  the install key and marketplace repo in the shipped guides on a re-key (at identifier boundaries, reporting
+  what it leaves), relicenses every SPDX header, the README badge and License line, and `identity.sh` from
+  `identity.json`'s `license` field, and leaves the shell scripts out of the rewrite — a literal key in them
+  fails `--check`. The Exabeam catalog's copy becomes self-consistent about its terms at this blessing.
+- **The MCP URL must be `https`** — carried by #192 when it lands; not in this release.
 
 ## [0.8.6] — 2026-09-07
 
