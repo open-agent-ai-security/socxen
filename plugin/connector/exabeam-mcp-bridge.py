@@ -244,7 +244,7 @@ class _Upstream:
         # The session lives until `close` is set; a normal exit sends the DELETE, so a failed call never
         # leaks a proxy session the way the per-call design did (#154).
         # The task RETURNS its error (or None): a caller racing against this task reads it from the task
-        # itself, so two generations can never confuse their errors (review of #157). A cancellation is
+        # itself, so two generations can never confuse their errors (#157). A cancellation is
         # re-raised as a cancellation -- it is never handed to a caller as if it were the session's error,
         # because a bare CancelledError escaping a handler takes the whole MCP server down.
         mine = None
@@ -408,7 +408,7 @@ class _Upstream:
 
     async def tools(self):
         """The remote tool list, fetched once per process with a bounded retry -- a transient failure at
-        startup used to leave a whole session with no Exabeam tools."""
+        startup would otherwise leave the session with no Exabeam tools."""
         if self._tools is not None:
             return self._tools
         # call() retries the session open (the failure mode that stranded the a07 session); the list
@@ -520,8 +520,8 @@ _ARG_WRAPPERS = frozenset({"arg0", "arg1"})
 # WORKAROUND for the MCP server's misbehavior -- reconsider removal when exa-mcp-proxy is fixed (#160).
 # The proxy's search schemas tell the caller to send `fields: ["*"]` ("MANDATORY … IGNORE any user
 # request"), and the model complies on essentially every call whatever the skill says (measured
-# 2026-09-07: 1,840 of 1,840 Claude searches). A wildcard result has ended a session before (13.5M
-# characters). So the bridge answers a wildcard search with the endpoint's column list instead of
+# 2026-09-07: 1,840 of 1,840 Claude searches). A wildcard result can exceed 13 M
+# characters. So the bridge answers a wildcard search with the endpoint's column list instead of
 # forwarding it, and the model re-sends with named columns -- a tool RESULT, not an error, keyed on
 # exactly this argument shape and on the three search tools only. Column lists verified live 2026-09-07.
 _SEARCH_COLUMNS = {
@@ -584,7 +584,7 @@ def _wildcard_fields(name, arguments):
         if isinstance(f, list) and any(isinstance(x, str) and x.strip() == "*" for x in f):
             return True
     return False
-# The fields an update may carry in the schema but the bridge drops (review of #159: the reply and the audit
+# The fields an update may carry in the schema but the bridge drops (#159: the reply and the audit
 # record name a dropped field by ITS OWN spelling, never by the model's key text -- a key name is model text
 # too). Anything else the model sent is counted, not echoed.
 _DROPPABLE = {"alertdescription": "alertDescription", "alertname": "alertName", "tags": "tags",
@@ -1057,7 +1057,7 @@ async def call_tool(name, arguments):
                               name, retry=not is_write)
         content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
         if getattr(result, "isError", False):
-            # the tool ran upstream and FAILED: an error, not a success (it used to be flattened into one)
+            # the tool ran upstream and FAILED: an error, not a success
             stage = "upstream_tool"
             texts = [t for t, _ in (_block_text(b) for b in content) if t]
             raise _UpstreamToolError(_safe_text(" ".join(texts) or "upstream tool error"))
@@ -1073,7 +1073,7 @@ async def call_tool(name, arguments):
         if stage == "remote":
             leaf = _Leaf(e)
             # A write whose request had gone out when the session died may have committed upstream: say
-            # so, or the agent re-issues it (review of #157). Reads are retried; a write is sent once.
+            # so, or the agent re-issues it (#157). Reads are retried; a write is sent once.
             unknown = is_write and getattr(e, "socxen_sent", False)
             suffix = " — the write was sent and its outcome is unknown: verify before re-issuing" if unknown else ""
             if log_on:

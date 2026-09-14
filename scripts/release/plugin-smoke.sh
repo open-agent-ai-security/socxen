@@ -10,8 +10,7 @@
 #                    whose socxen entry pins this repo's main) + plugin install.
 #                    This is the documented install path, end to end over the network.
 #   Leg 2 (upgrade): install the PRIOR release, then marketplace update +
-#                    plugin update to the current one — the exact re-run path
-#                    that silently went stale before the #43 fix. Since the
+#                    plugin update to the current one — the re-run path (#43). Since the
 #                    in-repo marketplace was retired (#58 hard cutover), this
 #                    leg fabricates a minimal same-named marketplace manifest
 #                    inside a throwaway worktree to make the version rewind
@@ -106,10 +105,8 @@ print(f"  ok: {leg} - plugin loaded, no errors reported")
 }
 
 assert_load_check_works() {  # assert_load_check_works <config-dir> <payload-dir>
-  # Positive control: an assertion that never fires is not an assertion. Inject the field that broke
-  # 0.8.6 into the installed manifest, require assert_loads to FAIL, then restore and require it to pass.
-  # Without this the check silently rotted the day its grep stopped matching -- which is exactly how the
-  # first cut of it shipped in review.
+  # Positive control: inject a manifest field that makes the plugin fail to load (#197), require
+  # assert_loads to FAIL, then restore and require it to pass.
   local manifest="$2/.claude-plugin/plugin.json"
   [ -f "${manifest}" ] || { echo "  FAIL: positive control - no manifest at ${manifest}" >&2; exit 1; }
   cp "${manifest}" "${manifest}.smoke-bak"

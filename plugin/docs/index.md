@@ -61,7 +61,7 @@ flowchart LR
 - **What it writes is de-activated.** Spreadsheet formulas, clickable links and secrets are neutralized in anything socxen persists — case notes, updates, outbound mail.
 - **What it did is recorded.** Tool calls, gated decisions and guardrail firings, never case content, in `~/.socxen/telemetry.jsonl`.
 
-Details, and the honest list of what these do not cover: [Security guardrails](security-guardrails.md).
+Details, and what these do not cover: [Security guardrails](security-guardrails.md).
 
 ## Quick reference
 

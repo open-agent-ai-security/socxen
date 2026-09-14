@@ -23,8 +23,8 @@ when you need it.
 - **[Security guardrails](security-guardrails.md)** — the two always-on defenses against hostile content
   planted in your telemetry: screening hidden-character *smuggling* out of what socxen reads, and
   *de-activating* dangerous content (spreadsheet formulas, clickable links) in what it writes. Explains
-  why a link in a note may look "broken" (`hxxps://…[.]…`) — that's the safety measure working — and,
-  honestly, what these guardrails do **not** cover.
+  why a link in a note may look "broken" (`hxxps://…[.]…`) — that's the safety measure working — and
+  what these guardrails do **not** cover.
 
 - **[Audit logging](logging.md)** — the structured, on-by-default audit trail: exactly which fields are
   recorded (tool calls, the gated decision, guardrail firings) and which are deliberately **not** (case
