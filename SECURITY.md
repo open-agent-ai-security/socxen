@@ -17,12 +17,13 @@ document describes how to report one privately, what is in scope, and what to ex
   `plugin/skills/soc-investigate/`, `triage-cases/` and `rule-tuning/` (`SKILL.md`, `reference/`).
 - The **human-in-the-loop gate**, on both hosts: the bundled Claude Code hook
   (`plugin/hooks/gate.py`, `hooks.json`), the Codex tool-approval policy (`plugin/.mcp.codex.json`),
-  the tier file they are generated from (`plugin/skills/soc-investigate/permissions.json`), the
-  generator (`plugin/gen_identity.py`, `identity.json`), the optional permission pack
-  (`settings.snippet.json`) and the only code that *writes* to your settings file
-  (`merge_permissions.py`), and `reference/containment-tools.md` (the deny-list) — anything that
-  could silently un-gate a dismiss/close, mail or containment-class tool, let a gated call through
+  the tier file they are derived from (`plugin/skills/soc-investigate/permissions.json`) and the
+  generators (`plugin/gen_identity.py` with `identity.json`; `scripts/gen_codex_mcp.py`) — anything
+  that could silently un-gate a dismiss/close, mail or containment-class tool, let a gated call through
   headless, or regenerate a gate that doesn't take effect.
+- The **optional permission snippet** (`settings.snippet.json`), the only code that *writes* to your
+  settings file (`merge_permissions.py`), and `reference/containment-tools.md` (the deny-list) — a
+  merge that doesn't take effect, or a merged rule that loosens a tier.
 - The connector bridge `plugin/connector/exabeam-mcp-bridge.py` and its two filters — the
   **input canonicalizer** (`canonicalize.py`, including the screen over the remote's tool
   definitions) and the **output neutralizer** (`neutralize_output.py`) — plus the bridge's own
@@ -39,15 +40,18 @@ document describes how to report one privately, what is in scope, and what to ex
   `plugin/connector/exabeam-mcp-bridge.py.lock` (supply-chain integrity of what a fresh install
   resolves).
 
-Examples of in-scope issues: a prompt-injection carried in ingested alert/event
-data that flips a verdict or **bypasses the human dismiss/close gate**; hidden-character
-smuggling that survives the canonicalizer; a formula, link or credential that survives
-the neutralizer into a persisted note, update or mail; a close by another route (a
-create that lands closed, an update that overwrites analyst text); a flaw that lets
-the bridge log or leak the Exabeam OAuth token or API secret; a governance drift that
-lets a close/containment tool run un-gated, or the hook fail *open*; a way to make the
-skill claim or execute containment, or auto-close a case, without the human approval
-the model promises; a tampered install path.
+Examples of in-scope issues:
+
+- a prompt-injection carried in ingested alert/event data that flips a verdict or **bypasses the
+  human dismiss/close gate**;
+- hidden-character smuggling that survives the canonicalizer;
+- a formula, link or credential that survives the neutralizer into a persisted note, update or mail;
+- a close by another route — a create that lands closed, an update that overwrites analyst text;
+- a flaw that lets the bridge log or leak the Exabeam OAuth token or API secret;
+- a governance drift that lets a close/containment tool run un-gated, or makes the hook fail *open*;
+- a way to make the skill claim or execute containment, or auto-close a case, without the human
+  approval the model promises;
+- a tampered install path.
 
 **Out of scope:**
 

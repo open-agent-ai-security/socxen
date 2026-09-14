@@ -34,7 +34,8 @@ threat, not an edge case.
   Codex tool-approval policy, both generated from the tier file, and the in-prompt ask as the model-side
   layer beneath them. Tested with the write tools removed from the model's view (the standard leg) and
   with them offered under `--dangerously-skip-permissions` with the hook as the only thing in the way
-  (`--claude-gate hook`), the bridge dry run as the backstop on both hosts.
+  (`--claude-gate hook`, the hook leg), the bridge dry run — writes refused at the bridge, not by the
+  host — as the backstop on both hosts.
 - The **bridge guardrails** — the input canonicalizer (reads and tool definitions), the output
   neutralizer (formulas, links, secrets), updates-carry-state-only, the `create_case` refusal — on the
   content the corpus plants and the writes it provokes.
@@ -46,8 +47,9 @@ threat, not an edge case.
 
 ### Out of scope (other teams' surfaces — do not test here)
 
-- The **Claude Code platform** (CLI, sandbox, tool-execution runtime).
-- **Claude model jailbreaks in general** — only insofar as they manifest in *this* task.
+- The **Claude Code and Codex platforms** (CLI, sandbox, tool-execution runtime, the hook and
+  approval mechanisms themselves).
+- **Model jailbreaks in general** — only insofar as they manifest in *this* task.
 - The **Exabeam New-Scale platform / MCP server** and the tenant's network/infrastructure.
 - The **connector bridge's** transport and token code beyond secret-handling — reviewed and unit-tested,
   not red-teamed. (The bridge's *guardrails* are in scope above.)

@@ -24,6 +24,10 @@ configuration.
 
 <p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
 
+The two checks fail in opposite directions, on purpose. If the read-side screen hits an error, the
+result passes through unscreened and the failure is recorded — a read that fails is an investigation that
+stops. If the write-side filter hits an error, the write is refused — a raw payload must never persist.
+
 This is a safety net, not a replacement for judgment. The **[human-in-the-loop gate](installation.md#governance--the-safety-gate)**
 and your own review before you act remain the primary controls.
 

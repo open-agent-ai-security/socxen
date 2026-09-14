@@ -6,7 +6,7 @@
 # Contributing to socxen
 
 Thanks for helping improve socxen. Contributions are welcome via pull request.
-socxen is a small, safety-sensitive project — an agentic SOC-analyst skill whose
+socxen is a small, safety-sensitive project — an agentic SOC skill suite whose
 whole value is a disciplined investigation and a **human-gated** dismiss/close.
 So the bar for changes that touch the governance surface is high, and a couple of
 conventions below exist specifically to keep that gate real.
@@ -203,14 +203,16 @@ release channel**: whatever lands there reaches new installers immediately.
   ```
   These are deterministic, no-credential invariant checks; CI runs them on every
   PR and **must be green** to merge.
-- **Governance-sensitive changes get extra scrutiny.** If you touch
-  `plugin/skills/soc-investigate/settings.snippet.json`,
+- **Governance-sensitive changes get extra scrutiny.** If you touch the tier file
+  `plugin/skills/soc-investigate/permissions.json` (from which `settings.snippet.json` and
+  `.mcp.codex.json` are generated — never edit those by hand), the hook `plugin/hooks/gate.py` /
+  `hooks.json`, the generators `plugin/gen_identity.py` / `scripts/gen_codex_mcp.py`,
   `plugin/skills/soc-investigate/reference/containment-tools.md`,
   `plugin/skills/soc-investigate/reference/tool-map.md`, or the Governance section of
-  `plugin/skills/soc-investigate/SKILL.md`, keep the
-  permission tiers and the containment deny-list in sync — the invariant tests
-  enforce this (dismiss/close stays in `ask`, containment stays denied and matches
-  the doc). Call out the governance impact in your PR description.
+  `plugin/skills/soc-investigate/SKILL.md`, keep the permission tiers and the containment deny-list in
+  sync — the invariant tests enforce this (dismiss/close and mail stay in `ask`, containment stays
+  denied and matches the doc, the generated artifacts match the tier file). Call out the governance
+  impact in your PR description.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
   `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand

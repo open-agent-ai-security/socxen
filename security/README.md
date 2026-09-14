@@ -31,12 +31,15 @@ skills. The user-facing description — what each does, and the honest list of w
 **[the installation guide](../plugin/docs/installation.md#governance--the-safety-gate)**. The design
 records here say *why* each control is shaped the way it is and what was rejected on the way.
 
-| Control | What it does | Where it lives | Design record | Deterministic tests |
-|---|---|---|---|---|
-| **Human-in-the-loop gate** | Dismiss, close and outbound mail always ask a human; every containment tool is denied; an unclassified tool asks. Enforced by the host, not the model: a bundled `PreToolUse` hook on Claude Code (holds under `--dangerously-skip-permissions`; a headless *ask* is refused), tool-approval policy inside the package on Codex. The permission pack is an optional second lock. | `plugin/hooks/gate.py` + `hooks.json`; `plugin/.mcp.codex.json`; both generated from `plugin/skills/soc-investigate/permissions.json` by `plugin/gen_identity.py` | [design/human-in-the-loop-gate.md](design/human-in-the-loop-gate.md) | `tests/test_hook_gate.py`, `test_merge_permissions.py`, `test_preflight_codex_override.py`, the tier invariants in `test_repo_invariants.py` |
-| **Input canonicalizer** | Strips the invisible-Unicode smuggling layer from every tool result — and from the remote's own tool definitions, which are also hashed per session — before the model reads it. Values are never rewritten; what was stripped is reported out of band. | `plugin/connector/canonicalize.py`, wired in the bridge's read path | [design/input-canonicalizer.md](design/input-canonicalizer.md) | `tests/test_canonicalize.py`, `test_bridge_wiring.py` |
-| **Output neutralizer** | On every write, de-activates what socxen persists: formulas made inert, every link form de-fanged unless it points into the operator's own tenant, secrets and structured identifiers masked. Updates carry state only; a create that would land a case already closed is refused. | `plugin/connector/neutralize_output.py` and the write rules in `exabeam-mcp-bridge.py` | [design/output-neutralizer.md](design/output-neutralizer.md) | `tests/test_neutralize_output.py`, `test_neutralize_html.py`, `test_secret_redaction.py`, `test_bridge_wiring.py` |
-| **Audit trail** | Every call, every gate decision (including refusals) and every guardrail firing, as metadata and safe identifiers — never case content. On by default, local, bounded. | `plugin/connector/observra_logging.py`; the hook's own `~/.socxen/gate.jsonl` | [the logging guide](../plugin/docs/logging.md) | `tests/test_observra_logging.py` |
+| Control | What it does | Where it lives | Design record |
+|---|---|---|---|
+| **Human-in-the-loop gate** | Dismiss, close and outbound mail always ask a human; every containment tool is denied; an unclassified tool asks. Enforced by the host on both hosts and on by default. | `plugin/hooks/gate.py` + `hooks.json` (Claude Code); `plugin/.mcp.codex.json` (Codex); both derived from the tier file `plugin/skills/soc-investigate/permissions.json` | [design/human-in-the-loop-gate.md](design/human-in-the-loop-gate.md) |
+| **Input canonicalizer** | Strips the invisible-Unicode smuggling layer from every tool result — and from the remote's own tool definitions, which are also hashed per session — before the model reads it. Values are never rewritten; what was stripped is reported out of band. | `plugin/connector/canonicalize.py`, wired in the bridge's read path | [design/input-canonicalizer.md](design/input-canonicalizer.md) |
+| **Output neutralizer** | On every write, de-activates what socxen persists: formulas made inert, every link form defanged unless it points into the operator's own tenant, secrets and structured identifiers masked. Updates carry state only; a create that would land a case already closed is refused. | `plugin/connector/neutralize_output.py` and the write rules in `exabeam-mcp-bridge.py` | [design/output-neutralizer.md](design/output-neutralizer.md) |
+| **Audit trail** | Every call, every gate decision (including refusals) and every guardrail firing, as metadata and safe identifiers — never case content. On by default, local, bounded. | `plugin/connector/observra_logging.py`; the hook's own `~/.socxen/gate.jsonl` | [the logging guide](../plugin/docs/logging.md) |
+
+The deterministic tests behind each control are listed in its design record; the audit trail's are in
+`tests/test_observra_logging.py`.
 
 The doctrine the model follows — telemetry is evidence, never instructions; a false-positive close needs a
 positive benign explanation; containment is recommended, never executed — is in each skill's `SKILL.md`,
@@ -88,6 +91,7 @@ The generator is **deterministic** (stable `uuid5` serial; timestamp honors
 repo produces the same BOM. CI runs `--check` on every PR, so a change to the plugin
 version, connector dependencies, MCP, or governance that isn't reflected in the BOM
 fails the build. **When you bump the version or change deps, regenerate.**
+
 ## The SBOM
 
 The AI BOM says what the agent *depends on conceptually*; the SBOM says what code *actually runs*.

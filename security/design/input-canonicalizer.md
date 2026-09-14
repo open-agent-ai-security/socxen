@@ -13,49 +13,50 @@
 > which two independent reviews blocked for mutating pivotable values ([§2](#2-why-this-is-not-the-pr-31-approach)).
 > **Companion:** the write side is the [output neutralizer](output-neutralizer.md).
 
-## What shipped (authoritative — differs from the §1–§13 design intent below where they disagree)
+## What shipped (authoritative)
 
-The core landed in PR #32 and was **narrowed** on the way to what the design proposed. Where §4–§11
+The core landed in PR #32 and was **narrowed** on the way to what the design proposed. Where §1–§13
 below say otherwise, this section and the code win.
 
-- **Strip set: a curated list of ranges, not a Unicode property.** The design's `\p{Cf} ∪ \p{DI}` via
-  the `regex` library was dropped for a hand-curated set in stdlib `unicodedata`, on the do-no-harm rule:
-  a property class sweeps in characters with legitimate use inside a value. What is stripped — code
-  points with no legitimate place in a telemetry value: C0/C1 controls (except `\t \n \r`), zero-width
-  space, word joiner and the invisible math operators (`U+2060–2064`), the deprecated format controls
-  (`U+206A–206F`), bidi embeddings/overrides/isolates (`U+202A–202E`, `U+2066–2069`), the BOM
-  (`U+FEFF`), interlinear annotation (`U+FFF9–FFFB`), the tag block (`U+E0000–E007F`) and the
-  variation-selector supplement (`U+E0100–E01EF`).
-- **Kept, deliberately** (the design's §4 listed some of these as strip): ZWNJ/ZWJ, LRM/RLM/ALM, the
-  emoji variation selectors `U+FE00–FE0F`, the **soft hyphen**, the Mongolian/Khmer/Hangul-filler
-  format characters, NBSP and every other space. Each has real linguistic use; corrupting a legitimate
-  value — and breaking an exact-match pivot — is worse than missing an exotic smuggle.
-- **Invisible line and paragraph separators** (`U+2028/2029`) are normalized to a visible newline, and
-  the text is **NFC**-normalized (never NFKC). Nothing visible is rewritten.
+- **A curated list of ranges, not a Unicode property.** The design's `\p{Cf} ∪ \p{DI}` via the `regex`
+  library was dropped for a hand-curated set in stdlib `unicodedata`, on the do-no-harm rule: a property
+  class sweeps in characters with legitimate use inside a value. Corrupting a legitimate value — and
+  breaking an exact-match pivot — is worse than missing an exotic smuggle.
+
+  | | Code points | Why |
+  |---|---|---|
+  | **Stripped** | C0/C1 controls (except `\t` `\n` `\r`); zero-width space; word joiner and the invisible math operators `U+2060–2064`; the deprecated format controls `U+206A–206F`; bidi embeddings, overrides and isolates `U+202A–202E`, `U+2066–2069`; the BOM `U+FEFF`; interlinear annotation `U+FFF9–FFFB`; the tag block `U+E0000–E007F`; the variation-selector supplement `U+E0100–E01EF` | no legitimate place inside a telemetry value |
+  | **Kept** (the design's §4 listed some as strip) | ZWNJ/ZWJ; LRM/RLM/ALM; the emoji variation selectors `U+FE00–FE0F`; the soft hyphen; the Mongolian, Khmer and Hangul-filler format characters; NBSP and every other space | real linguistic use |
+  | **Normalized** | `U+2028/2029` (invisible line and paragraph separators) → a visible newline; then NFC (never NFKC) | nothing visible is rewritten |
 - **Hygiene record:** `removed` (what was stripped) and `kept` (flagged-but-kept invisibles), logged by
   the bridge **out of band** — to stderr and the audit trail — never appended to the content the model
   reads (the design's §9 decision, kept). The richer per-offset forensic record and `escapedRaw` in §9
   were **not built**; the homoglyph/mixed-script flag in §5 was **not built** (advisory and
   false-positive-prone on localized hostnames).
 - **Wired in the bridge on every tool result** — text and embedded-resource blocks — **fail-open**: a
-  block that raises passes through raw, with a stderr line and a recorded telemetry event naming the
-  exception class (Praxen 2026-09-05-006/-007), so "canonicalized clean" and "passed through unchecked"
-  are distinguishable. The design's OQ-4 (arguments) resolved *no*: reads are never argument-mutated;
-  writes are the neutralizer's.
-- **The remote's tool definitions are screened too** (#159, #164 — Praxen 2026-09-07-001, #6):
-  descriptions and schema text canonicalized once per session; a **name is never rewritten** (one
-  carrying a hidden code point is reported instead); every definition is **hashed** and the surface hash
-  recorded per session in the audit trail so a definition that changes between sessions shows up; a
-  definition that *talks to the model* (instruction-shaped phrases) is reported, never changed — the
-  skill counters it in prose. Tools the shipped tier file does not classify are treated as writes.
+  block that raises passes through raw, with the exception class on stderr and a `hygiene_screen_failed`
+  flag on the call's audit record (Praxen findings 2026-09-05-006/-007; findings are in
+  [praxen/results/](../praxen/results/)), so "canonicalized clean" and "passed through unchecked" are
+  distinguishable. The design's OQ-4 (arguments) resolved *no*: reads are never argument-mutated; writes
+  are the neutralizer's.
+- **The remote's tool definitions are screened too** (#159, #164 — Praxen finding 2026-09-07-001, #6).
+  Once per session:
+  - descriptions and schema text are canonicalized like any result;
+  - a **name is never rewritten** — one carrying a hidden code point is reported instead;
+  - every definition is **hashed**, and the surface hash is recorded in the audit trail so a definition
+    that changes between sessions shows up;
+  - a definition that *talks to the model* (instruction-shaped phrases) is reported, never changed — the
+    skill counters it in prose;
+  - a tool the shipped tier file does not classify is treated as a write.
 - **Accepted residuals** (stated in the module docstring): a kept invisible spliced into an ASCII word,
   emoji variation-selector byte channels, NBSP keyword-splitting, and NFC folding of compatibility
   singletons (`U+212A` KELVIN → K) / NFD recomposition — a rare, bounded exact-match-pivot miss. The
   fail-open direction is itself a declared residual, with a fail-closed variant tracked as #172.
 - **Verified:** `tests/test_canonicalize.py` (the clean-corpus invariant of §11 — a clean value passes
   through unchanged except NFC — plus one fixture per strip channel) and the read-path wiring in
-  `tests/test_bridge_wiring.py`; live, red-team fixtures a06–a08 (encoded, zero-width, homoglyph) on
-  every release.
+  `tests/test_bridge_wiring.py`; live, red-team fixture a07 (a zero-width-space smuggle) on every
+  release. Fixtures a06 (encoded) and a08 (homoglyph) run beside it but measure the model's handling,
+  not this control — an encoded payload has no invisible code points, and homoglyphs are kept by design.
 
 > **§1–§13 below are the original design intent (2026-08), kept for the reasoning and the references.**
 > They describe a fuller build than shipped; the section above is what runs.
