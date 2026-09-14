@@ -223,8 +223,10 @@ def build(identity, perms):
     claude = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["claude"], "skills": "./skills/"}
     # The bundled PreToolUse hook (#148) is deliberately NOT declared here. Claude Code loads
     # hooks/hooks.json from the standard path automatically, so declaring that same path makes the loader
-    # see the file twice and fail the WHOLE plugin load -- skills, MCP server and gate together (#197,
-    # observed on 2.1.269). The gate is registered by shipping the file, not by naming it. What keeps a
+    # see the file twice and fail the WHOLE plugin load -- skills, MCP server and gate together (#197).
+    # Not a host regression: every Claude Code back to 2.1.200 fails the same way. The live checks that
+    # cleared it ran through --plugin-dir, which reports the error and continues, so the install path
+    # was never exercised with the field. The gate is registered by shipping the file, not by naming it. What keeps a
     # regeneration from silently unregistering it is test_repo_invariants, which asserts the payload
     # carries hooks/hooks.json AND that no manifest names it.
     codex = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["codex"], "skills": "./skills/",

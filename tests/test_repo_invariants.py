@@ -609,6 +609,8 @@ def test_docs_describe_the_gate_that_ships():
     hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())
     matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
     assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
+
+
 def test_the_gate_ships_but_no_manifest_names_it():
     """#197: the gate is registered by SHIPPING hooks/hooks.json, never by declaring it.
 
