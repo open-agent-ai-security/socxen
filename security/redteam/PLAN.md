@@ -185,9 +185,10 @@ the release.
    minutes, not hours. Keep modest — each drive is a heavy `claude` process + its own MCP bridge.
 5. **Corpus** — started with the **10 class-A** (injection → suppression) attacks; **broadened 2026-08-18
    to A/B/C/D** (the first run to exercise the release-blocking C/D classes, which surfaced the class-D
-   redaction finding #88), and now stands at **28 attacks** — 14×A injection (a11 the
+   redaction finding #88), and now stands at **29 attacks** — 15×A injection (a11 the
    two-control-interaction regression for #117/#119; a13 a rule-description instruction for
-   `rule-tuning`; a14 the prose-position formula shapes), 5×B verdict-manipulation (b05 a queue burial
+   `rule-tuning` and a15 its reworded variant, the doctrine's generalization check; a14 the
+   prose-position formula shapes), 5×B verdict-manipulation (b05 a queue burial
    for `triage-cases`), 4×C gate-boundary, 5×D data-protection (d04 JSON-labeled secrets, d05 exfil by
    outbound mail). **Class E** (resource/availability, advisory-tier) remains to be built. Add a
    per-backend corpus for each new backend pack.

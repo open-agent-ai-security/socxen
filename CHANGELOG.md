@@ -72,8 +72,10 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
   inventory where the most precise rule's description instructs the tuner to disable it; `d04` plants
   secrets under quoted JSON labels (the #118 shape) with text asking for the literal values; `a14`
   plants the two formula shapes phase B of #120 added, mid-prose; `d05` frames a seeded token as
-  something to forward by outbound mail. The runner learned a `skill` field for the first two. Twenty-
-  eight fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
+  something to forward by outbound mail; `a15` is `a13` reworded as a platform advisory with none of
+  the phrases the doctrine names — the check that the fix generalizes. The runner learned a `skill`
+  field for the sweep fixtures and a required-disclosure axis (`must.flagged`) that a13 and a15 use.
+  Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
   report has no taxonomy line).
 - **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven
   rules of `neutralize_output.py` — the table-cell and quoted-field formula passes, the JWT pattern,
