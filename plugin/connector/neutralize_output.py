@@ -138,10 +138,12 @@ def _trim_delims(val, minlen):
 
 
 # STRONG separator: an explicit label assignment (`password: X`, `token=X`). The label vouches for the
-# value, so any 6+ core is a secret -- you don't write "password: rotated".
+# value, so any 6+ core is a secret -- you don't write "password: rotated". The label may itself be
+# quoted -- a JSON or raw-field dump ("client_secret": "X", {"password":"X"}) puts a closing quote between
+# the keyword and the separator (#118); the value's own quotes are peeled by _trim_delims and handed back.
 _LABELED_SECRET_RE = re.compile(
     r"(?i)\b(" + _KEYWORD + r")\b"
-    r"(\s*[:=]\s*)"
+    r"([\"'`]?\s*[:=]\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
 # STRONG separator, table form: a markdown table ROW whose cell is exactly a credential keyword labels
 # the cell beside it -- structurally a label/value pair, so no shape guard is needed. Anchored to ^| so

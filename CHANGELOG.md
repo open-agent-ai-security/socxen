@@ -38,6 +38,13 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
 
 ### Security
 
+- **A quoted label no longer hides a secret from the redactor** (#118). A JSON or raw-field dump —
+  `"client_secret": "…"`, `{"password":"…"}`, `'api_key': '…'` — puts a closing quote between the
+  credential keyword and the separator, and the labeled rule required the separator to follow the
+  keyword directly, so those values persisted verbatim while the same value after `client_secret:` was
+  masked. The rule now allows one quote or backtick there; the value's own quotes are peeled and handed
+  back, so the dump's structure survives. Witnessed in `tests/test_neutralize_coverage.py`, with a
+  mutation in the gate; the d04 red-team fixture drives it live.
 - **Two formula shapes the mid-line pass could not see are now neutralized** (#120, phase B). A DDE
   channel reference quoted in prose — `=cmd|'/C calc'!A0`, `=MSEXCEL|'…cmd.exe /c calc'!A1`,
   `@SUM(cmd|' /C calc'!A0)` — is the highest-severity formula payload and has no function name to

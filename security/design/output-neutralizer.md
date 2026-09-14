@@ -63,6 +63,8 @@ envelopes; the bridge looks inside them.)
    labelled field, and an earlier rule that treated it as a link corrupted hostnames in the durable record.
 3. **Markdown inline links** in every CommonMark/GFM shape (titles, padding, nesting).
 4. **Secrets and structured PII** → `[REDACTED:<kind>]`, so the report still says a credential was here.
+   A label may be quoted — the JSON and raw-field-dump forms (#118) — and the value's own quotes are
+   peeled and handed back, so the dump's structure survives.
 5. **Formulas**: quote-prefixed inert, and any URL on the formula's line defanged — including a formula
    quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell. Mid-sentence detection
    needs a known dangerous function name, so ordinary prose is never touched; two forms that have no

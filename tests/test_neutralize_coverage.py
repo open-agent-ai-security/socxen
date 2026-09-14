@@ -152,6 +152,29 @@ def test_keyword_alternative_is_load_bearing(monkeypatch, alt):
         assert VAL in out, f"{label!r} is still redacted with the {alt!r} alternative removed -- something else catches it"
 
 
+# ---- 2b. a quoted label -- JSON / raw-field dumps (#118) ----------------------------------------------------
+
+@pytest.mark.parametrize("text, expect", [
+    ('{"client_secret": "Xk9mq2Lp4Zr8vQ", "scope": "read"}', '{"client_secret": "[REDACTED:secret]", "scope": "read"}'),
+    ('{"password":"Hunter2-prod-2026"}', '{"password":"[REDACTED:secret]"}'),
+    ("dump: {'api_key': 'Xk9mq2Lp4Zr8vQ'}", "dump: {'api_key': '[REDACTED:secret]'}"),
+    ('`token`: `Xk9mq2Lp4Zr8vQ`', '`token`: `[REDACTED:secret]`'),
+], ids=["json-double", "json-tight", "python-single", "backticks"])
+def test_quoted_label_forms_are_redacted(text, expect):
+    """A JSON or raw-field dump puts a closing quote between the keyword and the separator; the value's
+    own quotes are peeled and handed back so the structure survives. Mutation: drop the optional quote."""
+    assert N.redact_secrets(text, []) == expect
+
+
+@pytest.mark.parametrize("prose", [
+    'the "token" field is documented below',            # quoted keyword, no separator: prose
+    "password: n/a",                                      # under the 6-char floor
+    '"password": "none"',                                  # quoted label, value under the 6-char floor
+])
+def test_quoted_label_does_no_harm(prose):
+    assert N.redact_secrets(prose, []) == prose
+
+
 # ---- 3. each formula pass has a witness the other passes cannot see -------------------------------------
 
 F = "=SUM(1+1)*2"      # a generic sign+name+( formula: NOT on the mid-line allowlist, so only a
