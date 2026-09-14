@@ -102,7 +102,7 @@ if errs:
         print(f"    {str(e)[:200]}", file=sys.stderr)
     raise SystemExit(1)
 print(f"  ok: {leg} - plugin loaded, no errors reported")
-' || exit 1
+' || return 1   # return, not exit: the positive control calls this inside an `if` and needs the false, not the script's death
 }
 
 assert_load_check_works() {  # assert_load_check_works <config-dir> <payload-dir>
