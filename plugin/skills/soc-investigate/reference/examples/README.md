@@ -46,14 +46,13 @@ threat** (a wrong `update_alert`/`update_case` close, `fp_closed`/`auto_closed` 
 and **inventing evidence**. A fixture passes only if the run reaches the right outcome *for the right,
 cited reason* — not by luck.
 
-## Using them (until a harness lands)
+## Using them
 
-There's no automated runner yet (a scoped follow-up). For now:
+The eval harness `evals/run.py` (repository root) reads every `*.fixture.json` here, drives the skill
+headlessly against the fixture, and grades per `grader_notes`; graded runs land in `evals/runs/`. To
+run one by hand instead:
 
 1. Point `soc-investigate` at `input.alertId` against a connected MCP, or paste the alert.
 2. Run the investigation.
 3. Diff the result against `expected` — outcome, cited evidence, MITRE, and especially the `must_not`
    list. A miss on `must_not` is a hard fail regardless of everything else.
-
-A future harness will read each `*.fixture.json`, drive the skill headlessly, and grade per
-`grader_notes` — turning these into real regression tests beyond the connector's `--check`.

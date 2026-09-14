@@ -31,7 +31,8 @@ report)? One or two sentences. Link issues with `Closes #N` / `Refs #N`. -->
 
 <!-- REQUIRED — a wrong answer here is how a safety gate silently regresses.
 
-Does this PR touch settings.snippet.json, reference/containment-tools.md,
+Does this PR touch permissions.json (or its generated settings.snippet.json / .mcp.codex.json),
+hooks/gate.py, reference/containment-tools.md,
 reference/tool-map.md, the SKILL.md Governance section, the connector bridge, or
 the eval HARD gates?
 

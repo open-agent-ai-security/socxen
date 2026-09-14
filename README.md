@@ -21,7 +21,7 @@ both — named for the person whose job they do:
 |---|---|---|
 | **`soc-investigate`** | the analyst | Takes one Exabeam New-Scale alert or case from first look to written verdict — pulls the underlying events, pivots on the entities it finds, weighs the activity against what is normal for them, tests a benign explanation against a malicious one, and writes up its reasoning with the evidence behind it. Then it acts: opens or updates a case, writes notes, escalates. |
 | **`triage-cases`** | the shift lead | Sweeps the open queue instead of one case — clusters by attack shape, ranks by corroborated signal rather than risk score alone, and hands back a short "start here" list plus the noise worth tuning. Read-only across the sweep; it never closes in bulk. |
-| **`rule-tuning`** | the detection engineer | Finds the rules quietly wasting analyst attention — *noisy*, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: the MCP's rule-write tool is denied on both hosts, and that is deliberate. |
+| **`rule-tuning`** | the detection engineer | Finds the rules quietly wasting analyst attention — *noisy*, not merely loud — and proposes the specific change, mapped to real Exabeam mechanics. Propose-only: the MCP's rule-write tools are denied on both hosts, and that is deliberate. |
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
@@ -62,7 +62,7 @@ On Codex that's the whole install — the approval gate travels inside the packa
 step. The rest of this section is the **Claude Code** gate:
 
 > The gate ships ON, and the reads run without a prompt — the hook allows them. You do **not** need to
-> merge the permission pack; it is an optional second lock that does not depend on the hook (wire a
+> merge the permission snippet; it is an optional second lock that does not depend on the hook (wire a
 > manual server as `exabeam` — neither layer recognizes another name):
 >
 > ```bash
@@ -94,7 +94,7 @@ access is not, by itself, something you can let near a SOC queue.
 |---|---|---|
 | **Methodology** | [`skills/`](plugin/skills/) | the *procedures* — [`soc-investigate`](plugin/skills/soc-investigate/SKILL.md) (entity pivots, baselining, competing hypotheses, an evidence bar, stopping conditions, an action matrix), [`triage-cases`](plugin/skills/triage-cases/SKILL.md) and [`rule-tuning`](plugin/skills/rule-tuning/SKILL.md), sharing one safety spine |
 | **Capability** | [`.mcp.json`](plugin/.mcp.json) · [`.mcp.codex.json`](plugin/.mcp.codex.json) | the Exabeam New-Scale MCP — SIEM search, alerts and cases, threat timelines, rule and MITRE context — bundled for each host |
-| **Authority** | [`settings.snippet.json`](plugin/skills/soc-investigate/settings.snippet.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: on Claude Code a bundled hook reads these tiers (the permission pack is an optional second lock); Codex carries the same tiers inside the package, generated from this file and pinned so the two hosts' gates can't drift |
+| **Authority** | [`permissions.json`](plugin/skills/soc-investigate/permissions.json) | which calls run unattended, which stop for a human, which are denied outright — **enforced by the host agent, not by the model**: on Claude Code a bundled hook reads these tiers (the permission snippet, generated from the same file, is an optional second lock); Codex carries the same tiers inside the package, derived from this file and pinned so the two hosts' gates can't drift |
 | **Guardrails** | [`connector/`](plugin/connector/) | a local bridge that treats telemetry as hostile input, and writes an audit trail |
 | **Evidence** | [`security/`](security/) · [`evals/`](evals/) | red-team program and agent-behavior verification — **every release is gated on both** — plus the AI BOM and the SBOM, and the regression harness in `evals/` |
 

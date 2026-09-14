@@ -50,9 +50,9 @@ Each hands off to the others: a single case to `soc-investigate`, a noise cluste
   high-precision ones, so the fix lands on the detection instead of on the analyst.
 - ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
   **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
-- 🔒 **Stops where it should** — dismiss/close sits behind a hard, harness-enforced approval rule;
-  containment is never executed. On Claude Code you switch that gate on during setup; on Codex it ships
-  with the plugin.
+- 🔒 **Stops where it should** — dismiss/close sits behind a hard, host-enforced approval gate that
+  **ships on**: a bundled hook on Claude Code (it holds even under `--dangerously-skip-permissions`),
+  tool-approval policy inside the package on Codex. Containment is never executed. No settings to edit.
 - 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
   hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
   content (formulas, clickable links) **and masks credentials and structured identifiers** (API keys,
@@ -95,8 +95,12 @@ Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or 
 .claude-plugin/          plugin.json (Claude Code manifest — installs via open-agent-ai-security/plugins)
 .codex-plugin/           plugin.json (Codex manifest — same skills, same catalog)
 .mcp.json                bundled Exabeam MCP for Claude Code — auto-registers on install
-.mcp.codex.json          the same bridge for Codex, carrying the approval gate (generated)
-skills/soc-investigate/  SKILL.md, settings.snippet.json (governance), reference/
+.mcp.codex.json          the same bridge for Codex, carrying the tool-approval policy (generated from the snippet)
+hooks/                   gate.py + hooks.json — the human-in-the-loop gate for Claude Code, on the moment the plugin is enabled
+identity.json            the one source of the plugin's name, marketplace, license and version
+gen_identity.py          regenerates both manifests, the permission snippet and identity.sh from it
+identity.sh              the identity for the shell scripts (generated)
+skills/soc-investigate/  SKILL.md, permissions.json (the tier file), settings.snippet.json (the optional permission snippet, generated), reference/
 skills/triage-cases/     SKILL.md — queue sweep (shift lead)
 skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
 connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)

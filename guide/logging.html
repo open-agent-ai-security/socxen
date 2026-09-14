@@ -475,7 +475,8 @@ counted, not announced. The security guardrails are independent and keep running
 <code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human approves it — so the write
 event is evidence the approval happened. It does <strong>not</strong> yet capture a distinct <em>approver-identity</em> event
 (who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
-Claude Code's permission rules, or Codex's tool-approval modes. An explicit approval event would be added
+the prompt the bundled hook raises on Claude Code (its own <code>gate.jsonl</code> records the decision, not who
+answered), or Codex's tool-approval modes. An explicit approval event would be added
 via a host-side post-tool hook feeding the same log.</p></article>
     <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/logging.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>

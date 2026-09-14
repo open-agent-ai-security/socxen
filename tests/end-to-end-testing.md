@@ -13,7 +13,7 @@ The one fact that trips everyone up:
 
 > **The live Exabeam MCP runs from the _installed plugin cache_, not your working tree.** It's a
 > long-lived stdio bridge process started at session launch from
-> `~/.claude/plugins/cache/socxen/socxen/<version>/connector/`. Editing `plugin/connector/` in your repo changes
+> `~/.claude/plugins/cache/open-agent-ai-security/socxen/<version>/connector/`. Editing `plugin/connector/` in your repo changes
 > **nothing** about the process that's already running.
 
 So a real end-to-end test has two non-negotiables:
@@ -52,7 +52,7 @@ The already-running MCP is fine.
    (`mcp`, `httpx`, `certifi`, `observra`, `typing_extensions`) and confirms it connects — catching a
    broken bridge *now* instead of after the restart:
    ```bash
-   uv run --quiet "$CACHE/exabeam-mcp-bridge.py" --check   # expect: "connected … 20 Exabeam tools available"
+   uv run --quiet "$CACHE/exabeam-mcp-bridge.py" --check   # expect: "connected … N Exabeam tools available"
    ```
    (`Session termination failed: 404` is a benign teardown warning, not a failure.)
 
@@ -65,7 +65,7 @@ The already-running MCP is fine.
 
 6. **Restore afterward** so you aren't silently running patched code:
    ```bash
-   claude plugin update socxen        # re-fetches the released version
+   claude plugin update socxen@open-agent-ai-security   # re-fetches the released version
    # or: mv "$CACHE/exabeam-mcp-bridge.py.bak" "$CACHE/exabeam-mcp-bridge.py" && rm "$CACHE"/{canonicalize,neutralize_output,observra_logging}.py
    ```
 

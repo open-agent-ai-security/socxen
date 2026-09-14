@@ -3,36 +3,63 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# Design Spec — Input Telemetry Canonicalizer
+# Design record — Input Telemetry Canonicalizer
 
-> **Status:** Draft. **Core implemented** in PR [#32](https://github.com/open-agent-ai-security/socxen/pull/32) (see *What's built* below); the fuller design is intent. **Addresses:** RFE [#2](https://github.com/open-agent-ai-security/socxen/issues/2) (code-layer half — "pre-filter high-risk free-text fields before they enter reasoning context"). **Supersedes:** the inbound-*defang* approach in PR [#31](https://github.com/open-agent-ai-security/socxen/pull/31), which two independent reviews blocked for mutating pivotable values (see [§2](#2-why-this-is-not-the-pr-31-approach)). **Companion:** the a10 export-injection fix moves to *output-side* neutralization (Option A), specified separately.
+> **Status:** Shipped and wired; this header is current with the code as of 0.8.6. The authoritative
+> statement of behaviour is `plugin/connector/canonicalize.py` (87 lines, stdlib only) and the read path
+> in `plugin/connector/exabeam-mcp-bridge.py`. The user-facing description is
+> [the guardrails page](../../plugin/docs/security-guardrails.md#1-screening-what-socxen-reads-hidden-character-smuggling).
+> **Addresses:** RFE #2 (the code-layer half). **Supersedes:** the inbound-*defang* approach in PR #31,
+> which two independent reviews blocked for mutating pivotable values ([§2](#2-why-this-is-not-the-pr-31-approach)).
+> **Companion:** the write side is the [output neutralizer](output-neutralizer.md).
 
-## What's built vs. deferred (authoritative — PR #32)
+## What shipped (authoritative)
 
-The **shipped core** (`plugin/connector/canonicalize.py`, ~110 lines, one dependency: `regex`) is deliberately narrow:
+The core landed in PR #32 and was **narrowed** on the way to what the design proposed. Where §1–§13
+below say otherwise, this section and the code win.
 
-- **Strip** the invisible/format layer — `regex` `\p{Cf} ∪ \p{Default_Ignorable_Code_Point} ∪ \p{Cc} ∪ \p{Cs}`,
-  minus `\t\n\r` and the carve-out kept for legit text (ZWJ/ZWNJ, LRM/RLM/ALM, emoji variation selectors
-  `FE00–FE0F`). Using Unicode *properties* (not a hand-list) is what makes it complete; **both `Cf` and `DI`
-  are required** — each omits invisibles the other catches (DI misses Arabic/Syriac/interlinear `Cf` format
-  controls; `Cf` misses the DI Mn/Lo invisibles like variation selectors, CGJ, Hangul fillers).
-- **NFC-normalize** (never NFKC — that would mutate pivotable values).
-- **Flag `obfuscated-ascii`** — a kept invisible/blank (or `U+2800` Braille blank) spliced into an
-  otherwise-ASCII word (keyword-splitting smuggle). Legit Persian/Indic/emoji stay clean.
-- Return a **minimal hygiene record**: `removed` (code points) + `flagged` + `counts`.
+- **A curated list of ranges, not a Unicode property.** The design's `\p{Cf} ∪ \p{DI}` via the `regex`
+  library was dropped for a hand-curated set in stdlib `unicodedata`, on the do-no-harm rule: a property
+  class sweeps in characters with legitimate use inside a value. Corrupting a legitimate value — and
+  breaking an exact-match pivot — is worse than missing an exotic smuggle.
 
-**Deferred — deliberately not in the core:**
-- **Homoglyph / mixed-script detection.** Advisory, and false-positive-prone on legit localized
-  filenames/hostnames (`процесс.exe`, `北京-server01`); doing it right needs UTS #39 restriction levels. A
-  separate deliberate feature — not part of this smuggling-layer core.
-- **The rich forensic record** — per-offset escaped-raw reconstruction, byte offsets, severity, sentinel
-  transport (§9). Built when the canonicalizer is wired into the bridge.
-- **Bridge wiring** — hygiene transport (OQ-6), argument handling (OQ-4), the a10 output-side boundary
-  (OQ-8); gated on the Option-A spec. (Also then: add `regex` to the bridge's PEP-723 header + regenerate the AI BOM.)
+  | | Code points | Why |
+  |---|---|---|
+  | **Stripped** | C0/C1 controls (except `\t` `\n` `\r`); zero-width space; word joiner and the invisible math operators `U+2060–2064`; the deprecated format controls `U+206A–206F`; bidi embeddings, overrides and isolates `U+202A–202E`, `U+2066–2069`; the BOM `U+FEFF`; interlinear annotation `U+FFF9–FFFB`; the tag block `U+E0000–E007F`; the variation-selector supplement `U+E0100–E01EF` | no legitimate place inside a telemetry value |
+  | **Kept** (the design's §4 listed some as strip) | ZWNJ/ZWJ; LRM/RLM/ALM; the emoji variation selectors `U+FE00–FE0F`; the soft hyphen; the Mongolian, Khmer and Hangul-filler format characters; NBSP and every other space | real linguistic use |
+  | **Normalized** | `U+2028/2029` (invisible line and paragraph separators) → a visible newline; then NFC (never NFKC) | nothing visible is rewritten |
+- **Hygiene record:** `removed` (what was stripped) and `kept` (flagged-but-kept invisibles), logged by
+  the bridge **out of band** — to stderr and the audit trail — never appended to the content the model
+  reads (the design's §9 decision, kept). The richer per-offset forensic record and `escapedRaw` in §9
+  were **not built**; the homoglyph/mixed-script flag in §5 was **not built** (advisory and
+  false-positive-prone on localized hostnames).
+- **Wired in the bridge on every tool result** — text and embedded-resource blocks — **fail-open**: a
+  block that raises passes through raw, with the exception class on stderr and a `hygiene_screen_failed`
+  flag on the call's audit record (Praxen findings 2026-09-05-006/-007; findings are in
+  [praxen/results/](../praxen/results/)), so "canonicalized clean" and "passed through unchecked" are
+  distinguishable. The design's OQ-4 (arguments) resolved *no*: reads are never argument-mutated; writes
+  are the neutralizer's.
+- **The remote's tool definitions are screened too** (#159, #164 — Praxen finding 2026-09-07-001, #6).
+  Once per session:
+  - descriptions and schema text are canonicalized like any result;
+  - a **name is never rewritten** — one carrying a hidden code point is reported instead;
+  - every definition is **hashed**, and the surface hash is recorded in the audit trail so a definition
+    that changes between sessions shows up;
+  - a definition that *talks to the model* (instruction-shaped phrases) is reported, never changed — the
+    skill counters it in prose;
+  - a tool the shipped tier file does not classify is treated as a write.
+- **Accepted residuals** (stated in the module docstring): a kept invisible spliced into an ASCII word,
+  emoji variation-selector byte channels, NBSP keyword-splitting, and NFC folding of compatibility
+  singletons (`U+212A` KELVIN → K) / NFD recomposition — a rare, bounded exact-match-pivot miss. The
+  fail-open direction is itself a declared residual, with a fail-closed variant tracked as #172.
+- **Verified:** `tests/test_canonicalize.py` (the clean-corpus invariant of §11 — a clean value passes
+  through unchanged except NFC — plus one fixture per strip channel) and the read-path wiring in
+  `tests/test_bridge_wiring.py`; live, red-team fixture a07 (a zero-width-space smuggle) on every
+  release. Fixtures a06 (encoded) and a08 (homoglyph) run beside it but measure the model's handling,
+  not this control — an encoded payload has no invisible code points, and homoglyphs are kept by design.
 
-> **§1–§11 below are the fuller design intent, kept for context.** Where they differ from the shipped core
-> (e.g. §4's original "explicit hand-list, not the DI property" decision, or the §5/§9 confusable-flag and
-> escaped-raw detail), **this section and the code are authoritative.**
+> **§1–§13 below are the original design intent (2026-08), kept for the reasoning and the references.**
+> They describe a fuller build than shipped; the section above is what runs.
 
 ## 1. Purpose
 

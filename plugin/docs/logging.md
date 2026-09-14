@@ -188,5 +188,6 @@ The trail records the **gated action and its disposition deterministically at th
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
 event is evidence the approval happened. It does **not** yet capture a distinct *approver-identity* event
 (who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
-Claude Code's permission rules, or Codex's tool-approval modes. An explicit approval event would be added
+the prompt the bundled hook raises on Claude Code (its own `gate.jsonl` records the decision, not who
+answered), or Codex's tool-approval modes. An explicit approval event would be added
 via a host-side post-tool hook feeding the same log.

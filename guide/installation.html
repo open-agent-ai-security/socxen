@@ -269,7 +269,8 @@ img { max-width: 100%; display: block; }
 running against the <strong>Exabeam New-Scale MCP</strong>. Both hosts load the same skills and the same guarded
 connector; only the packaging and where the safety gate lives differ. It investigates and triages alerts/cases end to end and produces
 a structured report. It takes no destructive action: containment is <em>recommended</em> for a human, and
-dismiss/close are <em>gated</em> — by permission rules <strong>and</strong> an explicit confirmation the skill asks for.</p>
+dismiss/close are <em>gated</em> — by the bundled hook on Claude Code or the tool-approval policy on Codex,
+<strong>and</strong> an explicit confirmation the skill asks for.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
 <li><strong>A host agent</strong> — <strong>Claude Code</strong> (the <code>claude</code> CLI) or <strong>OpenAI Codex</strong> (the <code>codex</code> CLI). Both need
@@ -434,7 +435,7 @@ tool outright, and <strong>asks</strong> on any tool this release hasn't classif
 <code>--dangerously-skip-permissions</code>, and when no human is present (<code>claude -p</code>, CI) an <em>ask</em> is refused.
 On <strong>Codex</strong> the same tiers ship inside the package as tool-approval policy, and Codex cancels a
 destructive tool when nobody is there to approve it. Nothing to merge on either host.</p>
-<p>The hook also grants the reads: its <em>allow</em> on the 16 read tools and the two escalation writes
+<p>The hook also grants the reads: its <em>allow</em> on the 19 read tools and the two escalation writes
 bypasses the prompt, so with nothing merged a safe operation runs silently and a dangerous one asks —
 the same split Codex applies from the same tier file (verified headless in default permission mode,
 2026-09-06). Your own rules still win: a <code>deny</code> on one of these tools removes it from the model's tool
@@ -459,7 +460,8 @@ same tiers, enforced by Claude Code's own permission system), and nothing more. 
 reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-settings-file">Which settings file?</a> below):</p>
 <ul>
 <li><strong>allow</strong> the read + escalation tools,</li>
-<li><strong><code>ask</code></strong> on <code>update_alert</code> / <code>update_case</code> (dismiss/close — where a wrong verdict does the most harm),</li>
+<li><strong><code>ask</code></strong> on <code>update_alert</code> / <code>update_case</code> / <code>send_email</code> (dismiss/close and outbound mail — where a
+  wrong verdict does the most harm),</li>
 <li><strong><code>deny</code></strong> the 17 containment tools (defense-in-depth; the MCP exposes none today).</li>
 </ul>
 <p>Merged, the rules and the bundled hook agree on every tool — they are generated from the same tier
@@ -472,10 +474,11 @@ MCP's tool names (<code>mcp__plugin_socxen_exabeam__…</code>); for the advance
 </code></pre>
 <p><code>--checks-only</code> outranks it: diagnostics promise to change nothing, so the two together skip the merge
 and say so.</p>
-<p>It is <strong>opt-in and never silent</strong>. Installing without the flag still only <em>warns</em> that the gate is
-off — and <code>-y</code> does not stand in for consent here, because installation alone must never rewrite your
-settings. Run interactively without the flag and, if the gate is off, the installer shows you exactly
-which rules it would add and asks a plain <code>y/N</code> first.</p>
+<p>It is <strong>opt-in and never silent</strong>. Installing without the flag reports the gate's state from the
+<em>installed</em> plugin — ON via the bundled hook, or FAIL if the installed copy predates it — and notes that
+the rules are not merged; <code>-y</code> does not stand in for consent here, because installation alone must never
+rewrite your settings. Run interactively without the flag and the installer offers the merge, shows you
+exactly which rules it would add, and asks a plain <code>y/N</code> first.</p>
 <p>What it guarantees:</p>
 <ul>
 <li><strong>Backs up first</strong> — a timestamped copy of <code>settings.json</code> beside the original, before any write.</li>
@@ -484,7 +487,7 @@ which rules it would add and asks a plain <code>y/N</code> first.</p>
   snippet specifies, that's your decision (or a mis-merge worth a look), so it writes <strong>nothing</strong> and
   tells you which entries to resolve.</li>
 <li><strong>Idempotent</strong> — re-running is safe; already-merged rules are left alone. Worth re-running even when
-  the gate reads ON: a hand-merge of just the two <code>ask</code> lines leaves the containment <code>deny</code> list missing.</li>
+  the gate reads ON: a hand-merge of just the three <code>ask</code> lines leaves the containment <code>deny</code> list missing.</li>
 <li><strong>Fails honestly</strong> — no <code>python3</code>, or a snippet it can't find, means "cannot merge, here's the manual
   path," never a false green. A failed write is restored from the backup.</li>
 </ul>
@@ -526,7 +529,8 @@ cannot be quieted from config.</p>
 <p>The same three tiers, expressed as Codex approval modes in <code>.mcp.codex.json</code>:</p>
 <ul>
 <li><strong><code>approval_mode: "auto"</code></strong> on the read + escalation tools,</li>
-<li><strong><code>approval_mode: "approve"</code></strong> on <code>update_alert</code> / <code>update_case</code> (dismiss/close),</li>
+<li><strong><code>approval_mode: "approve"</code></strong> on <code>update_alert</code> / <code>update_case</code> / <code>send_email</code> (dismiss/close and
+  outbound mail),</li>
 <li><strong><code>disabled_tools</code></strong> for the containment tools — Codex applies this <em>after</em> any allowlist, so they
   cannot be re-enabled at runtime and never reach the model at all.</li>
 </ul>

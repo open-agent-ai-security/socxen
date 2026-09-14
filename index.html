@@ -298,7 +298,7 @@
           <div class="lock"><div class="k">Claude Code</div><h3>A hook that ships in the plugin</h3><p>Active the moment the plugin is enabled: ask on dismiss and close, deny on every containment verb, ask on anything unclassified — and it holds even under <code>--dangerously-skip-permissions</code>. The permission pack (same tiers, one source) is the optional second layer.</p></div>
           <div class="lock"><div class="k">OpenAI Codex</div><h3>Policy that ships inside the package</h3><p>The same tiers as Codex tool-approval modes. Destructive tools require a human in every mode and are canceled when nobody is present — fail closed, <code>codex exec</code> included.</p></div>
         </div>
-        <p class="lede" style="margin:34px auto 0;max-width:820px;text-align:center;font-size:17px;"><strong>Nothing above is a claim.</strong> Twenty attack fixtures, five trials each, on the weakest supported model per host, before every release — and the dated results ship with the code. <a href="#assurance">The numbers ↓</a></p>
+        <p class="lede" style="margin:34px auto 0;max-width:820px;text-align:center;font-size:17px;"><strong>Nothing above is a claim.</strong> Twenty-three attack fixtures, five trials each, on the weakest supported model per host, before every release — and the dated results ship with the code. <a href="#assurance">The numbers ↓</a></p>
       </div>
     </section>
 
@@ -312,7 +312,7 @@
         <div class="layers">
           <div class="layer"><div class="k">01 · Methodology</div><h3>The procedures</h3><p>Entity pivots, baselining by querying, competing hypotheses, an evidence bar, stopping conditions, an action matrix — in <code>SKILL.md</code>, shared across all three skills as one safety spine and enforced by invariant tests.</p></div>
           <div class="layer"><div class="k">02 · Capability</div><h3>The Exabeam MCP, bundled</h3><p>SIEM search, alerts and cases, threat timelines, rule and MITRE context — reached through a local bridge that ships with the plugin for each host, never wired by hand.</p></div>
-          <div class="layer"><div class="k">03 · Authority</div><h3>Who may do what, enforced by the host</h3><p>Allow, ask, deny — generated from one source, pinned by tests, enforced by Claude Code's permission rules or Codex's tool-approval policy. Not by the model.</p></div>
+          <div class="layer"><div class="k">03 · Authority</div><h3>Who may do what, enforced by the host</h3><p>Allow, ask, deny — generated from one source, pinned by tests, enforced by the bundled hook on Claude Code (the permission rules are an optional second lock) or by Codex's tool-approval policy. Not by the model.</p></div>
           <div class="layer"><div class="k">04 · Guardrails</div><h3>The bridge treats telemetry as hostile</h3><p>Canonicalize on read, neutralize on write, refuse containment outright, and record a metadata-only audit trail of every call. Deterministic Python you can diff.</p></div>
           <div class="layer"><div class="k">05 · Evidence</div><h3>The process ships with the code</h3><p>A red-team corpus that gates every release, a Praxen behavior scan against a written remit, and a CycloneDX AI bill of materials regenerated with every version and drift-checked in CI.</p></div>
         </div>
@@ -324,7 +324,7 @@
         <div class="section-head">
           <p class="eyebrow">The process ships with the code</p>
           <h2>Scanned, red-teamed, inventoried — every release</h2>
-          <p>Nothing here is a claim. Twenty attack fixtures across four classes, five trials each, on the weakest supported model per host; an independent behavior scan; a machine-readable bill of materials. Dated artifacts, committed with the release.</p>
+          <p>Nothing here is a claim. Twenty-three attack fixtures across four classes, five trials each, on the weakest supported model per host; an independent behavior scan; a machine-readable bill of materials. Dated artifacts, committed with the release.</p>
         </div>
         <div class="explore">
           <a class="xcard" href="https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md" target="_blank" rel="noopener">
@@ -338,14 +338,14 @@
             <span class="xtag">AI-BOM</span>
             <h3>A bill of materials for the agent</h3>
             <p>CycloneDX: the models, the tool surface, the connector dependencies, and the governance controls — regenerated with every version and drift-checked in CI, so what you install is what the inventory says.</p>
-            <div class="stat"><b>21</b><span>governed Exabeam tools, every one classified</span></div>
+            <div class="stat"><b>0</b><span>Exabeam tools left to a session default — every one is classified allow, ask or deny</span></div>
             <span class="go">Read the BOM <span class="arw">→</span></span>
           </a>
           <a class="xcard" href="https://github.com/open-agent-ai-security/socxen/blob/main/security/praxen/README.md" target="_blank" rel="noopener">
             <span class="xtag">Praxen ABV</span>
             <h3>Agent behavior verification</h3>
             <p>socxen is scanned by Praxen, its sister project, against a written Worker Remit before each release: zero Critical findings is the bar.</p>
-            <div class="stat"><b>3.15</b><span>RAISE score · Established</span></div>
+            <div class="stat"><b>3.45</b><span>RAISE score · Established</span></div>
             <span class="go">Read the remit and results <span class="arw">→</span></span>
           </a>
         </div>

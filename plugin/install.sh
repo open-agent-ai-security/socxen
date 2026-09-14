@@ -2,7 +2,7 @@
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
 #
-# socxen installer — adds the marketplace, installs the soc-investigate skill into
+# socxen installer — adds the marketplace, installs the plugin (three skills) into
 # Claude Code, and runs a connectivity preflight. Idempotent; safe to re-run.
 #
 # Claude Code only, deliberately. Most of this script is `claude plugin` CLI handling plus
@@ -83,7 +83,7 @@ banner() {
    ███████║╚██████╔╝╚██████╗██╔╝ ██╗███████╗██║ ╚████║
    ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
 ART
-  printf '%s        agentic SOC analyst · Claude Code skill%s\n\n' "$DIM" "$RST"
+  printf '%s        agentic SOC skill suite · Claude Code plugin%s\n\n' "$DIM" "$RST"
 }
 hr()   { printf '%s   ────────────────────────────────────────────────────%s\n' "$GRY" "$RST"; }
 head2(){ printf '\n%s   %s%s\n' "$BOLD" "$1" "$RST"; }
@@ -515,7 +515,7 @@ if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
 elif [ "$MERGE_PERMS" = 1 ]; then
   # Explicitly requested: the flag IS the consent, so no second confirmation. The merger is additive,
   # backs up first, and refuses on tier conflicts, so re-running is safe even when the gate reads ON
-  # (a hand-merge of just the two ask lines leaves the whole containment deny list missing).
+  # (a hand-merge of just the three ask lines leaves the whole containment deny list missing).
   step "Merging governance permissions into $SETTINGS"
   run_merge
 elif [ "$GATE_STATE" = unknown ]; then

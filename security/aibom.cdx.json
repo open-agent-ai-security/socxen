@@ -51,11 +51,11 @@
         },
         {
           "name": "ai:platform",
-          "value": "Claude Code plugin (skill)"
+          "value": "plugin for Claude Code and OpenAI Codex (skills + bundled MCP connector)"
         },
         {
           "name": "ai:skillName",
-          "value": "soc-investigate"
+          "value": "rule-tuning, soc-investigate, triage-cases"
         }
       ]
     },
@@ -73,23 +73,27 @@
     "properties": [
       {
         "name": "ai:foundationModel",
-        "value": "Claude (Anthropic), external hosted API"
+        "value": "Claude (Anthropic) on Claude Code; OpenAI model on Codex — external hosted APIs, chosen by the host"
       },
       {
         "name": "ai:humanInTheLoop",
-        "value": "required for dismiss/close (update_alert/update_case)"
+        "value": "required for dismiss/close and outbound mail (update_alert/update_case/send_email) — enforced by the host: a bundled PreToolUse hook on Claude Code (holds under --dangerously-skip-permissions; a headless ask is refused); tool-approval policy on Codex (default approve, 70 tools disabled)"
       },
       {
         "name": "ai:autonomousActions",
-        "value": "read/search + create_case/case_notes (escalation)"
+        "value": "read/search + create_case/case_notes (escalation) — prompt-free on both hosts"
       },
       {
         "name": "ai:containmentCapability",
-        "value": "none — recommend-only, performed by a human in EDR/IAM"
+        "value": "none — recommend-only, performed by a human in EDR/IAM; every containment tool is denied by the gate"
       },
       {
         "name": "ai:guardrails",
-        "value": "permission tiers 21 allow / 6 ask / 140 deny (settings.snippet.json) + in-prompt ask-before-close backstop"
+        "value": "permission tiers 21 allow / 3 ask / 70 deny from one tier file (permissions.json → hook, Codex policy, optional permission pack); input canonicalizer on every read and on the remote's tool definitions (hashed per session); output neutralizer on every write (formulas inert, links de-fanged unless into the operator's tenant, secrets and structured identifiers masked); updates carry state only; a create_case with a closing disposition is refused; in-prompt ask-before-close as the model-side layer"
+      },
+      {
+        "name": "ai:auditTrail",
+        "value": "on by default, local, bounded: every call, gate decision and guardrail firing as metadata and safe identifiers, never case content (~/.socxen/)"
       },
       {
         "name": "ai:secretsHandling",
@@ -100,7 +104,7 @@
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-07T22:26:32Z"
+    "timestamp": "2026-09-14T00:51:50Z"
   },
   "components": [
     {
@@ -136,10 +140,42 @@
       ]
     },
     {
+      "bom-ref": "model:openai-codex",
+      "type": "machine-learning-model",
+      "name": "OpenAI model (via Codex)",
+      "description": "Foundation model the skills run on when the host is OpenAI Codex. Hosted API — weights are not distributed with socxen. The specific model and reasoning effort are selected by Codex, not pinned by socxen; the red-team floor is recorded per run in security/redteam/HISTORY.md.",
+      "supplier": {
+        "name": "OpenAI",
+        "url": [
+          "https://openai.com"
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://openai.com/codex/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ai:hosting",
+          "value": "external-hosted-api"
+        },
+        {
+          "name": "ai:weightsDistributed",
+          "value": "false"
+        },
+        {
+          "name": "ai:pinnedByThisProject",
+          "value": "false"
+        }
+      ]
+    },
+    {
       "bom-ref": "artifact:soc-investigate-methodology",
       "type": "data",
-      "name": "soc-investigate methodology (system prompt + reference corpus)",
-      "description": "The agent's instructions: SKILL.md (investigation methodology, governance, output discipline) plus reference/ (tool map, EQL search cookbook, enrichment playbook, report template, triage taxonomy, containment list, worked examples). This prompt corpus — not a model — is the primary AI artifact socxen ships.",
+      "name": "skill methodology (system prompts + reference corpus)",
+      "description": "The agent's instructions: the three skills' SKILL.md (rule-tuning, soc-investigate, triage-cases — investigation methodology, queue sweep, rule tuning; governance; output discipline) plus reference/ (tool map, EQL search cookbook, enrichment playbook, report template, triage taxonomy, containment list, worked examples). This prompt corpus — not a model — is the primary AI artifact socxen ships.",
       "licenses": [
         {
           "license": {
@@ -310,6 +346,7 @@
       "ref": "socxen@0.8.6",
       "dependsOn": [
         "model:anthropic-claude",
+        "model:openai-codex",
         "artifact:soc-investigate-methodology",
         "component:exabeam-mcp-bridge",
         "service:exabeam-mcp"
@@ -328,7 +365,8 @@
     {
       "ref": "artifact:soc-investigate-methodology",
       "dependsOn": [
-        "model:anthropic-claude"
+        "model:anthropic-claude",
+        "model:openai-codex"
       ]
     }
   ]
