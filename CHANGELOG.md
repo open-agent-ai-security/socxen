@@ -43,9 +43,13 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
   credential keyword and the separator, and the labeled rule required the separator to follow the
   keyword directly, so those values persisted verbatim while the same value after `client_secret:` was
   masked. The rule now allows one quote or backtick there; the value's own quotes are peeled and handed
-  back, so the dump's structure survives. Witnessed in `tests/test_neutralize_coverage.py`, with a
-  mutation in the gate; the d04 red-team fixture drives it live. Compound keys (`db_password`),
-  backslash-escaped and smart quotes, and a label that follows its value are still uncovered — #201.
+  back, so the dump's structure survives. And `_` now separates at the keyword's edges: `\b` treated it
+  as a word character, so `aws_secret_access_key`, `service_password`, `my_api_key` — the shape of every
+  environment variable, config key and infrastructure secret an analyst pastes — had no boundary before
+  their keyword and never matched (review). Both witnessed in `tests/test_neutralize_coverage.py`, each
+  with a mutation in the gate; the d04 red-team fixture drives both live. Still uncovered — #201: a
+  keyword inside a key rather than at its end (`db_password_value`), backslash-escaped and smart quotes,
+  and a label that follows its value.
 - **Two formula shapes the mid-line pass could not see are now neutralized** (#120, phase B). A DDE
   channel reference quoted in prose — `=cmd|'/C calc'!A0`, `=MSEXCEL|'…cmd.exe /c calc'!A1`,
   `@SUM(cmd|' /C calc'!A0)` — is the highest-severity formula payload and has no function name to

@@ -128,9 +128,12 @@ KEYWORD_SAMPLES = {
     r"passcode": "passcode",
 }
 # `passwo?r?d` already matches "passwd" (both optionals absent), so the `passwd` alternative is redundant
-# by construction. Recorded rather than "fixed": removing it changes nothing, and the test below proves
-# the label stays covered without it. Anything else listed here is a bug.
-REDUNDANT_ALTERNATIVES = {r"passwd"}
+# by construction. And since `_` became a separator at the keyword's edges (#118 review: compound keys
+# like aws_secret_access_key), the compound alternatives whose last word is itself a keyword are reached
+# by that word alone -- `client_secret` by `secret`, `authorization_token` by `token`,
+# `secret_access_key` by `access_key`. Recorded rather than removed: the test below proves each label
+# stays covered without its alternative. Anything else listed here is a bug.
+REDUNDANT_ALTERNATIVES = {r"passwd", r"auth(?:orization)?[\s_-]?token", r"client[\s_-]?secret", r"secret[\s_-]?(?:access[\s_-]?)?key"}
 
 
 def test_keyword_sample_table_matches_the_shipped_alternation():
@@ -151,6 +154,40 @@ def test_keyword_alternative_is_load_bearing(monkeypatch, alt):
         assert VAL not in out, f"{alt!r} was recorded as redundant but the label is uncovered without it"
     else:
         assert VAL in out, f"{label!r} is still redacted with the {alt!r} alternative removed -- something else catches it"
+
+
+# ---- 2a. `_` separates at the keyword's edges -- compound keys (#118 review) --------------------------------
+
+V40 = "Kq7ZnP2xLm9vRt4bYw8cHs3dFj6gTu1aQe5oIu0N"
+
+
+@pytest.mark.parametrize("text", [
+    f'"aws_secret_access_key": "{V40}"',        # no AKIA nearby: the label, not the proximity rule, must carry it
+    f"service_password: {V40}",
+    f"my_api_key={V40}",
+    f"oauth_token_secret: {V40}",
+    f"x-api-key: {V40}",
+    f"user.password: {V40}",
+    f"| aws_secret_access_key | {V40} |",       # table form
+    f"API_TOKEN\n{V40}",                       # weak separator
+    f"--service_password {V40}",               # space flag
+], ids=["json-aws", "service_password", "my_api_key", "oauth_token_secret", "hyphen", "dot", "table", "newline", "flag"])
+def test_compound_keys_with_underscores_are_redacted(text):
+    """Environment variables, config keys, Terraform state, Kubernetes secrets: the keyword sits at the end
+    of an underscore-joined key. `\\b` treated `_` as a word character, so there was no boundary before it
+    and the label never matched. Mutation: the boundary reverted to `\\b`."""
+    out = N.redact_secrets(text, [])
+    assert V40 not in out and "[REDACTED:secret]" in out, out
+
+
+@pytest.mark.parametrize("prose", [
+    "password_reset_count: 12345678",          # the keyword is not at the key's end: not a label
+    "token_bucket_size: 500000",
+    "the on_call rotation is weekly",
+    "secret_santa: organiser",
+])
+def test_compound_keys_do_no_harm(prose):
+    assert N.redact_secrets(prose, []) == prose
 
 
 # ---- 2b. a quoted label -- JSON / raw-field dumps (#118) ----------------------------------------------------

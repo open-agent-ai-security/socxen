@@ -67,7 +67,8 @@ envelopes; the bridge looks inside them.)
 3. **Markdown inline links** in every CommonMark/GFM shape (titles, padding, nesting).
 4. **Secrets and structured PII** → `[REDACTED:<kind>]`, so the report still says a credential was here.
    A label may be quoted — the JSON and raw-field-dump forms (#118) — and the value's own quotes are
-   peeled and handed back, so the dump's structure survives.
+   peeled and handed back, so the dump's structure survives. At the keyword's edges only letters and
+   digits are word characters, so `_`, `-` and `.` all separate: `aws_secret_access_key` is a label.
 5. **Formulas**: quote-prefixed inert, and any URL on the formula's line defanged — including a formula
    quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell. Mid-sentence detection
    needs a known dangerous function name, so ordinary prose is never touched; two forms that have no
@@ -133,9 +134,8 @@ investigation that stops; the asymmetry is deliberate, and the guardrails page s
   redacted: after a line break it is indistinguishable from the recommendation prose that normally
   follows, and redacting it would eat analyst text. Labeled, wrapped and table-cell credentials are all
   caught regardless of shape.
-- **Labeled-secret shapes beyond the quoted label** — compound keys (`db_password`,
-  `aws_secret_access_key`), backslash-escaped and smart quotes, a label that follows its value — are not
-  yet covered (#201).
+- **Labeled-secret shapes still uncovered** (#201): a keyword inside a key rather than at its end
+  (`db_password_value`), backslash-escaped and smart quotes, a label that follows its value.
 - **Free-form PII** (names, home addresses) and **date-shaped values** are not redacted: not reliably
   regex-detectable, and a date is indistinguishable from a log timestamp. These stay a skill-prompt ask.
 - What the model shows **on the analyst's own screen** is not redacted, deliberately: it crosses no
