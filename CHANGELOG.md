@@ -17,7 +17,7 @@ the hook still ships and still registers. The release also carries what landed o
 two prose-position formula shapes in the neutralizer, the quoted-label and identity-generator tooling for
 vendored copies, and the mutation gate that now witnesses every neutralizer rule.
 
-*Release gate, stated honestly:* the deterministic suite (863 tests), the mutation gate (15/15), the generator
+*Release gate, stated honestly:* the deterministic suite (863 tests), the mutation gate (14/14), the generator
 and drift checks, and the post-promotion install smoke on both hosts. The neutralizer change was driven live
 by the a14 fixture (10/10 across both legs) on the red-team branch that carries it. **No full-corpus red-team
 run was made on this exact tree** — the hotfix ships a plugin that loads over one that does not, and the next
@@ -56,11 +56,11 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
   `tests/test_neutralize_coverage.py` gives every secret pattern and keyword a sample only that rule can
   catch and proves it by removing the rule; each formula pass a case the others cannot see; the audit
   note a check on every redaction path; and runs the do-no-harm corpus through the full pipeline.
-  `scripts/mutation_check.py` deletes twelve rules in turn in a scratch copy and fails CI if the suite
+  `scripts/mutation_check.py` deletes fourteen rules in turn in a scratch copy and fails CI if the suite
   survives any of them. One redundancy found on the way and recorded, not changed: the `passwd`
-  keyword is already matched by `passwo?r?d`. Two remaining gaps are pinned as strict expected
-  failures for the follow-up: a DDE channel reference in prose position, and a cell reference glued to
-  the sign (`B2=HYPERLINK(`).
+  keyword is already matched by `passwo?r?d`. Two remaining gaps — a DDE channel reference in prose
+  position, and a cell reference glued to the sign (`B2=HYPERLINK(`) — were pinned as strict expected
+  failures and closed by phase B (above).
 
 ### Tooling
 
@@ -69,7 +69,6 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
   what it leaves), relicenses every SPDX header, the README badge and License line, and `identity.sh` from
   `identity.json`'s `license` field, and leaves the shell scripts out of the rewrite — a literal key in them
   fails `--check`. The Exabeam catalog's copy becomes self-consistent about its terms at this blessing.
-- **The MCP URL must be `https`** — carried by #192 when it lands; not in this release.
 
 ## [0.8.6] — 2026-09-07
 
