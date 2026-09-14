@@ -175,13 +175,35 @@ release channel**: whatever lands there reaches new installers immediately.
    squash), then fast-forward `dev` back up (see Branching above). `main` is
    branch-protected: the merge needs the `Repo invariants (no inference)` and
    `signoff` checks green and every review conversation resolved.
-3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh`.
+3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh <prior-release-ref>`.
    It exercises both real Claude Code journeys in throwaway scratch
    `$CLAUDE_CONFIG_DIR`s — a **clean install** of the new release and an
-   **upgrade** from the prior release — and asserts the resulting version,
-   never touching your live install. It is deliberately *not* in CI: the
-   `claude` CLI doesn't run in GitHub Actions, so this stays a maintainer-run
-   check.
+   **upgrade** from the prior release — and asserts the resulting version **and
+   that the plugin loads** (`plugin list --json` must report an empty `errors[]`;
+   `enabled: true` alone proved nothing when 0.8.6 shipped unloadable, #197). Pass
+   the prior release explicitly when a fix touched the manifest mid-cycle — the
+   auto-detected prior is the parent of the last `plugin.json` change, not the
+   last release. It is deliberately *not* in CI: the `claude` CLI doesn't run in
+   GitHub Actions, so this stays a maintainer-run check.
+4. **Install it and drive it for real.** The smoke is the automated half; this is
+   the human-shaped half, and the release is not done until both have run:
+   - `claude plugin update socxen@open-agent-ai-security` in a real config (the
+     community catalog serves `main`, so this is the build users get), and
+     `preflight.sh --platform claude` from the install path: gate ON, MCP reachable.
+   - A **separate agent session** drives a skill on a real alert against the
+     staging tenant: `claude -p` from an empty directory outside any checkout,
+     with **no `--plugin-dir`**, on a different model from the one that wrote the
+     release, capturing `--output-format stream-json --verbose`. Read the
+     transcript, not the summary: the plugin's skills are listed at `init`, the
+     MCP server is `connected`, every Exabeam call goes through
+     `mcp__plugin_socxen_exabeam__*`, the gate's decision on any write is what the
+     tier file says, and the report is one an analyst could act on.
+   - Record the run as a row in `security/redteam/HISTORY.md` beside the release.
+
+   Every check that cleared 0.8.6 had gone through `--plugin-dir`, which reports a
+   load failure and continues; nothing had installed the release the way a user
+   does. Never again: `--plugin-dir` runs and the unit suite verify the tree, only
+   an install from the served catalog verifies the release.
 
 **Rolling back a bad release**
 
