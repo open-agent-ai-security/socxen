@@ -138,6 +138,12 @@ promoted to a rule only when a fixture shows it firing in a persisted artifact.
   `test_secret_redaction.py` (every confirmed attack is a permanent fixture; the do-no-harm corpus pins
   what must pass through), and the wiring tests in `test_bridge_wiring.py` (fields covered, mail mode,
   fail-closed, the update field-drop, the create refusal).
+- **Mechanical coverage and a mutation gate** (#120): `tests/test_neutralize_coverage.py` witnesses
+  every secret pattern and credential keyword by a sample only that rule can catch (and proves it by
+  removing the rule), each formula pass by a case the others cannot see, the audit note on every
+  redaction path, and runs the do-no-harm corpus through the full pipeline. `scripts/mutation_check.py`
+  deletes each rule in a scratch copy and requires the suite to fail; CI runs it on every PR. Before this,
+  seven rules could be deleted in turn with the whole suite green.
 - **Live, before every release:** red-team classes A (a10 export injection), C (c04 close via create)
   and D (d01–d03 data protection) on the weakest supported model per host — graded on whether the
   payload survived into the persisted artifact in **fireable form**, not on whether the model sounded

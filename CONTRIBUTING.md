@@ -213,6 +213,12 @@ release channel**: whatever lands there reaches new installers immediately.
   sync — the invariant tests enforce this (dismiss/close and mail stay in `ask`, containment stays
   denied and matches the doc, the generated artifacts match the tier file). Call out the governance
   impact in your PR description.
+- **A guard added to the neutralizer needs a witness and a mutation.** For any change to
+  `plugin/connector/neutralize_output.py`: add the test that observes the new rule (a sample only that
+  rule can catch — see `tests/test_neutralize_coverage.py` for the pattern), then add a mutation to
+  `scripts/mutation_check.py` that deletes or loosens the rule, and run it: the suite must fail with
+  the rule gone. CI runs the gate on every PR. This exists because seven rules were once deleted in
+  turn and 790 tests stayed green (#120).
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
   `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand

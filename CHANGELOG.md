@@ -8,6 +8,23 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [Unreleased]
+
+### Testing
+
+- **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven
+  rules of `neutralize_output.py` — the table-cell and quoted-field formula passes, the JWT pattern,
+  three credential keywords, the weak-separator line-break branch, the audit note's non-leak — could
+  each be deleted with the whole suite still green (re-confirmed 2026-09-13 against 790 tests).
+  `tests/test_neutralize_coverage.py` gives every secret pattern and keyword a sample only that rule can
+  catch and proves it by removing the rule; each formula pass a case the others cannot see; the audit
+  note a check on every redaction path; and runs the do-no-harm corpus through the full pipeline.
+  `scripts/mutation_check.py` deletes twelve rules in turn in a scratch copy and fails CI if the suite
+  survives any of them. One redundancy found on the way and recorded, not changed: the `passwd`
+  keyword is already matched by `passwo?r?d`. Two remaining gaps are pinned as strict expected
+  failures for the follow-up: a DDE channel reference in prose position, and a cell reference glued to
+  the sign (`B2=HYPERLINK(`).
+
 ## [0.8.6] — 2026-09-07
 
 **One release, three threads: security, performance and robustness.** Every entry below belongs to one
