@@ -22,7 +22,8 @@ tests make every rule's presence OBSERVABLE:
   - the do-no-harm corpus runs through the FULL pipeline, not the redactor alone.
 
 `scripts/mutation_check.py` deletes each rule in a scratch copy and requires this suite to fail; CI runs
-it. Two Phase-B gaps are pinned as strict xfails at the bottom so they cannot move silently. No model,
+it. The two phase-B shapes (DDE mid-prose, a cell reference glued to the sign) were pinned here as
+strict xfails until phase B closed them; they are ordinary tests now. No model,
 no creds, CI-safe.
 """
 import importlib.util

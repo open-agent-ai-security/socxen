@@ -5,7 +5,8 @@
 
 # Design record — Output neutralizer and the bridge's write rules
 
-> **Status:** Shipped and current with the code as of 0.8.6. The authoritative statement of behavior is
+> **Status:** Shipped and current with the code on `dev` after #118 and #120 (the release that carries
+> them bumps the version). The authoritative statement of behavior is
 > the code — `plugin/connector/neutralize_output.py` (the module docstring lists every rule and every
 > residual) and the write path in `plugin/connector/exabeam-mcp-bridge.py`. The user-facing description
 > is [the guardrails page](../../plugin/docs/security-guardrails.md#2-filtering-what-socxen-writes-de-activating-dangerous-content).
@@ -41,7 +42,9 @@ investigation silently degraded. The lesson became the design rule for both filt
 
 The a10 fix (#36) established the pattern; #88/#115 added deterministic redaction; #119 narrowed the
 documented claim to what the code did; #147/#152 extended links to every markdown and HTML form and to
-mail; #159 and #164 added two of the three write rules in §5.
+mail; #159 and #164 added two of the three write rules in §5; #120 gave every rule a witness and a
+mutation gate and added the two prose-position formula shapes; #118 covered the quoted-label form of a
+secret.
 
 ## 3. What it does, in order
 
@@ -130,6 +133,9 @@ investigation that stops; the asymmetry is deliberate, and the guardrails page s
   redacted: after a line break it is indistinguishable from the recommendation prose that normally
   follows, and redacting it would eat analyst text. Labeled, wrapped and table-cell credentials are all
   caught regardless of shape.
+- **Labeled-secret shapes beyond the quoted label** — compound keys (`db_password`,
+  `aws_secret_access_key`), backslash-escaped and smart quotes, a label that follows its value — are not
+  yet covered (#201).
 - **Free-form PII** (names, home addresses) and **date-shaped values** are not redacted: not reliably
   regex-detectable, and a date is indistinguishable from a log timestamp. These stay a skill-prompt ask.
 - What the model shows **on the analyst's own screen** is not redacted, deliberately: it crosses no
