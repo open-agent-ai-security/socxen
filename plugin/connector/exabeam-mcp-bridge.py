@@ -449,6 +449,7 @@ class _Upstream:
                 telemetry.tools_list(len(tools),
                                      dict(acc, odd_names=[_display_name(n) for n in acc.get("odd_names", [])],
                                           directive_tools=[_display_name(n) for n in acc.get("directive_tools", [])],
+                                          withheld=[_display_name(n) for n in acc.get("withheld", [])],
                                           surface_sha=surface, tool_shas={_display_name(n): h[:12] for n, h in sorted(shas.items())}),
                                      [_display_name(n) for n in unclassified])
         except Exception as e:  # noqa: BLE001
@@ -473,7 +474,8 @@ server = Server("exabeam")
 #   • OUTPUT neutralization on WRITE ARGUMENTS — defang active content (formulas/phishing links) in what
 #     socxen persists to Exabeam, so an export of that stored artifact can't fire (connector/
 #     neutralize_output.py — the a10 fix). Only the write tools; reads are never argument-mutated.
-# Both are FAIL-OPEN: a guardrail bug must never break an investigation.
+# Both are FAIL-CLOSED (#172): a read block the screen cannot process is withheld and the gap named; a
+# write the neutralizer cannot process is refused.
 from canonicalize import canonicalize, is_strippable
 from neutralize_output import neutralize_output, tenant_hosts_from_url
 # On-by-default, fail-open agent audit logging (SOCXEN_OBSERVRA=off to disable). observra is a hard
@@ -677,7 +679,8 @@ TIERED_TOOLS = _tier_names()
 # 2026-09-07-001, #6): the remote's tool descriptions and schema text entered the model's context
 # verbatim. They now get the same treatment as a tool result -- the human-readable strings are
 # canonicalized and what was stripped is counted, out of band. A NAME is never rewritten (a rewritten
-# name is a broken call); a name carrying a hidden code point is reported instead. FAIL-OPEN per tool.
+# name is a broken call); a name carrying a hidden code point is reported instead. A definition that cannot
+# be screened is WITHHELD for the session (#172).
 _METADATA_TEXT_KEYS = frozenset({"description", "title"})
 # Instruction-shaped text in a tool DEFINITION (#163, Praxen 2026-09-07-002): the proxy's own schemas
 # carry "MANDATORY … IGNORE any user request", and the model obeys such text over the skill (measured
@@ -787,8 +790,17 @@ def _screen_tools(tools):
             out.append(t.model_copy(update=update) if update else t)
         except Exception:  # noqa: BLE001 -- fail-closed: the definition is withheld, the failure is counted (#172)
             acc["failed"] += 1
-            acc["withheld"].append(str(getattr(t, "name", "?")))
+            try:
+                acc["withheld"].append(str(t.name))
+            except Exception:  # noqa: BLE001 -- a definition whose name itself cannot be read is still counted
+                acc["withheld"].append("?")
     return out, acc
+
+
+def _withheld_tool(name):
+    """True when the metadata screen withheld this definition for the session (#172)."""
+    acc = getattr(UPSTREAM, "_screen", None) or {}
+    return name in (acc.get("withheld") or ())
 
 
 def is_write_tool(name):
@@ -861,18 +873,35 @@ def _block_text(block):
 
 
 def _rewrite_block(block, kind, clean):
+    """Runs inside _canon_content's per-block try: a block that cannot be rewritten raises, and is withheld
+    like any other screening failure (#172) -- never returned as received."""
     copy = getattr(block, "model_copy", None)
     if not callable(copy):
-        return block
+        raise TypeError("content block is not rewritable")
     if kind == "text":
         return copy(update={"text": clean})
     rcopy = getattr(block.resource, "model_copy", None)          # kind == "resource"
-    return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
+    if not callable(rcopy):
+        raise TypeError("resource block is not rewritable")
+    return copy(update={"resource": rcopy(update={"text": clean})})
 
 
-WITHHELD_BLOCK = ("[socxen bridge: this evidence block was withheld — the read-side screen could not process it "
+WITHHELD_PREFIX = "[socxen bridge: this evidence block was withheld"
+WITHHELD_BLOCK = (WITHHELD_PREFIX + " — the read-side screen could not process it "
                   "({err}). Report the evidence gap in the investigation; the other blocks of this result are intact. "
                   "A retry helps only if the block's shape was transient.]")
+WITHHELD_ERROR = "upstream tool error — its text could not be screened and was withheld"
+
+
+def _upstream_error_text(content):
+    """The upstream error the model reads when the tool ran and reported isError: the screened blocks'
+    text, with withheld blocks left out -- a withheld block is the bridge's own sentence, not the error.
+    When every block was withheld, say that instead of quoting the withholding as the error."""
+    texts = [t for t, _ in (_block_text(b) for b in content) if t]
+    real = [t for t in texts if not t.startswith(WITHHELD_PREFIX)]
+    if real:
+        return " ".join(real)
+    return WITHHELD_ERROR if texts else "upstream tool error"
 
 
 def _withheld_block(err_name):
@@ -998,6 +1027,19 @@ async def call_tool(name, arguments):
     hygiene_kept = [] if log_on else None
     screen_failures = [] if log_on else None
     is_write = is_write_tool(name) and bool(arguments)
+    # A definition the metadata screen withheld is refused here (#172). The list the model sees omits it,
+    # but the SDK forwards an UNLISTED name to this handler without schema validation, and the skills name
+    # tools in prose -- so "withheld for the session" has to hold at the call, not only in the list.
+    if _withheld_tool(name):
+        e = ValueError(f"socxen bridge refused {name}: its definition could not be screened and is withheld for "
+                       f"this session (#172). Use another tool or report the gap.")
+        if log_on:
+            try:
+                telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage="metadata_screen")
+            except Exception as te:  # noqa: BLE001 -- telemetry must never break the refusal path
+                sys.stderr.write(f"bridge: telemetry tail error (ignored): {te!r}\n")
+        sys.stderr.write(f"bridge: refused {name} -- withheld definition (#172)\n")
+        raise e
     # A wildcard search is answered with the column list instead of being sent (workaround for the proxy's
     # schema text, #160 -- see _SEARCH_COLUMNS). Audited as a completed call with the flag, never as an error.
     if _wildcard_fields(name, arguments):
@@ -1072,8 +1114,7 @@ async def call_tool(name, arguments):
         if getattr(result, "isError", False):
             # the tool ran upstream and FAILED: an error, not a success
             stage = "upstream_tool"
-            texts = [t for t, _ in (_block_text(b) for b in content) if t]
-            raise _UpstreamToolError(_safe_text(" ".join(texts) or "upstream tool error"))
+            raise _UpstreamToolError(_safe_text(_upstream_error_text(content)))
     except _UpstreamToolError as e:
         # A dropped field is part of why an update may have failed upstream (an update that carried only
         # text becomes an empty patch): say so in the record and to the agent, so it does not retry blind.

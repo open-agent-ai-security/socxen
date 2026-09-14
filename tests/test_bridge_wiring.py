@@ -484,6 +484,41 @@ def test_canon_content_withholds_a_block_the_screen_cannot_process():
     assert out[2].text == "after", "the rest of the result is intact"
 
 
+def test_canon_content_withholds_a_resource_block_and_an_unrewritable_block():
+    """#172, the other shapes: an embedded-resource block whose screening raises, and a text block that
+    cannot be rewritten (no model_copy) -- both withheld, never returned as received."""
+    failures = []
+
+    class BadRes:                    # resource block whose text access explodes
+        @property
+        def resource(self):
+            raise KeyError("shape")
+
+    class Frozen:                    # text block with no model_copy: cannot be rewritten
+        text = "a" + "\u200b" + "b"
+    out = B._canon_content([BadRes(), Frozen()], None, None, failures)
+    assert failures == ["KeyError", "TypeError"]
+    assert all(o.type == "text" and o.text.startswith(B.WITHHELD_PREFIX) for o in out)
+
+
+def test_upstream_error_text_leaves_withheld_blocks_out():
+    """#172: a withheld block is the bridge's own sentence, not the upstream error the model should read."""
+    w = B._withheld_block("RuntimeError")
+    assert B._upstream_error_text([Blk(text="boom from the tenant"), w]) == "boom from the tenant"
+    assert B._upstream_error_text([w, w]) == B.WITHHELD_ERROR
+    assert B._upstream_error_text([]) == "upstream tool error"
+
+
+def test_a_withheld_definition_is_refused_at_the_call(monkeypatch):
+    """#172: the SDK forwards an unlisted tool name to the handler without validation, so hiding a
+    definition from the list is not enough -- the bridge refuses the call, first-party, and records it."""
+    import asyncio
+    monkeypatch.setattr(B.UPSTREAM, "_screen", {"withheld": ["exabeam_unscreenable"]}, raising=False)
+    assert B._withheld_tool("exabeam_unscreenable") and not B._withheld_tool("exabeam_search_alerts")
+    with pytest.raises(ValueError, match="withheld for this session"):
+        asyncio.run(B.call_tool("exabeam_unscreenable", {"arg0": {}}))
+
+
 def test_screen_tools_withholds_a_definition_it_cannot_screen(monkeypatch):
     """#172: a tool definition the metadata screen cannot process is withheld for the session — absent
     from the list the model sees, counted, and named — instead of standing unscreened."""

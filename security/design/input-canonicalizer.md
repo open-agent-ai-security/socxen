@@ -104,7 +104,7 @@ remote MCP → call_tool result → [canonicalize per text block] → agent cont
 ```
 
 - **Text blocks only.** Non-text content (images, embedded resources) passes through untouched. (Open question OQ-6: do we also canonicalize `EmbeddedResource` text?)
-- **Fail-open per block.** A raised exception passes the *original* block through unchanged with a stderr note. This sits in the path of every tool call; a canonicalizer bug must never break an investigation.
+- **Fail-open per block** *(v1 — superseded by #172: the block is withheld; see the status section above)*. A raised exception passes the *original* block through unchanged with a stderr note. This sits in the path of every tool call; a canonicalizer bug must never break an investigation.
 - **Reads only, not arguments** (v1). See OQ-4.
 - Pure function, no I/O, deterministic → unit-tested in CI with no model.
 
@@ -187,7 +187,7 @@ The reviewers' pivot break came from *mutating visible values*. This design does
 - The skill summarizes the hygiene record separately (a "data hygiene" line in the report) and it must **never** influence the verdict as if it were evidence.
 - **The hygiene record is itself untrusted.** Its `token` / `escapedRaw` fields are attacker-derived substrings, so: they are **length-bounded** (per-field cap, summarized with an ellipsis if longer — *without* dropping any per-codepoint accounting entry); serialized **inertly** (plain JSON string escaping only — no markdown/HTML the skill would render as active); and the skill treats the whole record as **untrusted metadata, never authoritative analysis**. The out-of-band channel must not become a smaller, more-trusted injection surface.
 
-## 10. Fail-open & performance
+## 10. Fail-open & performance *(fail-open is the v1 record — superseded by #172, which withholds the block)*
 
 - Per-block `try/except` → original block passes through on any error (availability > canonicalization).
 - **Observable fail-open.** A fail-open is **not silent**: it emits a bounded diagnostic to **stderr** (never stdout — that's the stdio MCP protocol channel) and increments a per-process `canonicalize_failopen` counter. The hygiene record for that block is marked `{"status": "failopen", "error": "<class>"}` so a downstream consumer can tell "canonicalized clean" from "passed through unchecked." A deterministic test asserts: a raising block → original returned **and** a bounded diagnostic emitted **and** counter incremented.

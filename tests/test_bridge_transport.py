@@ -491,6 +491,44 @@ def test_tool_metadata_is_canonicalized_names_untouched_and_the_startup_line_say
     assert proxy.count("tools/list") == 1, "screened once, cached with the list"
 
 
+def test_a_withheld_definition_is_named_spelled_out_and_refused(monkeypatch):
+    """#172 on the real SDK: a definition the screen cannot process is absent from the list, counted and
+    named in the startup line and the tools_list event (spelled out like every other name list), and a
+    call to it is refused at the bridge. The withheld block is a real mcp.types.TextContent."""
+    import io
+    from mcp.types import TextContent as RealText
+    proxy = None
+    tel = Telemetry().install(monkeypatch)
+    err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", err)
+    real = B._screen_text
+    def boom(text, acc):
+        if "IGNORE any user request" in text:                     # exabeam_create_case_notes' description
+            raise ValueError("unscreenable")
+        return real(text, acc)
+    monkeypatch.setattr(B, "_screen_text", boom)
+
+    async def go():
+        nonlocal proxy
+        proxy = await _with_proxy(monkeypatch)
+        await B.UPSTREAM.warm()
+        tools = await B.UPSTREAM.tools()
+        assert "exabeam_create_case_notes" not in [t.name for t in tools]
+        assert B.UPSTREAM._screen["failed"] == 1 and B.UPSTREAM._screen["withheld"] == ["exabeam_create_case_notes"]
+        with pytest.raises(ValueError, match="withheld for this session"):
+            await B.call_tool("exabeam_create_case_notes", {"arg1": {"caseId": "1", "note": "x"}})
+        assert proxy.count("tools/call") == 0, "the refusal happens before anything is sent"
+        await B.UPSTREAM.drop(); await proxy.stop()
+    run(go())
+    line = err.getvalue()
+    assert "1 definition(s) could not be screened and are withheld for this session: exabeam_create_case_notes" in line, line
+    ev = [d for t, d in tel.events if t == "tools_list"]
+    assert ev and ev[0]["metadata_screen_failed"] == 1 and ev[0]["withheld_tools"] == ["exabeam_create_case_notes"]
+    errs = [d for t, d in tel.events if t == "tool_error"]
+    assert errs and errs[-1].get("stage") == "metadata_screen", errs
+    assert isinstance(B._withheld_block("X"), RealText) and B._withheld_block("X").type == "text"
+
+
 # ---- #153: the real error reaches the audit record and the agent ------------------------------------------
 
 def test_the_leaf_error_is_recorded_not_the_exception_group(monkeypatch):

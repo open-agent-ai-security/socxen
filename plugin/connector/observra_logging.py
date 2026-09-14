@@ -221,7 +221,7 @@ def session_end():
 def tools_list(count, screen, unclassified):
     """The tool surface the remote offered this session: how many definitions, what the metadata screen
     stripped or flagged (COUNTS only -- the text never enters the log), how many definitions could not be
-    screened, which names carry a hidden code point, and which names no tier classifies (treated as
+    screened and were withheld for the session (and their names, spelled out), which names carry a hidden code point, and which names no tier classifies (treated as
     writes). State facts about the surface, never a description."""
     screen = screen or {}
     _emit("tools_list", tool_count=int(count),
@@ -252,7 +252,7 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
     `hygiene_kept`   — the canonicalizer's flagged-but-kept records (joiners, directional marks): same
                        count + classes shape. The text is untouched; the log is the only place the
                        signal exists, by design (no in-band marker is ever written).
-    `screen_failed`  — True when input screening threw and a block passed through raw (fail-open)."""
+    `screen_failed`  — True when input screening threw and the block was withheld (fail-closed, #172)."""
     data = {"duration_ms": round(duration_ms, 1)}
     if action_fields:
         for key, val in action_fields.items():           # -> data["action.alertStatus"] = "closed", ...
