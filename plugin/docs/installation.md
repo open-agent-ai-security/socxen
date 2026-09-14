@@ -9,7 +9,8 @@ socxen ships as a portable **agent skill suite** (`skills/`) for **Claude Code**
 running against the **Exabeam New-Scale MCP**. Both hosts load the same skills and the same guarded
 connector; only the packaging and where the safety gate lives differ. It investigates and triages alerts/cases end to end and produces
 a structured report. It takes no destructive action: containment is *recommended* for a human, and
-dismiss/close are *gated* — by permission rules **and** an explicit confirmation the skill asks for.
+dismiss/close are *gated* — by the bundled hook on Claude Code or the tool-approval policy on Codex,
+**and** an explicit confirmation the skill asks for.
 
 ## Prerequisites
 
@@ -182,7 +183,7 @@ The bundled server registers as `exabeam`; the governance rules match its plugin
 > On **Codex** the same tiers ship inside the package as tool-approval policy, and Codex cancels a
 > destructive tool when nobody is there to approve it. Nothing to merge on either host.
 >
-> The hook also grants the reads: its *allow* on the 16 read tools and the two escalation writes
+> The hook also grants the reads: its *allow* on the 19 read tools and the two escalation writes
 > bypasses the prompt, so with nothing merged a safe operation runs silently and a dangerous one asks —
 > the same split Codex applies from the same tier file (verified headless in default permission mode,
 > 2026-09-06). Your own rules still win: a `deny` on one of these tools removes it from the model's tool
@@ -208,7 +209,8 @@ same tiers, enforced by Claude Code's own permission system), and nothing more. 
 reads (usually `~/.claude/settings.json` — see [Which settings file?](#which-settings-file) below):
 
 - **allow** the read + escalation tools,
-- **`ask`** on `update_alert` / `update_case` (dismiss/close — where a wrong verdict does the most harm),
+- **`ask`** on `update_alert` / `update_case` / `send_email` (dismiss/close and outbound mail — where a
+  wrong verdict does the most harm),
 - **`deny`** the 17 containment tools (defense-in-depth; the MCP exposes none today).
 
 Merged, the rules and the bundled hook agree on every tool — they are generated from the same tier
@@ -227,10 +229,11 @@ From a clone, `plugin/install.sh` can perform the merge instead of you hand-edit
 `--checks-only` outranks it: diagnostics promise to change nothing, so the two together skip the merge
 and say so.
 
-It is **opt-in and never silent**. Installing without the flag still only *warns* that the gate is
-off — and `-y` does not stand in for consent here, because installation alone must never rewrite your
-settings. Run interactively without the flag and, if the gate is off, the installer shows you exactly
-which rules it would add and asks a plain `y/N` first.
+It is **opt-in and never silent**. Installing without the flag reports the gate's state from the
+*installed* plugin — ON via the bundled hook, or FAIL if the installed copy predates it — and notes that
+the rules are not merged; `-y` does not stand in for consent here, because installation alone must never
+rewrite your settings. Run interactively without the flag and the installer offers the merge, shows you
+exactly which rules it would add, and asks a plain `y/N` first.
 
 What it guarantees:
 
@@ -240,7 +243,7 @@ What it guarantees:
   snippet specifies, that's your decision (or a mis-merge worth a look), so it writes **nothing** and
   tells you which entries to resolve.
 - **Idempotent** — re-running is safe; already-merged rules are left alone. Worth re-running even when
-  the gate reads ON: a hand-merge of just the two `ask` lines leaves the containment `deny` list missing.
+  the gate reads ON: a hand-merge of just the three `ask` lines leaves the containment `deny` list missing.
 - **Fails honestly** — no `python3`, or a snippet it can't find, means "cannot merge, here's the manual
   path," never a false green. A failed write is restored from the backup.
 
@@ -289,7 +292,8 @@ cannot be quieted from config.
 The same three tiers, expressed as Codex approval modes in `.mcp.codex.json`:
 
 - **`approval_mode: "auto"`** on the read + escalation tools,
-- **`approval_mode: "approve"`** on `update_alert` / `update_case` (dismiss/close),
+- **`approval_mode: "approve"`** on `update_alert` / `update_case` / `send_email` (dismiss/close and
+  outbound mail),
 - **`disabled_tools`** for the containment tools — Codex applies this *after* any allowlist, so they
   cannot be re-enabled at runtime and never reach the model at all.
 

@@ -475,7 +475,7 @@ _ESCALATION_WRITES = {"exabeam_create_case", "exabeam_create_case_notes"}
 # else is dropped before the call and named in the reply (names, never values), so the reason goes where
 # it belongs -- a case note, which appends -- and never over a field the analyst wrote. `closedReason` is
 # a disposition vocabulary the API documents in prose (no schema enum): a supported value passes, anything
-# else is free text and is dropped. `create_case` is untouched: a new object has nothing to overwrite.
+# else refuses the close (see _state_only). `create_case` is untouched: a new object has nothing to overwrite.
 _STATE_FIELDS = {
     "exabeam_update_alert": frozenset({"alertid", "alertstatus", "priority"}),
     "exabeam_update_case": frozenset({"caseid", "stage", "closedreason", "priority", "assignee", "queue"}),

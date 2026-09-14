@@ -38,8 +38,10 @@ Not in this folder, but part of the docs picture:
 - **Methodology** — how socxen actually investigates: [`skills/soc-investigate/SKILL.md`](../skills/soc-investigate/SKILL.md).
 - **Reference** — tool map, EQL search cookbook, enrichment playbook, triage vocabulary, report
   template, containment list, and worked end-to-end examples: [`skills/soc-investigate/reference/`](../skills/soc-investigate/reference/).
-- **Governance snippet** — the permission block you merge during setup:
-  [`skills/soc-investigate/settings.snippet.json`](../skills/soc-investigate/settings.snippet.json).
+- **Permission snippet** — the optional second lock on Claude Code (the bundled hook is the gate; this
+  merges the same tiers into your settings):
+  [`skills/soc-investigate/settings.snippet.json`](../skills/soc-investigate/settings.snippet.json),
+  generated from the tier file [`permissions.json`](../skills/soc-investigate/permissions.json).
 - **Regression harness** — [`evals/`](https://github.com/open-agent-ai-security/socxen/blob/main/evals/).
 - **End-to-end testing of real connector code** (maintainers) — [`tests/end-to-end-testing.md`](https://github.com/open-agent-ai-security/socxen/blob/main/tests/end-to-end-testing.md):
   how to test through the *skill* against a live tenant, and why a connector change needs a host-agent restart.

@@ -40,10 +40,11 @@ body:
     id: governance-gate
     attributes:
       label: Governance gate
-      description: Is the permission pack (`settings.snippet.json`) merged into your Claude Code settings?
+      description: What does `preflight.sh` report for the human-in-the-loop gate? (It ships on; the permission snippet is an optional second lock.)
       options:
-        - "On — gate merged"
-        - "Off — not merged yet"
+        - "ON — bundled hook (Claude Code) or tool-approval policy (Codex)"
+        - "OFF or FAIL — preflight says so"
+        - "Not checked"
         - "Not sure"
     validations:
       required: true

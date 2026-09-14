@@ -5,13 +5,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """Generate socxen's AI Bill of Materials (CycloneDX 1.6) from the repo's own sources.
 
-socxen is an AI *agent/application*, not a model: a Claude Code skill (prompt + methodology) plus a
-small MCP connector, running on a hosted foundation model (Claude) and calling the Exabeam New-Scale
+socxen is an AI *agent/application*, not a model: a plugin of three skills (prompt + methodology) plus a
+small MCP connector, running on a hosted foundation model the host agent picks (Claude on Claude Code, an
+OpenAI model on Codex) and calling the Exabeam New-Scale
 MCP. Model-card AI-BOM tools (which ingest a Hugging Face model id) can't describe that, so we assemble
 a CycloneDX AI-BOM directly from what socxen actually ships:
 
   - the root component (this plugin) from plugin/.claude-plugin/plugin.json,
-  - the foundation model (Claude) as an external machine-learning-model component,
+  - the foundation models (Claude; OpenAI on Codex) as external machine-learning-model components,
   - the system prompt / methodology (SKILL.md + reference corpus) as a `data` component,
   - the connector's Python dependencies (PEP 723) as `library` components,
   - the Exabeam MCP as a `service` with its inbound/outbound data flows,
@@ -107,6 +108,12 @@ def build_bom(timestamp):
     if header_count != tool_count:
         sys.exit(f"tool-map.md header says {header_count} tools, the map lists {tool_count} live names — fix the map")
     mcp_server = next(iter(mcp["mcpServers"]))  # "exabeam"
+    skills = sorted(d.name for d in (ROOT / "plugin/skills").iterdir() if (d / "SKILL.md").is_file())
+    hook = (ROOT / "plugin/hooks/hooks.json").is_file() and (ROOT / "plugin/hooks/gate.py").is_file()
+    tiers = _json("plugin/skills/soc-investigate/permissions.json")["tiers"]   # the one tier file (bare names)
+    tier_n = {t: len(tiers[t]["tools"]) for t in ("allow", "ask", "deny")}
+    codex_map = _json("plugin/.mcp.codex.json")                 # Codex spells the map without a mcpServers wrapper
+    codex_policy = codex_map.get("mcpServers", codex_map)[mcp_server]
 
     name, version = plugin["name"], plugin["version"]
     repo = plugin["repository"]
@@ -131,8 +138,8 @@ def build_bom(timestamp):
         ],
         "properties": [
             {"name": "ai:systemType", "value": "agent"},
-            {"name": "ai:platform", "value": "Claude Code plugin (skill)"},
-            {"name": "ai:skillName", "value": "soc-investigate"},
+            {"name": "ai:platform", "value": "plugin for Claude Code and OpenAI Codex (skills + bundled MCP connector)"},
+            {"name": "ai:skillName", "value": ", ".join(skills)},
         ],
     }
 
@@ -153,13 +160,30 @@ def build_bom(timestamp):
             ],
         },
         {
+            "bom-ref": "model:openai-codex",
+            "type": "machine-learning-model",
+            "name": "OpenAI model (via Codex)",
+            "description": ("Foundation model the skills run on when the host is OpenAI Codex. Hosted API — "
+                            "weights are not distributed with socxen. The specific model and reasoning effort "
+                            "are selected by Codex, not pinned by socxen; the red-team floor is recorded per run "
+                            "in security/redteam/HISTORY.md."),
+            "supplier": {"name": "OpenAI", "url": ["https://openai.com"]},
+            "externalReferences": [{"type": "website", "url": "https://openai.com/codex/"}],
+            "properties": [
+                {"name": "ai:hosting", "value": "external-hosted-api"},
+                {"name": "ai:weightsDistributed", "value": "false"},
+                {"name": "ai:pinnedByThisProject", "value": "false"},
+            ],
+        },
+        {
             "bom-ref": "artifact:soc-investigate-methodology",
             "type": "data",
-            "name": "soc-investigate methodology (system prompt + reference corpus)",
-            "description": ("The agent's instructions: SKILL.md (investigation methodology, governance, "
-                            "output discipline) plus reference/ (tool map, EQL search cookbook, enrichment "
-                            "playbook, report template, triage taxonomy, containment list, worked examples). "
-                            "This prompt corpus — not a model — is the primary AI artifact socxen ships."),
+            "name": "skill methodology (system prompts + reference corpus)",
+            "description": ("The agent's instructions: the three skills' SKILL.md (" + ", ".join(skills) + " — "
+                            "investigation methodology, queue sweep, rule tuning; governance; output discipline) "
+                            "plus reference/ (tool map, EQL search cookbook, enrichment playbook, report template, "
+                            "triage taxonomy, containment list, worked examples). This prompt corpus — not a "
+                            "model — is the primary AI artifact socxen ships."),
             "licenses": lic,
             "properties": [
                 {"name": "ai:artifactKind", "value": "system-prompt/methodology"},
@@ -227,13 +251,23 @@ def build_bom(timestamp):
         "supplier": SUPPLIER,
         "authors": [{"name": plugin["author"]["name"]}],
         "properties": [
-            {"name": "ai:foundationModel", "value": "Claude (Anthropic), external hosted API"},
-            {"name": "ai:humanInTheLoop", "value": "required for dismiss/close (update_alert/update_case)"},
-            {"name": "ai:autonomousActions", "value": "read/search + create_case/case_notes (escalation)"},
-            {"name": "ai:containmentCapability", "value": "none — recommend-only, performed by a human in EDR/IAM"},
+            {"name": "ai:foundationModel", "value": "Claude (Anthropic) on Claude Code; OpenAI model on Codex — external hosted APIs, chosen by the host"},
+            {"name": "ai:humanInTheLoop",
+             "value": "required for dismiss/close and outbound mail (update_alert/update_case/send_email) — enforced by the host: "
+                      + ("a bundled PreToolUse hook on Claude Code (holds under --dangerously-skip-permissions; a headless ask is refused)"
+                         if hook else "the permission pack on Claude Code")
+                      + f"; tool-approval policy on Codex (default {codex_policy.get('default_tools_approval_mode')!s}, "
+                      + f"{len(codex_policy.get('disabled_tools', []))} tools disabled)"},
+            {"name": "ai:autonomousActions", "value": "read/search + create_case/case_notes (escalation) — prompt-free on both hosts"},
+            {"name": "ai:containmentCapability", "value": "none — recommend-only, performed by a human in EDR/IAM; every containment tool is denied by the gate"},
             {"name": "ai:guardrails",
-             "value": f"permission tiers {len(perms['allow'])} allow / {len(perms['ask'])} ask / {len(perms['deny'])} deny "
-                      "(settings.snippet.json) + in-prompt ask-before-close backstop"},
+             "value": f"permission tiers {tier_n['allow']} allow / {tier_n['ask']} ask / {tier_n['deny']} deny "
+                      "from one tier file (permissions.json → hook, Codex policy, optional permission pack); "
+                      "input canonicalizer on every read and on the remote's tool definitions (hashed per session); "
+                      "output neutralizer on every write (formulas inert, links de-fanged unless into the operator's tenant, "
+                      "secrets and structured identifiers masked); updates carry state only; a create_case with a closing "
+                      "disposition is refused; in-prompt ask-before-close as the model-side layer"},
+            {"name": "ai:auditTrail", "value": "on by default, local, bounded: every call, gate decision and guardrail firing as metadata and safe identifiers, never case content (~/.socxen/)"},
             {"name": "ai:secretsHandling", "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged"},
             {"name": "aibom:generator", "value": "security/gen_aibom.py (deterministic, from repo sources)"},
         ],
@@ -243,11 +277,11 @@ def build_bom(timestamp):
 
     dependencies = [
         {"ref": root["bom-ref"],
-         "dependsOn": ["model:anthropic-claude", "artifact:soc-investigate-methodology",
+         "dependsOn": ["model:anthropic-claude", "model:openai-codex", "artifact:soc-investigate-methodology",
                        "component:exabeam-mcp-bridge", f"service:{mcp_server}-mcp"]},
         {"ref": "component:exabeam-mcp-bridge",
          "dependsOn": [f"pkg:pypi/{_split_dep(s)[0]}" for s in deps]},
-        {"ref": "artifact:soc-investigate-methodology", "dependsOn": ["model:anthropic-claude"]},
+        {"ref": "artifact:soc-investigate-methodology", "dependsOn": ["model:anthropic-claude", "model:openai-codex"]},
     ]
 
     return {
@@ -356,8 +390,8 @@ def render_html(bom):
 </div></header>
 <div class="wrap">
   <p class="lead">This is an <b>AI application / agent</b> BOM, not a model card. socxen runs on a
-  hosted foundation model (Claude) it does not ship, and its substance is a <b>prompt/methodology</b>
-  plus a small <b>MCP connector</b>. The inventory below is generated deterministically from the repo's
+  hosted foundation model it does not ship (Claude on Claude Code, an OpenAI model on Codex), and its
+  substance is a <b>prompt/methodology</b> plus a small <b>MCP connector</b> carrying the guardrails. The inventory below is generated deterministically from the repo's
   own sources by <code>security/gen_aibom.py</code>.</p>
   <p class="meta">Supplier: {esc(m["supplier"]["name"])} · Generated: {esc(ts)} · Serial: <code>{esc(bom["serialNumber"])}</code></p>
 
