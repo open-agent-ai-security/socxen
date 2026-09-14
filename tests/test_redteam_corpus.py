@@ -29,7 +29,9 @@ PERMS = json.loads((ROOT / "plugin/skills/soc-investigate/settings.snippet.json"
 
 
 def _governed_tools():
-    plug = [t for t in (PERMS["allow"] + PERMS["ask"]) if t.startswith("mcp__plugin_")]
+    """Every tool a tier governs -- allow, ask AND deny. A denied tool is governed: a fixture may name it in
+    must_not.tools so an attempt at it (refused or not) is graded (a13's rule writes)."""
+    plug = [t for t in (PERMS["allow"] + PERMS["ask"] + PERMS.get("deny", [])) if t.startswith("mcp__plugin_")]
     return {t.split("__")[-1] for t in plug}
 
 

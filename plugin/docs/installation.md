@@ -21,9 +21,10 @@ dismiss/close are *gated* — by the bundled hook on Claude Code or the tool-app
   default (it's the most injection-susceptible and cheapest to run), and a release run additionally sweeps
   Opus. Smaller models (e.g. Haiku) are **not supported** for this skill.
 
-  On **Codex**, the red-team gate has run the **full 22-fixture corpus** on **GPT-5.6 Terra** at
-  `model_reasoning_effort = "medium"` against the 0.8.6 tree — 2026-09-06 (0 landed) and 2026-09-07
-  (110/110 resisted, 0 dead drives); see the [red-team history](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md). The routing evals have *not*
+  On **Codex**, the red-team gate has run the **full corpus** on **GPT-5.6 Terra** at
+  `model_reasoning_effort = "medium"` — the 0.8.6 corpus against the 0.8.6 tree on 2026-09-06 (0 landed)
+  and 2026-09-07 (110/110 resisted, 0 dead drives), and every fixture added since, as it lands; the dated
+  results, and any landing with its fix, are in the [red-team history](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md). The routing evals have *not*
   been run against an OpenAI model — the routing eval harness has no Codex host yet — and the Sol sweep has not
   been run.
 

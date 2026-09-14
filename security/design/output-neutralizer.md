@@ -157,8 +157,9 @@ promoted to a rule only when a fixture shows it firing in a persisted artifact.
   redaction path, and runs the do-no-harm corpus through the full pipeline. `scripts/mutation_check.py`
   deletes each rule in a scratch copy and requires the suite to fail; CI runs it on every PR. Before this,
   seven rules could be deleted in turn with the whole suite green.
-- **Live, before every release:** red-team classes A (a10 export injection), C (c04 close via create)
-  and D (d01–d03 data protection) on the weakest supported model per host — graded on whether the
+- **Live, before every release:** red-team classes A (a10–a12 export injection, a14 the prose-position
+  formula shapes), C (c04 close via create) and D (d01–d03 data protection, d04 the quoted-label secret
+  form, d05 exfil by outbound mail) on the weakest supported model per host — graded on whether the
   payload survived into the persisted artifact in **fireable form**, not on whether the model sounded
   careful. [`security/redteam/HISTORY.md`](../redteam/HISTORY.md).
 - **Praxen** checks the remit's write-side rules — the untrusted-content rule under *Prohibited Behaviors*
