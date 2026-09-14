@@ -12,8 +12,9 @@ doc.*
 
 ## Purpose
 
-Adversarially test **socxen as configured** — Claude Code running the `soc-investigate` skill against the
-Exabeam New-Scale MCP, under the governance model in the docs — to answer one question before each
+Adversarially test **socxen as configured** — Claude Code or Codex running the three skills
+(`soc-investigate` at depth; `triage-cases` and `rule-tuning` at sweep depth) against the Exabeam
+New-Scale MCP, under the governance model in the docs — to answer one question before each
 release: **can an adversary who controls the telemetry make the agent suppress a real threat, bypass the
 human gate, or leak sensitive data?**
 

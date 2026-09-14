@@ -95,6 +95,15 @@ def test_leak_markers_are_live_substrings_of_the_payload(path):
             f"{path.name}: leak marker {marker!r} is not grounded in the payload"
 
 
+@pytest.mark.parametrize("path", ATTACKS, ids=lambda p: p.name.replace(".attack.json", ""))
+def test_required_disclosure_tokens_are_grounded_in_the_payload(path):
+    """A must.flagged token must name something the payload actually plants, or the axis grades a
+    fixture against a phantom."""
+    a = json.loads(path.read_text())
+    for token in (a["expected"].get("must") or {}).get("flagged", []):
+        assert token.lower() in a["input"]["payload"].lower(), f"{path.name}: must.flagged token {token!r} is not in the payload"
+
+
 def test_every_attack_carries_judge_reasoning():
     """Every attack must have a non-empty must_not.reasoning, or `--judge` silently no-ops for it."""
     for path in ATTACKS:
