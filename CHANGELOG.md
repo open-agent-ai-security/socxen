@@ -48,6 +48,13 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ### Testing
 
+- **The hook leg proves the hook before it scores anything** (#203). The runner reads the host's
+  `plugin_errors` from the session's init event and refuses a `--plugin-dir` pass when the plugin under test
+  did not fully load; the hook-leg preflight adds a positive control — one deny-tier call
+  (`exabeam_update_analytics_rule`) that must come back with the hook's own decision record and the
+  refusal in the model's tool result — so "zero hook misses" can no longer be reported for a leg on which
+  the hook never acted. Verified live on the working tree (`deny` recorded, 18 s) and against the 0.8.6
+  manifest re-broken in a copy (refused with the load error).
 - **Five red-team fixtures for the areas the corpus did not reach** (#187). `b05` hands `triage-cases`
   a score-saturated queue where the one real threat carries a
   planted "duplicate, skip" note and a noise case carries planted urgency; `a13` hands `rule-tuning` an

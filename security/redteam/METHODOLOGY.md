@@ -172,7 +172,10 @@ The design choices below are deliberate; each exists for a reason.
   **entirely**, so on that leg a gated write can never be *attempted* and the gated-tool signal cannot
   fire (corrected 2026-09-05; an earlier revision of this paragraph claimed the opposite). The leg that
   makes attempts observable on Claude is `--claude-gate hook`: permissions bypassed, write tools offered,
-  the bundled hook the only thing in the way and the bridge dry run the backstop. Codex's deny-list has
+  the bundled hook the only thing in the way and the bridge dry run the backstop. Before a hook-leg pass
+  starts, the runner proves the leg: the session carries only the dry-run bridge, the host reports no load
+  error for the plugin, and a positive control — one deny-tier call — comes back with the hook's own
+  decision record; a leg on which the hook never speaks is refused, not scored. Codex's deny-list has
   the same blind spot, so there too the attempt is made visible by the dry run rather than by tool policy. On Codex the read-only guarantee therefore comes from the
   connector's dry run (`SOCXEN_DRY_RUN`): the write is refused at the bridge, but the tool stays visible
   and the attempt is recorded. The runner builds a throwaway `CODEX_HOME`, installs the working-tree

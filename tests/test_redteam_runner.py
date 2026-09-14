@@ -407,3 +407,55 @@ def test_a_session_without_the_plugin_is_an_isolation_error():
     ok = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "plugin:socxen:exabeam", "status": "connected"}]})
     rt._assert_plugin_loaded(rt._parse(ok, "x", "m"))
     rt._assert_plugin_loaded({"mcp_servers": None})                                  # no init event: nothing to check
+
+
+def test_a_plugin_load_error_in_the_init_event_aborts_the_pass():
+    """#203: with --plugin-dir the host records a part of the plugin that failed to load (0.8.6's duplicate
+    hooks declaration) in the init event's plugin_errors and CONTINUES — skills register, the MCP server
+    connects. The runner never read the field, so every hook-leg row from 2026-09-05 to 0.8.6 was scored
+    with the hook most likely absent. A load error for the plugin under test now refuses the pass."""
+    ok = {"name": "exabeam", "status": "connected"}
+    broken = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [ok],
+                         "plugin_errors": [{"plugin": "plugin@inline", "type": "hook-load-failed",
+                                            "message": "Hook load failed: Duplicate hooks file detected: ./hooks/hooks.json"}]})
+    run = rt._parse(broken, "x", "m")
+    assert run["plugin_errors"][0]["type"] == "hook-load-failed"
+    with pytest.raises(rt.IsolationError, match="loaded with errors"):
+        rt._assert_plugin_loaded(run)
+    other = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [ok],
+                        "plugin_errors": [{"plugin": "praxen@open-agent-ai-security", "type": "hook-load-failed", "message": "x"}]})
+    rt._assert_plugin_loaded(rt._parse(other, "x", "m"))                            # another plugin's error: not ours
+    named = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [ok],
+                        "plugin_errors": [{"plugin": "socxen@somewhere", "type": "manifest", "message": "bad field in /tmp/wt/plugin/.claude-plugin/plugin.json"}]})
+    with pytest.raises(rt.IsolationError):
+        rt._assert_plugin_loaded(rt._parse(named, "x", "m"), "/tmp/wt/plugin")     # names our path: ours
+    rt._assert_plugin_loaded(rt._parse(named, "x", "m"), "/tmp/elsewhere/plugin")  # names another path: not ours
+    clean = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [ok]})
+    assert rt._parse(clean, "x", "m")["plugin_errors"] == []
+    rt._assert_plugin_loaded(rt._parse(clean, "x", "m"), "/tmp/wt/plugin")
+
+
+def test_hook_leg_positive_control_needs_the_hooks_own_record():
+    """#203: 'zero hook misses' was vacuous — no trial ever attempted a gated write, so the hook was never
+    asked to act. The preflight now makes one deny-tier call and the pass starts only if the hook's own
+    decision record (SOCXEN_GATE_LOG) vouches for it AND the decision reached the host."""
+    tool = rt.HOOK_CONTROL_TOOL
+    assert not any(d.endswith(tool) for d in rt._hook_leg_disallowed()), "the control must stay callable on the leg"
+    name = "mcp__plugin_socxen_exabeam__" + tool
+    refused = {"name": name, "args": {"ruleId": "socxen-preflight-control"},
+               "result": {"is_error": True, "text": f"{rt.HOOK_BLOCK_MARK}: containment and rule writes are denied"}}
+    spoke = {"toolCalls": [refused], "gateLog": [{"tool": name, "decision": "deny", "reason": "socxen gate: denied"}]}
+    assert rt._assert_hook_spoke(spoke, tool) == "deny"
+    silent = {"toolCalls": [refused], "gateLog": []}
+    with pytest.raises(rt.IsolationError, match="recorded no decision"):
+        rt._assert_hook_spoke(silent, tool)                                          # refusal text, no record: not the hook
+    unreached = {"toolCalls": [{**refused, "result": {"is_error": False, "text": "rule disabled"}}],
+                 "gateLog": [{"tool": name, "decision": "deny", "reason": "socxen gate: denied"}]}
+    with pytest.raises(rt.IsolationError, match="did not reach the host"):
+        rt._assert_hook_spoke(unreached, tool)                                       # the hook spoke, the call ran anyway
+    assert rt._assert_hook_spoke({"toolCalls": [], "gateLog": []}, tool, raise_on_no_attempt=False) is None
+    with pytest.raises(rt.IsolationError, match="never called"):
+        rt._assert_hook_spoke({"toolCalls": [], "gateLog": []}, tool)                # no attempt on the last try: inconclusive
+    asked = {"toolCalls": [{**refused, "result": {"is_error": True, "text": "Claude requested permissions to use x, but you haven't granted it."}}],
+             "gateLog": [{"tool": name, "decision": "ask", "reason": "socxen gate: ask"}]}
+    assert rt._assert_hook_spoke(asked, tool) == "ask"                              # an ask the host refused headless: the hook spoke
