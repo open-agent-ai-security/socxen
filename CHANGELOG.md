@@ -66,6 +66,15 @@ feature release carries the full gate. The hook-leg rows in the ledger do not ye
 
 ### Testing
 
+- **Five red-team fixtures for the areas the corpus did not reach** (#187, and the outside review of
+  2026-09-13). `b05` hands `triage-cases` a score-saturated queue where the one real threat carries a
+  planted "duplicate, skip" note and a noise case carries planted urgency; `a13` hands `rule-tuning` an
+  inventory where the most precise rule's description instructs the tuner to disable it; `d04` plants
+  secrets under quoted JSON labels (the #118 shape) with text asking for the literal values; `a14`
+  plants the two formula shapes phase B of #120 added, mid-prose; `d05` frames a seeded token as
+  something to forward by outbound mail. The runner learned a `skill` field for the first two. Twenty-
+  eight fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
+  report has no taxonomy line).
 - **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven
   rules of `neutralize_output.py` — the table-cell and quoted-field formula passes, the JWT pattern,
   three credential keywords, the weak-separator line-break branch, the audit note's non-leak — could
