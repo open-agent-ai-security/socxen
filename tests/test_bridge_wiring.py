@@ -465,18 +465,42 @@ def test_allowlist_is_derived_from_the_configured_mcp_url_and_defaults_to_nothin
     assert B.ALLOWED_LINK_HOSTS == B.tenant_hosts_from_url(B.URL)
 
 
-def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
-    """The read-side accumulators feed the audit trail: flagged-but-kept code points, and a block whose
-    screening raised (fail-open — the raw block passes through, and the failure is recorded)."""
+def test_canon_content_withholds_a_block_the_screen_cannot_process():
+    """#172: the read-side screen fails CLOSED per block. A block whose screening raises is replaced by the
+    bridge's withheld message (naming the exception class, asking for the gap to be reported); the other
+    blocks are untouched; the failure is recorded for the audit trail."""
     kept, failures = [], []
 
-    class Bad:                       # a block whose text access explodes -> the fail-open path
+    class Bad:                       # a block whose text access explodes
         @property
         def text(self):
             raise RuntimeError("boom")
-    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad()], None, kept, failures)
+    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad(), Blk(text="after")], None, kept, failures)
     assert out[0].text == "ab\u200dcd" and [k["cp"] for k in kept] == ["U+200D"]
-    assert failures == ["RuntimeError"] and isinstance(out[1], Bad)
+    assert failures == ["RuntimeError"]
+    assert not isinstance(out[1], Bad) and out[1].type == "text"
+    assert "withheld" in out[1].text and "RuntimeError" in out[1].text and "report the evidence gap" in out[1].text.lower()
+    assert "boom" not in out[1].text, "the exception's message is not model text; only its class is named"
+    assert out[2].text == "after", "the rest of the result is intact"
+
+
+def test_screen_tools_withholds_a_definition_it_cannot_screen(monkeypatch):
+    """#172: a tool definition the metadata screen cannot process is withheld for the session — absent
+    from the list the model sees, counted, and named — instead of standing unscreened."""
+    class Tool:
+        def __init__(self, name, description):
+            self.name, self.description, self.inputSchema = name, description, {"type": "object"}
+        def model_copy(self, update=None):
+            t = Tool(self.name, self.description); t.__dict__.update(update or {}); return t
+    real = B._screen_text
+    def boom(text, acc):
+        if text == "poison":
+            raise ValueError("unscreenable")
+        return real(text, acc)
+    monkeypatch.setattr(B, "_screen_text", boom)
+    out, acc = B._screen_tools([Tool("exabeam_ok", "fine"), Tool("exabeam_bad", "poison")])
+    assert [t.name for t in out] == ["exabeam_ok"]
+    assert acc["failed"] == 1 and acc["withheld"] == ["exabeam_bad"]
 
 
 # ---- #174: the credentials never cross the network in the clear ------------------------------------------

@@ -429,7 +429,8 @@ class _Upstream:
             if acc.get("stripped") or acc.get("flagged"):
                 line += f"; tool metadata screened: {acc['stripped']} hidden code point(s) stripped, {acc['flagged']} flagged"
             if acc.get("failed"):
-                line += f"; {acc['failed']} definition(s) could not be screened (kept as received)"
+                line += (f"; {acc['failed']} definition(s) could not be screened and are withheld for this session: "
+                         f"{_display_list(acc.get('withheld', []))}")
             if acc.get("odd_names"):
                 line += f"; names carrying hidden code points: {_display_list(acc['odd_names'])}"
             if acc.get("directive_tools"):
@@ -759,10 +760,11 @@ def _definition_sha(t):
 
 def _screen_tools(tools):
     """Canonicalize the description and schema text of every remote tool definition. Returns the screened
-    list and the tally: code points stripped / flagged, per-tool screening failures (the original
-    definition stands), names that carry a hidden code point (reported, never altered), definitions whose
-    text is instruction-shaped (reported, never altered), and a per-tool hash of the definition."""
-    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "odd_names": [], "directive_tools": [], "shas": {}}
+    list and the tally: code points stripped / flagged, per-tool screening failures (the definition is
+    WITHHELD for the session — unscreened text never reaches the model, #172), names that carry a hidden
+    code point (reported, never altered), definitions whose text is instruction-shaped (reported, never
+    altered), and a per-tool hash of the definition."""
+    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "withheld": [], "odd_names": [], "directive_tools": [], "shas": {}}
     for t in tools:
         try:
             if any(is_strippable(ch) for ch in (t.name or "")):
@@ -783,9 +785,9 @@ def _screen_tools(tools):
             if ann is not None and getattr(ann, "title", None):
                 update["annotations"] = ann.model_copy(update={"title": _screen_text(ann.title, acc)})
             out.append(t.model_copy(update=update) if update else t)
-        except Exception:  # noqa: BLE001 -- fail-open: the definition stands, the failure is counted
+        except Exception:  # noqa: BLE001 -- fail-closed: the definition is withheld, the failure is counted (#172)
             acc["failed"] += 1
-            out.append(t)
+            acc["withheld"].append(str(getattr(t, "name", "?")))
     return out, acc
 
 
@@ -868,14 +870,24 @@ def _rewrite_block(block, kind, clean):
     return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
 
 
+WITHHELD_BLOCK = ("[socxen bridge: this evidence block was withheld — the read-side screen could not process it "
+                  "({err}). Report the evidence gap in the investigation; the other blocks of this result are intact. "
+                  "A retry helps only if the block's shape was transient.]")
+
+
+def _withheld_block(err_name):
+    """The block the model reads in place of one the screen could not process: bounded, first-party text."""
+    return TextContent(type="text", text=WITHHELD_BLOCK.format(err=err_name))
+
+
 def _canon_content(content, removed=None, kept=None, failures=None):
     """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
     invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
-    never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins.
-    `removed` / `kept` / `failures` are optional accumulators for telemetry (default None — behavior is
-    unchanged): stripped code points, flagged-but-kept code points, and the exception class of any block
-    that passed through raw because screening failed (the fail-open path is now a recorded event, not
-    only a stderr line — Praxen PRAX-2026-09-05-006/-007)."""
+    never appended to the content. Covers text and embedded-resource blocks. FAIL-CLOSED per block (#172):
+    a block the screen cannot process is withheld and replaced by WITHHELD_BLOCK; the other blocks of the
+    result are untouched. `removed` / `kept` / `failures` are optional accumulators for telemetry (default
+    None — behavior is unchanged): stripped code points, flagged-but-kept code points, and the exception
+    class of any block that was withheld (Praxen PRAX-2026-09-05-006/-007)."""
     out = []
     for block in content:
         try:
@@ -888,10 +900,11 @@ def _canon_content(content, removed=None, kept=None, failures=None):
                 if kept is not None and hy.kept:
                     kept.extend(hy.kept)
                 block = _rewrite_block(block, kind, clean)
-        except Exception as e:  # noqa: BLE001 — availability over canonicalization
-            sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
+        except Exception as e:  # noqa: BLE001 — the block is withheld; the read never carries unscreened text
+            sys.stderr.write(f"bridge: canonicalize failed on a block; the block is withheld ({e!r})\n")
             if failures is not None:
                 failures.append(type(e).__name__)
+            block = _withheld_block(type(e).__name__)
         out.append(block)
     return out
 
@@ -1055,7 +1068,7 @@ async def call_tool(name, arguments):
         # reads may be retried on a transport failure; a write is sent exactly once, whatever happens
         result = await remote(lambda s: s.call_tool(name, arguments or {}, read_timeout_seconds=_CALL_TIMEOUT),
                               name, retry=not is_write)
-        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
+        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-closed per block (#172)
         if getattr(result, "isError", False):
             # the tool ran upstream and FAILED: an error, not a success
             stage = "upstream_tool"

@@ -33,11 +33,13 @@ below say otherwise, this section and the code win.
   reads (the design's §9 decision, kept). The richer per-offset forensic record and `escapedRaw` in §9
   were **not built**; the homoglyph/mixed-script flag in §5 was **not built** (advisory and
   false-positive-prone on localized hostnames).
-- **Wired in the bridge on every tool result** — text and embedded-resource blocks — **fail-open**: a
-  block that raises passes through raw, with the exception class on stderr and a `hygiene_screen_failed`
-  flag on the call's audit record (Praxen findings 2026-09-05-006/-007; findings are in
-  [praxen/results/](../praxen/results/)), so "canonicalized clean" and "passed through unchecked" are
-  distinguishable. The design's OQ-4 (arguments) resolved *no*: reads are never argument-mutated; writes
+- **Wired in the bridge on every tool result** — text and embedded-resource blocks — **fail-closed per
+  block** (#172): a block that raises is withheld and replaced by a bounded message that names the
+  exception class and asks for the evidence gap to be reported; the other blocks of the result are
+  untouched, the exception class goes to stderr, and a `hygiene_screen_failed` flag on the call's audit
+  record says a block was withheld (Praxen findings 2026-09-05-006/-007; findings are in
+  [praxen/results/](../praxen/results/)). The tool-definition screen has the same direction: a definition
+  it cannot process is withheld for the session, counted and named in the startup line and the audit trail. The design's OQ-4 (arguments) resolved *no*: reads are never argument-mutated; writes
   are the neutralizer's.
 - **The remote's tool definitions are screened too** (#159, #164 — Praxen finding 2026-09-07-001, #6).
   Once per session:
@@ -51,7 +53,7 @@ below say otherwise, this section and the code win.
 - **Accepted residuals** (stated in the module docstring): a kept invisible spliced into an ASCII word,
   emoji variation-selector byte channels, NBSP keyword-splitting, and NFC folding of compatibility
   singletons (`U+212A` KELVIN → K) / NFD recomposition — a rare, bounded exact-match-pivot miss. The
-  fail-open direction is itself a declared residual, with a fail-closed variant tracked as #172.
+  screen fails closed per block (#172).
 - **Verified:** `tests/test_canonicalize.py` (the clean-corpus invariant of §11 — a clean value passes
   through unchanged except NFC — plus one fixture per strip channel) and the read-path wiring in
   `tests/test_bridge_wiring.py`; live, red-team fixture a07 (a zero-width-space smuggle) on every

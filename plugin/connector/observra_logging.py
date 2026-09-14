@@ -227,6 +227,7 @@ def tools_list(count, screen, unclassified):
     _emit("tools_list", tool_count=int(count),
           metadata_stripped=int(screen.get("stripped", 0)), metadata_flagged=int(screen.get("flagged", 0)),
           metadata_screen_failed=int(screen.get("failed", 0)),
+          withheld_tools=[str(n)[:80] for n in screen.get("withheld", [])][:50],           # definitions withheld for the session (#172)
           odd_names=[str(n)[:80] for n in screen.get("odd_names", [])][:20],
           directive_tools=[str(n)[:80] for n in screen.get("directive_tools", [])][:50],   # definitions with instruction-shaped text (#163)
           surface_sha=str(screen.get("surface_sha", ""))[:64],                              # hash of the whole tool surface, per session
