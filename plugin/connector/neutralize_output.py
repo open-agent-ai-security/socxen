@@ -85,6 +85,11 @@ _SECRET_PATTERNS = [
 # broad on purpose: the live red-team (2026-08-18) showed the MODEL phrases labels its own way --
 # "Secret Access Key: <v>", a value on the next line under a heading, a markdown-table cell -- so a
 # rigid `key=value` anchor missed real leaks a unit test (which used the exact form) did not.
+# The keyword's edges. `\b` would treat `_` as part of the word, so `aws_secret_access_key` and
+# `service_password` -- the shape of every environment variable, config key and Terraform/Kubernetes
+# secret an analyst pastes -- had no boundary before their keyword and never matched (review of #118).
+# Letters and digits are the only word characters here; `_`, `-` and `.` all separate.
+_KW_L, _KW_R = r"(?<![A-Za-z0-9])", r"(?![A-Za-z0-9])"
 _KEYWORD = (
     r"passwo?r?d|passwd|pwd|pass[\s_-]?phrase|"
     r"secret[\s_-]?(?:access[\s_-]?)?key|access[\s_-]?key(?:[\s_-]?id)?|"
@@ -138,10 +143,12 @@ def _trim_delims(val, minlen):
 
 
 # STRONG separator: an explicit label assignment (`password: X`, `token=X`). The label vouches for the
-# value, so any 6+ core is a secret -- you don't write "password: rotated".
+# value, so any 6+ core is a secret -- you don't write "password: rotated". The label may itself be
+# quoted -- a JSON or raw-field dump ("client_secret": "X", {"password":"X"}) puts a closing quote between
+# the keyword and the separator (#118); the value's own quotes are peeled by _trim_delims and handed back.
 _LABELED_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b"
-    r"(\s*[:=]\s*)"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R +
+    r"([\"'`]?\s*[:=]\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
 # STRONG separator, table form: a markdown table ROW whose cell is exactly a credential keyword labels
 # the cell beside it -- structurally a label/value pair, so no shape guard is needed. Anchored to ^| so
@@ -149,7 +156,7 @@ _LABELED_SECRET_RE = re.compile(
 # A GFM table delimiter row: |---|:---:|---| . Its presence marks the line ABOVE as a header row.
 _TABLE_DELIM_RE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|[\s:|-]*$")
 _TABLE_ROW_SECRET_RE = re.compile(
-    r"(?im)^(\|[^\n]*?\b(?:" + _KEYWORD + r")\b)(\s*\|\s*)"
+    r"(?im)^(\|[^\n]*?" + _KW_L + r"(?:" + _KEYWORD + r")" + _KW_R + r")(\s*\|\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
 # WEAK separators -- a copula ("secret was rotated") or a bare line break ("API token\nAKIA...") -- are
 # AMBIGUOUS: what follows is usually recommendation prose ("rotated", "Rotate", "Disable"), not the
@@ -158,14 +165,14 @@ _TABLE_ROW_SECRET_RE = re.compile(
 # passphrase after a bare line break ("Recovered credential\ncorrecthorsebatterystaple") is NOT caught --
 # a line break genuinely cannot be told from prose. Labeled, quoted, and table forms all are.
 _WEAK_SEP_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R +
     r"(\s+(?:is|was)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
     r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[^\s,;<>|]{12,})")
 # Plain-space separator (a CLI flag like `--secret-key <v>`) is ambiguous — "password protection" would
 # false-positive. So a space-separated value is redacted ONLY if it LOOKS secret-like: 12+ chars with at
 # least one digit AND one letter (a dictionary word like "protection" has no digit and is spared).
 _SPACE_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b\s+"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R + r"\s+"
     r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[A-Za-z0-9+/=_$.\-]{12,})")
 # The final digit must not carry a separator, or the match eats the space after the number and the
 # sentence closes up ("[REDACTED:credit-card]was charged") -- a do-no-harm defect on legitimate text.
