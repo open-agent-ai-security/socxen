@@ -798,7 +798,9 @@ def _screen_tools(tools):
 
 
 def _withheld_tool(name):
-    """True when the metadata screen withheld this definition for the session (#172)."""
+    """True when the metadata screen withheld this definition for the session (#172). `_screen` is None only
+    before the first tools/list, and the SDK fetches the list before dispatching any call, so None here
+    means no definition was ever screened -- hence none withheld -- not an unknown state."""
     acc = getattr(UPSTREAM, "_screen", None) or {}
     return name in (acc.get("withheld") or ())
 
@@ -893,15 +895,17 @@ WITHHELD_BLOCK = (WITHHELD_PREFIX + " — the read-side screen could not process
 WITHHELD_ERROR = "upstream tool error — its text could not be screened and was withheld"
 
 
-def _upstream_error_text(content):
+def _upstream_error_text(content, withheld=()):
     """The upstream error the model reads when the tool ran and reported isError: the screened blocks'
     text, with withheld blocks left out -- a withheld block is the bridge's own sentence, not the error.
+    Withheld blocks are recognized by IDENTITY (the objects _canon_content built), never by their text:
+    a remote block that merely starts with the withheld sentence is data, and stays in the error.
     When every block was withheld, say that instead of quoting the withholding as the error."""
-    texts = [t for t, _ in (_block_text(b) for b in content) if t]
-    real = [t for t in texts if not t.startswith(WITHHELD_PREFIX)]
+    pairs = [(b, _block_text(b)[0]) for b in content]
+    real = [t for b, t in pairs if t and not any(b is w for w in withheld)]
     if real:
         return " ".join(real)
-    return WITHHELD_ERROR if texts else "upstream tool error"
+    return WITHHELD_ERROR if any(t for _, t in pairs) else "upstream tool error"
 
 
 def _withheld_block(err_name):
@@ -909,14 +913,15 @@ def _withheld_block(err_name):
     return TextContent(type="text", text=WITHHELD_BLOCK.format(err=err_name))
 
 
-def _canon_content(content, removed=None, kept=None, failures=None):
+def _canon_content(content, removed=None, kept=None, failures=None, withheld=None):
     """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
     invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
     never appended to the content. Covers text and embedded-resource blocks. FAIL-CLOSED per block (#172):
     a block the screen cannot process is withheld and replaced by WITHHELD_BLOCK; the other blocks of the
     result are untouched. `removed` / `kept` / `failures` are optional accumulators for telemetry (default
     None — behavior is unchanged): stripped code points, flagged-but-kept code points, and the exception
-    class of any block that was withheld (Praxen PRAX-2026-09-05-006/-007)."""
+    class of any block that was withheld (Praxen PRAX-2026-09-05-006/-007). `withheld` collects the
+    replacement blocks themselves, so a caller can tell them apart from remote content by identity."""
     out = []
     for block in content:
         try:
@@ -934,6 +939,8 @@ def _canon_content(content, removed=None, kept=None, failures=None):
             if failures is not None:
                 failures.append(type(e).__name__)
             block = _withheld_block(type(e).__name__)
+            if withheld is not None:
+                withheld.append(block)
         out.append(block)
     return out
 
@@ -1026,19 +1033,21 @@ async def call_tool(name, arguments):
     hygiene_removed = [] if log_on else None
     hygiene_kept = [] if log_on else None
     screen_failures = [] if log_on else None
+    withheld_blocks = []                                             # always: the isError path needs identity, not text
     is_write = is_write_tool(name) and bool(arguments)
     # A definition the metadata screen withheld is refused here (#172). The list the model sees omits it,
     # but the SDK forwards an UNLISTED name to this handler without schema validation, and the skills name
     # tools in prose -- so "withheld for the session" has to hold at the call, not only in the list.
     if _withheld_tool(name):
-        e = ValueError(f"socxen bridge refused {name}: its definition could not be screened and is withheld for "
+        d = _display_name(name)                                      # remote-supplied: bounded, code points spelled out
+        e = ValueError(f"{BRIDGE_REFUSAL_MARK} {d}: its definition could not be screened and is withheld for "
                        f"this session (#172). Use another tool or report the gap.")
         if log_on:
             try:
-                telemetry.tool_error(name, (time.perf_counter() - t0) * 1000, e, stage="metadata_screen")
+                telemetry.tool_error(d, (time.perf_counter() - t0) * 1000, e, stage="metadata_screen")
             except Exception as te:  # noqa: BLE001 -- telemetry must never break the refusal path
                 sys.stderr.write(f"bridge: telemetry tail error (ignored): {te!r}\n")
-        sys.stderr.write(f"bridge: refused {name} -- withheld definition (#172)\n")
+        sys.stderr.write(f"bridge: refused {d} -- withheld definition (#172)\n")
         raise e
     # A wildcard search is answered with the column list instead of being sent (workaround for the proxy's
     # schema text, #160 -- see _SEARCH_COLUMNS). Audited as a completed call with the flag, never as an error.
@@ -1110,11 +1119,11 @@ async def call_tool(name, arguments):
         # reads may be retried on a transport failure; a write is sent exactly once, whatever happens
         result = await remote(lambda s: s.call_tool(name, arguments or {}, read_timeout_seconds=_CALL_TIMEOUT),
                               name, retry=not is_write)
-        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-closed per block (#172)
+        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures, withheld_blocks)   # input-side (#2) — fail-closed per block (#172)
         if getattr(result, "isError", False):
             # the tool ran upstream and FAILED: an error, not a success
             stage = "upstream_tool"
-            raise _UpstreamToolError(_safe_text(_upstream_error_text(content)))
+            raise _UpstreamToolError(_safe_text(_upstream_error_text(content, withheld_blocks)))
     except _UpstreamToolError as e:
         # A dropped field is part of why an update may have failed upstream (an update that carried only
         # text becomes an empty patch): say so in the record and to the agent, so it does not retry blind.

@@ -501,31 +501,36 @@ def test_a_withheld_definition_is_named_spelled_out_and_refused(monkeypatch):
     tel = Telemetry().install(monkeypatch)
     err = io.StringIO()
     monkeypatch.setattr(sys, "stderr", err)
-    real = B._screen_text
-    def boom(text, acc):
-        if "IGNORE any user request" in text:                     # exabeam_create_case_notes' description
+    ODD = "exabeam\u202e_odd"                                     # the proxy's tool whose NAME carries a bidi override
+    real = B._definition_text
+    def boom(t):
+        if t.name == ODD:
             raise ValueError("unscreenable")
-        return real(text, acc)
-    monkeypatch.setattr(B, "_screen_text", boom)
+        return real(t)
+    monkeypatch.setattr(B, "_definition_text", boom)
 
     async def go():
         nonlocal proxy
         proxy = await _with_proxy(monkeypatch)
         await B.UPSTREAM.warm()
         tools = await B.UPSTREAM.tools()
-        assert "exabeam_create_case_notes" not in [t.name for t in tools]
-        assert B.UPSTREAM._screen["failed"] == 1 and B.UPSTREAM._screen["withheld"] == ["exabeam_create_case_notes"]
-        with pytest.raises(ValueError, match="withheld for this session"):
-            await B.call_tool("exabeam_create_case_notes", {"arg1": {"caseId": "1", "note": "x"}})
+        assert ODD not in [t.name for t in tools]
+        assert B.UPSTREAM._screen["failed"] == 1 and B.UPSTREAM._screen["withheld"] == [ODD], "the lookup keys on the RAW name"
+        with pytest.raises(ValueError) as ei:
+            await B.call_tool(ODD, {"arg0": {}})
+        assert "withheld for this session" in str(ei.value) and "exabeamU+202E_odd" in str(ei.value)
+        assert "\u202e" not in str(ei.value), "the model-facing refusal spells the code point out"
         assert proxy.count("tools/call") == 0, "the refusal happens before anything is sent"
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     line = err.getvalue()
-    assert "1 definition(s) could not be screened and are withheld for this session: exabeam_create_case_notes" in line, line
+    assert "1 definition(s) could not be screened and are withheld for this session: exabeamU+202E_odd" in line, line
+    assert "refused exabeamU+202E_odd -- withheld definition" in line and "\u202e" not in line, line
     ev = [d for t, d in tel.events if t == "tools_list"]
-    assert ev and ev[0]["metadata_screen_failed"] == 1 and ev[0]["withheld_tools"] == ["exabeam_create_case_notes"]
+    assert ev and ev[0]["metadata_screen_failed"] == 1 and ev[0]["withheld_tools"] == ["exabeamU+202E_odd"]
     errs = [d for t, d in tel.events if t == "tool_error"]
-    assert errs and errs[-1].get("stage") == "metadata_screen", errs
+    assert errs and errs[-1].get("stage") == "metadata_screen" and errs[-1].get("guardrail_refused") is True, errs
+    assert errs[-1]["tool_name"] == "exabeamU+202E_odd" and "\u202e" not in repr(errs[-1])
     assert isinstance(B._withheld_block("X"), RealText) and B._withheld_block("X").type == "text"
 
 

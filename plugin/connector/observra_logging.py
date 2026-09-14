@@ -221,7 +221,8 @@ def session_end():
 def tools_list(count, screen, unclassified):
     """The tool surface the remote offered this session: how many definitions, what the metadata screen
     stripped or flagged (COUNTS only -- the text never enters the log), how many definitions could not be
-    screened and were withheld for the session (and their names, spelled out), which names carry a hidden code point, and which names no tier classifies (treated as
+    screened and were withheld for the session (and their names, spelled out), which names carry a hidden
+    code point, and which names no tier classifies (treated as
     writes). State facts about the surface, never a description."""
     screen = screen or {}
     _emit("tools_list", tool_count=int(count),
@@ -277,15 +278,16 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
 def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, error_message=None,
                http_status=None, is_retryable=None):
     """`stage` names the layer that raised: "neutralize" is the write-side guardrail refusing to forward
-    (fail-closed — a guardrail acting, recorded as such), "remote" is the upstream call, "upstream_tool"
-    the tool ran on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
+    (fail-closed — a guardrail acting, recorded as such), "metadata_screen" the bridge refusing a call to a
+    definition it withheld (#172, likewise), "remote" is the upstream call, "upstream_tool" the tool ran
+    on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
     `error_class` alone was always the anyio wrapper ("ExceptionGroup") for a remote failure, and 115
     records in one incident carried zero bits about the cause."""
     data = {"duration_ms": round(duration_ms, 1), "error_class": type(exc).__name__}
     if stage:
         data["stage"] = stage
-        if stage == "neutralize":
-            data["guardrail_refused"] = True
+        if stage in ("neutralize", "metadata_screen"):
+            data["guardrail_refused"] = True                     # a guardrail refusing to forward (#172 for the latter)
     if error_type_name:
         data["error_type_name"] = str(error_type_name)[:80]
     if error_message:

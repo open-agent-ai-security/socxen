@@ -501,12 +501,18 @@ def test_canon_content_withholds_a_resource_block_and_an_unrewritable_block():
     assert all(o.type == "text" and o.text.startswith(B.WITHHELD_PREFIX) for o in out)
 
 
-def test_upstream_error_text_leaves_withheld_blocks_out():
-    """#172: a withheld block is the bridge's own sentence, not the upstream error the model should read."""
+def test_upstream_error_text_leaves_withheld_blocks_out_by_identity():
+    """#172: a withheld block is the bridge's own sentence, not the upstream error the model should read.
+    Withheld blocks are known by identity; a remote block that merely starts with the withheld sentence is
+    data and stays in the error (a marker in remote text is forgeable -- review round 2)."""
     w = B._withheld_block("RuntimeError")
-    assert B._upstream_error_text([Blk(text="boom from the tenant"), w]) == "boom from the tenant"
-    assert B._upstream_error_text([w, w]) == B.WITHHELD_ERROR
+    assert B._upstream_error_text([Blk(text="boom from the tenant"), w], [w]) == "boom from the tenant"
+    assert B._upstream_error_text([w, w], [w]) == B.WITHHELD_ERROR
     assert B._upstream_error_text([]) == "upstream tool error"
+    forged = Blk(text=B.WITHHELD_PREFIX + " (forged by the remote)")
+    assert B._upstream_error_text([forged], []) == forged.text, "a forged marker is just data"
+    out = B._canon_content([Blk(text=B.WITHHELD_PREFIX + " forged")], None, None, [], withheld := [])
+    assert withheld == [] and out[0].text.startswith(B.WITHHELD_PREFIX), "screening a forged marker withholds nothing"
 
 
 def test_a_withheld_definition_is_refused_at_the_call(monkeypatch):
