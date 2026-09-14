@@ -97,14 +97,14 @@
       },
       {
         "name": "ai:secretsHandling",
-        "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged"
+        "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged; posted over https only (the bridge refuses a cleartext URL)"
       },
       {
         "name": "aibom:generator",
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-14T18:34:36Z"
+    "timestamp": "2026-09-14T19:14:46Z"
   },
   "components": [
     {

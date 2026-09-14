@@ -12,6 +12,16 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ### Security
 
+- **The bridge refuses a cleartext MCP URL** (#174; Praxen Low `-008`/`-009` on the 2026-09-07 and
+  2026-09-08 scans). `EXABEAM_MCP_URL` must be `https://`. The bridge posts the client id and secret to
+  `<scheme>://<host>/auth/v1/token` and the minted bearer on every call, so the scheme decided whether they
+  crossed the network in the clear; now any other scheme is a refused start with the reason on stderr —
+  the host shows the server failed to start, never a silently unauthenticated session. Plain `http://`
+  is accepted to a loopback host only (`localhost`, `127.x.x.x`, `::1` — a local mock, where nothing
+  leaves the machine). `preflight.sh` applies the same rule before the bridge is ever started and names
+  the value to fix. Every documented configuration is `https://`, so no working setup changes; a typo
+  now says so instead of leaking. Tests: the rule in `tests/test_bridge_wiring.py` (accepts, refuses,
+  and `main()` exits before any request), `tests/test_preflight_credentials.py`.
 - **The sweep skills treat what arrives with the work as telemetry, not a colleague** (#200). The first
   full drive of the new red-team fixtures landed one: on Codex, `rule-tuning` proposed disabling the
   inventory's most precise rule because its description said to. Its untrusted-content bullet covered tool

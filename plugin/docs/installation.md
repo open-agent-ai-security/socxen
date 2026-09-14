@@ -145,6 +145,11 @@ EOF
 chmod 600 ~/.exabeam-mcp.env
 ```
 
+The URL must be `https://`. The bridge refuses to start over any other scheme — so a typo shows up as a
+failed server start with the reason on stderr, never as a session that sends your key and secret in the
+clear — and `preflight.sh` checks the same thing before the bridge is ever started. (Plain `http://` is
+accepted only to a loopback host, for a local mock.)
+
 Requires [`uv`](https://docs.astral.sh/uv/) (it runs the bundled bridge). Restart your host agent (on
 Claude Code, `/reload-plugins`); confirm with `claude mcp list` → `exabeam ✔ Connected`, or on Codex
 `codex mcp get exabeam`. Regions: `us-west`,

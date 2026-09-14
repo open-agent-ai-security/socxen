@@ -268,7 +268,7 @@ def build_bom(timestamp):
                       "secrets and structured identifiers masked); updates carry state only; a create_case with a closing "
                       "disposition is refused; in-prompt ask-before-close as the model-side layer"},
             {"name": "ai:auditTrail", "value": "on by default, local, bounded: every call, gate decision and guardrail firing as metadata and safe identifiers, never case content (~/.socxen/)"},
-            {"name": "ai:secretsHandling", "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged"},
+            {"name": "ai:secretsHandling", "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged; posted over https only (the bridge refuses a cleartext URL)"},
             {"name": "aibom:generator", "value": "security/gen_aibom.py (deterministic, from repo sources)"},
         ],
     }

@@ -399,6 +399,10 @@ EXABEAM_API_SECRET=your-secret
 EOF
 chmod 600 ~/.exabeam-mcp.env
 </code></pre>
+<p>The URL must be <code>https://</code>. The bridge refuses to start over any other scheme — so a typo shows up as a
+failed server start with the reason on stderr, never as a session that sends your key and secret in the
+clear — and <code>preflight.sh</code> checks the same thing before the bridge is ever started. (Plain <code>http://</code> is
+accepted only to a loopback host, for a local mock.)</p>
 <p>Requires <a href="https://docs.astral.sh/uv/"><code>uv</code></a> (it runs the bundled bridge). Restart your host agent (on
 Claude Code, <code>/reload-plugins</code>); confirm with <code>claude mcp list</code> → <code>exabeam ✔ Connected</code>, or on Codex
 <code>codex mcp get exabeam</code>. Regions: <code>us-west</code>,
