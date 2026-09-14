@@ -117,7 +117,7 @@ every consequential action downstream is deterministically controlled — includ
 does not rewrite a vendor's descriptions. Recorded here as the waiver the release gate asks for on an
 open High. The premise — exactly one party can write those descriptions — is a premise about the
 endpoint: it holds while `EXABEAM_MCP_URL` names the vendor's own infrastructure, and Low `-008` in the
-same scan records that the bridge accepts any URL scheme there. A mis-pointed endpoint is operator error
+same scan records that the bridge accepts any URL scheme there. The https requirement (#174, closing that Low) settles the *transport* half — the credentials can no longer cross the network in the clear — and leaves the destination where it was, because a self-hosted proxy is legitimate; so this waiver rests on the operator's configuration, not on anything the bridge verifies. A mis-pointed endpoint is operator error
 or an already-compromised environment, outside this model too, but the waiver rests on it and says so
 (raised by the PM at the 0.8.6 promotion, #166). Remit v1.6 (#168) draws this boundary explicitly — the definitions are the integration's configuration at the provenance boundary, hashed, screened and surfaced, with the stored-baseline residual declared — so a later scan grades them there; this block stays as the disposition record for the v1.5 scan.
 
