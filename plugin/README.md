@@ -129,8 +129,9 @@ testers; feedback welcome.
 
 **Codex support is packaged and red-team gated, not yet field-proven.** The install, the bundled bridge
 and the shipped approval gate are verified end to end against `codex-cli` 0.146.0, and the red-team gate
-has run on **GPT-5.6 Terra** (the Sonnet-tier analogue) at `model_reasoning_effort = "medium"` — 20
-attacks × 5 trials, zero landings in the blocking classes (`security/redteam/HISTORY.md`, 2026-08-27).
+has run on **GPT-5.6 Terra** (the Sonnet-tier analogue) at `model_reasoning_effort = "medium"` — the
+full corpus, five trials per fixture; every blocking-class landing so far has been fixed and re-driven
+clean before release (`security/redteam/HISTORY.md`, latest 2026-09-14).
 Not yet done on an OpenAI model: the routing evals, and the **Sol** release sweep. **Luna** is the
 Haiku-tier analogue and is not supported. Treat the Codex path as gated but young.
 
