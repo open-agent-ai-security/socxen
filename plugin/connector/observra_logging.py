@@ -221,12 +221,14 @@ def session_end():
 def tools_list(count, screen, unclassified):
     """The tool surface the remote offered this session: how many definitions, what the metadata screen
     stripped or flagged (COUNTS only -- the text never enters the log), how many definitions could not be
-    screened, which names carry a hidden code point, and which names no tier classifies (treated as
+    screened and were withheld for the session (and their names, spelled out), which names carry a hidden
+    code point, and which names no tier classifies (treated as
     writes). State facts about the surface, never a description."""
     screen = screen or {}
     _emit("tools_list", tool_count=int(count),
           metadata_stripped=int(screen.get("stripped", 0)), metadata_flagged=int(screen.get("flagged", 0)),
           metadata_screen_failed=int(screen.get("failed", 0)),
+          withheld_tools=[str(n)[:80] for n in screen.get("withheld", [])][:50],           # definitions withheld for the session (#172)
           odd_names=[str(n)[:80] for n in screen.get("odd_names", [])][:20],
           directive_tools=[str(n)[:80] for n in screen.get("directive_tools", [])][:50],   # definitions with instruction-shaped text (#163)
           surface_sha=str(screen.get("surface_sha", ""))[:64],                              # hash of the whole tool surface, per session
@@ -251,7 +253,7 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
     `hygiene_kept`   — the canonicalizer's flagged-but-kept records (joiners, directional marks): same
                        count + classes shape. The text is untouched; the log is the only place the
                        signal exists, by design (no in-band marker is ever written).
-    `screen_failed`  — True when input screening threw and a block passed through raw (fail-open)."""
+    `screen_failed`  — True when input screening threw and the block was withheld (fail-closed, #172)."""
     data = {"duration_ms": round(duration_ms, 1)}
     if action_fields:
         for key, val in action_fields.items():           # -> data["action.alertStatus"] = "closed", ...
@@ -276,15 +278,16 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
 def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, error_message=None,
                http_status=None, is_retryable=None):
     """`stage` names the layer that raised: "neutralize" is the write-side guardrail refusing to forward
-    (fail-closed — a guardrail acting, recorded as such), "remote" is the upstream call, "upstream_tool"
-    the tool ran on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
+    (fail-closed — a guardrail acting, recorded as such), "metadata_screen" the bridge refusing a call to a
+    definition it withheld (#172, likewise), "remote" is the upstream call, "upstream_tool" the tool ran
+    on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
     `error_class` alone was always the anyio wrapper ("ExceptionGroup") for a remote failure, and 115
     records in one incident carried zero bits about the cause."""
     data = {"duration_ms": round(duration_ms, 1), "error_class": type(exc).__name__}
     if stage:
         data["stage"] = stage
-        if stage == "neutralize":
-            data["guardrail_refused"] = True
+        if stage in ("neutralize", "metadata_screen"):
+            data["guardrail_refused"] = True                     # a guardrail refusing to forward (#172 for the latter)
     if error_type_name:
         data["error_type_name"] = str(error_type_name)[:80]
     if error_message:

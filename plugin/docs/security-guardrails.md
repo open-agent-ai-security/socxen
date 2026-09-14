@@ -18,15 +18,15 @@ configuration.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
-    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
+    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-closed: a block it cannot process is withheld); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
   </picture>
 </p>
 
 <p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
 
-The two checks fail in opposite directions, on purpose. If the read-side screen hits an error, the
-result passes through unscreened and the failure is recorded — a read that fails is an investigation that
-stops. If the write-side filter hits an error, the write is refused — a raw payload must never persist.
+Both checks fail closed. If the read-side screen hits an error on a block, that block is withheld and
+replaced by a message that names the gap; the rest of the result is untouched and the failure is recorded.
+If the write-side filter hits an error, the write is refused — a raw payload must never persist.
 
 This is a safety net, not a replacement for judgment. The **[human-in-the-loop gate](installation.md#governance--the-safety-gate)**
 and your own review before you act remain the primary controls.

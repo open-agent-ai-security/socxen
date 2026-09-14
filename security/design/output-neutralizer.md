@@ -119,8 +119,9 @@ the console they already sign in to; the shipped rule keeps that one link and no
 ## 6. Failure direction
 
 **Fail-closed.** A neutralizer error propagates and the bridge refuses the write rather than persist a raw
-payload. The read-side canonicalizer is the opposite, fail-open, because a read that fails is an
-investigation that stops; the asymmetry is deliberate, and the guardrails page states it.
+payload. The read-side canonicalizer fails closed too, per block: a block it cannot process is withheld
+and replaced by a message that names the gap, and the rest of the result stands (#172). The guardrails
+page states both.
 
 ## 7. Declared residuals (out of scope by decision)
 

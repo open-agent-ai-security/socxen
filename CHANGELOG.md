@@ -12,6 +12,14 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ### Security
 
+- **The read-side screen fails closed** (#172). A tool-result block the canonicalizer cannot process is
+  withheld and replaced by a bounded bridge message that names the exception class and asks for the
+  evidence gap to be reported; the other blocks of the result are untouched and the call's audit record
+  carries `hygiene_screen_failed`. A tool definition the metadata screen cannot process is withheld for
+  the session — absent from the list the model sees, refused at the bridge if called by name (the SDK
+  forwards an unlisted name without validation), counted, and named in the startup line and the
+  `tools_list` audit event (`withheld_tools`). Unscreened platform text no longer reaches the model on
+  either path. The guardrails diagram, the design records and the logging page say the same. Tests in `tests/test_bridge_wiring.py`.
 - **The bridge refuses a cleartext MCP URL** (#174; Praxen Low `-008`/`-009` on the 2026-09-07 and
   2026-09-08 scans). `EXABEAM_MCP_URL` must be `https://`. The bridge posts the client id and secret to
   `<scheme>://<host>/auth/v1/token` and the minted bearer on every call, so the scheme decided whether they

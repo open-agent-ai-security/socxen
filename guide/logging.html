@@ -300,7 +300,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tools_list</code></td>
 <td>the remote's tool definitions arrive (once per session)</td>
-<td><code>tool_count</code>, <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code>, <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read <code>tool_shas</code> for change), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
+<td><code>tool_count</code> (the definitions the model sees; add <code>metadata_screen_failed</code> for what the remote sent — <code>tool_shas</code> covers both), <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code> / <code>withheld_tools</code> (definitions the screen could not process are withheld for the session), <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read <code>tool_shas</code> for change), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
 </tr>
 <tr>
 <td><code>tool_start</code></td>
@@ -320,7 +320,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tool_error</code></td>
 <td>a tool call fails</td>
-<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
+<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>metadata_screen</code> = a definition the screen withheld was called by name and the bridge refused it, also with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -340,7 +340,7 @@ call:</p>
 <pre><code class="language-json">&quot;defang_formula&quot;: 1, &quot;defang_link&quot;: 1          // output neutralizer defanged a formula / phishing link on a write
 &quot;hygiene_stripped&quot;: 3, &quot;hygiene_classes&quot;: &quot;U+200B,U+202E&quot;   // input canonicalizer stripped smuggling code points on a read
 &quot;hygiene_kept&quot;: 2, &quot;hygiene_kept_classes&quot;: &quot;U+200D,U+200F&quot;   // joiners / directional marks were present — kept verbatim, flagged here
-&quot;hygiene_screen_failed&quot;: true                                 // screening threw on a block; it passed through raw (fail-open)
+&quot;hygiene_screen_failed&quot;: true                                 // screening threw on a block; the block was withheld (fail-closed)
 </code></pre>
 <p><code>hygiene_kept</code> is the only place that signal exists: the text is never altered and no marker is ever
 written in-band (a marker in alert data would be forgeable). A right-to-left mark or a zero-width joiner in
