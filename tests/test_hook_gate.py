@@ -37,9 +37,16 @@ def run_hook(tool_name, stdin=None, env=None):
     return json.loads(r.stdout)["hookSpecificOutput"] if r.stdout.strip() else NO_DECISION
 
 
-def test_manifest_declares_the_hook():
+def test_the_hook_ships_and_the_manifest_stays_out_of_it():
+    """#197 -- this asserted the opposite until 0.8.6 shipped unloadable to both catalogs.
+
+    Claude Code loads hooks/hooks.json from the standard path on its own. Declaring that same path in the
+    manifest makes the loader see one file twice and fail the ENTIRE plugin load, so the gate, the three
+    skills and the MCP server all go missing at once -- with nothing but a Status line in
+    `claude plugin list` to say so. Shipping the file is what registers the gate.
+    """
     pj = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text())
-    assert pj.get("hooks") == "./hooks/hooks.json"
+    assert "hooks" not in pj, "the host auto-loads hooks/hooks.json; naming it too fails the whole load"
     assert (PLUGIN / "hooks" / "hooks.json").is_file() and HOOK.is_file()
 
 

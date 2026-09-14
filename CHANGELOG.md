@@ -10,6 +10,19 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+### Fixed
+- **The plugin loads again on current Claude Code.** `0.8.6` declared `hooks: ./hooks/hooks.json` in its
+  Claude manifest — a path the host already loads automatically — so the hook loader saw one file twice and
+  failed the **entire** plugin: the gate, all three skills and the MCP server, on a release whose headline was
+  that the gate ships on. `plugin install` still reported success; only the `Status:` line in
+  `claude plugin list` said otherwise (#197). Not a host regression — every Claude Code back to 2.1.200 fails
+  the same way; the live checks that cleared it ran through `--plugin-dir`, which reports the error and
+  continues, so the install path was never exercised with the field. The gate is registered by shipping
+  `hooks/hooks.json`, never by naming it, and two invariants now pin both halves — the file must be present,
+  and no manifest may point at it. The release smoke asserts the installed plugin *loads*, keyed on the
+  `errors[]` array `plugin list --json` carries beside `"enabled": true`, with a positive control that
+  re-injects the field and requires the check to fail.
+
 ### Security
 
 - **Two formula shapes the mid-line pass could not see are now neutralized** (#120, phase B). A DDE

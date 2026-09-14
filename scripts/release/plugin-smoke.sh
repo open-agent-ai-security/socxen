@@ -75,6 +75,54 @@ assert_version() {  # assert_version <leg> <config-dir> <expected>
   fi
 }
 
+assert_loads() {  # assert_loads <leg> <config-dir>
+  # A plugin that installs is not a plugin that LOADS. 0.8.6 shipped to both catalogs declaring
+  # hooks/hooks.json in its manifest, a path the host already auto-loads; the loader saw one file twice
+  # and failed the entire plugin -- gate, three skills and the MCP server -- while `plugin install`
+  # reported success and `enabled` stayed true (#197).
+  #
+  # `plugin list --json` carries the failure in `errors[]` beside `"enabled": true`, so the check is
+  # deterministic: a non-empty errors array for our plugin fails the leg, whatever the text says.
+  local js
+  js="$(CLAUDE_CONFIG_DIR="$2" claude plugin list --json 2>/dev/null)" || true
+  printf '%s' "${js}" | PLUGIN_ID="${PLUGIN}@${MARKETPLACE}" LEG="$1" python3 -c '
+import json, os, sys
+leg, pid = os.environ["LEG"], os.environ["PLUGIN_ID"]
+try:
+    plugins = json.load(sys.stdin)
+except Exception as e:
+    print(f"  FAIL: {leg} - could not read `plugin list --json` ({e})", file=sys.stderr); raise SystemExit(1)
+me = next((p for p in plugins if p.get("id") == pid), None)
+if me is None:
+    print(f"  FAIL: {leg} - {pid} is not installed", file=sys.stderr); raise SystemExit(1)
+errs = me.get("errors") or []
+if errs:
+    print(f"  FAIL: {leg} - installed but did not load:", file=sys.stderr)
+    for e in errs[:3]:
+        print(f"    {str(e)[:200]}", file=sys.stderr)
+    raise SystemExit(1)
+print(f"  ok: {leg} - plugin loaded, no errors reported")
+' || exit 1
+}
+
+assert_load_check_works() {  # assert_load_check_works <config-dir> <payload-dir>
+  # Positive control: an assertion that never fires is not an assertion. Inject the field that broke
+  # 0.8.6 into the installed manifest, require assert_loads to FAIL, then restore and require it to pass.
+  # Without this the check silently rotted the day its grep stopped matching -- which is exactly how the
+  # first cut of it shipped in review.
+  local manifest="$2/.claude-plugin/plugin.json"
+  [ -f "${manifest}" ] || { echo "  FAIL: positive control - no manifest at ${manifest}" >&2; exit 1; }
+  cp "${manifest}" "${manifest}.smoke-bak"
+  python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["hooks"]="./hooks/hooks.json"; json.dump(d,open(p,"w"))' "${manifest}"
+  if assert_loads "positive control (expected to fail)" "$1" >/dev/null 2>&1; then
+    mv "${manifest}.smoke-bak" "${manifest}"
+    echo "  FAIL: positive control - a manifest declaring hooks/hooks.json still passed assert_loads" >&2
+    exit 1
+  fi
+  mv "${manifest}.smoke-bak" "${manifest}"
+  echo "  ok: positive control - the load check fails a plugin that cannot load"
+}
+
 git -C "${REPO_ROOT}" fetch origin --quiet
 CURRENT_SHA="$(git -C "${REPO_ROOT}" rev-parse origin/main)"
 LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --follow --format=%H origin/main -- plugin/.claude-plugin/plugin.json)"
@@ -122,6 +170,8 @@ CFG1="${SCRATCH}/config-clean"; mkdir -p "${CFG1}"
 CLAUDE_CONFIG_DIR="${CFG1}" claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG1}" claude plugin install "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "clean install" "${CFG1}" "${CURRENT_VER}"
+assert_loads "clean install" "${CFG1}"
+assert_load_check_works "${CFG1}" "$(CLAUDE_CONFIG_DIR="${CFG1}" claude plugin list --json 2>/dev/null | python3 -c 'import json,sys;print(next((p["installPath"] for p in json.load(sys.stdin) if p.get("id")=="'"${PLUGIN}@${MARKETPLACE}"'"),""))')"
 
 echo "leg 2: upgrade ${PRIOR_VER} -> ${CURRENT_VER}"
 CFG2="${SCRATCH}/config-upgrade"; mkdir -p "${CFG2}"
@@ -135,6 +185,7 @@ fabricate_marketplace "${WT_UPGRADE}"                                  # re-asse
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin marketplace update "${MARKETPLACE}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin update "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "upgrade" "${CFG2}" "${CURRENT_VER}"
+assert_loads "upgrade" "${CFG2}"
 
 echo "leg 3: governance merge (--merge-permissions) into a throwaway settings.json"
 # The gate is the control that makes socxen safe to point at real alerts, and the installer can now
