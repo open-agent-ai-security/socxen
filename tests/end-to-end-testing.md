@@ -69,6 +69,50 @@ The already-running MCP is fine.
    # or: mv "$CACHE/exabeam-mcp-bridge.py.bak" "$CACHE/exabeam-mcp-bridge.py" && rm "$CACHE"/{canonicalize,neutralize_output,observra_logging}.py
    ```
 
+### C. A promoted release — test the build the catalog serves
+
+Runs after every `dev → main` promotion, on the build the community catalog serves (`main@HEAD`).
+The unit suite and `--plugin-dir` sessions verify the tree; only an install verifies the release.
+
+1. **Smoke both install journeys** in throwaway config dirs — a clean install of the new release and
+   an upgrade from the prior one. It asserts the installed version, that the plugin *loads*
+   (`plugin list --json` reports an empty `errors[]`), and the governance merge. Pass the prior
+   release explicitly:
+   ```bash
+   scripts/release/plugin-smoke.sh <prior-release-commit>
+   ```
+
+2. **Install it where you work and preflight it from the install path**, on each host you ship to:
+   ```bash
+   claude plugin update socxen@open-agent-ai-security
+   claude plugin list --json | jq '.[] | select(.id=="socxen@open-agent-ai-security") | {version, enabled, errors}'
+   bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/<version>/preflight.sh --platform claude
+   ```
+   Expect the new version, `errors: []`, and preflight reporting the gate ON and the MCP reachable.
+   For Codex: `codex plugin add socxen@open-agent-ai-security`, `codex plugin list` shows
+   `installed, enabled <version>`, `preflight.sh --platform codex`.
+
+3. **Drive it with a separate agent session** — not the session you developed in, from an empty
+   directory outside any checkout, with no `--plugin-dir`, on a different model from the one that
+   did the work:
+   ```bash
+   mkdir -p /tmp/socxen-drive && cd /tmp/socxen-drive
+   claude -p "Use the soc-investigate skill on the highest-risk open alert of the last 24 hours on \
+   this tenant. Investigate it end to end and give me the full report." \
+     --model opus --output-format stream-json --verbose --max-turns 80 > drive.jsonl
+   ```
+   Read the transcript, not the summary. It passes when:
+   - the `init` event lists the three `socxen:` skills and `plugin:socxen:exabeam` is `connected`;
+   - every Exabeam call is `mcp__plugin_socxen_exabeam__*`, with named fields and small limits;
+   - no write tool is called — the skill stops at its proposed action for a human yes, and a
+     headless session has no one to give it;
+   - the `result` event is `success` and the report carries verdict, evidence, timeline, MITRE
+     mapping and the proposed action;
+   - `~/.socxen/telemetry.jsonl` shows no bridge errors for the window.
+
+4. **Record it** as a row in [`security/redteam/HISTORY.md`](../security/redteam/HISTORY.md) beside
+   the release: smoke result; drive model, alert, tool count, writes attempted, outcome.
+
 ## Rules that always apply
 
 - **Bound every search.** Named fields, small limits — **never `fields:["*"]`**. The tool descriptions

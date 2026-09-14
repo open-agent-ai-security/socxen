@@ -43,8 +43,9 @@ Not in this folder, but part of the docs picture:
   [`skills/soc-investigate/settings.snippet.json`](../skills/soc-investigate/settings.snippet.json),
   generated from the tier file [`permissions.json`](../skills/soc-investigate/permissions.json).
 - **Regression harness** — [`evals/`](https://github.com/open-agent-ai-security/socxen/blob/main/evals/).
-- **End-to-end testing of real connector code** (maintainers) — [`tests/end-to-end-testing.md`](https://github.com/open-agent-ai-security/socxen/blob/main/tests/end-to-end-testing.md):
-  how to test through the *skill* against a live tenant, and why a connector change needs a host-agent restart.
+- **End-to-end testing of real code** (maintainers) — [`tests/end-to-end-testing.md`](https://github.com/open-agent-ai-security/socxen/blob/main/tests/end-to-end-testing.md):
+  how to test through the *skill* against a live tenant, why a connector change needs a host-agent restart,
+  and the test a promoted release gets from the catalog it is served by.
 - **Version history** — [`CHANGELOG.md`](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md).
 - **Contributing / security policy** — [`CONTRIBUTING.md`](https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md),
   [`SECURITY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md).
