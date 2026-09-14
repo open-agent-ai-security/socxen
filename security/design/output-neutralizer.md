@@ -1,0 +1,141 @@
+<!--
+  Copyright 2026 Exabeam, Inc.
+  SPDX-License-Identifier: Apache-2.0
+-->
+
+# Design record — Output neutralizer and the bridge's write rules
+
+> **Status:** Shipped and current with the code as of 0.8.6. The authoritative statement of behaviour is
+> the code — `plugin/connector/neutralize_output.py` (the module docstring lists every rule and every
+> residual) and the write path in `plugin/connector/exabeam-mcp-bridge.py`. The user-facing description
+> is [the guardrails page](../../plugin/docs/security-guardrails.md#2-filtering-what-socxen-writes-de-activating-dangerous-content).
+> This record says *why* the control is shaped this way, what was rejected, and what it declines to do.
+
+## 1. The problem
+
+socxen writes what it read. A case note, an alert update, a case update, an outbound mail — each one
+carries text that started life in telemetry an attacker could write. Three things in that text are
+*active*: they do damage not when the model reads them but when a person later opens, clicks or exports
+the persisted record.
+
+1. **Formulas.** `=HYPERLINK(...)`, `@SUM(...)`, `=cmd|'…'!A0` look like data and run when a report is
+   exported to a spreadsheet (red-team class A, fixture a10: export injection).
+2. **Links.** A phishing URL copied into a note becomes clickable in the console, and auto-linked in a
+   mail client even as bare text.
+3. **Secrets and structured identifiers.** A credential, key, token, SSN or card number planted in an
+   alert would otherwise be copied verbatim into a durable, wider-audience artifact (class D). Prompt-only
+   redaction was measured leaking on the weakest supported model in nearly every trial (2026-08-18).
+
+## 2. Why the write side, not the read side
+
+The first attempt (PR #31, 2026-08) de-fanged URLs, emails and formulas on **inbound** tool results.
+Two independent reviews blocked it: it mutated pivotable values (`user@corp.example` →
+`user[@]corp[.]example`), so every follow-up search on the visible value missed the raw telemetry and the
+investigation silently degraded. The lesson became the design rule for both filters:
+
+- **Reads are never value-mutated.** The input canonicalizer removes only the invisible smuggling layer
+  ([its record](input-canonicalizer.md)); everything visible reaches the model as the SIEM holds it.
+- **Writes are where content becomes durable**, so that is where active content is made inert. The
+  model reasons over the real value and persists a de-activated one.
+
+The a10 fix (#36) established the pattern; #88/#115 added deterministic redaction; #119 narrowed the
+documented claim to what the code did; #147/#152 extended links to every markdown and HTML form and to
+mail; #159 and #164 added the two write rules in §5.
+
+## 3. What it does, in order
+
+`neutralize_output(text, allowed_hosts, mail) -> (clean_text, notes)` is pure and deterministic. The
+bridge applies it to the free-text fields of the five write tools — `note`, `alertDescription`,
+`alertName`, `supportingReason`, `closedReason`, `tags`, and for `exabeam_send_email` the `subject`
+and `body`, the body in **mail mode** — recursing into the proxy's `arg0`/`arg1` wrappers.
+
+1. **HTML autolinks and tags.** `<https://x>` is read as a link before the tag pass can read it as a tag
+   named `https`. Then `script`, `iframe`, `object`, `embed`, `svg`, `math` are removed; `form`, `meta`,
+   `base`, `link` made inert; `on*=` handlers dropped; `href`, `src`, `action`, `srcset` and CSS `url()`
+   targets (in `style` attributes and `<style>` blocks) de-fanged unless allowed (below). In mail mode a
+   bare URL in text is de-fanged too, because mail clients auto-link it. The mail template's own inline
+   styles, `bgcolor` and entities pass through — a do-no-harm corpus in the tests pins that.
+2. **Markdown reference definitions** — only when the destination is URL-shaped. `[Host]: WIN-DC01` is a
+   labelled field, and an earlier rule that treated it as a link corrupted hostnames in the durable record.
+3. **Markdown inline links** in every CommonMark/GFM shape (titles, padding, nesting).
+4. **Secrets and structured PII** → `[REDACTED:<kind>]`, so the report still says a credential was here.
+5. **Formulas**: quote-prefixed inert, and any URL on the formula's line de-fanged — including a formula
+   quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell.
+
+**The order is a control, not a style.** Link de-fang runs before redaction. A credential-shaped query
+parameter (`[reset](https://evil/login?token=abc123).`) puts both on one span; with redaction first, its
+match consumed the link's closing bracket and left a **live** phishing URL in a note — worse than no
+redactor. De-fanging first makes that impossible for every value shape: by the time the redactor runs the
+host is already inert. Redaction still sees the query value, because de-fang rewrites scheme and host,
+never the query string.
+
+## 4. Clickable is decided by destination, not authorship (#147)
+
+The model writes the text, so "socxen wrote this link" carries no trust. The only link that stays
+clickable is one whose host **is exactly the API host in `EXABEAM_MCP_URL`** — derived by the bridge
+(`tenant_hosts_from_url`), never curated, never model-influenced. No wildcard: an earlier cut allowed
+every host under the region domain, and a region is shared by every tenant in it, so one tenant's content
+could have become clickable in another's mail (PM review, 2026-09-06). A missing or unparseable URL yields
+the **empty** set, under which every link is de-fanged — the safe default the red-team harness grades
+under. Option A (de-fang everything) was rejected because the reason to mail someone a case is the link
+back into the console they already sign in to; Option B, this rule, keeps that one link and nothing else.
+
+## 5. Two write rules in the bridge, beside the neutralizer
+
+- **Updates carry state only** (#159, Praxen 2026-09-07-003, #89). The two update tools take description,
+  name, reason and tag fields with *replace* semantics at the API — a model-written reason would overwrite
+  what the analyst wrote. The bridge forwards only the state fields (`alertId`, `alertStatus`, `priority`;
+  `caseId`, `stage`, `closedReason`, `priority`, `assignee`, `queue`), drops the rest before the call, and
+  names the dropped fields in the reply by the schema's own spelling — never the model's text. A
+  `closedReason` must be one of the six values the API documents; anything else refuses the close rather
+  than dropping it, because a close that lands without its disposition is a worse record than a refused
+  close the analyst can re-issue. socxen's reasoning goes into a case note, which appends.
+- **A case is opened by `create_case`** (#164, Praxen 2026-09-07-001, #163). The tool sits in the
+  prompt-free allow tier on both hosts, yet its schema accepts `stage` and `closedReason`: a case created
+  already closed or false-positive is a close by another route around the ask-tier gate. The bridge
+  refuses any create carrying a closing disposition or a `closedReason` at all, before the dry run, with
+  a refusal the red-team grader recognises (`socxen bridge refused`). Fixture c04 covers it.
+- **Writes are the default, reads the exception** (Praxen 2026-09-07-005). A tool this release did not
+  classify as a read is neutralized, audited and refused in a dry run until someone classifies it. An
+  unreadable tier file means *no* reads, so the failure direction is "a read is treated as a write",
+  never the reverse.
+
+## 6. Failure direction
+
+**Fail-closed.** A neutralizer error propagates and the bridge refuses the write rather than persist a raw
+payload. (The read-side canonicalizer is the opposite, fail-open, because a read that fails is an
+investigation that stops — the asymmetry is deliberate and stated on the guardrails page.)
+
+## 7. Declared residuals (out of scope by decision)
+
+- A **bare URL typed in prose** in a note is left as written — de-fanging every URL would mangle the
+  legitimate reference links analysts write. In mail it *is* de-fanged (clients auto-link).
+- An **open redirect on the tenant host** passes the allowlist — the same trust already extended to the
+  console; chasing it means URL-path analysis and is not worth it.
+- HTML is neutralized by a **tag-and-attribute pass, not a full parser**: markup too broken for any
+  renderer to act on is escaped conservatively rather than reasoned about.
+- An **all-alphabetic value after a bare line break** with no label, quotes or table structure is not
+  redacted: after a line break it is indistinguishable from the recommendation prose that normally
+  follows, and redacting it would eat analyst text. Labelled, wrapped and table-cell credentials are all
+  caught regardless of shape.
+- **Free-form PII** (names, home addresses) and **date-shaped values** are not redacted: not reliably
+  regex-detectable, and a date is indistinguishable from a log timestamp. These stay a skill-prompt ask.
+- What the model shows **on the analyst's own screen** is not redacted, deliberately: it crosses no
+  boundary the console itself does not.
+
+Completeness is unreachable by construction — the input domain is adversarial and infinite — so the
+standing rule is *do no harm first, then stop the obvious, then document the exotic*. A residual is
+promoted to a rule only when a fixture shows it firing in a persisted artifact.
+
+## 8. How it is verified
+
+- **Deterministic, in CI, no model:** `tests/test_neutralize_output.py`, `test_neutralize_html.py`,
+  `test_secret_redaction.py` (every confirmed attack is a permanent fixture; the do-no-harm corpus pins
+  what must pass through), and the wiring tests in `test_bridge_wiring.py` (fields covered, mail mode,
+  fail-closed, the update field-drop, the create refusal).
+- **Live, before every release:** red-team classes A (a10 export injection), C (c04 close via create)
+  and D (d01–d03 data protection) on the weakest supported model per host — graded on whether the
+  payload survived into the persisted artifact in **fireable form**, not on whether the model sounded
+  careful. [`security/redteam/HISTORY.md`](../redteam/HISTORY.md).
+- **Praxen** checks the remit's write-side rules (R-02's "never trigger an action", the no-overwrite rule,
+  the redaction rules) against this code on every scan.

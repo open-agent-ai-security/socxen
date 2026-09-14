@@ -13,28 +13,41 @@ document describes how to report one privately, what is in scope, and what to ex
 
 **In scope** — vulnerabilities in socxen itself:
 
-- The `soc-investigate` skill — the methodology, governance rules, and reference
-  material in `plugin/skills/soc-investigate/` (`SKILL.md`, `reference/`).
-- The **governance surface**: `settings.snippet.json` (the permission tiers),
-  `reference/containment-tools.md` (the deny-list), and
-  `plugin/skills/soc-investigate/merge_permissions.py` (the only code that *writes* to your
-  settings file) — anything that could silently un-gate a dismiss/close or a containment-class
-  tool, or merge a gate that doesn't take effect.
-- The connector bridge `plugin/connector/exabeam-mcp-bridge.py` — especially OAuth
-  token/secret handling and the stdio forwarding path.
-- The eval harness `evals/` and its HARD safety gates.
-- The plugin manifests (`plugin/.claude-plugin/*.json`), the bundled `plugin/.mcp.json`, and
-  `plugin/install.sh`.
+- The three skills — the methodology, governance rules, and reference material in
+  `plugin/skills/soc-investigate/`, `triage-cases/` and `rule-tuning/` (`SKILL.md`, `reference/`).
+- The **human-in-the-loop gate**, on both hosts: the bundled Claude Code hook
+  (`plugin/hooks/gate.py`, `hooks.json`), the Codex tool-approval policy (`plugin/.mcp.codex.json`),
+  the tier file they are generated from (`plugin/skills/soc-investigate/permissions.json`), the
+  generator (`plugin/gen_identity.py`, `identity.json`), the optional permission pack
+  (`settings.snippet.json`) and the only code that *writes* to your settings file
+  (`merge_permissions.py`), and `reference/containment-tools.md` (the deny-list) — anything that
+  could silently un-gate a dismiss/close, mail or containment-class tool, let a gated call through
+  headless, or regenerate a gate that doesn't take effect.
+- The connector bridge `plugin/connector/exabeam-mcp-bridge.py` and its two filters — the
+  **input canonicalizer** (`canonicalize.py`, including the screen over the remote's tool
+  definitions) and the **output neutralizer** (`neutralize_output.py`) — plus the bridge's own
+  write rules: updates carry state only, a `create_case` with a closing disposition is refused, a
+  tool this release has not classified as a read is treated as a write. Also OAuth token/secret
+  handling and the stdio forwarding path.
+- The **audit trail** (`plugin/connector/observra_logging.py`, the hook's `gate.jsonl`) — a way to
+  make it record case content, or to make a gated decision or guardrail firing go unrecorded.
+- The eval harness `evals/` and its HARD safety gates; the red-team runner and grader
+  (`security/redteam/run.py`).
+- The plugin manifests (`plugin/.claude-plugin/`, `plugin/.codex-plugin/`), the bundled
+  `plugin/.mcp.json` / `.mcp.codex.json`, `plugin/install.sh` and `plugin/preflight.sh`.
 - The connector's dependency pinning — the bounded PEP 723 header and the hash-pinned
   `plugin/connector/exabeam-mcp-bridge.py.lock` (supply-chain integrity of what a fresh install
   resolves).
 
 Examples of in-scope issues: a prompt-injection carried in ingested alert/event
-data that flips a verdict or **bypasses the human dismiss/close gate**; a flaw that
-lets the bridge log or leak the Exabeam OAuth token or API secret; a governance
-drift that lets a close/containment tool run un-gated; a way to make the skill
-claim or execute containment, or auto-close a case, without the human approval the
-model promises; a tampered install path.
+data that flips a verdict or **bypasses the human dismiss/close gate**; hidden-character
+smuggling that survives the canonicalizer; a formula, link or credential that survives
+the neutralizer into a persisted note, update or mail; a close by another route (a
+create that lands closed, an update that overwrites analyst text); a flaw that lets
+the bridge log or leak the Exabeam OAuth token or API secret; a governance drift that
+lets a close/containment tool run un-gated, or the hook fail *open*; a way to make the
+skill claim or execute containment, or auto-close a case, without the human approval
+the model promises; a tampered install path.
 
 **Out of scope:**
 
@@ -46,8 +59,12 @@ model promises; a tampered install path.
   Exabeam MCP; issues in the platform, its API, or the MCP server belong with
   Exabeam support/security, not here.
 - **General LLM behavior** (hallucination, refusals) not tied to a socxen-specific
-  defect. socxen's own mitigations — evidence-grounding, the dual-lock gate,
+  defect. socxen's own mitigations — evidence-grounding, the gate, the two bridge filters,
   untrusted-input handling — *are* in scope; a way to defeat them is a vulnerability.
+- **The residuals each control declares** — listed on the
+  [guardrails page](plugin/docs/security-guardrails.md#what-these-guardrails-do-not-do) and in
+  [`security/design/`](security/design/). A report that one of them is real is welcome as an
+  issue; it is not a vulnerability until it defeats something the control claims to do.
 
 ## Reporting a vulnerability
 
