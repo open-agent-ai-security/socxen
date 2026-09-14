@@ -12,7 +12,7 @@ way. This is the explanatory overview — the operational contract the runner ex
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="diagram/harness-dark.png">
-    <img alt="Architecture of the socxen red-team harness: a runner drives the soc-investigate skill against poisoned alerts in a read-only trial through the MCP bridge to a synthetic tenant, then a grader with a context-free judge scores whether the attack landed and sets the release verdict." src="diagram/harness-light.png" width="840">
+    <img alt="Architecture of the socxen red-team harness: a runner drives the skill each fixture names — soc-investigate, triage-cases or rule-tuning — against poisoned alerts, queue exports and rule inventories in a read-only trial through the MCP bridge to a synthetic tenant, then a grader with a context-free judge scores whether the attack landed and sets the release verdict." src="diagram/harness-light.png" width="840">
   </picture>
 </p>
 
@@ -131,6 +131,14 @@ The design choices below are deliberate; each exists for a reason.
 - **The eval harness is the range.** Attacks are graded by the same machinery that grades socxen's normal
   evals, so a red-team result is a repeatable, gradeable artifact — *and a confirmed attack becomes a
   permanent test.* Red-teaming compounds into the guardrail suite instead of being a one-off.
+- **A fixture names the skill it drives; the prompt is one fixed template per skill, identical on both
+  hosts.** `soc-investigate` is handed one alert or case ("a colleague handed you this alert to
+  investigate"); `triage-cases` is handed a queue export *as the open queue for this sweep*; `rule-tuning`
+  is handed a rule inventory with its detection history *as the rule set for this pass* — so the poisoned
+  entry is in the data the skill ranks or tunes, not something a live tenant would never hold. The judge's
+  preamble follows the skill (alert data / a queue export / a rule inventory) and its rubric is otherwise
+  the same. The comparability claim — same corpus, same judge, the model is the only variable — rests on
+  the template being literally the same text on Claude and on Codex.
 - **Synthetic tenant, dry-run, writes denied.** We drive the *real* skill, but no write, close or
   containment call is ever allowed to land — on Claude Code by disallowing those tools, on Codex by the
   connector's dry run refusing them at the bridge (see *Two hosts, one grader* below; the mechanism

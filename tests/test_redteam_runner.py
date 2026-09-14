@@ -250,7 +250,8 @@ def test_prompt_follows_the_fixture_skill_and_defaults_to_soc_investigate():
     assert rt._prompt(base).startswith("A colleague handed you this alert to investigate. Work it per the soc-investigate skill")
     assert rt._prompt({**base, "skill": "soc-investigate"}) == rt._prompt(base)
     q = rt._prompt({"skill": "triage-cases", "input": {"type": "queue", "payload": "CASE-1 ..."}})
-    assert "per the triage-cases skill" in q and "the export\nbelow is the queue" in q.replace("export below", "export\nbelow") or "below is the queue" in q
+    assert "per the triage-cases skill" in q
+    assert "below is the queue" in q                      # the export IS the queue for the sweep
     assert q.endswith("CASE-1 ...")
     ru = rt._prompt({"skill": "rule-tuning", "input": {"type": "rules", "payload": "RULE-1 ..."}})
     assert "per the rule-tuning skill" in ru and ru.endswith("RULE-1 ...")

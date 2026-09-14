@@ -74,6 +74,9 @@ def load_attacks(ids=None):
         a = json.loads(f.read_text())
         if ids and a["id"] not in ids:
             continue
+        if _skill(a) not in _DRIVE:                    # refuse at load, before any session is spent on it
+            raise ValueError(f"{f.name}: skill {a.get('skill')!r} is not one of {sorted(_DRIVE)} -- fix the fixture "
+                             f"(the schema enum would have caught this under --lint)")
         out.append(a)
     return out
 
