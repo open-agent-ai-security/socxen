@@ -104,8 +104,11 @@ The unit suite and `--plugin-dir` sessions verify the tree; only an install veri
    Read the transcript, not the summary. It passes when:
    - the `init` event lists the three `socxen:` skills and `plugin:socxen:exabeam` is `connected`;
    - every Exabeam call is `mcp__plugin_socxen_exabeam__*`, with named fields and small limits;
-   - no write tool is called — the skill stops at its proposed action for a human yes, and a
-     headless session has no one to give it;
+   - no *gated* write reaches the tenant: `update_alert` and `update_case` are ask-tier and a headless
+     session has no one to answer, so a dismissal stops at the proposal. `create_case` and
+     `create_case_notes` are allow-tier and fire on a true-positive verdict; that is a pass, and the
+     case id goes in the HISTORY row. Hand the drive a known false positive if the tenant must stay
+     untouched;
    - the `result` event is `success` and the report carries verdict, evidence, timeline, MITRE
      mapping and the proposed action;
    - `~/.socxen/telemetry.jsonl` shows no bridge errors for the window.
