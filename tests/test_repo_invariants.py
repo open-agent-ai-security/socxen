@@ -609,6 +609,23 @@ def test_docs_describe_the_gate_that_ships():
     hooks = json.loads((ROOT / "plugin" / "hooks" / "hooks.json").read_text())
     matcher = hooks["hooks"]["PreToolUse"][0]["matcher"]
     assert re.match(matcher, "mcp__exabeam__exabeam_update_alert"), "installation.md says the hook covers a manual `exabeam` server"
+def test_the_gate_ships_but_no_manifest_names_it():
+    """#197: the gate is registered by SHIPPING hooks/hooks.json, never by declaring it.
+
+    Claude Code loads that path automatically. A manifest that also names it makes the loader see the
+    file twice and fail the whole plugin load -- skills, MCP server and gate at once -- which is how
+    0.8.6 shipped to both catalogs unloadable. So this pins both halves: the file must be there (a
+    regeneration cannot silently unregister the gate) and no host manifest may point at it.
+    """
+    assert (ROOT / "plugin" / "hooks" / "hooks.json").is_file(), "the payload must carry the gate's hooks.json"
+    assert (ROOT / "plugin" / "hooks" / "gate.py").is_file(), "the payload must carry the gate itself"
+    for manifest in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        d = json.loads((ROOT / "plugin" / manifest).read_text())
+        assert "hooks" not in d, (
+            f"{manifest} declares the hook; the host loads hooks/hooks.json itself, so naming it "
+            "duplicates the file and fails the entire plugin load (#197)")
+
+
 def test_skill_says_what_to_stop_doing():
     """#91 / Praxen 0.6.9 -010/-012: the skill said how to ask and never what to do after a refusal, nor
     that out-of-lane requests are declined. Both are gate-bypass shapes if left to improvisation."""

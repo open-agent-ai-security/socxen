@@ -75,6 +75,29 @@ assert_version() {  # assert_version <leg> <config-dir> <expected>
   fi
 }
 
+assert_loads() {  # assert_loads <leg> <config-dir>
+  # A plugin that installs is not a plugin that LOADS. 0.8.6 shipped to both catalogs declaring
+  # hooks/hooks.json in its manifest, a path the host already auto-loads; the loader saw one file twice
+  # and failed the entire plugin -- gate, three skills and the MCP server -- while `plugin install`
+  # reported success (#197).
+  #
+  # This has to read the HUMAN output: `plugin list --json` still reports "enabled": true for a plugin
+  # that failed to load, and `plugin details` exits 0 and even prints its hook inventory. The Status line
+  # is the only place the failure surfaces, so a release check that trusts the JSON sees nothing wrong.
+  local out
+  out="$(CLAUDE_CONFIG_DIR="$2" claude plugin list 2>&1 | grep -A6 "^[^ ]*${PLUGIN}@${MARKETPLACE}" || true)"
+  if printf '%s' "${out}" | grep -qi 'failed to load\|error'; then
+    echo "  FAIL: ${1} — installed but did not load:" >&2
+    printf '%s\n' "${out}" | sed 's/^/    /' >&2
+    exit 1
+  fi
+  if ! printf '%s' "${out}" | grep -qi 'enabled'; then
+    echo "  FAIL: ${1} — could not confirm the plugin loaded (no status line matched)" >&2
+    exit 1
+  fi
+  echo "  ok: ${1} — plugin loaded"
+}
+
 git -C "${REPO_ROOT}" fetch origin --quiet
 CURRENT_SHA="$(git -C "${REPO_ROOT}" rev-parse origin/main)"
 LAST_BUMP="$(git -C "${REPO_ROOT}" log -1 --follow --format=%H origin/main -- plugin/.claude-plugin/plugin.json)"
@@ -122,6 +145,7 @@ CFG1="${SCRATCH}/config-clean"; mkdir -p "${CFG1}"
 CLAUDE_CONFIG_DIR="${CFG1}" claude plugin marketplace add "${MARKETPLACE_REPO}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG1}" claude plugin install "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "clean install" "${CFG1}" "${CURRENT_VER}"
+assert_loads "clean install" "${CFG1}"
 
 echo "leg 2: upgrade ${PRIOR_VER} -> ${CURRENT_VER}"
 CFG2="${SCRATCH}/config-upgrade"; mkdir -p "${CFG2}"
@@ -135,6 +159,7 @@ fabricate_marketplace "${WT_UPGRADE}"                                  # re-asse
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin marketplace update "${MARKETPLACE}" >/dev/null
 CLAUDE_CONFIG_DIR="${CFG2}" claude plugin update "${PLUGIN}@${MARKETPLACE}" >/dev/null
 assert_version "upgrade" "${CFG2}" "${CURRENT_VER}"
+assert_loads "upgrade" "${CFG2}"
 
 echo "leg 3: governance merge (--merge-permissions) into a throwaway settings.json"
 # The gate is the control that makes socxen safe to point at real alerts, and the installer can now
