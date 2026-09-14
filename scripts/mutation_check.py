@@ -49,8 +49,8 @@ MUTATIONS = [
      '            lead, _core, tail = trimmed\n            _note("secret")\n',
      '            lead, _core, tail = trimmed\n            ns.append({"type": "redact:secret", "original": _core})  # MUTATED\n'),
     ("EXEC/CALL/REGISTER/RTD accept a space before (",
-     r"(?:EXEC|CALL|REGISTER|RTD)\()",
-     r"(?:EXEC|CALL|REGISTER|RTD)\s*\()"),
+     r"(?:EXEC|CALL|REGISTER|RTD)\(|",
+     r"(?:EXEC|CALL|REGISTER|RTD)\s*\(|"),
     ("bearer/passcode/client-secret keywords dropped",
      r'    r"secret|token|bearer|credential|passcode")',
      r'    r"secret|token|credential")'),
@@ -63,6 +63,12 @@ MUTATIONS = [
     ("inline markdown link defang off",
      "    text = _defang_md_inline_links(text, allowed, notes)\n",
      "    pass  # MUTATED\n"),
+    ("mid-line DDE channel alternative removed",
+     "{1,200}![\\w'$.]{1,20})\",     # DDE channel: prog|topic!item\n",
+     "{1,200}(?!x)x)\",     # MUTATED\n"),
+    ("cell-reference prefix removed from the mid-line pass",
+     r'_CELL_REF = r"(?:[A-Za-z]{1,3}\d{1,7})?"',
+     r'_CELL_REF = r""'),
 ]
 
 IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".DS_Store", ".venv", "guide", "results", "transcripts")

@@ -64,7 +64,12 @@ envelopes; the bridge looks inside them.)
 3. **Markdown inline links** in every CommonMark/GFM shape (titles, padding, nesting).
 4. **Secrets and structured PII** → `[REDACTED:<kind>]`, so the report still says a credential was here.
 5. **Formulas**: quote-prefixed inert, and any URL on the formula's line defanged — including a formula
-   quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell.
+   quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell. Mid-sentence detection
+   needs a known dangerous function name, so ordinary prose is never touched; two forms that have no
+   name to allowlist are recognized by shape instead (#120): a **DDE channel reference**
+   (`=cmd|'/C calc'!A0`, `@SUM(cmd|…!A0)` — sign, program, pipe, bounded topic, bang, item), and a
+   **cell reference glued to the sign** (`B2=HYPERLINK(…)`), which the word-glue guard used to read as
+   prose.
 
 **The order is a control, not a style.** Link defang runs before redaction. A credential-shaped query
 parameter (`[reset](https://evil/login?token=abc123).`) puts both on one span; with redaction first, its

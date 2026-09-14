@@ -240,15 +240,37 @@ def test_do_no_harm_corpus_survives_the_full_pipeline(text):
     assert out == text and not notes, f"full pipeline changed legitimate text: {text!r} -> {out!r} {notes}"
 
 
-# ---- Phase B gaps, pinned so they cannot move silently (#120 items 3 and 4) -----------------------------
+# ---- #120 items 3 and 4 (phase B): DDE channel references mid-prose; a cell reference glued to the sign --
 
-@pytest.mark.xfail(strict=True, reason="#120 item 3: a DDE channel reference is not detected mid-prose (Phase B)")
-def test_mid_line_dde_channel_reference_is_neutralized():
-    line = "The cell contained: =cmd|'/C calc'!A0 and nothing else"
-    assert "'=cmd|" in N.neutralize_output(line)[0]
+@pytest.mark.parametrize("line", [
+    "The cell contained: =cmd|'/C calc'!A0 and nothing else",
+    "field: =MSEXCEL|'\\..\\..\\Windows\\System32\\cmd.exe /c calc.exe'!A1",
+    "seen +cmd|' /C calc'!'A1' in the export",
+    "value: @SUM(cmd|' /C calc'!A0)",                          # a function wrapper around the channel
+    "note: =DDE(\"cmd\",\"/C calc\",\"A0\")",                  # the named form was already covered; keep it
+])
+def test_mid_line_dde_channel_reference_is_neutralized(line):
+    out = N.neutralize_output(line)[0]
+    assert "'=" in out or "'+" in out or "'@" in out, out
 
 
-@pytest.mark.xfail(strict=True, reason="#120 item 4: a cell-reference prefix glued to the sign (B2=HYPERLINK) bypasses the mid-line pass (Phase B: fix or declare)")
-def test_cell_reference_glued_to_the_sign_is_neutralized():
-    out = N.neutralize_output('B2=HYPERLINK("https://evil.example/x")')[0]
-    assert "https://evil.example" not in out
+@pytest.mark.parametrize("line", [
+    'B2=HYPERLINK("https://evil.example/x")',
+    'see A1=WEBSERVICE("https://evil.example/api") in the sheet',
+    "cell ZZ9999=EXEC(calc)",
+])
+def test_cell_reference_glued_to_the_sign_is_neutralized(line):
+    out = N.neutralize_output(line)[0]
+    assert "'" in out and "https://evil.example" not in out, out
+
+
+@pytest.mark.parametrize("prose", [
+    "on-call|pager!escalate now",                  # sign glued to a word: still prose
+    "the ratio = a|b!c is odd",                    # space after the sign: not a formula
+    "score=high|low!important",                    # sign glued to a word: the lookbehind holds even with the channel shape
+    "status=ok (see B2=summary(final))",           # cell-ref prefix with a non-allowlisted name
+    "grep 'x|y' file.txt! done",                   # pipe and bang without a sign-led name
+    "Q3=CALL (see runbook)",                       # cell-ref prefix, English-word function, space before (
+])
+def test_new_mid_line_forms_do_no_harm(prose):
+    assert N.neutralize_output(prose)[0] == prose, N.neutralize_output(prose)[0]
