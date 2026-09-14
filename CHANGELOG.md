@@ -10,6 +10,17 @@ governance model (feature → `dev`, release `dev` → `main`).
 
 ## [Unreleased]
 
+### Security
+
+- **Two formula shapes the mid-line pass could not see are now neutralized** (#120, phase B). A DDE
+  channel reference quoted in prose — `=cmd|'/C calc'!A0`, `=MSEXCEL|'…cmd.exe /c calc'!A1`,
+  `@SUM(cmd|' /C calc'!A0)` — is the highest-severity formula payload and has no function name to
+  allowlist; it is recognized by its structure (sign, program, pipe, bounded topic, bang, item). A cell
+  reference glued to the sign — `B2=HYPERLINK("…")` — was read as prose by the word-glue guard; an
+  A1-style prefix (1–3 letters, 1–7 digits) is now allowed through it. Both were pinned as expected
+  failures by phase A and flip to passing here; both have a mutation in the gate and do-no-harm cases
+  (`on-call|pager!…`, `score=high|low!…`, `Q3=CALL (see runbook)` stay untouched).
+
 ### Testing
 
 - **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven

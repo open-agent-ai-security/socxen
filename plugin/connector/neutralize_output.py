@@ -271,9 +271,18 @@ _FORMULA_CALL_RE = re.compile(r"^[=+\-@][\w.$]*\(")                 # sign + nam
 # (?<![\w']) blocks occurrences already quote-prefixed AND hyphenated prose ("on-call (rotation)",
 # "auto-exec (enabled)" -- the sign glued to a preceding word is prose, not a formula). Function names
 # that are also English words (EXEC, CALL, REGISTER, RTD) additionally require the "(" with no space.
+# Two forms the allowlist alone missed (#120 phase B):
+#   - a DDE CHANNEL reference quoted mid-prose -- =cmd|'/C calc'!A0, =MSEXCEL|'..\cmd.exe /c calc'!A1,
+#     @SUM(cmd|' /C calc'!A0) -- the highest-severity formula payload, which has no function name to
+#     allowlist. Recognized by its structure: sign, program name, "|", a bounded topic, "!", an item.
+#     Prose never has a sign-led word immediately followed by a pipe and a bang.
+#   - a CELL REFERENCE glued to the sign -- B2=HYPERLINK("…") -- which the word-glue lookbehind read as
+#     prose. A1-style prefix only (1-3 letters, 1-7 digits): "score=high(" is still prose.
+_CELL_REF = r"(?:[A-Za-z]{1,3}\d{1,7})?"
 _MID_LINE_FORMULA_RE = re.compile(
-    r"(?<![\w'])[=+\-@](?:(?:HYPERLINK|WEBSERVICE|FILTERXML|IMPORT(?:XML|DATA|HTML|FEED|RANGE)|"
-    r"DDE(?:AUTO)?)\s*\(|(?:EXEC|CALL|REGISTER|RTD)\()",
+    r"(?<![\w'])" + _CELL_REF + r"[=+\-@](?:(?:HYPERLINK|WEBSERVICE|FILTERXML|IMPORT(?:XML|DATA|HTML|FEED|RANGE)|"
+    r"DDE(?:AUTO)?)\s*\(|(?:EXEC|CALL|REGISTER|RTD)\(|"
+    r"(?:[\w.$]*\()?[A-Za-z][\w.]*\|[^|!\n]{1,200}![\w'$.]{1,20})",     # DDE channel: prog|topic!item
     re.IGNORECASE)
 _DDE_RE = re.compile(r"\|\S[^|!]*!")                                # DDE channel ref: cmd|'/C calc'!A0
 _QUOTED_FORMULA_RE = re.compile(r'"(\s*)([=+\-@][^"]*)')            # a quoted field value: "=HYPERLINK(...)"
