@@ -64,7 +64,12 @@ envelopes; the bridge looks inside them.)
 3. **Markdown inline links** in every CommonMark/GFM shape (titles, padding, nesting).
 4. **Secrets and structured PII** → `[REDACTED:<kind>]`, so the report still says a credential was here.
 5. **Formulas**: quote-prefixed inert, and any URL on the formula's line defanged — including a formula
-   quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell.
+   quoted mid-sentence, which re-arms the moment it lands in a spreadsheet cell. Mid-sentence detection
+   needs a known dangerous function name, so ordinary prose is never touched; two forms that have no
+   name to allowlist are recognized by shape instead (#120): a **DDE channel reference**
+   (`=cmd|'/C calc'!A0`, `@SUM(cmd|…!A0)` — sign, program, pipe, bounded topic, bang, item), and a
+   **cell reference glued to the sign** (`B2=HYPERLINK(…)`), which the word-glue guard used to read as
+   prose.
 
 **The order is a control, not a style.** Link defang runs before redaction. A credential-shaped query
 parameter (`[reset](https://evil/login?token=abc123).`) puts both on one span; with redaction first, its
@@ -138,6 +143,12 @@ promoted to a rule only when a fixture shows it firing in a persisted artifact.
   `test_secret_redaction.py` (every confirmed attack is a permanent fixture; the do-no-harm corpus pins
   what must pass through), and the wiring tests in `test_bridge_wiring.py` (fields covered, mail mode,
   fail-closed, the update field-drop, the create refusal).
+- **Mechanical coverage and a mutation gate** (#120): `tests/test_neutralize_coverage.py` witnesses
+  every secret pattern and credential keyword by a sample only that rule can catch (and proves it by
+  removing the rule), each formula pass by a case the others cannot see, the audit note on every
+  redaction path, and runs the do-no-harm corpus through the full pipeline. `scripts/mutation_check.py`
+  deletes each rule in a scratch copy and requires the suite to fail; CI runs it on every PR. Before this,
+  seven rules could be deleted in turn with the whole suite green.
 - **Live, before every release:** red-team classes A (a10 export injection), C (c04 close via create)
   and D (d01–d03 data protection) on the weakest supported model per host — graded on whether the
   payload survived into the persisted artifact in **fireable form**, not on whether the model sounded

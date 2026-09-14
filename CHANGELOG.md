@@ -8,6 +8,68 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.8.7] — 2026-09-14
+
+**Hotfix: the plugin loads from an install again.** 0.8.6 declared the bundled hook in its Claude manifest, a
+file the host already loads by convention, and the loader refused the whole plugin — gate, skills and MCP
+server — on both catalogs, while `plugin install` reported success. The manifest no longer names the hook;
+the hook still ships and still registers. The release also carries what landed on `dev` since 0.8.6: the
+two prose-position formula shapes in the neutralizer, the quoted-label and identity-generator tooling for
+vendored copies, and the mutation gate that now witnesses every neutralizer rule.
+
+*Release gate, stated honestly:* the deterministic suite (863 tests), the mutation gate (14/14), the generator
+and drift checks, and the post-promotion install smoke on both hosts. The neutralizer change was driven live
+by the a14 fixture (10/10 across both legs) on the red-team branch that carries it. **No full-corpus red-team
+run was made on this exact tree** — the hotfix ships a plugin that loads over one that does not, and the next
+feature release carries the full gate. The hook-leg rows in the ledger do not yet prove the hook (#203).
+
+### Fixed
+- **The plugin loads again on current Claude Code.** `0.8.6` declared `hooks: ./hooks/hooks.json` in its
+  Claude manifest — a path the host already loads automatically — so the hook loader saw one file twice and
+  failed the **entire** plugin: the gate, all three skills and the MCP server, on a release whose headline was
+  that the gate ships on. `plugin install` still reported success; only the `Status:` line in
+  `claude plugin list` said otherwise (#197). Not a host regression — every Claude Code back to 2.1.200 fails
+  the same way; the live checks that cleared it ran through `--plugin-dir`, which reports the error and
+  continues, so the install path was never exercised with the field. The gate is registered by shipping
+  `hooks/hooks.json`, never by naming it, and two invariants now pin both halves — the file must be present,
+  and no manifest may point at it. The release smoke asserts the installed plugin *loads*, keyed on the
+  `errors[]` array `plugin list --json` carries beside `"enabled": true`, with a positive control that
+  re-injects the field and requires the check to fail.
+
+### Security
+
+- **Two formula shapes the mid-line pass could not see are now neutralized** (#120, phase B). A DDE
+  channel reference quoted in prose — `=cmd|'/C calc'!A0`, `=MSEXCEL|'…cmd.exe /c calc'!A1`,
+  `@SUM(cmd|' /C calc'!A0)` — is the highest-severity formula payload and has no function name to
+  allowlist; it is recognized by its structure (sign, program, pipe, bounded topic, bang, item). A cell
+  reference glued to the sign — `B2=HYPERLINK("…")` — was read as prose by the word-glue guard; an
+  A1-style prefix (1–3 letters, 1–7 digits) is now allowed through it. Both were pinned as expected
+  failures by phase A and flip to passing here; both have a mutation in the gate and do-no-harm cases
+  (`on-call|pager!…`, `score=high|low!…`, `Q3=CALL (see runbook)` stay untouched).
+
+### Testing
+
+- **The neutralizer's rules are now witnessed, and a mutation gate keeps them so** (#120). Seven
+  rules of `neutralize_output.py` — the table-cell and quoted-field formula passes, the JWT pattern,
+  three credential keywords, the weak-separator line-break branch, the audit note's non-leak — could
+  each be deleted with the whole suite still green (re-confirmed 2026-09-13 against 790 tests).
+  `tests/test_neutralize_coverage.py` gives every secret pattern and keyword a sample only that rule can
+  catch and proves it by removing the rule; each formula pass a case the others cannot see; the audit
+  note a check on every redaction path; and runs the do-no-harm corpus through the full pipeline.
+  `scripts/mutation_check.py` deletes fourteen rules in turn in a scratch copy and fails CI if the suite
+  survives any of them. One redundancy found on the way and recorded, not changed: the `passwd`
+  keyword is already matched by `passwo?r?d`. Two remaining gaps — a DDE channel reference in prose
+  position, and a cell reference glued to the sign (`B2=HYPERLINK(`) — were pinned as strict expected
+  failures and closed by phase B (above).
+
+### Tooling
+
+- **A vendored copy follows its own identity** (#182, #183, #184, #185): the identity generator rewrites
+  the install key and marketplace repo in the shipped guides on a re-key (at identifier boundaries, reporting
+  what it leaves), relicenses every SPDX header, the README badge and License line, and `identity.sh` from
+  `identity.json`'s `license` field, and leaves the shell scripts out of the rewrite — a literal key in them
+  fails `--check`. The Exabeam catalog's copy becomes self-consistent about its terms at this blessing.
+
 ## [0.8.6] — 2026-09-07
 
 **One release, three threads: security, performance and robustness.** Every entry below belongs to one
