@@ -24,8 +24,5 @@ service level, no support desk and no warranty; the people who build it answer q
 ## Supported by Exabeam
 
 Exabeam offers a **supported SOC Agent pack** — the same agentic SOC skills, delivered and supported
-under Exabeam's commercial terms — through the **Exabeam Plug-in Forge**:
-
-**[exabeam.github.io/plugins →](https://exabeam.github.io/plugins/)**
-
-If you are an Exabeam customer and want a supported build with a support path, start there.
+under Exabeam's commercial terms — through the **Exabeam Plug-in Forge**. If you are an Exabeam customer
+and want a supported build with a support path, your Exabeam representative can point you at it.

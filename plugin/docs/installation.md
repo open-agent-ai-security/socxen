@@ -33,9 +33,9 @@ there to answer, an ask is refused.
   gate are shell scripts and Python, and the credentials file below is protected by Unix file
   permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
   key and secret unprotected. There is no PowerShell path.
-- **Exabeam customers:** the supported build is delivered through the
-  [Exabeam Plug-in Forge](https://exabeam.github.io/plugins/), with its own install command. These
-  instructions cover the community release; see [Support](support.md).
+- **Exabeam customers:** the supported build is delivered through the Exabeam Plug-in Forge, with its
+  own install command; your Exabeam representative can point you at it. These instructions cover the
+  community release; see [Support](support.md).
 
 ## Quick start — Claude Code
 
