@@ -289,19 +289,19 @@ PY
     # neither a sibling's "approve" nor a sibling gated tool can mask a loosened one. Comment lines are
     # not settings.
     awk '
-      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\x27]approve["\x27]/) }
+      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\047]approve["\047]/) }
       /^[[:space:]]*#/ { next }
       /^[[:space:]]*\[/ { sec = $0; next }
       {
         line = $0
         if (line !~ /approval_mode/) next
         if ((sec " " line) !~ /exabeam_update_(alert|case)/) next
-        if (line !~ /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
+        if (line !~ /exabeam_update_(alert|case)["\047]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
           if (loose(line)) { print "loose"; exit }
           next
         }
         s = line                                                                   # inline table(s), key bare or quoted
-        while (match(s, /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/)) {
+        while (match(s, /exabeam_update_(alert|case)["\047]?[[:space:]]*=[[:space:]]*\{/)) {
           rest = substr(s, RSTART + RLENGTH); depth = 1; body = ""
           for (i = 1; i <= length(rest) && depth > 0; i++) {
             c = substr(rest, i, 1)
