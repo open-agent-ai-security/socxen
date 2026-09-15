@@ -175,13 +175,22 @@ release channel**: whatever lands there reaches new installers immediately.
    squash), then fast-forward `dev` back up (see Branching above). `main` is
    branch-protected: the merge needs the `Repo invariants (no inference)` and
    `signoff` checks green and every review conversation resolved.
-3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh`.
-   It exercises both real Claude Code journeys in throwaway scratch
-   `$CLAUDE_CONFIG_DIR`s — a **clean install** of the new release and an
-   **upgrade** from the prior release — and asserts the resulting version,
-   never touching your live install. It is deliberately *not* in CI: the
+3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh <prior-release-ref>`.
+   It runs three legs in throwaway scratch `$CLAUDE_CONFIG_DIR`s, never touching
+   your live install: a **clean install** of the new release, an **upgrade** from
+   the prior release, and the **governance merge** into a throwaway settings
+   file. Each install leg asserts the installed version *and* that the plugin
+   **loads** (`plugin list --json` reports an empty `errors[]`, with a positive
+   control that re-injects a known bad manifest field and expects the check to
+   fail). Pass the prior release explicitly. It is deliberately *not* in CI: the
    `claude` CLI doesn't run in GitHub Actions, so this stays a maintainer-run
    check.
+4. Run the **real-install test**, section C of
+   [`tests/end-to-end-testing.md`](tests/end-to-end-testing.md): install the
+   release from the catalog that serves it on each host, preflight from the
+   install path, drive a skill with a separate agent session, and record the
+   run in `security/redteam/HISTORY.md`. The release is done when steps 3 and
+   4 have both run.
 
 **Rolling back a bad release**
 
