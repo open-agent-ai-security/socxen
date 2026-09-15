@@ -285,7 +285,7 @@
           <li><strong>Containment is recommended, never executed</strong> — <span>isolate, disable, block: the plugin can propose them and cannot perform them. Denied at the harness as defense in depth.</span></li>
           <li><strong>Evidence has provenance</strong> — <span>a baseline is something the agent queried, not something the alert supplied. Planted "context" does not count.</span></li>
           <li><strong>Reads are canonicalized</strong> — <span>invisible-character smuggling is stripped before the model reasons about what it read.</span></li>
-          <li><strong>Writes are neutralized</strong> — <span>formulas and clickable links are defanged, secrets and PII redacted, before anything persists to Exabeam. Deterministic code at the bridge, not a prompt.</span></li>
+          <li><strong>Writes are neutralized</strong> — <span>formulas and clickable links are defanged, secrets and structured identifiers redacted, before anything persists to Exabeam. Deterministic code at the bridge, not a prompt.</span></li>
           <li><strong>Every call is audited</strong> — <span>a local, metadata-only trail of what was called, when, and with what result. Nothing phones home.</span></li>
         </ul>
         <p style="text-align:center;margin:26px 0 0;font-size:15px;"><a href="guide/security-guardrails.html">What the code stops, and what it deliberately doesn't →</a></p>

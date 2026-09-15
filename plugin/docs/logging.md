@@ -16,13 +16,7 @@ It runs inside the local MCP bridge — the one place that sees every Exabeam ca
 [**observra**](https://open-agent-ai-security.github.io/observra/), an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.
 
-**observra 1.1 or newer is required** (the bridge pins `observra>=1.1,<2`). socxen is not one of
-observra's built-in frameworks — the "agent" here is a host agent (Claude Code or Codex) driving a skill
-over an MCP bridge, so
-there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
-public `observra.emit()`, and the rotation bounds below pass through to the backend (clamped to
-sane minimums). On older
-observra neither is available and logging disables itself.
+The bridge installs the observra library it needs (1.1 or newer); nothing for you to set up.
 
 ## Exactly what is recorded
 
