@@ -38,7 +38,49 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — remit v1.6 @ `0b4e72a` (2026-09-08, #168: a common-sense upgrade to the remit, with a rescan)
+## Current status — remit v1.7 @ `5345de4` (2026-09-14, the release candidate after the 0.8.7 hotfix)
+
+| | |
+|---|---|
+| Scanned | **`praxen/remit-1.7`** (`5345de4`) — `dev` @ `d553809` (0.8.7 plus the red-team stack #196–#200, the https rule #192, the hook-leg proof #212 and the fail-closed read screen #213) plus the Worker Remit at **v1.7** (a descriptive tidy, #190) and the scan instructions' hook sentence corrected for #197. |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project files, the workspace a pinned worktree). |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **0 High** · 9 Medium · 2 Low — all 11 CONFIRMED by the audit pass, 0 UNSUPPORTED, 0 remit defects (one remit-authoring note, R-34, below) |
+| Weighted RAISE posture | **3.70 / 5** (Established) |
+| Remit coverage | Remit **v1.7** · 70 rules — 48 verified · 10 partial · 0 gap · 12 enforcement-not-possible |
+| Threat model | 24 nodes · 32 edges · 9 trust boundaries · 3 attack paths — [`-threatmodel.html`](results/2026-09-14-socxen-rc-remit17-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 4.
+
+Artifacts: [report](results/2026-09-14-socxen-rc-remit17.html) · [findings JSON](results/2026-09-14-socxen-rc-remit17.json) ·
+[audit](results/2026-09-14-socxen-rc-remit17-audit.md) · [text](results/2026-09-14-socxen-rc-remit17.txt) ·
+[threat model](results/2026-09-14-socxen-rc-remit17-threatmodel.html) ([json](results/2026-09-14-socxen-rc-remit17-threatmodel.json)).
+
+**The findings.** The scanner's own summary: the controls the remit demands are implemented
+deterministically on the execution path, and the eleven findings are places where a real control stops
+short of the whole surface it is described as covering. Mediums: the model floor is documentation only
+(`-001`, known); the queue sweep's no-write rule is instruction-only for the two allow-tier writes because
+the hook carries no skill identity (`-002`, the remit says so); write-side neutralization is scoped by a
+free-text field allowlist (`-003`, the do-no-harm design); a payload the analyst pastes bypasses the input
+screen (`-004`, the MCP path is the boundary); up to 300 characters of upstream error text in the audit
+record (`-005`, #173); `SOCXEN_OBSERVRA=off` disables the audit trail without a stderr line (`-006`, #215);
+instruction-shaped tool definitions countered in code for one shape (`-007`, #163 design); the tool surface
+is hashed but no baseline is stored (`-008`, #6); result size bounded for the three search tools only
+(`-009`, #162). Lows: gate reach keyed on a server name containing `exabeam` (`-010`, documented) and the
+plaintext key file with the bearer inheriting the key's role (`-011`, documented).
+
+**Against the v1.6 scan** (0 High · 5 Medium · 4 Low, RAISE 3.45, 66 verified · 5 partial · 0 enforcement-
+not-possible): the tree changed functionally in between, and the enforcement-not-possible count moving
+between 0 and 12 on near-identical remits is inside the run-to-run range measured on 2026-09-08, so the
+category and coverage deltas are read as variance plus the new code, not as a trend from one run.
+
+**Remit note (for the next revision, not changed here).** The auditor found the extractor split R-34 at a
+sentence boundary and dropped the remit's own spill-file carve-out, so the closure read as prohibiting the
+host's documented spill file. Finding `-009` stands on its facts either way. The narrower phrasing the
+auditor proposes is on #190 for v1.8.
+
+## Previous — remit v1.6 @ `0b4e72a` (2026-09-08, #168: a common-sense upgrade to the remit, with a rescan)
 
 | | |
 |---|---|
