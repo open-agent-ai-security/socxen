@@ -13,14 +13,14 @@
 | Field | Value |
 |-------|-------|
 | Worker Name | socxen |
-| Agent Key / ID | `soc-investigate`, `triage-cases`, and `rule-tuning` skills, distributed as the `socxen` Claude Code plugin |
+| Agent Key / ID | `soc-investigate`, `triage-cases`, and `rule-tuning` skills, distributed as the `socxen` plugin for Claude Code and OpenAI Codex |
 | Owner / Operator | Exabeam / Open Agent AI Security — the SOC team running the investigation |
 | Deployment Environment | Analyst workstation, interactive session on a supported host — Claude Code or OpenAI Codex — against an Exabeam New-Scale tenant (pre-release / evaluation). Any other agent is unsupported (see Action Boundaries). |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.6 |
-| Last Updated | 2026-09-08 (second pass) |
-| Updated By | Praxen remit authoring (v1.6, documentation-only — #168, plus a stabilizing pass after the first v1.6 scan: one obligation per bullet where the extractor had split rules differently between runs; the sweep no-write rule, the read-side screen and the "any other agent" install path carry declared residuals; the in-session ask is stated as the model-side layer beneath the host gate; mail-recipient eligibility is declared as the MCP service's enforcement; the tool baseline is enumerated by name from the shipped allow tier; redaction and evidence-gap rules split into their enforced and conduct halves. #168: the untrusted-content boundary is drawn by author, not channel — the bundled Exabeam MCP's tool definitions are the integration's configuration at the provenance boundary (Trusted Services / Integrations; a hash-screen-surface requirement under Runtime and Supply-Chain Requirements, with the stored-baseline residual declared), and R-02 enumerates search results and context-table records and adds "change the human approval required". Previously: v1.5, documentation-only — #121 tune-ups: closure rules on the tool and channel inventories, disclosure channels named, declared residuals for markdown link forms, HTML mail links and the host's spill file; v1.4, documentation-only: outbound email to the operator's own subscription users through the platform's `exabeam_send_email` tool is an authorized, human-confirmed channel — recipients scoped by the MCP service to active subscription users; v1.3: the gate ships as a bundled Claude Code PreToolUse hook; v1.2: skill-suite coverage, deterministic write-path redaction) |
+| Remit Version | 1.7 |
+| Last Updated | 2026-09-14 |
+| Updated By | Praxen remit authoring (v1.7, descriptive tidy only — #190: tool counts, both hosts named, file citations without line numbers; the read-screen residual removed after socxen #172 shipped fail-closed; no rule changes) |
 
 ---
 
@@ -171,7 +171,7 @@ gate staying real.
   trusted is Exabeam's authorship, and only while `EXABEAM_MCP_URL` names Exabeam's own infrastructure.
   The service also enforces mail-recipient eligibility server-side: `exabeam_send_email` rejects any
   address that is not an active user of the operator's own subscription.
-- The operator's own model provider, reached through the analyst's Claude Code session under the
+- The operator's own model provider, reached through the analyst's host session under the
   operator's own agreement — socxen hosts nothing itself, so data residency, retention, and processing
   terms remain between the operator and that provider.
 - The local audit-telemetry library the bridge uses to write its structured record.
@@ -393,10 +393,6 @@ gaps, and so nothing stronger is claimed than the docs claim:
 - socxen MUST NOT reason over or act on text retrieved from the platform before that text has been
   screened and stripped of *unambiguous* smuggling code points — the Unicode tag block, bidirectional
   overrides and isolates, zero-width space, word joiner, and the variation-selector supplement.
-  Documented residual: the read-side screen fails open — if the screen itself raises, the bridge returns
-  the result unscreened rather than withholding it (availability over canonicalization), and counts the
-  failure in the audit trail; a fail-closed variant that withholds the one result and reports the gap is
-  queued (socxen #172).
 - Linguistically legitimate joiners (ZWJ/ZWNJ) and directional marks (LRM/RLM/ALM) MUST be flagged
   rather than stripped.
 - What the screen stripped or flagged MUST be recorded out of band (the audit trail's hygiene counts),
@@ -483,7 +479,7 @@ gaps, and so nothing stronger is claimed than the docs claim:
 ### Typical Session Count / Duration
 
 - One session per investigation, queue sweep, or tuning pass, lasting minutes; process lifetime equals
-  the Claude Code session.
+  the host session.
 
 ### Typical Outbound Destinations
 
@@ -644,14 +640,14 @@ delete it, before relying on this remit.
 3. ~~**Disposition volume limits.**~~ **RESOLVED by the operator (2026-08-12) — no cap.** Every disposition
    is individually human-approved, so the approving human is the rate limit. No clause is added; a
    numeric cap would create an immediate gap finding against a control nothing implements.
-4. ~~**Unattended operation.**~~ **RESOLVED from documentation — not authorized.** `docs/installation.md:134`
+4. ~~**Unattended operation.**~~ **RESOLVED from documentation — not authorized.** `docs/installation.md`
    explicitly warns against `--dangerously-skip-permissions`, bypass-permissions and auto-accept modes,
-   and `SKILL.md:116` names the same modes; since v1.3 the bundled hook's deny/ask hold in those modes and a headless ask is refused. Both enforcement layers require
+   and `SKILL.md` names the same modes; since v1.3 the bundled hook's deny/ask hold in those modes and a headless ask is refused. Both enforcement layers require
    a human to answer; there is no documented unattended posture. The existing halt-on-absent-approval rule
    in Escalation Rules already covers it — no new clause needed.
 5. ~~**Tenant scope.**~~ **RESOLVED from implementation — single tenant per install.** The bridge reads one
    `EXABEAM_MCP_URL` and one key/secret from a single `~/.exabeam-mcp.env`
-   (`docs/installation.md:85-90`, `exabeam-mcp-bridge.py:58`), so one installation targets exactly one
+   (`docs/installation.md`, `exabeam-mcp-bridge.py`), so one installation targets exactly one
    tenant and region by construction. Multi-tenant operation would require separate installs; whether one
    operator may run several remains a deployment choice, not a policy gap in this remit.
 6. ~~**Telemetry destination allowlist.**~~ **RESOLVED by the operator (2026-08-12) — no allowlist.**
@@ -660,12 +656,12 @@ delete it, before relying on this remit.
    sufficient; no destination allowlist clause is added.
 7. ~~**Missing-gate posture.**~~ **RESOLVED by the operator (2026-08-12) — prominent warning, not hard
    refusal.** socxen discloses the missing-gate condition prominently and proceeds on its in-prompt
-   confirmation. This matches the documented behavior (`docs/installation.md:130`) and is what the
+   confirmation. This matches the documented behavior (`docs/installation.md`) and is what the
    Escalation Rules now require. (Historical, pre-v1.3: with the pack unmerged the soft ask was the only
    lock. Since v1.3 the bundled hook is active on install, so this condition no longer arises on a
    supported install.)
-8. ~~**Enrichment scope.**~~ **RESOLVED from implementation — out of scope as shipped.** All 18 tools in the
-   `allow` tier are Exabeam-internal reads plus case creation; there is no external threat-intelligence,
+8. ~~**Enrichment scope.**~~ **RESOLVED from implementation — out of scope as shipped.** All 21 tools in the
+   `allow` tier are Exabeam-internal reads (19) plus case creation and case notes; there is no external threat-intelligence,
    reputation, or sandbox tool anywhere in the tool surface, so no observable can be submitted off-platform.
    The existing prohibition on unconfigured third-party enrichment calls already covers the boundary — it
    is simply unreachable today. Re-open this only if such a tool is added.

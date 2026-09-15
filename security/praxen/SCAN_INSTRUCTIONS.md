@@ -28,12 +28,12 @@ alone would miss every enforcement mechanism and mis-score the whole target.
 These are the load-bearing ones — resolve each **in code**, and state which layer enforces it:
 
 1. **Dismiss/close (`update_alert` / `update_case`).** The docs now say the gate **ships ON**: a
-   PreToolUse hook bundled in the plugin (`plugin/hooks/hooks.json` + `gate.py`, declared in
-   `plugin.json`), keyed on the bare tool name, reading its tiers from `permissions.json` (`settings.snippet.json` as fallback); *ask* on
+   PreToolUse hook bundled in the plugin (`plugin/hooks/hooks.json` + `gate.py`, loaded by the host
+   from that path by convention — the manifest must NOT also declare it, socxen #197), keyed on the bare tool name, reading its tiers from `permissions.json` (`settings.snippet.json` as fallback); *ask* on
    dismiss/close and `send_email`, *deny* on every containment tool, *ask* on any tool it has not
    classified; its deny/ask hold under `--dangerously-skip-permissions`; a headless *ask* is a refusal;
    it never fails open (unreadable tiers or a malformed event → ask). Verify each claim **in code**: the
-   manifest actually wires the hook; the matcher covers the bundled prefix, the plugin-key-agnostic
+   hook file is present at the conventional path and no manifest names it; the matcher covers the bundled prefix, the plugin-key-agnostic
    prefix and a manually wired `exabeam` server; the tier read fails closed; the emitted decision is the
    shape the host honors. Then separate what remains **opt-in** — the permission-rules merge
    (`--merge-permissions`; an optional second lock — the hook's *allow* already makes the reads prompt-free, and a manual server must be named `exabeam` for either layer to see it) — and what a **Codex**
