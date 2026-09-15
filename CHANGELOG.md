@@ -182,8 +182,8 @@ byte-identical; both are listed in HISTORY. 761 unit tests with the optional tes
   decision, reason, and the call's safe target fields (alertId / caseId / dispositions, never free text),
   so a refused attempt reads as *tried to dismiss alert X*, the near-miss a SOC wants on record.
   Answers the two questions #9 left open — a plugin cannot ship permission rules, but it can ship this —
-  and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 18 allow-tier
-  tools (16 reads and the two escalation writes; verified headless in default permission mode,
+  and closes #3's "inert until merged". The hook's *allow* also bypasses the prompt on the 21 allow-tier
+  tools (19 reads and the two escalation writes; verified headless in default permission mode,
   2026-09-05), so the permission-rules merge is an optional second lock and nothing more. A manually
   wired server must be named `exabeam` — neither the hook nor the rules recognize another name.
 
