@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="logging-structured-audit-trail-on-by-default">Logging (structured audit trail) — on by default</h1>
 <p><strong>What it is:</strong> a structured, durable, machine-parseable record of what the agent did on every
@@ -274,13 +274,7 @@ on the free-form investigation report alone.</p>
 <p>It runs inside the local MCP bridge — the one place that sees every Exabeam call — and is built on
 <a href="https://open-agent-ai-security.github.io/observra/"><strong>observra</strong></a>, an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.</p>
-<p><strong>observra 1.1 or newer is required</strong> (the bridge pins <code>observra&gt;=1.1,&lt;2</code>). socxen is not one of
-observra's built-in frameworks — the "agent" here is a host agent (Claude Code or Codex) driving a skill
-over an MCP bridge, so
-there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
-public <code>observra.emit()</code>, and the rotation bounds below pass through to the backend (clamped to
-sane minimums). On older
-observra neither is available and logging disables itself.</p>
+<p>The bridge installs the observra library it needs (1.1 or newer); nothing for you to set up.</p>
 <h2 id="exactly-what-is-recorded">Exactly what is recorded</h2>
 <p><strong>One event per tool call</strong>, plus a session marker at each end:</p>
 <table>

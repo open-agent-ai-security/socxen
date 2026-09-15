@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Using the skills · socxen Docs</title>
-<meta name="description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
+<title>Support · socxen Docs</title>
+<meta name="description" content="socxen is an open-source project, published by the Open Agent and AI Security community and sponsored by Exabeam. It is community supported, as is, under…">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/usage.html">
+<link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/support.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
-<meta property="og:title" content="Using the skills · socxen Docs">
-<meta property="og:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
-<meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/usage.html">
+<meta property="og:title" content="Support · socxen Docs">
+<meta property="og:description" content="socxen is an open-source project, published by the Open Agent and AI Security community and sponsored by Exabeam. It is community supported, as is, under…">
+<meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/support.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Using the skills · socxen Docs">
-<meta name="twitter:description" content="What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation — credentials in place. The…">
+<meta name="twitter:title" content="Support · socxen Docs">
+<meta name="twitter:description" content="socxen is an open-source project, published by the Open Agent and AI Security community and sponsored by Exabeam. It is community supported, as is, under…">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Using the skills", "description": "What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished installation \u2014 credentials in place. The\u2026",
-  "url": "https://open-agent-ai-security.github.io/socxen/guide/usage.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Support", "description": "socxen is an open-source project, published by the Open Agent and AI Security community and sponsored by Exabeam. It is community supported, as is, under\u2026",
+  "url": "https://open-agent-ai-security.github.io/socxen/guide/support.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
 <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
@@ -262,140 +262,30 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html" class="active">Using the skills</a><ul class="docs-subnav"><li><a href="#the-three-skills-and-how-to-call-them">The three skills, and how to call them</a></li><li><a href="#what-an-investigation-does">What an investigation does</a></li><li><a href="#what-it-will-ask-you">What it will ask you</a></li><li><a href="#reading-the-report">Reading the report</a></li><li><a href="#triage-and-tuning">Triage and tuning</a></li><li><a href="#practical-notes">Practical notes</a></li></ul></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html" class="active">Support</a><ul class="docs-subnav"><li><a href="#getting-help">Getting help</a></li><li><a href="#supported-by-exabeam">Supported by Exabeam</a></li></ul></li></ul></nav></aside>
   <main class="docs-main">
-    <article class="prose"><h1 id="using-the-skills">Using the skills</h1>
-<p>What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished
-<a href="installation.html">installation</a> — credentials in place. The human-in-the-loop gate ships on, on both hosts.</p>
-<h2 id="the-three-skills-and-how-to-call-them">The three skills, and how to call them</h2>
-<p>You talk to socxen in plain language inside your coding agent (Claude Code or Codex). The right skill
-picks itself up from what you ask; you never invoke one by name unless you want to.</p>
-<table>
-<thead>
-<tr>
-<th>You say</th>
-<th>Skill that answers</th>
-<th>What you get back</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>"investigate alert <code>&lt;id&gt;</code>", "work case <code>&lt;id&gt;</code>", "is this a real threat?"</td>
-<td><strong>soc-investigate</strong></td>
-<td>A written investigation of one alert or case: evidence, timeline, MITRE mapping, verdict, and the action it took or is asking you to approve.</td>
-</tr>
-<tr>
-<td>"triage the queue", "what should I look at", "morning triage"</td>
-<td><strong>triage-cases</strong></td>
-<td>A short "start here" list from the open case queue, clustered by attack shape and ranked by corroborated signal — plus the noise clusters worth tuning.</td>
-</tr>
-<tr>
-<td>"find noisy rules", "what's generating false positives", "tune detections"</td>
-<td><strong>rule-tuning</strong></td>
-<td>The rules that are <em>noisy</em> (high volume, low precision — not merely loud) and a specific, least-invasive tuning proposal for each.</td>
-</tr>
-</tbody>
-</table>
-<p>You can also hand an alert ID, a case ID, or a pasted alert payload straight in. If you paste one, remember
-that pasted text is treated as untrusted — the skill will still go and query Exabeam for the evidence
-rather than take the payload's word for it. The same holds for a pasted queue export handed to
-<code>triage-cases</code> or a rule inventory handed to <code>rule-tuning</code>: what arrives with the work is telemetry, not
-a colleague, however official a note inside it looks.</p>
-<h2 id="what-an-investigation-does">What an investigation does</h2>
-<p><code>soc-investigate</code> follows a fixed loop, and you can watch it happen:</p>
-<ol>
-<li><strong>Pull the work item</strong> — the alert or case, from Exabeam, not from what you pasted.</li>
-<li><strong>Establish the entities and their baseline</strong> — the user, host, or IP involved, and what is <em>normal</em>
-   for them, by querying their recent history. A "baseline" supplied inside the alert text does not count.</li>
-<li><strong>Gather evidence, read-only</strong> — SIEM search, threat timelines, context tables, rule and MITRE context.
-   Reads run freely; nothing is written yet.</li>
-<li><strong>Weigh competing hypotheses</strong> — a benign explanation against a malicious one, each tied to evidence it
-   actually retrieved.</li>
-<li><strong>Reach a verdict</strong> — confirmed threat, false positive, or inconclusive.</li>
-<li><strong>Act</strong> — open or update a case and write notes without asking (escalation is safe); <strong>ask you first</strong>
-   before dismissing an alert or closing a case; and <em>recommend</em> containment for you to perform.</li>
-<li><strong>Report</strong> — the write-up below.</li>
-</ol>
-<p>If the Exabeam connection is not available, the skill says so and stops rather than guessing. That message
-means a setup step is missing — see <a href="installation.html#credentials-the-only-manual-step">installation</a>.</p>
-<h2 id="what-it-will-ask-you">What it will ask you</h2>
-<p>Two kinds of prompt reach you, and it helps to know which is which.</p>
-<p><strong>The skill asking.</strong> Before it dismisses an alert or closes a case, <code>soc-investigate</code> asks in plain
-words — <em>"Dismiss alert X as a false positive? (yes / no)"</em> — and waits. Say no, or say nothing, and
-nothing happens. This is the first lock.</p>
-<p><strong>The host asking.</strong> Independently, your agent's own permission system stops the dismiss/close tool call
-and asks you to approve it. On Claude Code that is the permission prompt for <code>exabeam_update_alert</code> or
-<code>exabeam_update_case</code>, raised by the hook that ships inside the plugin (and by the optional permission
-rules, if you merged them — they agree, so you are asked once). On Codex it is the tool-approval prompt Codex
-shows for a destructive tool — and if there is no human present, for example under <code>codex exec</code>, Codex
-cancels the call. This is the second lock. Both must open for a dismiss or close to happen. The same
-prompt guards <code>exabeam_send_email</code>: mail only goes out when you approve it, and the Exabeam MCP service
-only accepts recipients who are active users of your own subscription.</p>
-<p>You will notice Codex also asks before the <em>escalation</em> writes (opening a case, writing notes), where
-Claude Code runs those silently. That is Exabeam's annotation on those tools, not a socxen setting; it is
-noisier, not less safe.</p>
-<p><strong>What it will never do.</strong> Isolate a host, disable an account, block an IP, kill a process — any
-containment. The Exabeam MCP exposes no such tools, and socxen denies them anyway as defense in depth.
-When containment is warranted, the report <em>recommends</em> it, with the entity and the expected blast radius,
-for you to carry out in your EDR or IAM.</p>
-<h2 id="reading-the-report">Reading the report</h2>
-<p>Every investigation ends in the same shape, so you can find things fast: the alert restated, the
-timeline, the evidence with its source (every bullet says where it came from — "no source" means it does
-not belong there), the MITRE mapping, the two hypotheses and what decided between them, the verdict with a
-confidence, the actions taken and any containment recommended, and open questions if the result is
-inconclusive.</p>
-<p>The last line is always one of three <strong>taxonomy outcomes</strong>:</p>
-<table>
-<thead>
-<tr>
-<th>Outcome</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>raised</code></td>
-<td>Escalated for human review — a case opened or kept open. This is the right call for a confirmed threat <em>and</em> for a genuinely inconclusive one.</td>
-</tr>
-<tr>
-<td><code>auto_closed</code></td>
-<td>Investigated and concluded benign enough to close, without a clear false-positive explanation.</td>
-</tr>
-<tr>
-<td><code>fp_closed</code></td>
-<td>Suppressed as a false positive — the dismiss/close call succeeded in this session <em>and</em> a <em>positive</em> benign explanation was found (a false-positive verdict left for the analyst to dismiss is <code>raised</code>) — known automation, a documented change, expected admin behavior. "I found nothing" is not one; that is <code>raised</code>.</td>
-</tr>
-</tbody>
-</table>
-<p>A link in a note that looks broken — <code>hxxps://…[.]…</code> — is deliberate: it was defanged on the way into
-Exabeam so an exported artifact cannot be clicked or executed. See <a href="security-guardrails.html">security guardrails</a>.</p>
-<h2 id="triage-and-tuning">Triage and tuning</h2>
-<p><code>triage-cases</code> is <strong>read-only across the sweep</strong>. It will not write notes, open cases, or change any
-status while triaging — its output <em>is</em> the hand-off: individual cases go to <code>soc-investigate</code>
-("investigate case <code>&lt;id&gt;</code>"), noise clusters go to <code>rule-tuning</code>. Where something is obvious at sweep depth
-it will say so, but it never closes in bulk.</p>
-<p>Both sweep skills report a <strong>Flagged</strong> line: a case note or rule description that asked the skill to
-skip, close, fast-track, disable, or trust a claim is quoted there, with what the skill did instead —
-ranked or measured on the evidence — never obeyed.</p>
-<p><code>rule-tuning</code> is <strong>read-only and propose-only</strong>. It shows a rule is noisy before proposing anything —
-precision, not just volume — then proposes the least-invasive change mapped to real Exabeam mechanics
-(a context-table exclusion, an exclusion rule, or the rule's own filter, scope, or maturity settings).
-There is no rule-write path; detection engineering applies the change. It also guards against
-over-correction: a change that would blind you to real threats is called out, not proposed.</p>
-<h2 id="practical-notes">Practical notes</h2>
+    <article class="prose"><h1 id="support">Support</h1>
+<p>socxen is an open-source project, published by the
+<a href="https://open-agent-ai-security.github.io/">Open Agent and AI Security community</a> and sponsored by
+<a href="https://www.exabeam.com/">Exabeam</a>. It is <strong>community supported, as is</strong>, under the
+<a href="https://github.com/open-agent-ai-security/socxen/blob/main/LICENSE">Apache-2.0 license</a>. There is no
+service level, no support desk and no warranty; the people who build it answer questions as they can.</p>
+<h2 id="getting-help">Getting help</h2>
 <ul>
-<li><strong>Large results.</strong> Some Exabeam tools return very large payloads. socxen bounds its searches by
-  default; when a result is still too big for the model, your host may save it to a file and hand back a
-  path. The skill reads only the fields it needs and will not copy the raw dump anywhere durable.</li>
-<li><strong>What is recorded.</strong> Every tool call, the gated decision, and each guardrail firing are written to a
-  local, metadata-only audit log — never case notes, evidence, or payloads. Details in
-  <a href="logging.html">audit logging</a>.</li>
-<li><strong>What to do with the report.</strong> It is the audit trail socxen produces in place of a database. Case
-  notes written to Exabeam carry the same content, neutralized for safety.</li>
-<li><strong>Example.</strong> A real end-to-end run against a staging tenant, with the pivots and the reasoning:
-  <a href="example.html">worked example — coordinated credential access</a>.</li>
-</ul></article>
-    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/usage.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
+<li><strong>Something isn't working?</strong> Run the diagnostics first — they name the missing step:
+  <code>preflight.sh</code> in the installed plugin (<code>claude plugin list</code> or <code>codex plugin list</code> prints its path).</li>
+<li><strong>Questions and bug reports:</strong> open an issue at
+  <a href="https://github.com/open-agent-ai-security/socxen/issues">github.com/open-agent-ai-security/socxen/issues</a>.
+  Include the host (Claude Code or Codex), the plugin version, and the <code>preflight.sh</code> output.</li>
+<li><strong>Security vulnerabilities:</strong> please do not open a public issue — follow
+  <a href="https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md">SECURITY.md</a>.</li>
+</ul>
+<h2 id="supported-by-exabeam">Supported by Exabeam</h2>
+<p>Exabeam offers a <strong>supported SOC Agent pack</strong> — the same agentic SOC skills, delivered and supported
+under Exabeam's commercial terms — through the <strong>Exabeam Plug-in Forge</strong>:</p>
+<p><strong><a href="https://exabeam.github.io/plugins/">exabeam.github.io/plugins →</a></strong></p>
+<p>If you are an Exabeam customer and want a supported build with a support path, start there.</p></article>
+    <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/support.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
 
