@@ -467,9 +467,7 @@ reads (usually <code>~/.claude/settings.json</code> — see <a href="#which-sett
 <li><strong>allow</strong> the read + escalation tools,</li>
 <li><strong><code>ask</code></strong> on <code>update_alert</code> / <code>update_case</code> / <code>send_email</code> (dismiss/close and outbound mail — where a
   wrong verdict does the most harm),</li>
-<li><strong><code>deny</code></strong> 35 write verbs under both spellings: the 17 containment tools (the MCP exposes none today)
-  and the 18 detection-content and context-table writes, two of which the MCP does expose
-  (<code>create_analytics_rule</code>, <code>update_analytics_rule</code>) — rule tuning is proposals only.</li>
+<li><strong><code>deny</code></strong> the 17 containment tools (defense-in-depth; the MCP exposes none today).</li>
 </ul>
 <p>Merged, the rules and the bundled hook agree on every tool — they are generated from the same tier
 file, and a test pins that — so a dismiss/close prompts once, not twice. The rules use the <strong>bundled</strong>
