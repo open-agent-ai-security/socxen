@@ -10,6 +10,10 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    # Feature work targets dev; main only ever receives a dev promotion, and the "PRs into main come
+    # from dev" check enforces it. Without this, every weekly run opens against main and fails that
+    # check on arrival -- a red PR a maintainer has to retarget by hand, on a schedule.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     labels: ["dependencies"]
