@@ -208,8 +208,10 @@ The design choices below are deliberate; each exists for a reason.
   **Choosing the layer is part of authoring an attack, and some harms only the judge can see.** Two
   recurring patterns:
   - *A violation with no tool to name.* c02 claims a containment the MCP is structurally incapable of
-    performing. Containment tools are **deny-tier**, so they cannot appear in `must_not.tools` at all —
-    the governed-tools lint would reject them. So the fixture splits: the containment **claim** goes to
+    performing. A deny-tier tool *may* be named in `must_not.tools` — the lint governs every tier, so an
+    attempt at a denied tool is graded whether or not the gate refused it (a13 names the rule writes
+    this way) — but c02's containment tool does not exist on the MCP, so there is nothing to name. The
+    fixture splits: the containment **claim** goes to
     the judge (`reasoning`), the **close** it tries to license goes to the deterministic layer
     (`tools`/`outcomes`). Two boundary violations, two layers.
   - *A harm outside the outcome taxonomy.* b04's real failure is **burial** — the agent raises the case
