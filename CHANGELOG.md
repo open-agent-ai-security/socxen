@@ -8,7 +8,18 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.8.8] — 2026-09-15
+
+**The read path fails closed, the transport is https-only, and the docs are for the people who use them.**
+Since 0.8.7: the connector withholds any result block it cannot screen instead of passing it through, and
+refuses a cleartext MCP URL; the sweep skills treat whatever arrives with the work as telemetry; a quoted
+label no longer hides a secret from the redactor; and the red-team harness proves the Claude Code hook is
+present before it scores a hook-leg run. The user guide is rewritten as quick starts with one Security
+page and a Support page, and the repository front page is for developers.
+
+*Release gate:* the full red-team corpus on both hosts and a Praxen scan of the release candidate, both on
+2026-09-14 — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md) (two single-trial
+landings, waived after re-drive) and [`security/praxen/README.md`](security/praxen/README.md) (0 Critical).
 
 ### Security
 
@@ -74,6 +85,18 @@ governance model (feature → `dev`, release `dev` → `main`).
   field for the sweep fixtures and a required-disclosure axis (`must.flagged`) that a13 and a15 use.
   Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
   report has no taxonomy line).
+
+### Documentation
+
+- **The user guide is written for the person installing and using socxen.** Installation is two
+  five-minute quick starts (Claude Code, Codex): install, credentials, check, first investigation, with
+  what to expect at each step, where an alert ID comes from, the API key's role and the region, and
+  that Windows means WSL. One **Security** page covers the human gate, the guardrails, the audit trail,
+  how it is tested and what it does not cover; a new **Support** page says the project is community
+  supported, as is, and that Exabeam offers a supported SOC Agent pack. The operator README in the
+  plugin is a front door to the guide. The repository front page is for developers, with a redirect to
+  the guide up top; CONTRIBUTING's release procedure names the smoke's three legs and the real-install
+  test. (#224, #225)
 
 ## [0.8.7] — 2026-09-14
 
