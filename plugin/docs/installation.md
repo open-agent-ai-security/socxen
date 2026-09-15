@@ -29,9 +29,13 @@ there to answer, an ask is refused.
 - **Your New-Scale region** — one of `us-west`, `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
   It is the region your tenant is hosted in; your Exabeam administrator or your console address tells
   you which.
-- **Windows:** socxen is not supported natively on Windows. The installer, the diagnostics and the
-  safety gate are shell scripts and Python; run them under **WSL** or **Git Bash** with `python3` on
-  the path. There is no PowerShell path.
+- **Windows:** socxen is not supported natively on Windows; use **WSL**. The diagnostics and the safety
+  gate are shell scripts and Python, and the credentials file below is protected by Unix file
+  permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
+  key and secret unprotected. There is no PowerShell path.
+- **Exabeam customers:** the supported build is `soc@exabeam`, delivered through the
+  [Exabeam Plug-in Forge](https://exabeam.github.io/plugins/). These instructions cover the community
+  release; see [Support](support.md).
 
 ## Quick start — Claude Code
 
@@ -58,12 +62,15 @@ Replace `<region>` with your region. The URL must be `https://`. Then restart Cl
 `/reload-plugins` inside it.
 
 **3. Check the setup.** The plugin ships a read-only diagnostic that tells you what, if anything, is
-missing. It lives in the installed plugin directory, which is
-`~/.claude/plugins/cache/open-agent-ai-security/socxen/<version>/` by default:
+missing. It lives in the installed plugin directory: take the version `claude plugin list` shows and
+run
 
 ```bash
-bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/*/preflight.sh
+bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/<version>/preflight.sh
 ```
+
+Use the exact version, not a wildcard — the cache keeps earlier versions after an update, and a
+wildcard would run the oldest one.
 
 Expect every line to start with `✓`, including **`Exabeam MCP reachable`** and **`Human-in-the-loop
 gate ON`**. A `✗` line names the step to fix.
@@ -109,7 +116,9 @@ Expect `✓` on every line, including **`Exabeam MCP reachable`** and **`Human-i
 
 Same report, same last line, same question before any dismissal. One difference on Codex: it also asks
 you before socxen *opens* a case or writes a note, because Exabeam marks those tools as writes and Codex
-asks before every write. Noisier, not less safe.
+asks before every write. Noisier, not less safe. And if you script socxen with `codex exec`, where
+nobody is at the keyboard, Codex cancels any write that needs an approval rather than letting it
+through — the gate does not evaporate when the human does.
 
 ## Updating
 

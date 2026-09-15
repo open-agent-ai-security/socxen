@@ -287,9 +287,13 @@ there to answer, an ask is refused.</p>
 <li><strong>Your New-Scale region</strong> — one of <code>us-west</code>, <code>us-east</code>, <code>ca</code>, <code>eu</code>, <code>sa</code>, <code>sg</code>, <code>ch</code>, <code>jp</code>, <code>au</code>.
   It is the region your tenant is hosted in; your Exabeam administrator or your console address tells
   you which.</li>
-<li><strong>Windows:</strong> socxen is not supported natively on Windows. The installer, the diagnostics and the
-  safety gate are shell scripts and Python; run them under <strong>WSL</strong> or <strong>Git Bash</strong> with <code>python3</code> on
-  the path. There is no PowerShell path.</li>
+<li><strong>Windows:</strong> socxen is not supported natively on Windows; use <strong>WSL</strong>. The diagnostics and the safety
+  gate are shell scripts and Python, and the credentials file below is protected by Unix file
+  permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
+  key and secret unprotected. There is no PowerShell path.</li>
+<li><strong>Exabeam customers:</strong> the supported build is <code>soc@exabeam</code>, delivered through the
+  <a href="https://exabeam.github.io/plugins/">Exabeam Plug-in Forge</a>. These instructions cover the community
+  release; see <a href="support.html">Support</a>.</li>
 </ul>
 <h2 id="quick-start-claude-code">Quick start — Claude Code</h2>
 <p><strong>1. Install the plugin.</strong></p>
@@ -308,10 +312,12 @@ chmod 600 ~/.exabeam-mcp.env
 <p>Replace <code>&lt;region&gt;</code> with your region. The URL must be <code>https://</code>. Then restart Claude Code, or run
 <code>/reload-plugins</code> inside it.</p>
 <p><strong>3. Check the setup.</strong> The plugin ships a read-only diagnostic that tells you what, if anything, is
-missing. It lives in the installed plugin directory, which is
-<code>~/.claude/plugins/cache/open-agent-ai-security/socxen/&lt;version&gt;/</code> by default:</p>
-<pre><code class="language-bash">bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/*/preflight.sh
+missing. It lives in the installed plugin directory: take the version <code>claude plugin list</code> shows and
+run</p>
+<pre><code class="language-bash">bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/&lt;version&gt;/preflight.sh
 </code></pre>
+<p>Use the exact version, not a wildcard — the cache keeps earlier versions after an update, and a
+wildcard would run the oldest one.</p>
 <p>Expect every line to start with <code>✓</code>, including <strong><code>Exabeam MCP reachable</code></strong> and <strong><code>Human-in-the-loop
 gate ON</code></strong>. A <code>✗</code> line names the step to fix.</p>
 <p><strong>4. Run your first investigation.</strong> Start Claude Code and hand it an alert:</p>
@@ -344,7 +350,9 @@ codex plugin list      # expect: socxen@open-agent-ai-security  installed, enabl
 </blockquote>
 <p>Same report, same last line, same question before any dismissal. One difference on Codex: it also asks
 you before socxen <em>opens</em> a case or writes a note, because Exabeam marks those tools as writes and Codex
-asks before every write. Noisier, not less safe.</p>
+asks before every write. Noisier, not less safe. And if you script socxen with <code>codex exec</code>, where
+nobody is at the keyboard, Codex cancels any write that needs an approval rather than letting it
+through — the gate does not evaporate when the human does.</p>
 <h2 id="updating">Updating</h2>
 <pre><code class="language-bash"># Claude Code
 claude plugin marketplace update open-agent-ai-security
