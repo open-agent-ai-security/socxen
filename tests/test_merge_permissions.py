@@ -61,8 +61,9 @@ def backups(tmp_path):
 
 
 def gate_on(settings_path):
-    """The exact check install.sh's gate_on() performs, so these tests fail for the same
-    reason the installer would report the gate OFF."""
+    """The reading preflight's gate check made when the rules were a lock: dismiss/close
+    sit specifically in `ask`. Kept so these tests fail for the reason an operator would
+    call the merged file wrong."""
     ask = json.loads(Path(settings_path).read_text()).get("permissions", {}).get("ask", [])
     return GATED <= {t.split("__")[-1] for t in ask}
 
@@ -290,9 +291,9 @@ def test_dry_run_on_an_already_merged_file_reports_no_op(tmp_path):
 # =====================================================================
 
 def test_merging_the_shipped_snippet_satisfies_the_installers_gate_check(tmp_path):
-    """The whole point of #70: after an assisted merge, install.sh's gate_on() must
-    report ON. If the snippet's tiers are ever restructured such that this stops holding,
-    the assisted path is installing something that isn't the gate."""
+    """After a merge, dismiss/close must sit in `ask`. If the snippet's tiers are ever
+    restructured such that this stops holding, the merger is installing something that
+    isn't the gate."""
     target = tmp_path / "settings.json"
     assert run(target) == mp.EXIT_APPLIED
     assert gate_on(target)

@@ -176,6 +176,7 @@ check_credentials() {
         \[*\]*) host="${host%%]*}]" ;;          # bracketed IPv6: keep through the closing bracket
         *)       host="${host%%:*}" ;;           # else drop a :port
       esac
+      host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"    # the bridge lowercases the host too
       case "$host" in
         localhost|\[::1\]) ;;
         *) if ! printf '%s' "$host" | grep -Eq '^127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then

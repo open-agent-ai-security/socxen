@@ -427,7 +427,7 @@ def test_codex_and_claude_manifests_agree():
 # TIER 1 (cont.) — the installer / preflight split
 #
 # install.sh is Claude-Code-specific by nature: 63% of it is `claude plugin` CLI
-# quirk-handling and a gate merge Codex does not need. Everything genuinely shared —
+# quirk-handling that Codex does not need. Everything genuinely shared —
 # credentials, toolchain, live connectivity — lives in preflight.sh, which BOTH entry
 # points use. A check that behaves differently depending on which script you ran is
 # the bug that reproduces on one platform and not the other.
