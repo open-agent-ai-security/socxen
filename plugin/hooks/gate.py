@@ -48,6 +48,12 @@ The near-miss is the record that matters in a SOC (`SOCXEN_GATE_LOG=off` disable
 another path overrides) — a first-party record of what was attempted and what the gate said, including
 attempts that never reached the bridge (#87).
 
+The same hook runs as PostToolUse (#5). A call that RAN after the gate asked is the approval record —
+an `ask` reaches the tool only when a human answered yes (headless, it is refused) — so it is appended as
+`"decision": "approved"` with the same safe target fields, beside the `ask` line. A deny-tier tool that
+ran anyway is recorded as `"ran_despite_deny"`. Allow-tier reads leave no post-call line: the gate log is
+a log of decisions, and the bridge's telemetry already records every call. No output on stdout.
+
 Stdlib only. Exit 0 always; the decision is the JSON on stdout.
 """
 from __future__ import annotations   # `tuple[str, str]` must not be evaluated on an old system python3
@@ -199,6 +205,28 @@ def log_decision(record: dict) -> None:
         pass
 
 
+def _post_call(event, tool: str, target: dict) -> int:
+    """PostToolUse (#5): the call ran. For an ask-tier tool that is the human's yes, recorded as such;
+    for a deny-tier tool it is a bypass worth a line. Never a decision, never stdout."""
+    try:
+        root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
+        decision, _reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
+    except Exception:  # noqa: BLE001 — unclassifiable: record that it ran, as the ask it would have been
+        decision = "ask"
+    if decision == "ask":
+        outcome, reason = "approved", "the call ran after the gate asked: the analyst answered yes"
+    elif decision == "deny":
+        outcome, reason = "ran_despite_deny", "a deny-tier tool ran: the gate's deny was not in effect for this call"
+    else:
+        return 0                           # allow tier: the telemetry records the call; the gate log records decisions
+    record = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "tool": tool, "decision": outcome, "reason": reason}
+    if target:
+        record["target"] = target
+    log_decision(record)
+    return 0
+
+
 def main() -> int:
     tool, target = "", {}
     try:
@@ -207,6 +235,8 @@ def main() -> int:
         if tool and not is_ours(tool):
             return 0                       # another server's tool: no decision, no record (not our business)
         target = target_fields(event.get("tool_input"))
+        if str(event.get("hook_event_name", "")) == "PostToolUse":
+            return _post_call(event, tool, target)
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
     except Exception as e:  # noqa: BLE001 — cannot classify → the human decides; headless → refused

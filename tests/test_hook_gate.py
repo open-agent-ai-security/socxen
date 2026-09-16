@@ -320,3 +320,34 @@ def test_decision_log_records_the_safe_target_fields_and_never_free_text(tmp_pat
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_post_tool_hook_records_the_approval_and_nothing_for_reads(tmp_path):
+    """#5: the same gate, run as PostToolUse, appends the human's yes: an ask-tier call that ran is recorded
+    as `approved` with the safe target fields, a deny-tier call that ran as `ran_despite_deny`, and an
+    allow-tier read leaves no line. Never a decision on stdout."""
+    import subprocess, os, json as _json
+    log = tmp_path / "gate.jsonl"
+    env = dict(os.environ, SOCXEN_GATE_LOG=str(log), CLAUDE_PLUGIN_ROOT=str(PLUGIN))
+    def post(tool, tool_input):
+        ev = {"hook_event_name": "PostToolUse", "tool_name": tool, "tool_input": tool_input, "tool_response": [{"type": "text", "text": "ok"}]}
+        return subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input=_json.dumps(ev), capture_output=True, text=True, env=env, check=True)
+    proc = post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471", "alertStatus": "DISMISSED", "note": "SECRET FREE TEXT"}})
+    assert proc.stdout.strip() == "", "a post-call record is never a decision"
+    rec = _json.loads(log.read_text().splitlines()[-1])
+    assert rec["decision"] == "approved" and rec["tool"].endswith("exabeam_update_alert")
+    assert rec["target"] == {"alertId": "4471", "alertStatus": "DISMISSED"} and "SECRET" not in log.read_text()
+    post("mcp__plugin_socxen_exabeam__exabeam_disable_analytics_rule", {"arg1": {"ruleId": "r-1"}})
+    assert _json.loads(log.read_text().splitlines()[-1])["decision"] == "ran_despite_deny"
+    n = len(log.read_text().splitlines())
+    post("mcp__plugin_socxen_exabeam__exabeam_search_alerts", {"arg0": {"filter": "x"}})
+    assert len(log.read_text().splitlines()) == n, "an allow-tier read leaves no post-call line"
+    post("mcp__other__some_tool", {"x": 1})
+    assert len(log.read_text().splitlines()) == n, "another server's tool is not our business"
+
+
+def test_hooks_json_registers_the_post_tool_hook_on_the_same_matcher():
+    """#5: the approval record needs the gate run after the call too, on exactly the tools the gate covers."""
+    pre, post = HOOKS_JSON["hooks"]["PreToolUse"][0], HOOKS_JSON["hooks"]["PostToolUse"][0]
+    assert post["matcher"] == pre["matcher"]
+    assert "gate.py" in post["hooks"][0]["command"] and "exit 2" not in post["hooks"][0]["command"], "a failed post-call record must never block"

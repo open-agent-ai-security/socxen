@@ -256,7 +256,7 @@ def test_a_write_is_sent_exactly_once_whatever_the_error(monkeypatch):
     assert proxy.count("tools/call") == 1, "never retried: the write went out once"
     err = tel.errors()[0]
     assert err["stage"] == "remote" and err["http_status"] == 500 and err["error_type_name"] == "HTTPStatusError"
-    assert err["is_retryable"] is True and "500" in err["error_message"]
+    assert err["is_retryable"] is True and "error_message" not in err, "the audit record holds the status, never the text (#173)"
 
 
 def test_a_lost_session_is_reopened_for_the_next_read(monkeypatch):
@@ -411,7 +411,8 @@ def test_a_write_killed_after_it_was_sent_says_its_outcome_is_unknown(monkeypatc
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     assert proxy.count("tools/call") <= 1 and proxy.arrived == 1, "never re-sent"
-    assert "outcome is unknown" in tel.errors()[0]["error_message"]
+    err = tel.errors()[0]
+    assert err["outcome_unknown"] is True and "error_message" not in err
 
 
 def test_httpx_timeouts_after_the_send_are_not_retryable():
@@ -551,7 +552,7 @@ def test_the_leaf_error_is_recorded_not_the_exception_group(monkeypatch):
     err = tel.errors()[0]
     assert err["error_class"] in ("ExceptionGroup", "HTTPStatusError"), err
     assert err["error_type_name"] == "HTTPStatusError" and err["http_status"] == 500
-    assert "500" in err["error_message"] and err["is_retryable"] is True
+    assert err["is_retryable"] is True and "error_message" not in err
 
 
 def test_an_upstream_iserror_result_is_an_error_not_a_success(monkeypatch):
@@ -567,7 +568,8 @@ def test_an_upstream_iserror_result_is_an_error_not_a_success(monkeypatch):
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     err = tel.errors()[0]
-    assert err["stage"] == "upstream_tool" and "502 from data-lake" in err["error_message"]
+    assert err["stage"] == "upstream_tool" and err["http_status"] == 502, err
+    assert "error_message" not in err and "data-lake" not in json.dumps(err), "upstream text never enters the audit record (#173)"
     assert not [d for t, d in tel.events if t == "tool_end"], "never audited as a completed call"
 
 

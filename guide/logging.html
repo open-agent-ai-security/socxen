@@ -314,11 +314,12 @@ Events are written as newline-delimited JSON (one object per line) in the CIM-no
 <tr>
 <td><code>tool_error</code></td>
 <td>a tool call fails</td>
-<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>metadata_screen</code> = a definition the screen withheld was called by name and the bridge refused it, also with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
+<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>metadata_screen</code> = a definition the screen withheld was called by name and the bridge refused it, also with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure the structured parts of what failed: <code>error_type_name</code>, <code>error_code</code> (the platform's own code, e.g. <code>AAA_ESA_1000_400</code>, when it sent one), <code>http_status</code> when there was one, <code>is_retryable</code>; <code>outcome_unknown: true</code> when a write's request had gone out before the session died (verify before re-issuing); <code>dropped_fields</code> naming, by the schema's spelling, the fields the bridge dropped from an update. Never the error message itself: it quotes the request. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>Every event also carries: <code>framework: "mcp"</code>, <code>agent_name: "socxen"</code>, <code>skill_name: "soc-investigate"</code>,
+<p>Every event also carries: <code>framework: "mcp"</code>, <code>agent_name</code> (the plugin's name from its <code>identity.json</code>
+— <code>socxen</code> here; a copy shipped under another name logs under that name), <code>skill_name: "soc-investigate"</code>,
 ULID <code>session_id</code> / <code>trace_id</code> / <code>span_id</code> for correlation, a <code>timestamp</code>, and host context
 (<code>host</code>, <code>user</code>, <code>os</code>, <code>arch</code>, <code>library_version</code>) for accountability.</p>
 <p>On a <code>tool_end</code>, three extra kinds of field appear when relevant:</p>
@@ -348,6 +349,14 @@ three backups). One line per decision:</p>
  &quot;decision&quot;: &quot;ask&quot;, &quot;reason&quot;: &quot;socxen gate: exabeam_update_alert dismisses or closes. It needs the analyst's explicit yes — ask, and wait.&quot;,
  &quot;target&quot;: {&quot;alertId&quot;: &quot;4471&quot;, &quot;alertStatus&quot;: &quot;DISMISSED&quot;}}
 </code></pre>
+<p>The same hook runs again after the call. An ask-tier call that ran is the analyst's yes — an <code>ask</code>
+reaches the tool only when a human answered it — and is recorded as such, beside the <code>ask</code> line:</p>
+<pre><code class="language-json">{&quot;ts&quot;: &quot;2026-09-05T16:01:41+00:00&quot;, &quot;tool&quot;: &quot;mcp__plugin_socxen_exabeam__exabeam_update_alert&quot;,
+ &quot;decision&quot;: &quot;approved&quot;, &quot;reason&quot;: &quot;the call ran after the gate asked: the analyst answered yes&quot;,
+ &quot;target&quot;: {&quot;alertId&quot;: &quot;4471&quot;, &quot;alertStatus&quot;: &quot;DISMISSED&quot;}}
+</code></pre>
+<p>A deny-tier tool that ran anyway is recorded as <code>ran_despite_deny</code>. Reads leave no post-call line: this
+file records decisions, and the telemetry records every call.</p>
 <p><code>target</code> carries the same safe identifier and disposition fields the telemetry's <code>action.*</code> record uses,
 and nothing else — so a refused attempt reads as <em>tried to dismiss alert 4471 as dismissed</em>, which is the
 near-miss a SOC wants to see, while the note, description or reason text a payload can ride in never
@@ -360,6 +369,9 @@ bridge; the telemetry sees only calls that got that far.</p>
   <code>closedReason</code>, <code>tags</code>. The case-note text and alert prose never enter the log.</li>
 <li><strong>Tool arguments and results</strong> in general — <code>tool_args</code> / <code>tool_result</code> are always <code>null</code>.</li>
 <li><strong>The neutralized payloads themselves</strong> — a defanged formula or phishing URL is counted, never quoted.</li>
+<li><strong>Upstream error text</strong> — a failed call is recorded by its error code, HTTP status and class; the
+  platform's message, which quotes the request that failed, goes to stderr for the operator and to the
+  agent, not to the log.</li>
 </ul>
 <p>The whole point of the guardrails is to neutralize hostile content; the audit log must not become a second
 copy of it. observra additionally applies its own PII redaction over everything above.</p>
@@ -467,11 +479,11 @@ counted, not announced. The security guardrails are independent and keep running
 <p>The trail records the <strong>gated action and its disposition deterministically at the write sink</strong>, and in the
 <a href="installation.html#governance-the-safety-gate">supported governance posture</a> an
 <code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human approves it — so the write
-event is evidence the approval happened. It does <strong>not</strong> yet capture a distinct <em>approver-identity</em> event
-(who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
-the prompt the bundled hook raises on Claude Code (its own <code>gate.jsonl</code> records the decision, not who
-answered), or Codex's tool-approval modes. An explicit approval event would be added
-via a host-side post-tool hook feeding the same log.</p></article>
+event is evidence the approval happened. On Claude Code the bundled hook also records the approval
+itself, as the <code>approved</code> line in <code>gate.jsonl</code> above. Neither record names <strong>who</strong> answered: that lives in
+the host agent's approval layer, which neither the hook nor the bridge can see. The operator is captured
+once per session as host context (<code>user</code>/<code>host</code>). Codex has no hook, so there the write event is the only
+approval record.</p></article>
     <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/logging.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
