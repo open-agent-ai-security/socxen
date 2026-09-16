@@ -270,6 +270,36 @@ def test_no_dangling_reference_links():
     assert not missing, "dangling references:\n" + "\n".join(sorted(missing))
 
 
+def test_skill_reference_text_matches_the_tool_surface():
+    """#223 / #235: SKILL.md is the program the model runs, so its reference text must match the
+    connector. The rule-tuning disposition buckets name no value the platform never returns, name the
+    two engineer-stated noise dispositions, and tell the model what to do with a value it does not
+    recognize; the tiers name every ask-tier tool; the worked search_cases field list uses real columns;
+    no skill names a tool the server does not expose."""
+    import re
+    skills = ROOT / "plugin" / "skills"
+    tuning = (skills / "rule-tuning" / "SKILL.md").read_text()
+    m = re.search(r"\*\*Disposition sample.*?(?=\n- \*\*)", tuning, re.S)
+    assert m, "rule-tuning lost its disposition-sample signal"
+    block = m.group(0)
+    for phantom in ("*Benign*", "*Confirmed*"):
+        assert phantom not in block, f"rule-tuning buckets on {phantom}, a closedReason the platform never returns"
+    for real in ("Rule Misconfiguration", "Policy or Setup Issue", "Low Risk", "False Positive or Duplicate"):
+        assert real in block, f"rule-tuning no longer names the {real!r} disposition"
+    assert "don't recognize" in block and "unrecognized" in block, "rule-tuning must say what to do with an unknown closedReason"
+    assert "no write path exists" not in tuning, "rule-tuning contradicts its own tier text (the rule-write tools exist and are denied)"
+    invest = (skills / "soc-investigate" / "SKILL.md").read_text()
+    assert "exabeam_send_email" in invest, "soc-investigate's tiers omit the third ask-tier tool"
+    assert "entity context (Attack Surface Insights)" not in invest, "soc-investigate lists a tool the server does not expose"
+    bridge = (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text()
+    cols = re.search(r'"exabeam_search_cases": \[(.*?)\]', bridge).group(1)
+    real_cols = set(re.findall(r'"(\w+)"', cols))
+    triage = (skills / "triage-cases" / "SKILL.md").read_text()
+    example = re.search(r"compact field set \(e\.g\. `([^`]+)`\)", triage).group(1)
+    for c in (x.strip() for x in example.split(",")):
+        assert c in real_cols, f"triage-cases' worked search_cases field list names {c!r}, not a column the endpoint returns"
+
+
 def test_skill_frontmatter_is_valid():
     """Every plugin/skills/*/SKILL.md must have YAML frontmatter whose `name` matches its
     OWN directory and a non-empty `description` within Claude Code's 1024-char cap — else
