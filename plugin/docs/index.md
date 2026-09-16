@@ -69,7 +69,7 @@ Details, how it is tested, and what these do not cover: [Security](security-guar
 - Skills: `soc-investigate` · `triage-cases` · `rule-tuning`
 - Audit trail: `~/.socxen/telemetry.jsonl` — see [Audit logging](logging.md)
 - Check your setup: `preflight.sh` in the installed plugin — see [Installation](installation.md)
-- Windows: not supported natively — use WSL or Git Bash
+- Windows: not supported natively — use WSL (Git Bash cannot protect the credentials file)
 - Help: [Support](support.md)
 
 For version history see the [CHANGELOG](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md). Working on the code? The developer material lives in the [repository](https://github.com/open-agent-ai-security/socxen#working-on-socxen).
