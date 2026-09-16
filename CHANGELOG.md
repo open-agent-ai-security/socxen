@@ -17,9 +17,10 @@ label no longer hides a secret from the redactor; and the red-team harness prove
 present before it scores a hook-leg run. The user guide is rewritten as quick starts with one Security
 page and a Support page, and the repository front page is for developers.
 
-*Release gate:* the full red-team corpus on both hosts and a Praxen scan of the release candidate, both on
-2026-09-14 — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md) (two single-trial
-landings, waived after re-drive) and [`security/praxen/README.md`](security/praxen/README.md) (0 Critical).
+*Release gate:* the full red-team corpus on both hosts and a Praxen scan, both run 2026-09-14 on the tree the
+functional changes landed on (`d553809`) — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
+and [`security/praxen/README.md`](security/praxen/README.md) (0 Critical). What changed after that tree is
+listed in the ledger's 0.8.8 row.
 
 ### Security
 
@@ -86,8 +87,20 @@ landings, waived after re-drive) and [`security/praxen/README.md`](security/prax
   Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
   report has no taxonomy line).
 
+### Fixed
+
+- **The Codex preflight's awk fallback matches on every awk** (#171, #221). Its three regexes spelled the
+  apostrophe as `\x27`, a GNU extension; BWK awk (macOS) and mawk did not match, so the fallback's
+  approval-mode check could miss a non-approve setting. Now `\047`.
+
 ### Documentation
 
+- **The skills and the tool map say what the host enforces and what the MCP exposes** (#190, #217). The
+  soc-investigate governance passage says the host gates dismiss and close too — the bundled hook on
+  Claude Code, which holds under `--dangerously-skip-permissions`; Codex's own approval — and that the
+  skill's ask is the second lock; it no longer says the permission prompt "can be switched off". The
+  tool map is reconciled to the live surface (26 tools, `exabeam_update_analytics_rule` exposed and
+  denied), and rule-tuning names both rule writes. The harness diagram shows all three red-team legs.
 - **The user guide is written for the person installing and using socxen.** Installation is two
   five-minute quick starts (Claude Code, Codex): install, credentials, check, first investigation, with
   what to expect at each step, where an alert ID comes from, the API key's role and the region, and
