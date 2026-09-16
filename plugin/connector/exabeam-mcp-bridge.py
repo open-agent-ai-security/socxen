@@ -22,6 +22,7 @@ Run with --check to validate the connection (and warm the dependency cache) with
 starting the server.
 """
 import asyncio
+import contextlib
 from datetime import timedelta
 import hashlib
 import ipaddress
@@ -1047,10 +1048,8 @@ def _error_facts(text):
 
 def _stderr_error(name, text):
     """The operator's copy of an upstream error, in full: stderr, not the audit trail (#173)."""
-    try:
+    with contextlib.suppress(OSError):                     # a closed stderr must not turn one failure into two
         sys.stderr.write(f"bridge: {name} failed upstream: {_safe_text(text)}\n")
-    except Exception:  # noqa: BLE001
-        pass
 
 
 def _safe_text(text, cap=300):
