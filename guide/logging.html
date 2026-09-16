@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html" class="active">Audit logging</a><ul class="docs-subnav"><li><a href="#exactly-what-is-recorded">Exactly what is recorded</a></li><li><a href="#the-gates-own-record">The gate's own record</a></li><li><a href="#what-is-deliberately-not-recorded-privacy-by-construction">What is deliberately NOT recorded (privacy by construction)</a></li><li><a href="#where-it-goes-and-how-it-stays-bounded">Where it goes, and how it stays bounded</a></li><li><a href="#finding-and-reading-your-log">Finding and reading your log</a></li><li><a href="#fail-open">Fail-open</a></li><li><a href="#turning-it-off">Turning it off</a></li><li><a href="#known-limitation">Known limitation</a></li></ul></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="logging-structured-audit-trail-on-by-default">Logging (structured audit trail) — on by default</h1>
 <p><strong>What it is:</strong> a structured, durable, machine-parseable record of what the agent did on every
@@ -274,13 +274,7 @@ on the free-form investigation report alone.</p>
 <p>It runs inside the local MCP bridge — the one place that sees every Exabeam call — and is built on
 <a href="https://open-agent-ai-security.github.io/observra/"><strong>observra</strong></a>, an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.</p>
-<p><strong>observra 1.1 or newer is required</strong> (the bridge pins <code>observra&gt;=1.1,&lt;2</code>). socxen is not one of
-observra's built-in frameworks — the "agent" here is a host agent (Claude Code or Codex) driving a skill
-over an MCP bridge, so
-there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
-public <code>observra.emit()</code>, and the rotation bounds below pass through to the backend (clamped to
-sane minimums). On older
-observra neither is available and logging disables itself.</p>
+<p>The bridge installs the observra library it needs (1.1 or newer); nothing for you to set up.</p>
 <h2 id="exactly-what-is-recorded">Exactly what is recorded</h2>
 <p><strong>One event per tool call</strong>, plus a session marker at each end:</p>
 <table>
@@ -300,7 +294,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tools_list</code></td>
 <td>the remote's tool definitions arrive (once per session)</td>
-<td><code>tool_count</code>, <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code>, <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read <code>tool_shas</code> for change), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
+<td><code>tool_count</code> (the definitions the model sees; add <code>metadata_screen_failed</code> for what the remote sent — <code>tool_shas</code> covers both), <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code> / <code>withheld_tools</code> (definitions the screen could not process are withheld for the session), <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read <code>tool_shas</code> for change), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
 </tr>
 <tr>
 <td><code>tool_start</code></td>
@@ -320,7 +314,7 @@ observra neither is available and logging disables itself.</p>
 <tr>
 <td><code>tool_error</code></td>
 <td>a tool call fails</td>
-<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
+<td><code>tool_name</code>, <code>duration_ms</code>, <code>error_class</code>, <code>stage</code> (<code>neutralize</code> = the write-side guardrail refused to forward, with <code>guardrail_refused: true</code>; <code>metadata_screen</code> = a definition the screen withheld was called by name and the bridge refused it, also with <code>guardrail_refused: true</code>; <code>remote</code> = the upstream call failed; <code>upstream_tool</code> = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: <code>error_type_name</code>, <code>error_message</code> (canonicalized, capped), <code>http_status</code> when there was one, <code>is_retryable</code>. A failed <code>tools/list</code> at startup is recorded under <code>tool_name: tools/list</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -340,7 +334,7 @@ call:</p>
 <pre><code class="language-json">&quot;defang_formula&quot;: 1, &quot;defang_link&quot;: 1          // output neutralizer defanged a formula / phishing link on a write
 &quot;hygiene_stripped&quot;: 3, &quot;hygiene_classes&quot;: &quot;U+200B,U+202E&quot;   // input canonicalizer stripped smuggling code points on a read
 &quot;hygiene_kept&quot;: 2, &quot;hygiene_kept_classes&quot;: &quot;U+200D,U+200F&quot;   // joiners / directional marks were present — kept verbatim, flagged here
-&quot;hygiene_screen_failed&quot;: true                                 // screening threw on a block; it passed through raw (fail-open)
+&quot;hygiene_screen_failed&quot;: true                                 // screening threw on a block; the block was withheld (fail-closed)
 </code></pre>
 <p><code>hygiene_kept</code> is the only place that signal exists: the text is never altered and no marker is ever
 written in-band (a marker in alert data would be forgeable). A right-to-left mark or a zero-width joiner in

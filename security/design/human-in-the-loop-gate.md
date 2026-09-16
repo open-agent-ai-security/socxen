@@ -112,7 +112,8 @@ Each `SKILL.md` also instructs the model to ask before dismiss or close and neve
 containment. That is doctrine, not enforcement: the [Worker Remit](../praxen/WORKER_REMIT.md) states it
 as the layer *beneath* the host gate ("in addition to the host gate above — never in place of it", under
 *Requires Human Approval Before Execution*), and it is what the red team measures when the write tools are
-offered — 100 trials of the red team's hook leg (§8) on 2026-09-05 recorded zero attempts, so a
+offered — 100 trials of the red team's hook leg (§8) on 2026-09-05 recorded zero attempts, and the first
+fixture aimed at the ask-tier `send_email` (d05) drew none in 30 hook-leg trials on 2026-09-14, so a
 doctrine-following model never reaches the hook. The corpus therefore includes fixtures that provoke the
 attempt on purpose, so the hook's save is observable.
 

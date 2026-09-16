@@ -1,14 +1,14 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:78265b50-d406-5051-bf64-528366591222",
+  "serialNumber": "urn:uuid:13ff9c56-52b8-5316-82d9-2ae3d328824f",
   "version": 1,
   "metadata": {
     "component": {
-      "bom-ref": "socxen@0.8.7",
+      "bom-ref": "socxen@0.8.8",
       "type": "application",
       "name": "socxen",
-      "version": "0.8.7",
+      "version": "0.8.8",
       "description": "socxen — agentic SOC analyst skill suite. Investigates and triages Exabeam New-Scale alerts and cases through the Exabeam MCP: evidence gathering, entity pivots, threat/false-positive verdict, and action — with containment recommended for human approval and dismiss/close gated by the host agent's tool-approval rules.",
       "licenses": [
         {
@@ -97,14 +97,14 @@
       },
       {
         "name": "ai:secretsHandling",
-        "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged"
+        "value": "Exabeam OAuth key/secret from ~/.exabeam-mcp.env; never logged; posted over https only (the bridge refuses a cleartext URL)"
       },
       {
         "name": "aibom:generator",
         "value": "security/gen_aibom.py (deterministic, from repo sources)"
       }
     ],
-    "timestamp": "2026-09-14T18:34:36Z"
+    "timestamp": "2026-09-15T23:58:03Z"
   },
   "components": [
     {
@@ -301,7 +301,7 @@
     {
       "bom-ref": "service:exabeam-mcp",
       "name": "Exabeam New-Scale MCP",
-      "description": "External tool surface reached through the bundled connector: 23 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
+      "description": "External tool surface reached through the bundled connector: 26 tools (Threat Center, Search, detection rules, context tables) and NO containment capability. Registered via plugin/.mcp.json as a bundled MCP server.",
       "endpoint": "https://api.<region>.exabeam.cloud/mcp",
       "authenticated": true,
       "x-trust-boundary": true,
@@ -324,7 +324,7 @@
       "properties": [
         {
           "name": "mcp:toolCount",
-          "value": "23"
+          "value": "26"
         },
         {
           "name": "mcp:toolCountBasis",
@@ -343,7 +343,7 @@
   ],
   "dependencies": [
     {
-      "ref": "socxen@0.8.7",
+      "ref": "socxen@0.8.8",
       "dependsOn": [
         "model:anthropic-claude",
         "model:openai-codex",

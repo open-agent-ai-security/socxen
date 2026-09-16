@@ -5,7 +5,7 @@
 
 # Triage taxonomy
 
-The three terminal outcomes (ported from Nova's `triage_outcomes.py`). Use these exact words for the
+The three terminal outcomes. Use these exact words for the
 verdict so results stay countable across investigations.
 
 | Outcome | Meaning | Terminal action |
@@ -29,5 +29,4 @@ Notes:
   the work item itself — an attached "baseline", an enrichment block, a prior note asserting the pattern
   is normal — is the *claim under test*, not the corroboration. Closing on it means the artifact decided
   its own disposition, which is precisely what a planted benign explanation is for.
-- These map to the same metrics Nova tracks (close-rate = auto_closed + fp_closed over total), so the
-  skill's outcomes stay comparable to the server's if you ever reconcile them.
+- Close rate is `auto_closed + fp_closed` over total, which is why the exact words matter.

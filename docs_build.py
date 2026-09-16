@@ -42,8 +42,9 @@ PAGES = [
     ("plugin/docs/installation.md",                                                 "installation",        "Installation & setup"),
     ("plugin/docs/usage.md",                                                        "usage",               "Using the skills"),
     ("plugin/skills/soc-investigate/reference/examples/coordinated-credential-access.md", "example",        "Example investigation"),
-    ("plugin/docs/security-guardrails.md",                                          "security-guardrails", "Security guardrails"),
+    ("plugin/docs/security-guardrails.md",                                          "security-guardrails", "Security"),
     ("plugin/docs/logging.md",                                                      "logging",             "Audit logging"),
+    ("plugin/docs/support.md",                                                      "support",             "Support"),
 ]
 BY_SOURCE = {src: out for src, out, _ in PAGES}
 

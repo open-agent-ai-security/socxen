@@ -85,6 +85,11 @@ _SECRET_PATTERNS = [
 # broad on purpose: the live red-team (2026-08-18) showed the MODEL phrases labels its own way --
 # "Secret Access Key: <v>", a value on the next line under a heading, a markdown-table cell -- so a
 # rigid `key=value` anchor missed real leaks a unit test (which used the exact form) did not.
+# The keyword's edges. `\b` would treat `_` as part of the word, so `aws_secret_access_key` and
+# `service_password` -- the shape of every environment variable, config key and Terraform/Kubernetes
+# secret an analyst pastes -- had no boundary before their keyword and never matched (review of #118).
+# Letters and digits are the only word characters here; `_`, `-` and `.` all separate.
+_KW_L, _KW_R = r"(?<![A-Za-z0-9])", r"(?![A-Za-z0-9])"
 _KEYWORD = (
     r"passwo?r?d|passwd|pwd|pass[\s_-]?phrase|"
     r"secret[\s_-]?(?:access[\s_-]?)?key|access[\s_-]?key(?:[\s_-]?id)?|"
@@ -138,10 +143,12 @@ def _trim_delims(val, minlen):
 
 
 # STRONG separator: an explicit label assignment (`password: X`, `token=X`). The label vouches for the
-# value, so any 6+ core is a secret -- you don't write "password: rotated".
+# value, so any 6+ core is a secret -- you don't write "password: rotated". The label may itself be
+# quoted -- a JSON or raw-field dump ("client_secret": "X", {"password":"X"}) puts a closing quote between
+# the keyword and the separator (#118); the value's own quotes are peeled by _trim_delims and handed back.
 _LABELED_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b"
-    r"(\s*[:=]\s*)"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R +
+    r"([\"'`]?\s*[:=]\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
 # STRONG separator, table form: a markdown table ROW whose cell is exactly a credential keyword labels
 # the cell beside it -- structurally a label/value pair, so no shape guard is needed. Anchored to ^| so
@@ -149,7 +156,7 @@ _LABELED_SECRET_RE = re.compile(
 # A GFM table delimiter row: |---|:---:|---| . Its presence marks the line ABOVE as a header row.
 _TABLE_DELIM_RE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|[\s:|-]*$")
 _TABLE_ROW_SECRET_RE = re.compile(
-    r"(?im)^(\|[^\n]*?\b(?:" + _KEYWORD + r")\b)(\s*\|\s*)"
+    r"(?im)^(\|[^\n]*?" + _KW_L + r"(?:" + _KEYWORD + r")" + _KW_R + r")(\s*\|\s*)"
     r"(?P<val>[^\s,;<>|]{6,})")
 # WEAK separators -- a copula ("secret was rotated") or a bare line break ("API token\nAKIA...") -- are
 # AMBIGUOUS: what follows is usually recommendation prose ("rotated", "Rotate", "Disable"), not the
@@ -158,14 +165,14 @@ _TABLE_ROW_SECRET_RE = re.compile(
 # passphrase after a bare line break ("Recovered credential\ncorrecthorsebatterystaple") is NOT caught --
 # a line break genuinely cannot be told from prose. Labeled, quoted, and table forms all are.
 _WEAK_SEP_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R +
     r"(\s+(?:is|was)\s+|\s*[\r\n|]+\s*[-*|]?\s*)"
     r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[^\s,;<>|]{12,})")
 # Plain-space separator (a CLI flag like `--secret-key <v>`) is ambiguous — "password protection" would
 # false-positive. So a space-separated value is redacted ONLY if it LOOKS secret-like: 12+ chars with at
 # least one digit AND one letter (a dictionary word like "protection" has no digit and is spared).
 _SPACE_SECRET_RE = re.compile(
-    r"(?i)\b(" + _KEYWORD + r")\b\s+"
+    r"(?i)" + _KW_L + r"(" + _KEYWORD + r")" + _KW_R + r"\s+"
     r"(?P<val>(?=[^\s]*\d)(?=[^\s]*[A-Za-z])[A-Za-z0-9+/=_$.\-]{12,})")
 # The final digit must not carry a separator, or the match eats the space after the number and the
 # sentence closes up ("[REDACTED:credit-card]was charged") -- a do-no-harm defect on legitimate text.
@@ -502,8 +509,8 @@ def _md_dest_end(text, k, n, state):
 
 def _defang_md_inline_links(text, allowed, notes):
     """Every inline link / image `[text](dest "title")` whatever the bracket depth of the text or the paren
-    depth of the destination (CommonMark allows both to be arbitrary, so a fixed-depth regex is a bypass --
-    found in review). Scans for `](`, reads the destination, then rewrites it."""
+    depth of the destination (CommonMark allows both to be arbitrary, so a fixed-depth regex is a bypass).
+    Scans for `](`, reads the destination, then rewrites it."""
     out, pos, i = [], 0, 0
     n = len(text)
     state = [0]
@@ -649,8 +656,7 @@ def _escape_broken_openers(text, notes):
 # One attribute, the way the WHATWG tokenizer reads it: a name runs to whitespace, '/', '>' or '=', and a
 # quoted value may be followed directly by the next name (`"x"href=` is a parse error that still creates
 # both attributes). Decisions are made per attribute BY NAME -- a substring search for ` on…=` matched
-# inside a quoted value and a regex that required a space before the name missed the adjacent form
-# (found in review).
+# inside a quoted value and a regex that required a space before the name missed the adjacent form.
 _HTML_ATTR_RE = re.compile(
     r"""(?P<lead>[\s/]*)(?P<name>[^\s/>="'][^\s/>=]*|=[^\s/>=]*)"""
     r"""(?P<eq>\s*=\s*(?:"(?P<dq>[^"]*)"|'(?P<sq>[^']*)'|(?P<uq>[^\s>]*)))?""", re.DOTALL)
@@ -709,7 +715,7 @@ def _defang_attr_value(decoded, allowed, notes, kind, keep_relative=True):
     # "java\tscript:" IS javascript: to the renderer. Decide on the stripped form and, if anything was
     # stripped, write the stripped form back so the smuggled bytes are gone too.
     # A backslash is a slash to the URL parser in every special scheme: "/\evil.example" is a
-    # protocol-relative link and "https:/\evil.example" an absolute one (found in review).
+    # protocol-relative link and "https:/\evil.example" an absolute one.
     v = re.sub(r"[\t\n\r\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", decoded).strip().replace("\\", "/")
     smuggled = v != decoded.strip()
     if not v or (keep_relative and not smuggled and not _ANY_SCHEME_RE.match(v) and not v.startswith("//")
@@ -770,7 +776,7 @@ def _neutralize_tag(m, allowed, notes):
         a = _HTML_ATTR_RE.match(attrs, i)
         if not a or a.end() == i:
             # stray byte: kept verbatim. Skip the whole whitespace run first, or a tag padded with 20 000
-            # spaces is re-scanned from each of them (found in review).
+            # spaces is re-scanned from each of them.
             i = _HTML_ATTR_LEAD_RE.match(attrs, i).end() + 1
             continue
         i = a.end()
@@ -846,7 +852,7 @@ def _neutralize_html(text, notes, allowed=frozenset(), mail=False):
         # segment is re-escaped only when something changed, so untouched text stays byte-identical.
         # Split on what a renderer reads as markup (tags, end tags, comments, <! and <? bogus comments).
         # A stray '<' in prose ("risk < 50 ... > 3pm") is text, and the URL between two of them must not
-        # hide from this pass (found in review).
+        # hide from this pass.
         parts = _split_mail_markup(text)
         for i in range(0, len(parts), 2):
             seg = parts[i]
@@ -888,8 +894,7 @@ def neutralize_output(text, allowed_hosts=frozenset(), mail=False):
         target = m.group(2)
         # "[Host]: WIN-DC01.corp.local" and "[Evidence]: report.csv" are labelled fields, the most natural
         # way to write one, and a renderer that did read them as reference definitions would make a
-        # relative link of the value. Only a URL-shaped destination is a link (found in review: the
-        # old rule corrupted hostnames in the durable record).
+        # relative link of the value. Only a URL-shaped destination is a link.
         if not re.match(r"(?i)^<?(?:[a-z][a-z0-9+.-]*:|//|www\.)", target):
             return m.group(0)
         d = _defang_target(target, allowed)
@@ -901,8 +906,8 @@ def neutralize_output(text, allowed_hosts=frozenset(), mail=False):
     # ORDER MATTERS. Link defang runs BEFORE redaction, not after. A credential-shaped query parameter
     # (`[reset](https://evil/login?token=abc123).`) puts both controls on one span, and whichever runs
     # first wins: with redaction first, its value match consumed the link's closing ")" and _MD_LINK_RE
-    # could no longer see a link -- leaving a LIVE clickable phishing URL in a persisted note (worse than
-    # no redactor at all). Defanging first makes that impossible for EVERY value shape rather than for the
+    # could no longer see a link -- leaving a LIVE clickable phishing URL in a persisted note.
+    # Defanging first makes that impossible for EVERY value shape rather than for the
     # shapes a fixture happens to cover: by the time the redactor runs, the host is already inert, so
     # whatever it consumes it cannot re-arm a link. Redaction still sees the query value verbatim (defang
     # rewrites the scheme and host, never the query string), so nothing is lost.

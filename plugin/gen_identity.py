@@ -20,7 +20,7 @@ Generated:
                                                 and preflight.sh — so a host with no python3 still installs
                                                 the right plugin from the right marketplace (a literal
                                                 fallback in the scripts would install the UPSTREAM plugin
-                                                after a re-key; found in review)
+                                                after a re-key)
 
 `mcpServer` is cross-checked, not consumed: it must equal permissions.json's `server` and the one server
 key in .mcp.json / .mcp.codex.json, so an edit to any of the three that is not mirrored fails --check.

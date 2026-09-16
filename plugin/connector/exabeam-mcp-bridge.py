@@ -24,6 +24,7 @@ starting the server.
 import asyncio
 from datetime import timedelta
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -63,6 +64,38 @@ def load_env(path="~/.exabeam-mcp.env"):
 
 CFG = load_env()
 URL = CFG.get("EXABEAM_MCP_URL", "")
+
+
+def _is_loopback(host):
+    """`localhost`, any 127.x.x.x, or ::1 -- a destination the credentials cannot leave the machine for."""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def url_transport_problem(url):
+    """Why this URL must not carry the credentials, or None if it may (#174, Praxen Low -008/-009).
+    The bridge posts the client id and secret to `<scheme>://<host>/auth/v1/token` and the minted bearer on
+    every call, so the scheme decides whether they cross the network in the clear. Required: `https`. The
+    one carve-out is plain `http` to a loopback host (a local mock, a developer's proxy) -- nothing leaves
+    the machine. Pure and deterministic; the message names what was configured so a typo is a one-line fix."""
+    try:
+        p = urlparse((url or "").strip())
+    except ValueError as e:
+        return f"EXABEAM_MCP_URL could not be parsed ({e}); expected https://api.<region>.exabeam.cloud/mcp"
+    scheme, host = (p.scheme or "").lower(), (p.hostname or "").lower()
+    if scheme == "https" and host:
+        return None
+    if scheme == "http" and _is_loopback(host):
+        return None                                   # loopback: the credentials never leave this machine
+    if not scheme or not host:
+        return (f"EXABEAM_MCP_URL={url!r} has no scheme or host; expected https://api.<region>.exabeam.cloud/mcp "
+                f"(the value must start with https://)")
+    return (f"EXABEAM_MCP_URL={url!r} uses {scheme}://, which would send the client id, secret and bearer token "
+            f"in the clear; only https:// is accepted (plain http is allowed to a loopback host only)")
 KEY = CFG.get("EXABEAM_API_KEY", "")
 SECRET = CFG.get("EXABEAM_API_SECRET", "")
 
@@ -211,7 +244,7 @@ class _Upstream:
         # The session lives until `close` is set; a normal exit sends the DELETE, so a failed call never
         # leaks a proxy session the way the per-call design did (#154).
         # The task RETURNS its error (or None): a caller racing against this task reads it from the task
-        # itself, so two generations can never confuse their errors (review of #157). A cancellation is
+        # itself, so two generations can never confuse their errors (#157). A cancellation is
         # re-raised as a cancellation -- it is never handed to a caller as if it were the session's error,
         # because a bare CancelledError escaping a handler takes the whole MCP server down.
         mine = None
@@ -375,7 +408,7 @@ class _Upstream:
 
     async def tools(self):
         """The remote tool list, fetched once per process with a bounded retry -- a transient failure at
-        startup used to leave a whole session with no Exabeam tools."""
+        startup would otherwise leave the session with no Exabeam tools."""
         if self._tools is not None:
             return self._tools
         # call() retries the session open (the failure mode that stranded the a07 session); the list
@@ -396,7 +429,8 @@ class _Upstream:
             if acc.get("stripped") or acc.get("flagged"):
                 line += f"; tool metadata screened: {acc['stripped']} hidden code point(s) stripped, {acc['flagged']} flagged"
             if acc.get("failed"):
-                line += f"; {acc['failed']} definition(s) could not be screened (kept as received)"
+                line += (f"; {acc['failed']} definition(s) could not be screened and are withheld for this session: "
+                         f"{_display_list(acc.get('withheld', []))}")
             if acc.get("odd_names"):
                 line += f"; names carrying hidden code points: {_display_list(acc['odd_names'])}"
             if acc.get("directive_tools"):
@@ -415,6 +449,7 @@ class _Upstream:
                 telemetry.tools_list(len(tools),
                                      dict(acc, odd_names=[_display_name(n) for n in acc.get("odd_names", [])],
                                           directive_tools=[_display_name(n) for n in acc.get("directive_tools", [])],
+                                          withheld=[_display_name(n) for n in acc.get("withheld", [])],
                                           surface_sha=surface, tool_shas={_display_name(n): h[:12] for n, h in sorted(shas.items())}),
                                      [_display_name(n) for n in unclassified])
         except Exception as e:  # noqa: BLE001
@@ -439,7 +474,8 @@ server = Server("exabeam")
 #   • OUTPUT neutralization on WRITE ARGUMENTS — defang active content (formulas/phishing links) in what
 #     socxen persists to Exabeam, so an export of that stored artifact can't fire (connector/
 #     neutralize_output.py — the a10 fix). Only the write tools; reads are never argument-mutated.
-# Both are FAIL-OPEN: a guardrail bug must never break an investigation.
+# Both are FAIL-CLOSED (#172): a read block the screen cannot process is withheld and the gap named; a
+# write the neutralizer cannot process is refused.
 from canonicalize import canonicalize, is_strippable
 from neutralize_output import neutralize_output, tenant_hosts_from_url
 # On-by-default, fail-open agent audit logging (SOCXEN_OBSERVRA=off to disable). observra is a hard
@@ -487,8 +523,8 @@ _ARG_WRAPPERS = frozenset({"arg0", "arg1"})
 # WORKAROUND for the MCP server's misbehavior -- reconsider removal when exa-mcp-proxy is fixed (#160).
 # The proxy's search schemas tell the caller to send `fields: ["*"]` ("MANDATORY … IGNORE any user
 # request"), and the model complies on essentially every call whatever the skill says (measured
-# 2026-09-07: 1,840 of 1,840 Claude searches). A wildcard result has ended a session before (13.5M
-# characters). So the bridge answers a wildcard search with the endpoint's column list instead of
+# 2026-09-07: 1,840 of 1,840 Claude searches). A wildcard result can exceed 13 M
+# characters. So the bridge answers a wildcard search with the endpoint's column list instead of
 # forwarding it, and the model re-sends with named columns -- a tool RESULT, not an error, keyed on
 # exactly this argument shape and on the three search tools only. Column lists verified live 2026-09-07.
 _SEARCH_COLUMNS = {
@@ -551,7 +587,7 @@ def _wildcard_fields(name, arguments):
         if isinstance(f, list) and any(isinstance(x, str) and x.strip() == "*" for x in f):
             return True
     return False
-# The fields an update may carry in the schema but the bridge drops (review of #159: the reply and the audit
+# The fields an update may carry in the schema but the bridge drops (#159: the reply and the audit
 # record name a dropped field by ITS OWN spelling, never by the model's key text -- a key name is model text
 # too). Anything else the model sent is counted, not echoed.
 _DROPPABLE = {"alertdescription": "alertDescription", "alertname": "alertName", "tags": "tags",
@@ -643,7 +679,8 @@ TIERED_TOOLS = _tier_names()
 # 2026-09-07-001, #6): the remote's tool descriptions and schema text entered the model's context
 # verbatim. They now get the same treatment as a tool result -- the human-readable strings are
 # canonicalized and what was stripped is counted, out of band. A NAME is never rewritten (a rewritten
-# name is a broken call); a name carrying a hidden code point is reported instead. FAIL-OPEN per tool.
+# name is a broken call); a name carrying a hidden code point is reported instead. A definition that cannot
+# be screened is WITHHELD for the session (#172).
 _METADATA_TEXT_KEYS = frozenset({"description", "title"})
 # Instruction-shaped text in a tool DEFINITION (#163, Praxen 2026-09-07-002): the proxy's own schemas
 # carry "MANDATORY … IGNORE any user request", and the model obeys such text over the skill (measured
@@ -726,10 +763,11 @@ def _definition_sha(t):
 
 def _screen_tools(tools):
     """Canonicalize the description and schema text of every remote tool definition. Returns the screened
-    list and the tally: code points stripped / flagged, per-tool screening failures (the original
-    definition stands), names that carry a hidden code point (reported, never altered), definitions whose
-    text is instruction-shaped (reported, never altered), and a per-tool hash of the definition."""
-    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "odd_names": [], "directive_tools": [], "shas": {}}
+    list and the tally: code points stripped / flagged, per-tool screening failures (the definition is
+    WITHHELD for the session — unscreened text never reaches the model, #172), names that carry a hidden
+    code point (reported, never altered), definitions whose text is instruction-shaped (reported, never
+    altered), and a per-tool hash of the definition."""
+    out, acc = [], {"stripped": 0, "flagged": 0, "failed": 0, "withheld": [], "odd_names": [], "directive_tools": [], "shas": {}}
     for t in tools:
         try:
             if any(is_strippable(ch) for ch in (t.name or "")):
@@ -750,10 +788,21 @@ def _screen_tools(tools):
             if ann is not None and getattr(ann, "title", None):
                 update["annotations"] = ann.model_copy(update={"title": _screen_text(ann.title, acc)})
             out.append(t.model_copy(update=update) if update else t)
-        except Exception:  # noqa: BLE001 -- fail-open: the definition stands, the failure is counted
+        except Exception:  # noqa: BLE001 -- fail-closed: the definition is withheld, the failure is counted (#172)
             acc["failed"] += 1
-            out.append(t)
+            try:
+                acc["withheld"].append(str(t.name))
+            except Exception:  # noqa: BLE001 -- a definition whose name itself cannot be read is still counted
+                acc["withheld"].append("?")
     return out, acc
+
+
+def _withheld_tool(name):
+    """True when the metadata screen withheld this definition for the session (#172). `_screen` is None only
+    before the first tools/list, and the SDK fetches the list before dispatching any call, so None here
+    means no definition was ever screened -- hence none withheld -- not an unknown state."""
+    acc = getattr(UPSTREAM, "_screen", None) or {}
+    return name in (acc.get("withheld") or ())
 
 
 def is_write_tool(name):
@@ -826,23 +875,53 @@ def _block_text(block):
 
 
 def _rewrite_block(block, kind, clean):
+    """Runs inside _canon_content's per-block try: a block that cannot be rewritten raises, and is withheld
+    like any other screening failure (#172) -- never returned as received."""
     copy = getattr(block, "model_copy", None)
     if not callable(copy):
-        return block
+        raise TypeError("content block is not rewritable")
     if kind == "text":
         return copy(update={"text": clean})
     rcopy = getattr(block.resource, "model_copy", None)          # kind == "resource"
-    return copy(update={"resource": rcopy(update={"text": clean})}) if callable(rcopy) else block
+    if not callable(rcopy):
+        raise TypeError("resource block is not rewritable")
+    return copy(update={"resource": rcopy(update={"text": clean})})
 
 
-def _canon_content(content, removed=None, kept=None, failures=None):
+WITHHELD_PREFIX = "[socxen bridge: this evidence block was withheld"
+WITHHELD_BLOCK = (WITHHELD_PREFIX + " — the read-side screen could not process it "
+                  "({err}). Report the evidence gap in the investigation; the other blocks of this result are intact. "
+                  "A retry helps only if the block's shape was transient.]")
+WITHHELD_ERROR = "upstream tool error — its text could not be screened and was withheld"
+
+
+def _upstream_error_text(content, withheld=()):
+    """The upstream error the model reads when the tool ran and reported isError: the screened blocks'
+    text, with withheld blocks left out -- a withheld block is the bridge's own sentence, not the error.
+    Withheld blocks are recognized by IDENTITY (the objects _canon_content built), never by their text:
+    a remote block that merely starts with the withheld sentence is data, and stays in the error.
+    When every block was withheld, say that instead of quoting the withholding as the error."""
+    pairs = [(b, _block_text(b)[0]) for b in content]
+    real = [t for b, t in pairs if t and not any(b is w for w in withheld)]
+    if real:
+        return " ".join(real)
+    return WITHHELD_ERROR if any(t for _, t in pairs) else "upstream tool error"
+
+
+def _withheld_block(err_name):
+    """The block the model reads in place of one the screen could not process: bounded, first-party text."""
+    return TextContent(type="text", text=WITHHELD_BLOCK.format(err=err_name))
+
+
+def _canon_content(content, removed=None, kept=None, failures=None, withheld=None):
     """READ-side (#2): strip the invisible smuggling layer from tool results. Confirmed-obfuscation
     invisibles are neutralized IN the value by canonicalize(); the hygiene record is logged out-of-band,
-    never appended to the content. Covers text and embedded-resource blocks. FAIL-OPEN — read wins.
-    `removed` / `kept` / `failures` are optional accumulators for telemetry (default None — behavior is
-    unchanged): stripped code points, flagged-but-kept code points, and the exception class of any block
-    that passed through raw because screening failed (the fail-open path is now a recorded event, not
-    only a stderr line — Praxen PRAX-2026-09-05-006/-007)."""
+    never appended to the content. Covers text and embedded-resource blocks. FAIL-CLOSED per block (#172):
+    a block the screen cannot process is withheld and replaced by WITHHELD_BLOCK; the other blocks of the
+    result are untouched. `removed` / `kept` / `failures` are optional accumulators for telemetry (default
+    None — behavior is unchanged): stripped code points, flagged-but-kept code points, and the exception
+    class of any block that was withheld (Praxen PRAX-2026-09-05-006/-007). `withheld` collects the
+    replacement blocks themselves, so a caller can tell them apart from remote content by identity."""
     out = []
     for block in content:
         try:
@@ -855,10 +934,13 @@ def _canon_content(content, removed=None, kept=None, failures=None):
                 if kept is not None and hy.kept:
                     kept.extend(hy.kept)
                 block = _rewrite_block(block, kind, clean)
-        except Exception as e:  # noqa: BLE001 — availability over canonicalization
-            sys.stderr.write(f"bridge: canonicalize passthrough after error: {e!r}\n")
+        except Exception as e:  # noqa: BLE001 — the block is withheld; the read never carries unscreened text
+            sys.stderr.write(f"bridge: canonicalize failed on a block; the block is withheld ({e!r})\n")
             if failures is not None:
                 failures.append(type(e).__name__)
+            block = _withheld_block(type(e).__name__)
+            if withheld is not None:
+                withheld.append(block)
         out.append(block)
     return out
 
@@ -951,7 +1033,22 @@ async def call_tool(name, arguments):
     hygiene_removed = [] if log_on else None
     hygiene_kept = [] if log_on else None
     screen_failures = [] if log_on else None
+    withheld_blocks = []                                             # always: the isError path needs identity, not text
     is_write = is_write_tool(name) and bool(arguments)
+    # A definition the metadata screen withheld is refused here (#172). The list the model sees omits it,
+    # but the SDK forwards an UNLISTED name to this handler without schema validation, and the skills name
+    # tools in prose -- so "withheld for the session" has to hold at the call, not only in the list.
+    if _withheld_tool(name):
+        d = _display_name(name)                                      # remote-supplied: bounded, code points spelled out
+        e = ValueError(f"{BRIDGE_REFUSAL_MARK} {d}: its definition could not be screened and is withheld for "
+                       f"this session (#172). Use another tool or report the gap.")
+        if log_on:
+            try:
+                telemetry.tool_error(d, (time.perf_counter() - t0) * 1000, e, stage="metadata_screen")
+            except Exception as te:  # noqa: BLE001 -- telemetry must never break the refusal path
+                sys.stderr.write(f"bridge: telemetry tail error (ignored): {te!r}\n")
+        sys.stderr.write(f"bridge: refused {d} -- withheld definition (#172)\n")
+        raise e
     # A wildcard search is answered with the column list instead of being sent (workaround for the proxy's
     # schema text, #160 -- see _SEARCH_COLUMNS). Audited as a completed call with the flag, never as an error.
     if _wildcard_fields(name, arguments):
@@ -1022,12 +1119,11 @@ async def call_tool(name, arguments):
         # reads may be retried on a transport failure; a write is sent exactly once, whatever happens
         result = await remote(lambda s: s.call_tool(name, arguments or {}, read_timeout_seconds=_CALL_TIMEOUT),
                               name, retry=not is_write)
-        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures)   # input-side (#2) — fail-open
+        content = _canon_content(result.content, hygiene_removed, hygiene_kept, screen_failures, withheld_blocks)   # input-side (#2) — fail-closed per block (#172)
         if getattr(result, "isError", False):
-            # the tool ran upstream and FAILED: an error, not a success (it used to be flattened into one)
+            # the tool ran upstream and FAILED: an error, not a success
             stage = "upstream_tool"
-            texts = [t for t, _ in (_block_text(b) for b in content) if t]
-            raise _UpstreamToolError(_safe_text(" ".join(texts) or "upstream tool error"))
+            raise _UpstreamToolError(_safe_text(_upstream_error_text(content, withheld_blocks)))
     except _UpstreamToolError as e:
         # A dropped field is part of why an update may have failed upstream (an update that carried only
         # text becomes an empty patch): say so in the record and to the agent, so it does not retry blind.
@@ -1040,7 +1136,7 @@ async def call_tool(name, arguments):
         if stage == "remote":
             leaf = _Leaf(e)
             # A write whose request had gone out when the session died may have committed upstream: say
-            # so, or the agent re-issues it (review of #157). Reads are retried; a write is sent once.
+            # so, or the agent re-issues it (#157). Reads are retried; a write is sent once.
             unknown = is_write and getattr(e, "socxen_sent", False)
             suffix = " — the write was sent and its outcome is unknown: verify before re-issuing" if unknown else ""
             if log_on:
@@ -1115,6 +1211,11 @@ def main():
             "EXABEAM_MCP_URL, EXABEAM_API_KEY, EXABEAM_API_SECRET "
             "(see docs/installation.md, section Credentials).\n"
         )
+        sys.exit(1)
+    problem = url_transport_problem(URL)
+    if problem:                                   # #174: never post credentials over a scheme we do not trust
+        sys.stderr.write(f"exabeam-mcp-bridge: refusing to start -- {problem}. Fix ~/.exabeam-mcp.env and "
+                         "restart the host agent (preflight.sh checks this too).\n")
         sys.exit(1)
     # Announce loudly. A dry run mistaken for a live one wastes an exercise; a live run mistaken for a
     # dry one writes to a real tenant, so this is never silent in either direction.

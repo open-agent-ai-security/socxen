@@ -150,7 +150,7 @@
     <span class="key"><span class="swatch" style="background:var(--spotlight)"></span>the agent</span>
     <span class="key"><span class="swatch" style="background:var(--accent)"></span>socxen's own code</span>
     <span class="key"><span class="swatch" style="background:var(--closed)"></span>write path · fails closed</span>
-    <span class="key"><span class="swatch" style="background:var(--open)"></span>read path · fails open</span>
+    <span class="key"><span class="swatch" style="background:var(--open)"></span>read path · fails closed (withholds)</span>
     <span class="key"><span class="swatch dash"></span>Exabeam platform</span>
   </div>
 
@@ -189,9 +189,9 @@
       </div>
 
       <div class="lane in">
-        <div class="dir">◀ on read · tool results <span class="badge open">FAIL-OPEN</span></div>
+        <div class="dir">◀ on read · tool results <span class="badge open">FAIL-CLOSED</span></div>
         <div class="hk">canonicalize.py</div>
-        <div class="ld">Strips invisible smuggling (zero-width, bidi, tag chars) &amp; normalizes hidden line breaks before the agent reasons. Legit text left alone. On error it <b style="color:var(--open)">passes through</b> — reads never break.</div>
+        <div class="ld">Strips invisible smuggling (zero-width, bidi, tag chars) &amp; normalizes hidden line breaks before the agent reasons. Legit text left alone. On error the block is <b style="color:var(--open)">withheld</b> and the gap named — the rest of the result stands.</div>
       </div>
     </div>
 
@@ -239,8 +239,8 @@
       <div class="rd">Refusing a write is safe — the finding isn't lost, just not persisted with a live payload. So a neutralizer error <em>stops</em> the write rather than storing raw content.</div>
     </div>
     <div class="rail">
-      <div class="rt"><span class="dot" style="background:var(--open)"></span>Reads fail open</div>
-      <div class="rd">Breaking an investigation is the bigger harm. A canonicalizer bug must never blind the analyst, so on error the read passes through untouched and the fault is logged.</div>
+      <div class="rt"><span class="dot" style="background:var(--open)"></span>Reads fail closed</div>
+      <div class="rd">Unscreened platform text never reaches the model. A block the screen cannot process is withheld and the gap is named; the rest of the result stands and the fault is logged.</div>
     </div>
     <div class="rail">
       <div class="rt"><span class="dot" style="background:var(--accent)"></span>Narrow by design</div>

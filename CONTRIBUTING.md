@@ -156,9 +156,11 @@ git push --force-with-lease origin dev-rebuild:dev
 ```
 
 We deliberately keep the rest of the release machinery light for now: **no
-tag-driven release automation, and no automated dependency-update PRs**
-(Dependabot *alerts* are on; update PRs are not) — those arrive when socxen has a
-real tagged-release cadence. Until then the rules above are the whole model.
+tag-driven release automation**. Dependabot opens weekly pin bumps for the GitHub
+Actions workflows against `dev` (label `dependencies`); the connector's Python
+dependencies are locked by `uv` and audited in CI, not bumped by bot. Tagged
+releases arrive when socxen has a real release cadence; until then the rules above
+are the whole model.
 
 ## Releasing and rolling back
 
@@ -175,13 +177,22 @@ release channel**: whatever lands there reaches new installers immediately.
    squash), then fast-forward `dev` back up (see Branching above). `main` is
    branch-protected: the merge needs the `Repo invariants (no inference)` and
    `signoff` checks green and every review conversation resolved.
-3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh`.
-   It exercises both real Claude Code journeys in throwaway scratch
-   `$CLAUDE_CONFIG_DIR`s — a **clean install** of the new release and an
-   **upgrade** from the prior release — and asserts the resulting version,
-   never touching your live install. It is deliberately *not* in CI: the
+3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh <prior-release-ref>`.
+   It runs three legs in throwaway scratch `$CLAUDE_CONFIG_DIR`s, never touching
+   your live install: a **clean install** of the new release, an **upgrade** from
+   the prior release, and the **governance merge** into a throwaway settings
+   file. Each install leg asserts the installed version *and* that the plugin
+   **loads** (`plugin list --json` reports an empty `errors[]`, with a positive
+   control that re-injects a known bad manifest field and expects the check to
+   fail). Pass the prior release explicitly. It is deliberately *not* in CI: the
    `claude` CLI doesn't run in GitHub Actions, so this stays a maintainer-run
    check.
+4. Run the **real-install test**, section C of
+   [`tests/end-to-end-testing.md`](tests/end-to-end-testing.md): install the
+   release from the catalog that serves it on each host, preflight from the
+   install path, drive a skill with a separate agent session, and record the
+   run in `security/redteam/HISTORY.md`. The release is done when steps 3 and
+   4 have both run.
 
 **Rolling back a bad release**
 
@@ -217,8 +228,7 @@ release channel**: whatever lands there reaches new installers immediately.
   `plugin/connector/neutralize_output.py`: add the test that observes the new rule (a sample only that
   rule can catch — see `tests/test_neutralize_coverage.py` for the pattern), then add a mutation to
   `scripts/mutation_check.py` that deletes or loosens the rule, and run it: the suite must fail with
-  the rule gone. CI runs the gate on every PR. This exists because seven rules were once deleted in
-  turn and 790 tests stayed green (#120).
+  the rule gone. CI runs the gate on every PR (#120).
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
   `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
   regenerates the AI BOM, and verifies they all agree. (If you edit by hand

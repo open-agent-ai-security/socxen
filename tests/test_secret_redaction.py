@@ -326,9 +326,9 @@ def test_card_redaction_does_not_swallow_the_following_space():
 def test_quote_wrapped_values_are_masked(template):
     """Pinning behavior that arrived UNINTENDED: dropping quotes from the value class (a fix aimed at
     backticks and link parens) made quote-wrapped values redactable as a side effect. It is the behavior
-    we want, but nothing asserted it, and per #120 the suite would not notice it regressing. NOTE the
-    JSON-shaped form ({"password": "..."}) is still a MISS -- the closing quote sits between keyword and
-    separator, so `[:=]` is not adjacent. Tracked in #118 with a d04 fixture."""
+    we want, but nothing asserted it, and per #120 the suite would not notice it regressing. The
+    JSON-shaped form ({"password": "..."}) was a MISS until #118 -- the closing quote sat between keyword
+    and separator; now witnessed in test_neutralize_coverage.py and driven by the d04 fixture."""
     secret = _s("Wq7$", "vault-prod-", "2026-BUILD")
     out = redact(template % secret)
     assert secret not in out

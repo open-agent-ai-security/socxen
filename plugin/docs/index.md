@@ -20,13 +20,12 @@ every call on an audit trail.
 
 | If you are… | Read this first |
 |---|---|
-| Installing socxen for the first time | [Installation & setup](installation.md) — the community marketplace on Claude Code or Codex, one credentials file, and what the gate does on each host |
+| Installing socxen for the first time | [Installation & setup](installation.md) — a five-minute quick start for Claude Code or Codex: install, credentials, check, first investigation |
 | About to run your first investigation | [Using the skills](usage.md) — what to say, what happens, what socxen asks you before it acts, and how to read the report |
 | Wanting to see a real one end to end | [Example investigation](../skills/soc-investigate/reference/examples/coordinated-credential-access.md) — a coordinated credential-access case, from intake to verdict |
-| Wondering why a link in a case note looks "broken" | [Security guardrails](security-guardrails.md) — the two always-on defenses against hostile content in your telemetry, and what they do not cover |
+| Wondering what keeps this safe, or why a link in a note looks "broken" | [Security](security-guardrails.md) — the human gate, the guardrails on what socxen reads and writes, the audit trail, how it is tested, and what it does not cover |
 | Asked "what did the agent actually do?" | [Audit logging](logging.md) — the on-by-default audit trail: what is recorded, what deliberately is not, where it lives |
-| Evaluating socxen's security posture | The red-team ledger, the Praxen scans and the security policy live in the repository: [`security/`](https://github.com/open-agent-ai-security/socxen/tree/main/security) · [`SECURITY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md) |
-| Contributing, or reading the operator-level README | [`CONTRIBUTING.md`](https://github.com/open-agent-ai-security/socxen/blob/main/CONTRIBUTING.md) · [the plugin README](https://github.com/open-agent-ai-security/socxen/blob/main/plugin/README.md) |
+| Looking for help, or a supported build | [Support](support.md) — community support, where to ask, and Exabeam's supported SOC Agent pack |
 
 ## The three skills
 
@@ -61,7 +60,7 @@ flowchart LR
 - **What it writes is de-activated.** Spreadsheet formulas, clickable links and secrets are neutralized in anything socxen persists — case notes, updates, outbound mail.
 - **What it did is recorded.** Tool calls, gated decisions and guardrail firings, never case content, in `~/.socxen/telemetry.jsonl`.
 
-Details, and the honest list of what these do not cover: [Security guardrails](security-guardrails.md).
+Details, how it is tested, and what these do not cover: [Security](security-guardrails.md).
 
 ## Quick reference
 
@@ -70,5 +69,7 @@ Details, and the honest list of what these do not cover: [Security guardrails](s
 - Skills: `soc-investigate` · `triage-cases` · `rule-tuning`
 - Audit trail: `~/.socxen/telemetry.jsonl` — see [Audit logging](logging.md)
 - Check your setup: `preflight.sh` in the installed plugin — see [Installation](installation.md)
+- Windows: not supported natively — use WSL (Git Bash cannot protect the credentials file)
+- Help: [Support](support.md)
 
-For version history see the [CHANGELOG](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md); for the release gate behind each version, [`security/redteam/HISTORY.md`](https://github.com/open-agent-ai-security/socxen/blob/main/security/redteam/HISTORY.md).
+For version history see the [CHANGELOG](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md). Working on the code? The developer material lives in the [repository](https://github.com/open-agent-ai-security/socxen#working-on-socxen).

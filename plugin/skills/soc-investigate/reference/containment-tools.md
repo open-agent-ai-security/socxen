@@ -17,9 +17,7 @@ analyst performs it in their EDR/IAM. The *real* human gate for this MCP is on *
 (`update_alert` / `update_case`) — see `settings.snippet.json` `ask` — because a wrong suppression is
 the actual way an AI verdict does harm here.
 
-This list is ported verbatim from Nova's `blast_radius.py` `CONTAINMENT_CLASS_TOOLS` — the immutable
-registry that, in the server, could only be weakened by a code change + PR review. Treat it the same
-way: additions are fine, silent removals are not.
+Additions to this list are fine; removals need a maintainer's review.
 
 ## The list
 
@@ -91,11 +89,10 @@ for the human gate, so the line is drawn here.
 
 ## Note on exact names
 
-These are Nova's normalized (server-stripped) names. Every tool the Exabeam MCP exposes today follows
+These are normalized names with any server prefix stripped. Every tool the Exabeam MCP exposes today follows
 the `exabeam_<verb>` convention (see `tool-map.md`), so a containment tool would most likely arrive as
 `exabeam_isolate_host`. `settings.snippet.json` therefore denies **both spellings** of every name here
 — bare and `exabeam_`-prefixed — in **both namespaces** (the bundled plugin's
 `mcp__plugin_socxen_exabeam__` — the prefix derives from `name` in `plugin/identity.json`, from which the snippet is generated — and the manual-wiring `mcp__exabeam__`), and a repo invariant test
-(`test_deny_list_matches_containment_doc`) keeps this file and the snippet in sync — that sync is what
-makes the gate real. If a live tool list ever shows a containment tool under a *different* name, add
+(`test_deny_list_matches_containment_doc`) keeps this file and the snippet in sync. If a live tool list ever shows a containment tool under a *different* name, add
 it here and the test will demand the matching deny rules.

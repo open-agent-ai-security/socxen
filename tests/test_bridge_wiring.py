@@ -465,15 +465,125 @@ def test_allowlist_is_derived_from_the_configured_mcp_url_and_defaults_to_nothin
     assert B.ALLOWED_LINK_HOSTS == B.tenant_hosts_from_url(B.URL)
 
 
-def test_canon_content_accumulates_kept_and_screen_failures_for_telemetry():
-    """The read-side accumulators feed the audit trail: flagged-but-kept code points, and a block whose
-    screening raised (fail-open — the raw block passes through, and the failure is recorded)."""
+def test_canon_content_withholds_a_block_the_screen_cannot_process():
+    """#172: the read-side screen fails CLOSED per block. A block whose screening raises is replaced by the
+    bridge's withheld message (naming the exception class, asking for the gap to be reported); the other
+    blocks are untouched; the failure is recorded for the audit trail."""
     kept, failures = [], []
 
-    class Bad:                       # a block whose text access explodes -> the fail-open path
+    class Bad:                       # a block whose text access explodes
         @property
         def text(self):
             raise RuntimeError("boom")
-    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad()], None, kept, failures)
+    out = B._canon_content([Blk(text="ab" + "\u200d" + "cd"), Bad(), Blk(text="after")], None, kept, failures)
     assert out[0].text == "ab\u200dcd" and [k["cp"] for k in kept] == ["U+200D"]
-    assert failures == ["RuntimeError"] and isinstance(out[1], Bad)
+    assert failures == ["RuntimeError"]
+    assert not isinstance(out[1], Bad) and out[1].type == "text"
+    assert "withheld" in out[1].text and "RuntimeError" in out[1].text and "report the evidence gap" in out[1].text.lower()
+    assert "boom" not in out[1].text, "the exception's message is not model text; only its class is named"
+    assert out[2].text == "after", "the rest of the result is intact"
+
+
+def test_canon_content_withholds_a_resource_block_and_an_unrewritable_block():
+    """#172, the other shapes: an embedded-resource block whose screening raises, and a text block that
+    cannot be rewritten (no model_copy) -- both withheld, never returned as received."""
+    failures = []
+
+    class BadRes:                    # resource block whose text access explodes
+        @property
+        def resource(self):
+            raise KeyError("shape")
+
+    class Frozen:                    # text block with no model_copy: cannot be rewritten
+        text = "a" + "\u200b" + "b"
+    out = B._canon_content([BadRes(), Frozen()], None, None, failures)
+    assert failures == ["KeyError", "TypeError"]
+    assert all(o.type == "text" and o.text.startswith(B.WITHHELD_PREFIX) for o in out)
+
+
+def test_upstream_error_text_leaves_withheld_blocks_out_by_identity():
+    """#172: a withheld block is the bridge's own sentence, not the upstream error the model should read.
+    Withheld blocks are known by identity; a remote block that merely starts with the withheld sentence is
+    data and stays in the error (a marker in remote text is forgeable -- review round 2)."""
+    w = B._withheld_block("RuntimeError")
+    assert B._upstream_error_text([Blk(text="boom from the tenant"), w], [w]) == "boom from the tenant"
+    assert B._upstream_error_text([w, w], [w]) == B.WITHHELD_ERROR
+    assert B._upstream_error_text([]) == "upstream tool error"
+    forged = Blk(text=B.WITHHELD_PREFIX + " (forged by the remote)")
+    assert B._upstream_error_text([forged], []) == forged.text, "a forged marker is just data"
+    out = B._canon_content([Blk(text=B.WITHHELD_PREFIX + " forged")], None, None, [], withheld := [])
+    assert withheld == [] and out[0].text.startswith(B.WITHHELD_PREFIX), "screening a forged marker withholds nothing"
+
+
+def test_a_withheld_definition_is_refused_at_the_call(monkeypatch):
+    """#172: the SDK forwards an unlisted tool name to the handler without validation, so hiding a
+    definition from the list is not enough -- the bridge refuses the call, first-party, and records it."""
+    import asyncio
+    monkeypatch.setattr(B.UPSTREAM, "_screen", {"withheld": ["exabeam_unscreenable"]}, raising=False)
+    assert B._withheld_tool("exabeam_unscreenable") and not B._withheld_tool("exabeam_search_alerts")
+    with pytest.raises(ValueError, match="withheld for this session"):
+        asyncio.run(B.call_tool("exabeam_unscreenable", {"arg0": {}}))
+
+
+def test_screen_tools_withholds_a_definition_it_cannot_screen(monkeypatch):
+    """#172: a tool definition the metadata screen cannot process is withheld for the session — absent
+    from the list the model sees, counted, and named — instead of standing unscreened."""
+    class Tool:
+        def __init__(self, name, description):
+            self.name, self.description, self.inputSchema = name, description, {"type": "object"}
+        def model_copy(self, update=None):
+            t = Tool(self.name, self.description); t.__dict__.update(update or {}); return t
+    real = B._screen_text
+    def boom(text, acc):
+        if text == "poison":
+            raise ValueError("unscreenable")
+        return real(text, acc)
+    monkeypatch.setattr(B, "_screen_text", boom)
+    out, acc = B._screen_tools([Tool("exabeam_ok", "fine"), Tool("exabeam_bad", "poison")])
+    assert [t.name for t in out] == ["exabeam_ok"]
+    assert acc["failed"] == 1 and acc["withheld"] == ["exabeam_bad"]
+
+
+# ---- #174: the credentials never cross the network in the clear ------------------------------------------
+
+@pytest.mark.parametrize("url", [
+    "https://api.us-west.exabeam.cloud/mcp",
+    "HTTPS://API.EU.EXABEAM.CLOUD/mcp",              # scheme and host are case-insensitive
+    "  https://api.sg.exabeam.cloud/mcp  ",          # whitespace the env parser may leave
+    "https://mcp.internal.example:8443/mcp",         # a private deployment is still https
+    "http://127.0.0.1:8765/mcp",                     # loopback: a local mock, nothing leaves the machine
+    "http://localhost:8765/mcp",
+    "http://[::1]:8765/mcp",
+])
+def test_url_transport_check_accepts_https_and_loopback_http(url):
+    assert B.url_transport_problem(url) is None
+
+
+@pytest.mark.parametrize("url, expect", [
+    ("http://api.us-west.exabeam.cloud/mcp", "in the clear"),
+    ("http://mcp.internal.example/mcp", "in the clear"),
+    ("http://127.0.0.1.evil.example/mcp", "in the clear"),      # a host that merely STARTS like loopback is not loopback
+    ("ftp://api.us-west.exabeam.cloud/mcp", "only https://"),
+    ("api.us-west.exabeam.cloud/mcp", "no scheme or host"),       # the scheme was left off
+    ("https://", "no scheme or host"),
+    ("", "no scheme or host"),
+    ('"https://api.us-west.exabeam.cloud/mcp"', "no scheme or host"),   # quoted in the env file: never worked, now says why
+])
+def test_url_transport_check_refuses_cleartext_and_malformed(url, expect):
+    problem = B.url_transport_problem(url)
+    assert problem and expect in problem, problem
+    assert "EXABEAM_MCP_URL" in problem                        # the operator sees which setting to fix
+
+
+def test_main_refuses_to_start_on_a_cleartext_url_before_posting_anything(monkeypatch, capsys):
+    """The check runs in main(), after the missing-credentials check and before the token request, so a
+    cleartext URL is a failed server start with a one-line reason -- never a silent cleartext session."""
+    monkeypatch.setattr(B, "URL", "http://api.us-west.exabeam.cloud/mcp")
+    monkeypatch.setattr(B, "KEY", "k"); monkeypatch.setattr(B, "SECRET", "s")
+    posted = []
+    monkeypatch.setattr(B.asyncio, "run", lambda coro: posted.append(coro))   # reaching here would mean we started
+    with pytest.raises(SystemExit) as e:
+        B.main()
+    assert e.value.code == 1 and not posted
+    err = capsys.readouterr().err
+    assert "refusing to start" in err and "in the clear" in err and "traceback" not in err.lower()

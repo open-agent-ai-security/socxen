@@ -3,172 +3,116 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# Security guardrails
+# Security
 
-**Why this exists:** your log data is not trusted input. Anyone who can get an event into your telemetry
-— a phishing sender, a malware sample, a probing attacker — can *plant something in it on purpose*,
-knowing an analyst (or an AI agent) will later read it. Think of these as **booby traps left in the log
-data**: a hidden instruction smuggled in invisible characters, or a payload that only does damage when a
-report is opened or exported. socxen assumes that hostile content is present and screens for it, purely as
-a **safety measure** — so a bomb someone planted in an alert can't go off in your hands.
+Everything socxen does to be safe to point at a live tenant, on one page: the human gate on
+consequential actions, the guardrails on what it reads and writes, the audit trail, how it is tested,
+and what it deliberately does not cover.
 
-To do that, socxen runs two automatic checks on every Exabeam call. They're always on and need no
-configuration.
+The starting point is that **your log data is untrusted input**. Anyone who can get an event into your
+telemetry — a phishing sender, a malware sample, a probing attacker — can plant something in it on
+purpose, knowing an analyst or an AI agent will read it later: an instruction hidden in invisible
+characters, a link that should never be clicked, a formula that runs when a report is exported. socxen
+assumes that content is there, and every control below exists so that it cannot do harm through
+socxen.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="diagram/guardrails-dark.png">
-    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-open); observra records a metadata-only audit trail of every call." src="diagram/guardrails-light.png" width="900">
+    <img alt="socxen guardrail bridge: your agent (Claude Code or Codex) talks to a local bridge MCP that proxies to the remote Exabeam MCP. On writes, neutralize_output defangs formulas and links and redacts secrets/structured identifiers in free-text fields (fail-closed); on reads, canonicalize strips invisible smuggling before the agent reasons (fail-closed: a block it cannot process is withheld); observra records a metadata-only audit trail (never note text, evidence or payloads)." src="diagram/guardrails-light.png" width="100%">
   </picture>
 </p>
 
-<p align="center"><sub>The bridge hooks input and output on the path to the real Exabeam MCP — source &amp; regeneration in <a href="diagram/README.md"><code>diagram/</code></a>.</sub></p>
+## A human before anything is dismissed or closed
 
-The two checks fail in opposite directions, on purpose. If the read-side screen hits an error, the
-result passes through unscreened and the failure is recorded — a read that fails is an investigation that
-stops. If the write-side filter hits an error, the write is refused — a raw payload must never persist.
+Dismissing an alert or closing a case is the one action where an AI mistake does real harm — a genuine
+threat suppressed. socxen holds it behind **two locks**, both on from the moment you install:
 
-This is a safety net, not a replacement for judgment. The **[human-in-the-loop gate](installation.md#governance--the-safety-gate)**
-and your own review before you act remain the primary controls.
+- **The host's gate.** On Claude Code, a hook that ships inside the plugin stops the dismiss or close
+  call and asks you; it holds even when Claude Code is run with permissions skipped, and when no human is
+  present the call is refused. On Codex, the plugin ships the same rule as tool-approval policy, and Codex
+  asks before every write and cancels it when nobody is there to answer.
+- **The skill asking you.** Before it dismisses or closes, socxen asks in plain words — *"Dismiss alert
+  X as a false positive? (yes / no)"* — and waits. Say no, or nothing, and nothing happens.
 
-## 1. Screening what socxen reads (hidden-character smuggling)
+Both must open. Outbound mail (`exabeam_send_email`) is behind the same gate, and the Exabeam service
+only accepts recipients who are users of your own subscription.
 
-Text can carry **invisible characters** — zero-width spaces, direction-reversing marks, and other hidden
-control codes. Attackers use them to *smuggle* instructions past a reader: a line that looks harmless on
-screen can hide extra text, or read one way to a human and another way to software.
+**What socxen never does:** isolate a host, disable an account, block an address, kill a process — any
+containment. The Exabeam MCP exposes no such tools, and the gate refuses them outright as a second
+safeguard. When containment is warranted, the report *recommends* it for you to carry out in your EDR
+or IAM. Rule changes are the same: the tuning skill proposes, and the rule-write tools are refused.
 
-Before socxen reasons over any alert or case, it strips out the obvious smuggling characters and cleans
-up hidden line breaks. What the agent analyzes is the plain, visible text — not a version with hidden
-payloads spliced in. Legitimate text (names in any language, file paths, emoji) is left untouched.
+## What it reads is screened
 
-The same screen runs over the **tool definitions** the Exabeam MCP hands the bridge at startup — the
-names, descriptions and parameter text that tell the model what each tool does. Descriptions are
-canonicalized like any result (a name is never rewritten; one carrying a hidden code point is reported
-instead), and the startup line says what was stripped and which tools, if any, the shipped tier file
-does not classify — those are treated as writes. Two more things are reported about each definition,
-never changed: whether its text *talks to the model* (instruction-shaped phrases such as "mandatory",
-"ignore any user request" — the Exabeam MCP's own schemas carry some, and the skill counters them in
-prose), and a hash of the definition, recorded per session in the audit trail so a definition that
-changes between sessions shows up as a changed hash.
+Before socxen reasons over any alert, case or event, the text is screened for **hidden-character
+smuggling** — zero-width characters, direction-reversing marks and other invisible codes that let a line
+read one way to a human and another way to software. The obvious smuggling is stripped; legitimate text
+in any language is left alone. The tool descriptions the Exabeam MCP provides are screened the same way,
+and a tool whose definition cannot be screened is withheld for the session rather than offered.
 
-## 2. Filtering what socxen writes (de-activating dangerous content)
+If the screen cannot process a piece of a result, that piece is withheld and the report names the gap;
+unscreened platform text never reaches the model.
 
-When socxen writes its findings back to Exabeam — a case note, an alert update — it makes sure it never
-*re-arms* a payload that was sitting in the original alert. Two kinds of content are neutralized:
+## What it writes is neutralized
 
-- **Spreadsheet formulas.** A value like `=HYPERLINK(...)` looks like data, but if a report is exported
-  to a spreadsheet it can *run* when the file is opened. socxen prefixes these so they're treated as
-  plain text and never execute — including a known-dangerous formula quoted *mid-sentence* in a note
-  (unlike a plain web address, a pasted formula re-arms the moment it lands in a spreadsheet cell).
-- **Clickable links.** A link written into a note or an email is **escaped** so it can't be clicked or
-  auto-opened — you'll see it rendered as `hxxps://example[.]com` instead of a live link — **unless it
-  points into your own Exabeam tenant.** Clickable is decided by *destination*, not by who wrote the
-  link: a URL to your own console is verifiable against the bridge's configuration; anything else is
-  not, so anything else is de-fanged. That covers every link form — markdown in all its shapes, HTML
-  `href` and `src`, image `srcset`, CSS `url()` — plus the things nobody wants in a mail: tracking
-  pixels, `javascript:` and `data:` targets, event handlers, scripts, iframes and forms are removed or
-  made inert. Legitimate formatting (the mail template's tables, badges and inline styles) passes
-  through untouched.
-- **Secrets and personal identifiers.** If a credential (an API key, token, private key, or a labeled
-  password) or a structured identifier (a Social Security number, a payment-card number) is sitting in
-  the alert data, socxen **masks it before writing** — you'll see `[REDACTED:aws-key]` or `[REDACTED:ssn]`
-  in the note instead of the value. The finding is still recorded ("a credential was exposed here"); the
-  secret itself doesn't get copied into a case note or export where a wider audience — or an attacker who
-  can read case notes — could retrieve it. This is deterministic: it doesn't depend on the model
-  remembering to redact. That distinction is measured, not theoretical — in our red-team runs the
-  weakest supported model (Sonnet 4.6) reproduced seeded secrets in its raw output in nearly every
-  trial, and even the strongest (Opus 5) let a raw credential and an SSN through occasionally. The
-  persisted record came out clean **100% of trials on both models** because this filter, not model
-  judgment, is what stands between the alert data and the case note.
+When socxen writes back to Exabeam — a case note, an alert update, an email — it makes sure it never
+re-arms a payload that was sitting in the original data:
+
+- **Links are defanged.** A link in a note or email is written as `hxxps://example[.]com` so it cannot be
+  clicked or auto-opened. The one exception is a link into **your own tenant**, which stays live. If a
+  link in a socxen note looks "broken," that is the safety measure working: the address is still fully
+  readable for a sandbox or a threat-intel lookup, it just cannot hurt anyone with a stray click.
+- **Spreadsheet formulas are disarmed.** A value like `=HYPERLINK(...)` would run when an exported
+  report is opened in a spreadsheet; socxen writes it as plain text.
+- **Secrets and structured identifiers are masked.** An API key, token, private key or labeled password,
+  a Social Security number or a payment-card number found in the alert data is written as
+  `[REDACTED:…]`. The finding is recorded; the value is not copied into a note or export where a wider
+  audience could read it. This is deterministic code, not the model remembering to redact.
 - **Updates change state only.** An alert or case update can set a status, a stage, a priority, a
-  supported closed reason, an assignee or a queue — and nothing else. The description, the name, the
-  supporting reason and the tags on an existing object are replaced wholesale by the API, so the bridge
-  drops those fields from an update before it is sent and tells the agent what it dropped. Analyst-written
-  text is never overwritten by the model; socxen's reasoning goes into a case note, which appends.
-  And a case is *opened* by a create: a `create_case` carrying a closed or false-positive stage, or a
-  close reason, is a close by another route around the human gate, and the bridge refuses it outright.
+  closing reason or an assignee — never rewrite the description, name or tags an analyst wrote. socxen's
+  reasoning goes into a case note, which appends.
 
-### Why your links look "broken" — this is intentional
+## What it did is on the record
 
-If you see a URL in a socxen note or email written as `hxxps://sso-reset[.]evil[.]example` rather than a
-normal clickable link, **that is the safety measure working, not a bug.** socxen defangs the links it
-writes so that a phishing or malware URL buried in an alert can't be clicked by accident — or fire
-automatically when someone opens or exports the report later. The address is still fully readable; you
-can copy it into a sandbox or threat-intel tool if you need to investigate it. It just can't hurt anyone
-with a stray click.
+Every tool call, every gated decision (which alert or case, to what disposition) and every guardrail
+firing is written to a local, structured audit log, on by default: `~/.socxen/telemetry.jsonl`. It
+records metadata only — never case notes, evidence or payloads — and can be routed to Exabeam, an
+OpenTelemetry collector or a webhook. See [Audit logging](logging.md).
 
-**The one exception is your own tenant.** A link to a case or alert in your own Exabeam console stays
-clickable, because that destination can be verified and it is the reason to send someone a case link at
-all. So *the only clickable links in a socxen email point back into the system the recipient already
-signs in to.* The rule is mechanical: the one allowed host is exactly the API host in your configured
-`EXABEAM_MCP_URL` (`api.us-west.exabeam.cloud`, say) — no wildcard, no sibling hosts, and nothing the
-model says or tenant content carries can widen it. An attacker-supplied URL on any other host can
-never qualify. socxen cannot reliably tell a legitimate
-third-party link from a disguised malicious one, so every other link is treated the same way — the small
-inconvenience of copy-pasting a good link is worth never handing an analyst a live malicious one.
+## How it is tested
 
-One residual, stated rather than solved: an open redirect *on that host* passes this rule — the same
-trust you already extend to the API endpoint itself. (An earlier cut also allowed every host under the
-region domain; a region is shared by every tenant in it, so that was dropped.)
+Claims about agent safety are worth what the testing behind them is worth, so the testing is public
+and every release is gated on it:
 
-## What these guardrails do *not* do
+- **Red team.** A corpus of poisoned alerts, notes, queue exports and rule inventories is driven
+  against the real skills on the weakest supported model of each host, and graded on whether the
+  attack *landed* — a wrong verdict, an obeyed instruction, a leaked secret — not on whether the model
+  sounded cautious. A landing in the blocking classes stops a release until it is fixed, or waived in
+  writing with the reason recorded.
+- **Behavior verification.** Each release candidate is scanned against socxen's declared policy by an
+  independent verifier, and no release ships with an open Critical finding.
+- **Bills of materials.** Every release carries an AI BOM and a software BOM listing the models, tools
+  and dependencies in play.
 
-Keep expectations honest:
+The methodology, every dated run and the known residuals are in the repository's
+[`security/`](https://github.com/open-agent-ai-security/socxen/tree/main/security) directory.
 
-- **Email.** `exabeam_send_email` lets socxen mail Exabeam tool output to a person, and it is
-  human-confirmed on both hosts. The Exabeam MCP service scopes the recipients to **active users of your
-  own subscription** — any other address is rejected — so mail cannot leave your tenant's user base. The
-  subject and body pass through the neutralizer below in **mail mode**: secrets masked, formulas quoted,
-  every link form de-fanged — HTML `href`/`src` included, and even a bare URL in the text, since mail
-  clients turn those into links — scripts, iframes, forms and event handlers removed, and the one kind of
-  link that stays clickable is a link into your own tenant. You still approve every send; read the body
-  as you would any outbound mail.
-- **They live in the bundled bridge.** A server you register by hand against the remote Exabeam MCP
-  (the "wire it manually" path in the install guide) bypasses all three — no screening, no neutralizer,
-  no audit trail. Only the permission layer survives there — the dismiss/close gate and the deny tier for
-  containment and rule writes, which the snippet spells under the manual `mcp__exabeam__` prefix as
-  well — and only if the server is named `exabeam`.
-- They protect the **records socxen writes** and the **text socxen analyzes**. They do not sanitize
-  content you open directly in the Exabeam console or elsewhere — treat raw alert data with normal care.
-  In particular, the redaction above protects what socxen **persists** (case notes, exports) — the
-  durable, wider-audience copy. A secret shown on **your own screen** during an investigation is *not*
-  redacted, and that's deliberate: you're already authorized to read the underlying log, so it crosses
-  no trust boundary the console itself doesn't.
-- **Large results are written to a local file, and it isn't redacted.** When the Exabeam MCP returns a
-  payload too big for the context window — a full case dump, the rule inventory — the harness writes it
-  to a file under `~/.claude/projects/…/tool-results/` so socxen can extract the few fields it needs.
-  That file holds raw telemetry and is *not* run through the redactor. It crosses **no trust boundary the
-  console doesn't** — it lives on the same machine you're signed in to New-Scale from, where you're
-  already authorized to read that data — but unlike scratch it **persists after the session and is not
-  pruned automatically.** socxen itself neither writes nor transmits it (the harness does), but the raw
-  copy is durable: **if the case data is sensitive, delete those files when you're done.**
+## What these controls do not cover
 
-  **On Codex the location differs, and is harder to clean up.** Codex keeps durable session and thread
-  history under `~/.codex/` — `sessions/`, `archived_sessions/`, and SQLite stores such as
-  `thread_history_*.sqlite` and `logs_*.sqlite` — rather than one file per oversized result. The same
-  caution applies with less recourse: there is no single result file to delete. We have not yet
-  characterized precisely where an oversized MCP result lands on Codex, so until we have, treat the whole
-  of `~/.codex/` as durable and unredacted.
-- Redaction covers **structured** secrets and identifiers (keys, tokens, SSNs, card numbers) — the shapes
-  a deterministic pass can catch without mangling legitimate reports. It does **not** chase free-form
-  personal data such as **names or home addresses**, or **dates of birth** (a date is indistinguishable
-  from the timestamps in every log line). Handle those with the same care you'd give any sensitive case.
-- A credential written as a **plain dictionary word directly after a line break**, with no label, no
-  quotes and no table structure around it, is not masked — after a line break such a value is
-  indistinguishable from the recommendation prose that normally follows ("credential — Rotation is
-  required immediately"), and redacting it would eat real analyst text. Labeled, quoted, backticked and
-  table-cell credentials are all masked regardless of their shape.
-- A **bare, unstructured credential** — a password with no recognizable format, written into the report
-  with no nearby label like "password:" — is caught on a best-effort basis, not guaranteed: with nothing
-  to grip (no format, no label), a deterministic pass can miss it. Labeled and structured credentials
-  are reliably masked; a value that is *only* a secret because of where it sat is the edge case. Treat a
-  known-exposed password as compromised regardless of what the note shows.
-- A suspicious link typed as ordinary prose in an alert may be left as written; the link-escaping applies
-  to links socxen itself writes into notes. Always verify a URL out-of-band before you trust it.
-- Link escaping covers every markdown and HTML link form socxen knows how to read. What remains: a bare
-  URL typed into a note as plain text is left as written (a note viewer does not auto-link it; a mail
-  client does, so in mail it is escaped too); markup too broken for any renderer to act on is made
-  literal text rather than reasoned about; and an open redirect on your own tenant host passes the
-  tenant rule. Treat any link in a note as unverified regardless of how it is rendered.
-- They reduce the blast radius of hostile content. They do **not** replace the permission gate, your SOC
-  procedures, or your judgment on the verdict itself.
+- **Your own screen.** Redaction protects what socxen *persists*. A secret shown to you during an
+  investigation is not masked, because you are already authorized to read that log.
+- **Very large results.** When a result is too big for the model, your host may save it to a local
+  file, unredacted, and it persists after the session. Delete those files when the case data is
+  sensitive; on Codex, treat the session history under `~/.codex/` the same way.
+- **Free-form personal data.** Redaction catches structured secrets and identifiers. It does not chase
+  names, addresses or dates of birth in prose; handle those with the care you would give any case.
+- **A credential with nothing to grip** — no label, no quotes, no recognizable format — is caught on a
+  best-effort basis. Treat a known-exposed password as compromised regardless of what the note shows.
+- **Links you read directly.** The defanging applies to what socxen writes. A link typed as prose in an
+  alert may be left as written; verify any URL out of band before you trust it.
+- **A server you wire by hand.** The screening, the neutralizer and the audit trail live in the bundled
+  connector; registering the remote Exabeam MCP directly bypasses all three, leaving only the
+  dismiss/close gate. Use the bundled connector for any investigation you rely on.
+- **Judgment.** These controls reduce the blast radius of hostile content. They do not replace the human
+  gate, your SOC procedures, or your own review of the verdict.

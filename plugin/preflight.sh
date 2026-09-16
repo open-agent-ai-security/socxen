@@ -155,7 +155,29 @@ check_credentials() {
     warn "Credentials file present but missing:$missing"
     return
   fi
-  CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present)"
+  # #174: the bridge refuses to start over any scheme but https (plain http to a loopback host excepted),
+  # so say so here, before it is ever started, with the value that needs fixing.
+  local url host
+  url="$(grep -m1 '^EXABEAM_MCP_URL=' "$ENV_FILE" | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+  case "$url" in
+    https://*) ;;
+    http://*)
+      host="${url#http://}"; host="${host%%/*}"
+      case "$host" in
+        \[*\]*) host="${host%%]*}]" ;;          # bracketed IPv6: keep through the closing bracket
+        *)       host="${host%%:*}" ;;           # else drop a :port
+      esac
+      case "$host" in
+        localhost|\[::1\]) ;;
+        *) if ! printf '%s' "$host" | grep -Eq '^127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+             fail "EXABEAM_MCP_URL uses http:// to a non-loopback host (${host}) — the bridge refuses to start rather than send the client id, secret and bearer token in the clear; use https://"
+             return
+           fi ;;
+      esac ;;
+    *) fail "EXABEAM_MCP_URL must start with https:// (found: ${url:-<empty>}) — the bridge refuses to start over any other scheme"
+       return ;;
+  esac
+  CREDS_OK=1; ok "Credentials — $ENV_FILE (all keys present, https)"
   perms="$(stat -f '%A' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE" 2>/dev/null || echo '?')"
   [ "$perms" = "600" ] || warn "  $ENV_FILE is mode $perms — consider: chmod 600 $ENV_FILE"
 }
@@ -166,7 +188,7 @@ check_connectivity() {
   if [ "${SKIP_CONN:-0}" = 1 ]; then
     skip "MCP connectivity check skipped (--skip-connectivity)"
   elif [ "$CREDS_OK" = 0 ]; then
-    skip "MCP connectivity check skipped — add credentials first"
+    skip "MCP connectivity check skipped — fix the credentials file first (see above)"
   elif ! command -v uv >/dev/null 2>&1; then
     skip "MCP connectivity check skipped — uv not installed"
   elif [ ! -f "$bridge" ]; then
@@ -221,8 +243,7 @@ PY
 # does not parse -- reported as "cannot verify", never as gate ON).
 #
 # Codex accepts every TOML spelling of the same override -- section header, dotted key, inline table,
-# quoted keys -- and four review rounds each found a spelling a regex missed (#139). So the file is
-# PARSED wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
+# quoted keys -- so the file is PARSED (#139) wherever python3 has tomllib (3.11+), and the tree is walked for any gated tool whose
 # approval_mode is anything but approve. The awk scan below is the fallback for a host without it.
 codex_write_override() {
   local f verdict
@@ -268,19 +289,19 @@ PY
     # neither a sibling's "approve" nor a sibling gated tool can mask a loosened one. Comment lines are
     # not settings.
     awk '
-      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\x27]approve["\x27]/) }
+      function loose(s) { return (s ~ /approval_mode/ && s !~ /approval_mode[[:space:]]*=[[:space:]]*["\047]approve["\047]/) }
       /^[[:space:]]*#/ { next }
       /^[[:space:]]*\[/ { sec = $0; next }
       {
         line = $0
         if (line !~ /approval_mode/) next
         if ((sec " " line) !~ /exabeam_update_(alert|case)/) next
-        if (line !~ /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
+        if (line !~ /exabeam_update_(alert|case)["\047]?[[:space:]]*=[[:space:]]*\{/) {   # section or dotted key
           if (loose(line)) { print "loose"; exit }
           next
         }
         s = line                                                                   # inline table(s), key bare or quoted
-        while (match(s, /exabeam_update_(alert|case)["\x27]?[[:space:]]*=[[:space:]]*\{/)) {
+        while (match(s, /exabeam_update_(alert|case)["\047]?[[:space:]]*=[[:space:]]*\{/)) {
           rest = substr(s, RSTART + RLENGTH); depth = 1; body = ""
           for (i = 1; i <= length(rest) && depth > 0; i++) {
             c = substr(rest, i, 1)
@@ -328,7 +349,7 @@ gate_reach_warnings() {
 check_gate_reach() {
   command -v claude >/dev/null 2>&1 || return 0
   # `claude mcp list` health-checks every approved server, i.e. it STARTS the bridge and reaches Exabeam --
-  # exactly what --skip-connectivity promises not to do (review of #158).
+  # exactly what --skip-connectivity promises not to do (#158).
   [ "${SKIP_CONN:-0}" = 1 ] && { skip "Gate-reach check skipped (--skip-connectivity: 'claude mcp list' would start every registered MCP server)"; return 0; }
   local missed
   # `claude mcp list` exits non-zero when ANY registered server fails its health check -- an ordinary state

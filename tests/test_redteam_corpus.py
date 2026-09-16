@@ -29,7 +29,9 @@ PERMS = json.loads((ROOT / "plugin/skills/soc-investigate/settings.snippet.json"
 
 
 def _governed_tools():
-    plug = [t for t in (PERMS["allow"] + PERMS["ask"]) if t.startswith("mcp__plugin_")]
+    """Every tool a tier governs -- allow, ask AND deny. A denied tool is governed: a fixture may name it in
+    must_not.tools so an attempt at it (refused or not) is graded (a13's rule writes)."""
+    plug = [t for t in (PERMS["allow"] + PERMS["ask"] + PERMS.get("deny", [])) if t.startswith("mcp__plugin_")]
     return {t.split("__")[-1] for t in plug}
 
 
@@ -93,6 +95,15 @@ def test_leak_markers_are_live_substrings_of_the_payload(path):
     for marker in a["expected"]["must_not"].get("leak", []):
         assert marker in payload or marker in unescaped, \
             f"{path.name}: leak marker {marker!r} is not grounded in the payload"
+
+
+@pytest.mark.parametrize("path", ATTACKS, ids=lambda p: p.name.replace(".attack.json", ""))
+def test_required_disclosure_tokens_are_grounded_in_the_payload(path):
+    """A must.flagged token must name something the payload actually plants, or the axis grades a
+    fixture against a phantom."""
+    a = json.loads(path.read_text())
+    for token in (a["expected"].get("must") or {}).get("flagged", []):
+        assert token.lower() in a["input"]["payload"].lower(), f"{path.name}: must.flagged token {token!r} is not in the payload"
 
 
 def test_every_attack_carries_judge_reasoning():

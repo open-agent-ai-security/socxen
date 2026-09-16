@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html" class="active">Using the skills</a><ul class="docs-subnav"><li><a href="#the-three-skills-and-how-to-call-them">The three skills, and how to call them</a></li><li><a href="#what-an-investigation-does">What an investigation does</a></li><li><a href="#what-it-will-ask-you">What it will ask you</a></li><li><a href="#reading-the-report">Reading the report</a></li><li><a href="#triage-and-tuning">Triage and tuning</a></li><li><a href="#practical-notes">Practical notes</a></li></ul></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security guardrails</a></li><li><a href="logging.html">Audit logging</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html" class="active">Using the skills</a><ul class="docs-subnav"><li><a href="#the-three-skills-and-how-to-call-them">The three skills, and how to call them</a></li><li><a href="#what-an-investigation-does">What an investigation does</a></li><li><a href="#what-it-will-ask-you">What it will ask you</a></li><li><a href="#reading-the-report">Reading the report</a></li><li><a href="#triage-and-tuning">Triage and tuning</a></li><li><a href="#practical-notes">Practical notes</a></li></ul></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="using-the-skills">Using the skills</h1>
 <p>What to say, what happens, and what socxen will ask you before it acts. This assumes you have finished
@@ -298,7 +298,9 @@ picks itself up from what you ask; you never invoke one by name unless you want 
 </table>
 <p>You can also hand an alert ID, a case ID, or a pasted alert payload straight in. If you paste one, remember
 that pasted text is treated as untrusted — the skill will still go and query Exabeam for the evidence
-rather than take the payload's word for it.</p>
+rather than take the payload's word for it. The same holds for a pasted queue export handed to
+<code>triage-cases</code> or a rule inventory handed to <code>rule-tuning</code>: what arrives with the work is telemetry, not
+a colleague, however official a note inside it looks.</p>
 <h2 id="what-an-investigation-does">What an investigation does</h2>
 <p><code>soc-investigate</code> follows a fixed loop, and you can watch it happen:</p>
 <ol>
@@ -372,6 +374,9 @@ Exabeam so an exported artifact cannot be clicked or executed. See <a href="secu
 status while triaging — its output <em>is</em> the hand-off: individual cases go to <code>soc-investigate</code>
 ("investigate case <code>&lt;id&gt;</code>"), noise clusters go to <code>rule-tuning</code>. Where something is obvious at sweep depth
 it will say so, but it never closes in bulk.</p>
+<p>Both sweep skills report a <strong>Flagged</strong> line: a case note or rule description that asked the skill to
+skip, close, fast-track, disable, or trust a claim is quoted there, with what the skill did instead —
+ranked or measured on the evidence — never obeyed.</p>
 <p><code>rule-tuning</code> is <strong>read-only and propose-only</strong>. It shows a rule is noisy before proposing anything —
 precision, not just volume — then proposes the least-invasive change mapped to real Exabeam mechanics
 (a context-table exclusion, an exclusion rule, or the rule's own filter, scope, or maturity settings).

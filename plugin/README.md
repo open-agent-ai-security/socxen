@@ -8,131 +8,82 @@
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.8.7-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.8.8-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-> ⚠️ **Pre-release software — for evaluation purposes only.** socxen is under active development and is
-> provided so testers can evaluate it. Expect breaking changes between versions, and do not rely on it
-> for production SOC operations or point it at alerts whose disposition matters without a human
-> reviewing every action.
+> 📘 **The user guide is at [open-agent-ai-security.github.io/socxen](https://open-agent-ai-security.github.io/socxen/)** —
+> installation, your first investigation, security, logging and support. This file is the same guide's
+> front door for readers arriving from the plugin itself.
 
-socxen is an **agentic SOC skill suite** plus the deterministic guardrails and governance that make it
-safe to point at a live tenant. Three skills work **Exabeam New-Scale** through the Exabeam MCP — one case, the
-whole queue, or the rules behind it — and each is named for the person whose job it does. No server, no
-database, no approval queue: the analyst at the terminal is the human-in-the-loop, and the consequential
-action (dismiss/close) is held back by **two locks out of the box** — a gate the plugin ships and your
-host enforces (a bundled hook on Claude Code, tool-approval policy on Codex) *and* the skill asking you
-first — never left to the model alone.
-On Codex, the Exabeam tools are annotated destructive, and Codex requires human approval for a
-destructive tool in every mode — refusing it when no human is present — so dismiss/close is human-gated
-there the same as on Claude, `codex exec` included.
+> ⚠️ **Pre-release software — for evaluation only.** socxen is under active development. Expect
+> breaking changes between versions, and do not rely on it for production SOC operations or point it
+> at alerts whose disposition matters without a human reviewing every action.
+
+socxen gives your AI coding agent the job of a SOC analyst on an Exabeam New-Scale tenant. Three
+skills work the tenant through the Exabeam MCP — one case, the whole queue, or the rules behind it —
+each named for the person whose job it does. No server, no database, no approval queue: the analyst at
+the terminal is the human in the loop, and dismissing or closing anything is held behind **two locks
+out of the box** — a gate the plugin ships and your host enforces, and the skill asking you first.
 
 ## The three skills
 
 | Skill | Whose work it is | What it does |
 |---|---|---|
-| **`soc-investigate`** | the analyst | One alert or case, first look to written verdict: gathers evidence, pivots on entities, weighs competing hypotheses, reaches a threat / false-positive verdict, and acts. |
-| **`triage-cases`** | the shift lead | The open queue rather than one case: clusters by attack shape, ranks by corroborated signal (risk score is one input, not the answer), returns a "start here" list plus the noise worth tuning. Read-only across the sweep — never closes in bulk. |
-| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud (volume × low precision), and proposes the specific change mapped to real Exabeam mechanics — context table, exclusion rule, filter/scope/maturity. Propose-only: the MCP's rule-write tool is denied on both hosts. |
+| **`soc-investigate`** | the analyst | One alert or case, first look to written verdict: gathers the evidence itself, pivots on the entities, weighs a benign explanation against a malicious one, and acts — opens or updates a case, writes notes, escalates. Asks you before any dismiss or close. |
+| **`triage-cases`** | the shift lead | The open queue rather than one case: clusters by attack shape, ranks by corroborated signal, hands back a short "start here" list. Read-only across the sweep. |
+| **`rule-tuning`** | the detection engineer | Finds rules that are *noisy*, not merely loud, and proposes the specific change mapped to real Exabeam mechanics. Propose-only: the MCP's rule-write tools are refused on both hosts. |
 
 Each hands off to the others: a single case to `soc-investigate`, a noise cluster to `rule-tuning`.
 
 ## What it does
 
-- 🔍 **Investigates** on the real Exabeam read surface — `search_events` (SIEM logs),
-  `search_alerts`/`search_cases`, threat timelines, rule details, MITRE coverage, context tables.
+- 🔍 **Investigates** on the real Exabeam read surface — events, alerts, cases, threat timelines, rule
+  details, MITRE coverage, context tables.
 - ⚖️ **Decides** against a disciplined bar — a false-positive close requires a *positive* benign
   explanation, never merely "I found nothing"; in doubt it escalates rather than silently suppressing.
-- 🗂️ **Prioritizes at fleet scale** — sweeps the open queue, clusters it by attack shape, and makes the
-  urgent cases impossible to miss instead of re-triaging the same noise every shift.
-- 🔧 **Tunes the source of the noise** — separates high-volume-low-precision rules from high-volume-
-  high-precision ones, so the fix lands on the detection instead of on the analyst.
-- ✍️ **Acts** — opens/updates a case, writes case notes, dismisses true false-positives (gated), and
-  **recommends** containment for you to perform in EDR/IAM (the Exabeam MCP has none).
-- 🔒 **Stops where it should** — dismiss/close sits behind a hard, host-enforced approval gate that
-  **ships on**: a bundled hook on Claude Code (it holds even under `--dangerously-skip-permissions`),
-  tool-approval policy inside the package on Codex. Containment is never executed. No settings to edit.
-- 🛡️ **Treats telemetry as hostile** — log data is attacker-influenced by construction, so socxen strips
-  hidden-character smuggling from what it reads, and on what it writes back it de-activates dangerous
-  content (formulas, clickable links) **and masks credentials and structured identifiers** (API keys,
-  tokens, private keys, SSNs, card numbers) before they can persist into a case note or export.
-- 🧾 **Logs what it did** — a structured, bounded, privacy-preserving audit record of every action and
-  every time a guardrail fired, on by default. ~16 µs/event, non-blocking, local.
+- 🗂️ **Prioritizes the queue** so the urgent cases are impossible to miss.
+- 🔧 **Tunes the source of the noise** so the fix lands on the detection instead of on the analyst.
+- ✍️ **Acts** — opens or updates a case, writes notes, dismisses true false positives (gated), and
+  **recommends** containment for you to perform in EDR or IAM. It never executes containment.
+- 🔒 **Stops where it should** — dismiss and close sit behind a host-enforced gate that ships on, on
+  both hosts. No settings to edit.
+- 🛡️ **Treats telemetry as hostile** — hidden-character smuggling is stripped from what it reads;
+  formulas and links are disarmed and secrets and structured identifiers masked in what it writes.
+- 🧾 **Logs what it did** — a structured, local, privacy-preserving audit record, on by default.
 
-## Setup
+## Get started
 
-With the plugin installed, two one-time steps remain — **connect Exabeam** (drop your API key in
-`~/.exabeam-mcp.env`) and, optionally, **merge the permission rules** as a second lock. The setup guide does the lifting:
+1. Install: `claude plugin marketplace add open-agent-ai-security/plugins` then
+   `claude plugin install socxen@open-agent-ai-security` (Codex: `codex plugin marketplace add …`,
+   `codex plugin add …`).
+2. Add your Exabeam API key and secret to `~/.exabeam-mcp.env`.
+3. Run `preflight.sh` from the installed plugin to check the connection and the gate.
+4. Say *"investigate alert `<id>`"*.
 
-### → [Full setup: docs/installation.md](docs/installation.md)
-
-> ✅ **The gate ships ON.** On Claude Code a bundled hook asks before dismiss/close and denies containment
-> the moment the plugin is enabled, and allows the reads, so nothing prompts; on Codex the same tiers
-> ship as tool-approval policy. The permission pack below is **optional** — a second lock that does not
-> depend on the hook. The
-> **[setup guide](docs/installation.md#governance--the-safety-gate)** walks you
-> through merging it by hand, or `install.sh --merge-permissions` will do it for you. Nothing merges by
-> default and `-y` does not authorize it — the flag is the consent. The merge is additive-only, backs
-> your settings file up first, and refuses if a rule already sits in a different tier.
-
-Then ask it to *"investigate alert &lt;id&gt;"* (or paste an alert/case) — or *"triage the queue"* /
-*"find noisy rules"* to reach the other two skills. The host agent routes on what you ask for.
+The full five-minute quick start, with what to expect at each step, is in
+**[Installation & setup](docs/installation.md)**.
 
 ## Documentation
 
-| Guide | What's in it |
+| Page | What's in it |
 |---|---|
-| **[Installation & setup](docs/installation.md)** | install, Exabeam credentials, the governance gate (**start here**), updating |
-| **[Security guardrails](docs/security-guardrails.md)** | what socxen screens for in untrusted telemetry — and what it deliberately doesn't |
-| **[Audit logging](docs/logging.md)** | exactly what's recorded, where the log lives, how to control or route it |
-| **[Architecture](https://github.com/open-agent-ai-security/socxen#how-its-built)** | how the layers fit together — methodology, capability, authority, guardrails, evidence — and why they're separate |
-| **[Methodology](skills/soc-investigate/SKILL.md)** | how it investigates; `reference/` has the tool map, search cookbook, enrichment playbook, report template, and worked examples (`reference/examples/`). Regression tests live in the repo's [`evals/`](https://github.com/open-agent-ai-security/socxen/tree/main/evals). |
-
-## Layout
-
-```
-.claude-plugin/          plugin.json (Claude Code manifest — installs via open-agent-ai-security/plugins)
-.codex-plugin/           plugin.json (Codex manifest — same skills, same catalog)
-.mcp.json                bundled Exabeam MCP for Claude Code — auto-registers on install
-.mcp.codex.json          the same bridge for Codex, carrying the tool-approval policy (generated from the snippet)
-hooks/                   gate.py + hooks.json — the human-in-the-loop gate for Claude Code, on the moment the plugin is enabled
-identity.json            the one source of the plugin's name, marketplace, license and version
-gen_identity.py          regenerates both manifests, the permission snippet and identity.sh from it
-identity.sh              the identity for the shell scripts (generated)
-skills/soc-investigate/  SKILL.md, permissions.json (the tier file), settings.snippet.json (the optional permission snippet, generated), reference/
-skills/triage-cases/     SKILL.md — queue sweep (shift lead)
-skills/rule-tuning/      SKILL.md — noisy-rule tuning (detection engineer)
-connector/               exabeam-mcp-bridge.py (bridge) · canonicalize/neutralize_output (guardrails) · observra_logging (audit log)
-docs/                    installation · security-guardrails · logging
-install.sh               convenience installer, Claude Code (idempotent)
-preflight.sh             read-only diagnostics, either host agent
-```
-
-## How it's tested
-
-Claims about agent safety are worth what the testing behind them is worth, so the testing is public and
-every release is gated on it: socxen is **red-teamed** with prompt-injection fixtures run against a live
-model — graded on whether the attack *landed*, not on whether the model sounded cautious — and
-**behavior-verified** against a declared policy, with no release shipping on an open Critical finding.
-Methodology, per-run results and the known residuals:
-**[security/](https://github.com/open-agent-ai-security/socxen/tree/main/security)**.
+| **[Installation & setup](docs/installation.md)** | quick starts for Claude Code and Codex, credentials, troubleshooting, updating (**start here**) |
+| **[Using the skills](docs/usage.md)** | what to say, what happens, what socxen asks you, how to read the report |
+| **[Example investigation](skills/soc-investigate/reference/examples/coordinated-credential-access.md)** | a real run, from alert to verdict |
+| **[Security](docs/security-guardrails.md)** | the human gate, the guardrails, the audit trail, how it is tested, what it does not cover |
+| **[Audit logging](docs/logging.md)** | exactly what is recorded, where the log lives, how to route or disable it |
+| **[Support](docs/support.md)** | community support, where to ask, and Exabeam's supported SOC Agent pack |
 
 ## Status
 
-Pre-release, for evaluation — validated end-to-end against a live Exabeam staging MCP
-(install → connect → investigate → gated dismiss), with a grounded search cookbook, enrichment
-playbook, and a worked investigation. The version badge above and the
-[changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md) track the current
-release; run `claude plugin list` (or `codex plugin list`) for your installed version. Sharing with
-testers; feedback welcome.
+Pre-release, for evaluation. Every release is red-teamed on the weakest supported model of each host and
+behavior-verified before it ships; the runs, the findings and any waivers are public in the repository's
+[`security/`](https://github.com/open-agent-ai-security/socxen/tree/main/security) directory. The version
+badge above and the [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md)
+track the current release; `claude plugin list` (or `codex plugin list`) shows your installed version.
 
-**Codex support is packaged and red-team gated, not yet field-proven.** The install, the bundled bridge
-and the shipped approval gate are verified end to end against `codex-cli` 0.146.0, and the red-team gate
-has run on **GPT-5.6 Terra** (the Sonnet-tier analogue) at `model_reasoning_effort = "medium"` — 20
-attacks × 5 trials, zero landings in the blocking classes (`security/redteam/HISTORY.md`, 2026-08-27).
-Not yet done on an OpenAI model: the routing evals, and the **Sol** release sweep. **Luna** is the
-Haiku-tier analogue and is not supported. Treat the Codex path as gated but young.
+Codex support is packaged and red-team gated, not yet field-proven; treat that path as gated but young.
 
 ## Project sponsor
 
@@ -142,4 +93,5 @@ security in an increasingly agentic world.
 
 ## License
 
-Apache-2.0 — see `LICENSE` / `NOTICE`.
+Apache-2.0 — see `LICENSE` / `NOTICE`. socxen is community supported, as is; see
+[Support](docs/support.md).

@@ -26,7 +26,7 @@ each one lives.
 ## The controls
 
 socxen's security posture is four deterministic controls in the shipped code plus the doctrine in the
-skills. The user-facing description — what each does, and the honest list of what it does not — is
+skills. The user-facing description — what each does and what it does not — is
 **[the guardrails page](../plugin/docs/security-guardrails.md)**; the gate's operator view is in
 **[the installation guide](../plugin/docs/installation.md#governance--the-safety-gate)**. The design
 records here say *why* each control is shaped the way it is and what was rejected on the way.

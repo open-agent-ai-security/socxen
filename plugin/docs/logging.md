@@ -16,13 +16,7 @@ It runs inside the local MCP bridge — the one place that sees every Exabeam ca
 [**observra**](https://open-agent-ai-security.github.io/observra/), an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.
 
-**observra 1.1 or newer is required** (the bridge pins `observra>=1.1,<2`). socxen is not one of
-observra's built-in frameworks — the "agent" here is a host agent (Claude Code or Codex) driving a skill
-over an MCP bridge, so
-there is no framework object to hook. Since 1.1 that is a first-class case: the shim emits through the
-public `observra.emit()`, and the rotation bounds below pass through to the backend (clamped to
-sane minimums). On older
-observra neither is available and logging disables itself.
+The bridge installs the observra library it needs (1.1 or newer); nothing for you to set up.
 
 ## Exactly what is recorded
 
@@ -31,11 +25,11 @@ observra neither is available and logging disables itself.
 | `event_type` | When | Key fields |
 |---|---|---|
 | `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context; on start also the configuration attestation: `telemetry_backend`, `telemetry_destination` (resolved file path, or scheme + host of the endpoint), `dry_run`, `plugin_version`, `gate_log` |
-| `tools_list` | the remote's tool definitions arrive (once per session) | `tool_count`, `metadata_stripped` / `metadata_flagged` (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), `metadata_screen_failed`, `odd_names` (tool names carrying a hidden code point — spelled out as `U+XXXX` in the record, never altered in the definition), `unclassified_tools` (names no tier classifies; treated as writes), `directive_tools` (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read `tool_shas` for change), `surface_sha` (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and `tool_shas` (the same per tool, 12 hex) |
+| `tools_list` | the remote's tool definitions arrive (once per session) | `tool_count` (the definitions the model sees; add `metadata_screen_failed` for what the remote sent — `tool_shas` covers both), `metadata_stripped` / `metadata_flagged` (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), `metadata_screen_failed` / `withheld_tools` (definitions the screen could not process are withheld for the session), `odd_names` (tool names carrying a hidden code point — spelled out as `U+XXXX` in the record, never altered in the definition), `unclassified_tools` (names no tier classifies; treated as writes), `directive_tools` (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read `tool_shas` for change), `surface_sha` (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and `tool_shas` (the same per tool, 12 hex) |
 | `tool_start` | a tool call begins | `tool_name` |
 | `tool_end` with `action.wildcardFieldsRedirected: true` | a search asked for every column (`fields: ["*"]`) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text (#160), kept until the server is fixed | `tool_name` |
 | `tool_end` | a tool call succeeds | `tool_name`, `duration_ms`, + the fields below |
-| `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: `error_type_name`, `error_message` (canonicalized, capped), `http_status` when there was one, `is_retryable`. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
+| `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `metadata_screen` = a definition the screen withheld was called by name and the bridge refused it, also with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: `error_type_name`, `error_message` (canonicalized, capped), `http_status` when there was one, `is_retryable`. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
 
 Every event also carries: `framework: "mcp"`, `agent_name: "socxen"`, `skill_name: "soc-investigate"`,
 ULID `session_id` / `trace_id` / `span_id` for correlation, a `timestamp`, and host context
@@ -61,7 +55,7 @@ call:
 "defang_formula": 1, "defang_link": 1          // output neutralizer defanged a formula / phishing link on a write
 "hygiene_stripped": 3, "hygiene_classes": "U+200B,U+202E"   // input canonicalizer stripped smuggling code points on a read
 "hygiene_kept": 2, "hygiene_kept_classes": "U+200D,U+200F"   // joiners / directional marks were present — kept verbatim, flagged here
-"hygiene_screen_failed": true                                 // screening threw on a block; it passed through raw (fail-open)
+"hygiene_screen_failed": true                                 // screening threw on a block; the block was withheld (fail-closed)
 ```
 
 `hygiene_kept` is the only place that signal exists: the text is never altered and no marker is ever
