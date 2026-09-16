@@ -17,8 +17,8 @@ label no longer hides a secret from the redactor; and the red-team harness prove
 present before it scores a hook-leg run. The user guide is rewritten as quick starts with one Security
 page and a Support page, and the repository front page is for developers.
 
-*Release gate:* the full red-team corpus on both hosts and a Praxen scan, both run 2026-09-14 on the tree the
-functional changes landed on (`d553809`) — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
+*Release gate:* the full red-team corpus on both hosts and a Praxen scan, both run 2026-09-14 on `d553809`, the
+tree every connector, hook and tier-file change landed on — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
 and [`security/praxen/README.md`](security/praxen/README.md) (0 Critical). What changed after that tree is
 listed in the ledger's 0.8.8 row.
 
@@ -101,6 +101,9 @@ listed in the ledger's 0.8.8 row.
   skill's ask is the second lock; it no longer says the permission prompt "can be switched off". The
   tool map is reconciled to the live surface (26 tools, `exabeam_update_analytics_rule` exposed and
   denied), and rule-tuning names both rule writes. The harness diagram shows all three red-team legs.
+- **The shipped reference material states the rule, not the story behind it** (#211): the containment list and
+  the triage taxonomy no longer cite another product's internals; the changelog, the maintainers' docs and
+  the code comments were trimmed the same way.
 - **The user guide is written for the person installing and using socxen.** Installation is two
   five-minute quick starts (Claude Code, Codex): install, credentials, check, first investigation, with
   what to expect at each step, where an alert ID comes from, the API key's role and the region, and
