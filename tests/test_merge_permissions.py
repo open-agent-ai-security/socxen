@@ -4,7 +4,8 @@
 # ///
 # Copyright 2026 Exabeam, Inc.
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for the assisted governance merge (plugin/skills/soc-investigate/merge_permissions.py).
+"""Tests for the settings merger (scripts/merge_permissions.py — kept in the repo for organizations that push
+the tiers as host policy; not part of the install path since #226).
 
 This module writes to the operator's real ~/.claude/settings.json, so the failure modes
 that matter are not "did it merge" but "what did it do to everything it wasn't asked to
@@ -29,7 +30,7 @@ SNIPPET = SKILL_DIR / "settings.snippet.json"
 
 def _load_merger():
     spec = importlib.util.spec_from_file_location(
-        "merge_permissions", SKILL_DIR / "merge_permissions.py")
+        "merge_permissions", ROOT / "scripts" / "merge_permissions.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

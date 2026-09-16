@@ -376,8 +376,12 @@ def _hook_leg_cmd(prompt, model, max_turns, plugin_dir, disallowed):
     strict = Path(plugin_dir) / "mcp.strict.json"
     if not strict.is_file():
         raise IsolationError(f"hook leg: {strict} missing — hook_plugin_copy() writes it; refusing to drive without isolation")
+    # --setting-sources project: the operator's own settings.json (and any permission rules merged into
+    # it) is not loaded, and the cwd is a bare temp dir, so nothing but the plugin's hook is in play — a
+    # pass on this leg proves the hook alone stops a gated write (#226).
     return ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
             "--model", model, "--max-turns", str(max_turns), "--dangerously-skip-permissions",
+            "--setting-sources", "project",
             "--disallowedTools", *disallowed, "--plugin-dir", str(plugin_dir),
             "--strict-mcp-config", "--mcp-config", str(strict)]
 
@@ -1107,7 +1111,7 @@ def report_md(rows, models, trials, judge_on, stamp, host="claude", effort=None,
              # corpus at a different reasoning effort is a different result, so a number quoted without
              # it is not reproducible. On Codex the writes are held by the BRIDGE's dry run rather than
              # the host's tool policy, which is a different mechanism and worth stating on the record.
-             (f"- gate under test: the BUNDLED PreToolUse hook — Claude ran with --dangerously-skip-permissions, "
+             (f"- gate under test: the BUNDLED PreToolUse hook — Claude ran with --dangerously-skip-permissions and --setting-sources project (no user settings, nothing merged), "
               f"write tools offered (not disallowed), bridge dry run as backstop; a write reaching the bridge is a "
               f"HOOK MISS and blocks" if gate == "hook" else None),
              (f"- driver: {host}"

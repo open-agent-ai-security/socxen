@@ -178,10 +178,9 @@ release channel**: whatever lands there reaches new installers immediately.
    branch-protected: the merge needs the `Repo invariants (no inference)` and
    `signoff` checks green and every review conversation resolved.
 3. Run the **post-release install smoke**: `scripts/release/plugin-smoke.sh <prior-release-ref>`.
-   It runs three legs in throwaway scratch `$CLAUDE_CONFIG_DIR`s, never touching
-   your live install: a **clean install** of the new release, an **upgrade** from
-   the prior release, and the **governance merge** into a throwaway settings
-   file. Each install leg asserts the installed version *and* that the plugin
+   It runs two legs in throwaway scratch `$CLAUDE_CONFIG_DIR`s, never touching
+   your live install: a **clean install** of the new release and an **upgrade** from
+   the prior release. Each leg asserts the installed version *and* that the plugin
    **loads** (`plugin list --json` reports an empty `errors[]`, with a positive
    control that re-injects a known bad manifest field and expects the check to
    fail). Pass the prior release explicitly. It is deliberately *not* in CI: the

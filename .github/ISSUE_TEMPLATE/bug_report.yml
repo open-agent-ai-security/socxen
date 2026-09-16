@@ -40,7 +40,7 @@ body:
     id: governance-gate
     attributes:
       label: Governance gate
-      description: What does `preflight.sh` report for the human-in-the-loop gate? (It ships on; the permission snippet is an optional second lock.)
+      description: What does `preflight.sh` report for the human-in-the-loop gate? (It ships on.)
       options:
         - "ON — bundled hook (Claude Code) or tool-approval policy (Codex)"
         - "OFF or FAIL — preflight says so"
