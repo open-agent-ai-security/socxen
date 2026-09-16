@@ -10,9 +10,7 @@
 #
 # This script NEVER writes. Not to settings.json, not to config.toml, not to the
 # credentials file. On both hosts the gate ships inside the plugin (a PreToolUse hook on Claude
-# Code, approval policy on Codex). The Claude permission rules are an optional second lock that
-# `install.sh --merge-permissions` writes with consent; a fixer here would re-import that consent
-# problem, so this stays a mirror, not a hand.
+# Code, approval policy on Codex); this stays a mirror, not a hand.
 #
 # Usage:
 #   preflight.sh                       detect the host agent and check everything
@@ -167,12 +165,13 @@ check_credentials() {
   fi
   # #174: the bridge refuses to start over any scheme but https (plain http to a loopback host excepted),
   # so say so here, before it is ever started, with the value that needs fixing.
-  local url host
+  local url host scheme
   url="$(grep -m1 '^EXABEAM_MCP_URL=' "$ENV_FILE" | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//')"
-  case "$url" in
-    https://*) ;;
-    http://*)
-      host="${url#http://}"; host="${host%%/*}"
+  scheme="$(printf '%s' "${url%%://*}" | tr '[:upper:]' '[:lower:]')"    # the bridge compares schemes case-insensitively (#231)
+  case "$scheme" in
+    https) ;;
+    http)
+      host="${url#*://}"; host="${host%%/*}"
       case "$host" in
         \[*\]*) host="${host%%]*}]" ;;          # bracketed IPv6: keep through the closing bracket
         *)       host="${host%%:*}" ;;           # else drop a :port
@@ -214,25 +213,6 @@ check_connectivity() {
 }
 
 # ---- gate check (the only part that differs by host) ----
-
-# Claude Code: this reads the OPTIONAL permission rules in the operator's settings.json; the gate
-# itself is the bundled hook (checked in check_gate). Three outcomes, not two — without python3 the
-# check CANNOT run, and "cannot verify" must never be reported as "OFF".
-gate_state_claude() {
-  local settings="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
-  command -v python3 >/dev/null 2>&1 || { printf 'unknown'; return; }
-  [ -f "$settings" ] || { printf 'off'; return; }
-  if python3 - "$settings" <<'PY' 2>/dev/null
-import json, sys
-try:
-    ask = json.load(open(sys.argv[1])).get("permissions", {}).get("ask", [])
-except Exception:
-    sys.exit(1)
-bare = {t.split("__")[-1] for t in ask}
-sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
-PY
-  then printf 'on'; else printf 'off'; fi
-}
 
 # Codex: the gate ships inside the plugin, so this reads the resolved server config. ON means Codex
 # resolved both halves — the approve default and the containment deny-list. Codex itself prompts for
@@ -367,7 +347,7 @@ check_gate_reach() {
   # section before a single gate verdict printed (automated review of #158). The listing it did print is
   # still what we need; the status is not.
   missed="$(claude mcp list 2>/dev/null | gate_reach_warnings | tr '\n' ' ')" || true
-  [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook and the permission rules key on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
+  [ -n "$missed" ] && warn "An Exabeam MCP server is registered under a name the gate does not reach: ${missed}— the hook keys on the server NAME; register it as 'exabeam' (claude mcp add exabeam …)"
   return 0
 }
 
@@ -387,29 +367,19 @@ check_gate() {
       esac ;;
     claude)
       check_gate_reach
-      state="$(gate_state_claude)"
       local hook hstate hver hpath herr
       hook="$(installed_hook_state)"; herr="${hook#*$'\n'}"; [ "$herr" = "$hook" ] && herr=""; hook="${hook%%$'\n'*}"
       hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="${hook#* * }"
-      case "$state" in
-        on)  if [ "$hstate" = failed ]; then
-               fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) FAILED TO LOAD: ${herr}. The permission rules are merged but nothing they gate is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'"
-             else
-               ok "Human-in-the-loop gate ON — the permission rules are merged (dismiss/close in the ask tier, containment denied); the bundled hook gates the same when the installed plugin carries it"
-             fi ;;
-        off) case "$hstate" in
-               failed) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) FAILED TO LOAD: ${herr}. Nothing is registered (no hook, no MCP server) and no permission rules are merged; update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
-               on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
-                    ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
-               off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;
-               none) fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}) and no permission rules are merged; install it (install.sh)" ;;
-               *)   if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
-                      warn "Cannot verify the installed plugin (needs the claude CLI with 'plugin list --json' and python3). This plugin copy carries the bundled hook, but only the INSTALLED copy gates — check 'claude plugin list'"
-                    else
-                      fail "Gate is OFF — no bundled hook in this plugin copy, the install cannot be verified, and no permission rules merged; reinstall, or merge with: install.sh --merge-permissions"
-                    fi ;;
-             esac ;;
-        *)   warn "Cannot verify the permission rules (needs python3) — not the same as OFF. Note the bundled hook also needs python3: without it every gated call is refused (fail-closed), not allowed" ;;
+      case "$hstate" in
+        on)     ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions" ;;
+        failed) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) FAILED TO LOAD: ${herr}. Nothing is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
+        off)    fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook; update it (claude plugin update ${PLUGIN_KEY}) and restart" ;;
+        none)   fail "Gate is OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}); install it (claude plugin install ${PLUGIN_KEY})" ;;
+        *)      if [ -f "${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/hooks/hooks.json" ]; then
+                  warn "Cannot verify the installed plugin (needs the claude CLI with 'plugin list --json' and python3). This plugin copy carries the bundled hook, but only the INSTALLED copy gates — check 'claude plugin list'"
+                else
+                  fail "Gate is OFF — no bundled hook in this plugin copy and the install cannot be verified; reinstall the plugin (claude plugin install ${PLUGIN_KEY})"
+                fi ;;
       esac ;;
     *)
       skip "Gate check skipped — no host agent detected" ;;

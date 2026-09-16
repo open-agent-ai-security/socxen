@@ -10,8 +10,8 @@ enforce it in different places:
 
   Claude Code  settings.snippet.json -> generated from permissions.json, the tier file the bundled
                PreToolUse hook reads (the gate ships ON; the snippet is the hook's fallback), and
-               the permissions.allow / ask / deny block an operator
-               may merge into settings.json as an optional second lock.
+               the permissions.allow / ask / deny block published for organizations that push
+               the same tiers as host policy.
 
   Codex        .mcp.codex.json -> the same three tiers as approval modes on the
                plugin-bundled server. Codex reads this straight out of the installed

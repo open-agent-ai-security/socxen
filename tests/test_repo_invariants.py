@@ -345,8 +345,8 @@ def test_shipped_docs_never_link_outside_the_plugin():
 # TIER 1 (cont.) — the Codex gate
 #
 # socxen ships the same human-in-the-loop gate to two host agents that enforce it in
-# different places. Claude Code reads permission tiers out of the operator's
-# settings.json; Codex reads approval modes out of the plugin's own .mcp.codex.json.
+# different places. Claude Code reads the tiers in the plugin's bundled hook; Codex reads
+# approval modes out of the plugin's own .mcp.codex.json.
 # Two hand-maintained copies of a safety control is exactly the drift this file exists
 # to catch, so the Codex copy is generated and pinned here.
 # =====================================================================
@@ -487,9 +487,8 @@ def test_preflight_never_writes():
     """preflight.sh is a mirror, not a hand.
 
     On both hosts the gate ships inside the plugin (a hook on Claude Code, approval policy on
-    Codex). The Claude permission rules are an optional second lock whose merge is a consent-gated
-    action that belongs to install.sh --merge-permissions. A fixer here would re-import exactly the consent
-    problem the Codex packaging removed, so mutation stays out of this file."""
+    Codex). A fixer here would turn a diagnostic into a hand that edits the operator's config, so
+    mutation stays out of this file."""
     code = _shell_code_only(PREFLIGHT_SH)
     forbidden = [
         ("merge_permissions", "runs the settings.json merger"),
@@ -529,10 +528,10 @@ def test_codex_gate_check_sees_per_tool_overrides():
 def test_preflight_reports_cannot_verify_separately_from_off():
     """Three outcomes, not two, on both hosts.
 
-    'Cannot verify' reported as 'OFF' sends an operator re-merging a working gate; on
+    'Cannot verify' reported as 'OFF' sends an operator reinstalling a working gate; on
     Codex it would send them reinstalling over a server that a bad approval_mode had
     silently dropped. Both gate readers must have an unknown branch."""
-    for fn in ("gate_state_claude", "gate_state_codex"):
+    for fn in ("installed_hook_state", "gate_state_codex"):
         body = PREFLIGHT_SH.split(f"{fn}()", 1)[1].split("\n}", 1)[0]
         assert "unknown" in body, f"{fn} has no 'cannot verify' outcome"
 

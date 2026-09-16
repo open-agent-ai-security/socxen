@@ -74,7 +74,7 @@ The unit suite and `--plugin-dir` sessions verify the tree; only an install veri
 
 1. **Smoke both install journeys** in throwaway config dirs — a clean install of the new release and
    an upgrade from the prior one. It asserts the installed version, that the plugin *loads*
-   (`plugin list --json` reports an empty `errors[]`), and the governance merge. Pass the prior
+   (`plugin list --json` reports an empty `errors[]`). Pass the prior
    release explicitly:
    ```bash
    scripts/release/plugin-smoke.sh <prior-release-commit>

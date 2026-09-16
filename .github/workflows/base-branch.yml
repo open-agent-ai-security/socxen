@@ -9,9 +9,8 @@
 #
 # This turns that from "a maintainer notices during review" into a check.
 #
-# Deliberately NOT solved by making `dev` the default branch: the documented setup for the optional
-# permission snippet is `git clone` + `install.sh --merge-permissions`, and a bare clone checks out the default branch, so
-# `dev`-as-default would hand every user unreleased installer code. See #126.
+# Deliberately NOT solved by making `dev` the default branch: the community catalog and every clone-path
+# instruction resolve the default branch, so `dev`-as-default would hand every user unreleased code. See #126.
 name: Base branch
 
 on:

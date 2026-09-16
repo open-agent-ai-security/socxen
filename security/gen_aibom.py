@@ -255,14 +255,14 @@ def build_bom(timestamp):
             {"name": "ai:humanInTheLoop",
              "value": "required for dismiss/close and outbound mail (update_alert/update_case/send_email) — enforced by the host: "
                       + ("a bundled PreToolUse hook on Claude Code (holds under --dangerously-skip-permissions; a headless ask is refused)"
-                         if hook else "the permission pack on Claude Code")
+                         if hook else "no bundled hook found on Claude Code")
                       + f"; tool-approval policy on Codex (default {codex_policy.get('default_tools_approval_mode')!s}, "
                       + f"{len(codex_policy.get('disabled_tools', []))} tools disabled)"},
             {"name": "ai:autonomousActions", "value": "read/search + create_case/case_notes (escalation) — prompt-free on both hosts"},
             {"name": "ai:containmentCapability", "value": "none — recommend-only, performed by a human in EDR/IAM; every containment tool is denied by the gate"},
             {"name": "ai:guardrails",
              "value": f"permission tiers {tier_n['allow']} allow / {tier_n['ask']} ask / {tier_n['deny']} deny "
-                      "from one tier file (permissions.json → hook, Codex policy, optional permission pack); "
+                      "from one tier file (permissions.json → hook, Codex policy, published permission snippet for fleet policy); "
                       "input canonicalizer on every read and on the remote's tool definitions (hashed per session); "
                       "output neutralizer on every write (formulas inert, links de-fanged unless into the operator's tenant, "
                       "secrets and structured identifiers masked); updates carry state only; a create_case with a closing "
