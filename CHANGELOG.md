@@ -8,7 +8,19 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
-## [Unreleased]
+## [0.8.8] — 2026-09-15
+
+**The read path fails closed, the transport is https-only, and the docs are for the people who use them.**
+Since 0.8.7: the connector withholds any result block it cannot screen instead of passing it through, and
+refuses a cleartext MCP URL; the sweep skills treat whatever arrives with the work as telemetry; a quoted
+label no longer hides a secret from the redactor; and the red-team harness proves the Claude Code hook is
+present before it scores a hook-leg run. The user guide is rewritten as quick starts with one Security
+page and a Support page, and the repository front page is for developers.
+
+*Release gate:* the full red-team corpus on both hosts and a Praxen scan, both run 2026-09-14 on the tree the
+functional changes landed on (`d553809`) — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
+and [`security/praxen/README.md`](security/praxen/README.md) (0 Critical). What changed after that tree is
+listed in the ledger's 0.8.8 row.
 
 ### Security
 
@@ -74,6 +86,30 @@ governance model (feature → `dev`, release `dev` → `main`).
   field for the sweep fixtures and a required-disclosure axis (`must.flagged`) that a13 and a15 use.
   Twenty-nine fixtures, all lint-clean; the sweep fixtures grade on the judge and the tool axis (a sweep
   report has no taxonomy line).
+
+### Fixed
+
+- **The Codex preflight's awk fallback matches on every awk** (#171, #221). Its three regexes spelled the
+  apostrophe as `\x27`, a GNU extension; BWK awk (macOS) and mawk did not match, so the fallback's
+  approval-mode check could miss a non-approve setting. Now `\047`.
+
+### Documentation
+
+- **The skills and the tool map say what the host enforces and what the MCP exposes** (#190, #217). The
+  soc-investigate governance passage says the host gates dismiss and close too — the bundled hook on
+  Claude Code, which holds under `--dangerously-skip-permissions`; Codex's own approval — and that the
+  skill's ask is the second lock; it no longer says the permission prompt "can be switched off". The
+  tool map is reconciled to the live surface (26 tools, `exabeam_update_analytics_rule` exposed and
+  denied), and rule-tuning names both rule writes. The harness diagram shows all three red-team legs.
+- **The user guide is written for the person installing and using socxen.** Installation is two
+  five-minute quick starts (Claude Code, Codex): install, credentials, check, first investigation, with
+  what to expect at each step, where an alert ID comes from, the API key's role and the region, and
+  that Windows means WSL. One **Security** page covers the human gate, the guardrails, the audit trail,
+  how it is tested and what it does not cover; a new **Support** page says the project is community
+  supported, as is, and that Exabeam offers a supported SOC Agent pack. The operator README in the
+  plugin is a front door to the guide. The repository front page is for developers, with a redirect to
+  the guide up top; CONTRIBUTING's release procedure names the smoke's three legs and the real-install
+  test. (#224, #225)
 
 ## [0.8.7] — 2026-09-14
 

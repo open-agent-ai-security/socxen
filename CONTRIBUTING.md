@@ -156,9 +156,11 @@ git push --force-with-lease origin dev-rebuild:dev
 ```
 
 We deliberately keep the rest of the release machinery light for now: **no
-tag-driven release automation, and no automated dependency-update PRs**
-(Dependabot *alerts* are on; update PRs are not) — those arrive when socxen has a
-real tagged-release cadence. Until then the rules above are the whole model.
+tag-driven release automation**. Dependabot opens weekly pin bumps for the GitHub
+Actions workflows against `dev` (label `dependencies`); the connector's Python
+dependencies are locked by `uv` and audited in CI, not bumped by bot. Tagged
+releases arrive when socxen has a real release cadence; until then the rules above
+are the whole model.
 
 ## Releasing and rolling back
 
