@@ -23,12 +23,17 @@ there to answer, an ask is refused.
   for how the supported models are validated.
 - **[`uv`](https://docs.astral.sh/uv/)** on your `PATH`. It runs the bundled Exabeam connector and
   installs the connector's own Python dependencies; there is nothing to `pip install`.
-- **An Exabeam New-Scale API key and secret**, created in your New-Scale console. The connector inherits
-  the key's role, so the key needs a role that can read alerts, cases and events and open cases and
-  write case notes. A read-only key works for investigating but not for the case actions.
-- **Your New-Scale region** — one of `us-west`, `us-east`, `ca`, `eu`, `sa`, `sg`, `ch`, `jp`, `au`.
-  It is the region your tenant is hosted in; your Exabeam administrator or your console address tells
-  you which.
+- **An Exabeam New-Scale API key and secret**, created under **Settings → API Keys** in your New-Scale
+  console. Keys don't carry a role — you grant them **access entitlements**, and socxen gets exactly what
+  the key was issued with. Entitle the key to read alerts, cases, events and detection content (rules,
+  parsers, context tables, MITRE coverage), and to create cases and write case notes; a read-only key
+  investigates fine but cannot record an outcome. The exact list is under
+  [Key entitlements](#key-entitlements) below.
+- **Your New-Scale region.** It is the slug in `https://api.<region>.exabeam.cloud/mcp`, for example
+  `us-west`. Most tenant console URLs contain it — read it from the address bar. Some named environments
+  (for example a demo or a dedicated tenant) have no region in the URL; ask your Exabeam administrator
+  which region hosts them. The **Region Deployed** field under *Service Health and Consumption → License
+  View* is **not** reliable for this — it may show a country rather than the hosting region.
 - **Windows:** socxen is not supported natively on Windows; use **WSL**. The diagnostics and the safety
   gate are shell scripts and Python, and the credentials file below is protected by Unix file
   permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
@@ -153,9 +158,13 @@ or fleet-wide in a managed `settings.json`:
 Run `preflight.sh` first (step 3 above); it checks the CLI, `uv`, the credentials file, the connection
 to your tenant, and the safety gate, and names the failing step.
 
-- **`Exabeam MCP reachable` fails.** Check the region in `EXABEAM_MCP_URL`, that the URL starts with
-  `https://`, and that the key and secret are the ones your console shows. The connector refuses to
-  start over `http://`, on purpose.
+- **`Exabeam MCP reachable` fails.** The region in `EXABEAM_MCP_URL` is the first thing to check: it
+  must be the slug from your console address, not the country shown in License View. Then check that
+  the URL starts with `https://` and that the key and secret are the ones your console shows. The
+  connector refuses to start over `http://`, on purpose.
+- **Investigations work but rule-tuning or triage returns nothing.** The key is entitled for alerts and
+  cases but not for detection content or posture. An under-entitled key installs and connects cleanly;
+  the reads it lacks come back empty rather than failing. See [Key entitlements](#key-entitlements).
 - **The skill says the Exabeam MCP is not connected.** The credentials file is missing or was added
   after the host started; add it and restart the host.
 - **`claude plugin list` shows an error beside socxen.** The plugin installed but did not load; run
@@ -186,6 +195,18 @@ importantly, socxen's guardrails — the screening of what it reads, the neutral
 it writes, and the audit trail — live in the bundled connector, so
 none of them run when Claude Code talks to the remote MCP directly. Only the dismiss/close gate
 survives, and only if the server is named `exabeam`. Use this for a connectivity check, not for investigations you rely on.
+
+## Key entitlements
+
+Whoever grants the key's access entitlements can check against this list rather than guessing. These are
+the Exabeam MCP tools socxen calls; every other tool is refused before it reaches your tenant.
+
+| Needed for | Tools |
+|---|---|
+| Investigating alerts and cases | `search_alerts`, `get_alert_details`, `get_alert_threat_timeline`, `search_cases`, `get_case_details`, `get_case_notes`, `get_case_threat_timeline`, `search_events` |
+| Rule tuning and triage | `analytics_rule_list`, `analytics_rule_details`, `correlation_rule_list`, `get_correlation_rule_details`, `parser_list`, `get_parser_details`, `context_table_list`, `get_context_table_records`, `get_mitre_coverage`, `get_use_case_score`, `threat_summary` |
+| Recording an outcome | `create_case`, `create_case_notes` (allowed as escalation); `update_alert`, `update_case` (always ask you first) |
+| Optional | `send_email` (always asks you first; everything else works without it) |
 
 ## Uninstalling
 
