@@ -388,15 +388,32 @@ and are never edited after the fact.
 | `SCAN_INSTRUCTIONS.md` | Scan-time scope: *what to scan* for this target. Distinct from the remit, which is *what the agent should do*. |
 | `results/<date>-socxen-<label>.html` | The rendered report — findings with `file:line` evidence, remit coverage, RAISE scorecard, OWASP mappings. Self-contained; open it in a browser. |
 | `results/<date>-socxen-<label>.json` | The same analysis, machine-readable. |
-| `results/<date>-socxen-<label>.txt` | The plain-text summary. |
+| `results/<date>-socxen-<label>.txt` | The plain-text summary, when the scan produced one. |
 | `results/<date>-socxen-<label>-audit.md` | The high-mode audit record — a context-unaware second pass that re-reads every cited line and tries to refute each finding. |
 | `results/<date>-socxen-<label>-threatmodel.html` / `.json` | The evidence-derived threat model — nodes, edges, trust boundaries, attack paths — when the scan asked for one. |
 
 ### Which scan gated which release
 
 Artifacts are named `<scan date>-socxen-<label>`, where the label names the tree scanned (`dev-rc`,
-`fix163`, `rc-remit17`, …). The status block for each scan, above, records the commit it read and the
-release it gated; that is the gate record.
+`fix163`, `rc-remit17`, …). The status block for each scan, above, records the commit it read and, where
+it gated a release, which one; that is the gate record.
+
+## Maintaining the remit
+
+The remit is the standard, so a defect in it is worse than a defect in a report: an over-broad or
+invented rule produces a finding that looks entirely real — correct file, correct line, an honest
+violation of the rule as written. Check the rules, not only the findings.
+
+- **Write rules from documented intent, never from the implementation.** A remit written from the
+  code describes what socxen *does*, not what it *should* do, and a scan against it finds nothing.
+  Author from `README.md`, `SECURITY.md` and `docs/**`.
+- **A rule the code does not satisfy is a finding, not a remit bug.** Only narrow a rule when the
+  target's own documentation contradicts it.
+- **Unresolved questions are maintainer decisions.** When the docs settle a question, resolve it in
+  the remit and cite the doc. When they don't, record the decision in the remit's **Open Questions**
+  section with who decided and when.
+
+Praxen's own guidance: [Writing Worker Remits](https://open-agent-ai-security.github.io/praxen/guide/writing-remits.html).
 
 ## Reproducing a scan
 
