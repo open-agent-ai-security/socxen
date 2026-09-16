@@ -137,7 +137,8 @@ if not hits:
     print("none"); sys.exit(0)
 p = hits[0]
 path = p.get("installPath") or ""
-errs = [str(e) for e in (p.get("errors") or []) if str(e).strip()]
+raw = p.get("errors")
+errs = [str(e) for e in (raw if isinstance(raw, list) else ([raw] if raw else [])) if str(e).strip()]
 if errs:
     print("failed", p.get("version") or "unknown", path)
     msg = "; ".join(errs).replace("\n", " ")

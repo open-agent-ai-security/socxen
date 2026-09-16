@@ -301,6 +301,7 @@ def test_preflight_reports_a_plugin_the_host_refused_to_load_as_gate_off(tmp_pat
     """#226: `enabled: true` and hooks/hooks.json on disk are both true for a plugin the host refused to
     load; only errors[] carries that. With or without the permission rules merged, preflight must say the
     plugin failed to load, name the error, and never print a gate ON line."""
+    import subprocess, os
     err = "Invalid manifest: hooks must not be declared in plugin.json"
     for merged in (False, True):
         proc = _preflight(tmp_path, PLUGIN, errors=[err], rules_merged=merged)
@@ -310,6 +311,19 @@ def test_preflight_reports_a_plugin_the_host_refused_to_load_as_gate_off(tmp_pat
         assert "unbound variable" not in out
     # the rules-merged control: without a load error the merged rules still read ON
     assert "the permission rules are merged" in _preflight(tmp_path, PLUGIN, rules_merged=True).stdout
+    # and the installer's own governance block, same fake, both settings states: never a green line
+    for merged in (False, True):
+        settings = tmp_path / "settings.json"
+        settings.write_text((PLUGIN / "skills" / "soc-investigate" / "settings.snippet.json").read_text()
+                            if merged else '{"permissions": {}}')
+        env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), HOME=str(tmp_path),
+                   PATH=_fake_claude(tmp_path, PLUGIN, errors=[err]) + os.pathsep + os.environ.get("PATH", ""))
+        proc = subprocess.run(["bash", str(PLUGIN / "install.sh"), "--checks-only", "--skip-connectivity", "--no-color"],
+                              capture_output=True, text=True, env=env)
+        out = proc.stdout + proc.stderr
+        assert "gate ON" not in out, out
+        assert "FAILED TO LOAD" in out and err in out, out
+        assert proc.returncode != 0, "a plugin the host refused to load must fail the installer's checks"
     # and a healthy listing (no errors key at all, which is what the host prints) still reads ON via the hook
     assert "gate ON via the bundled hook in the INSTALLED plugin" in _preflight(tmp_path, PLUGIN).stdout
 
