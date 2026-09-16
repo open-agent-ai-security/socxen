@@ -494,7 +494,8 @@ fi
 # would otherwise tell them the gate is on (Praxen 2026-09-07-002). Same reading preflight's check_gate
 # makes; HOOK_NOTE is the one phrase every "rules not merged" line below carries.
 PLUGIN_KEY="${PLUGIN}@${MARKETPLACE_NAME}"
-HOOK="$(installed_hook_state)"; HOOK_STATE="${HOOK%% *}"
+HOOK="$(installed_hook_state)"; HOOK_ERR="${HOOK#*$'\n'}"; [ "$HOOK_ERR" = "$HOOK" ] && HOOK_ERR=""; HOOK="${HOOK%%$'\n'*}"
+HOOK_STATE="${HOOK%% *}"
 HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="${HOOK#* * }"          # the path may carry spaces
 MERGE_LABEL="(needed)"; HOOK_TAIL=""
 case "$HOOK_STATE" in
@@ -502,6 +503,7 @@ case "$HOOK_STATE" in
         MERGE_LABEL="(optional)"; HOOK_TAIL=" (the installed hook's deny/ask still fire)" ;;
   off)  HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) carries NO hook, so the rules are the only lock until the plugin is updated" ;;
   none) HOOK_NOTE="no plugin is installed or enabled for Claude Code (${PLUGIN_KEY}), so nothing gates dismiss/close until it is" ;;
+  failed) HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD — ${HOOK_ERR} — so no gate and no MCP server is registered until it is fixed (claude plugin update ${PLUGIN_KEY})" ;;
   *)    HOOK_NOTE="the installed hook could not be verified (needs the claude CLI with 'plugin list --json' and python3), so treat the rules as the lock" ;;
 esac
 [ "$GATE_STATE" = on ] && { MERGE_LABEL="(already merged)"; HOOK_NOTE="the permission rules are merged into $SETTINGS and gate dismiss/close on their own; $HOOK_NOTE"; }
