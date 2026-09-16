@@ -76,17 +76,23 @@ three backups). One line per decision:
  "target": {"alertId": "4471", "alertStatus": "DISMISSED"}}
 ```
 
-The same hook runs again after the call. An ask-tier call that ran is the analyst's yes — an `ask`
-reaches the tool only when a human answered it — and is recorded as such, beside the `ask` line:
+The same hook runs again after the call. An ask-tier call that **completed** is recorded as `approved`,
+beside the `ask` line — inferred from completion: an ask completes only when a human answered yes. When
+the session ran in a mode where nobody could answer (`bypassPermissions`, `dontAsk`) the line says
+`ran_unasked` instead, because the ask did not hold for that call. Both lines carry the host's
+`permission_mode` and `tool_use_id` when present, so a post line ties to its ask:
 
 ```json
 {"ts": "2026-09-05T16:01:41+00:00", "tool": "mcp__plugin_socxen_exabeam__exabeam_update_alert",
- "decision": "approved", "reason": "the call ran after the gate asked: the analyst answered yes",
+ "decision": "approved", "reason": "an ask-tier call completed after the gate asked: inferred from completion, an ask completes only on a yes",
+ "permission_mode": "default", "tool_use_id": "toolu_01ABC",
  "target": {"alertId": "4471", "alertStatus": "DISMISSED"}}
 ```
 
-A deny-tier tool that ran anyway is recorded as `ran_despite_deny`. Reads leave no post-call line: this
-file records decisions, and the telemetry records every call.
+A deny-tier tool that ran anyway is recorded as `ran_despite_deny`. Allow-tier reads leave no post-call
+line: this file records decisions, and the telemetry records every call. The host runs the post-call
+hook only when the tool succeeded, so an approved write that failed upstream leaves the `ask` line and
+the bridge's `tool_error` event, and no `approved` line.
 
 `target` carries the same safe identifier and disposition fields the telemetry's `action.*` record uses,
 and nothing else — so a refused attempt reads as *tried to dismiss alert 4471 as dismissed*, which is the
@@ -196,8 +202,9 @@ Off means *off*: no file, and observra is never imported.
 The trail records the **gated action and its disposition deterministically at the write sink**, and in the
 [supported governance posture](installation.md#governance--the-safety-gate) an
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
-event is evidence the approval happened. On Claude Code the bundled hook also records the approval
-itself, as the `approved` line in `gate.jsonl` above. Neither record names **who** answered: that lives in
-the host agent's approval layer, which neither the hook nor the bridge can see. The operator is captured
-once per session as host context (`user`/`host`). Codex has no hook, so there the write event is the only
+event is evidence the approval happened. On Claude Code the bundled hook also records the approval,
+as the `approved` line in `gate.jsonl` above — inferred from the call completing after an ask, not
+observed. Neither record names **who** answered: that lives in the host agent's approval layer, which
+neither the hook nor the bridge can see. The operator is carried on every event as host context
+(`user`/`host`). Codex has no hook, so there the write event is the only
 approval record.

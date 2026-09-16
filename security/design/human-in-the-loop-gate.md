@@ -103,7 +103,11 @@ Each decision — including refusals and the near-miss that never reached the br
 best-effort to `~/.socxen/gate.jsonl` with the call's **safe target fields** only: identifiers and
 dispositions (`alertId`, `caseId`, `alertStatus`, `stage`, …), never free text, values capped. So a
 refused attempt reads as "tried to dismiss alert X as false positive", which is the record that matters
-in a SOC (#87). `SOCXEN_GATE_LOG=off` disables it; the bridge's audit trail records the calls that do
+in a SOC (#87). The same hook runs again after the call (`PostToolUse`, invoked with `--post`) and
+appends `approved` for an ask-tier call that completed — inferred from completion, an ask completes only
+on a yes — or `ran_unasked` when the session's permission mode meant nobody could answer, and
+`ran_despite_deny` for a deny-tier tool that ran; never a decision, never stdout (#5).
+`SOCXEN_GATE_LOG=off` disables it; the bridge's audit trail records the calls that do
 reach it ([logging guide](../../plugin/docs/logging.md)).
 
 ## 7. The model-side layer beneath

@@ -61,11 +61,16 @@ def _agent_name(root=None):
     plugin (a vendor catalog shipping it as `soc`) then logs under its own name with no overlay change.
     `socxen` only when the file is missing or unreadable — never an exception."""
     try:
-        base = root or os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         import json as _json
-        with open(os.path.join(base, "identity.json"), encoding="utf-8") as fh:
-            name = _json.load(fh).get("name")
-        return str(name).strip() if isinstance(name, str) and name.strip() else "socxen"
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates = [root] if root else [here, os.environ.get("CLAUDE_PLUGIN_ROOT") or ""]
+        for base in candidates:                       # the file beside this code wins; the env var is a fallback
+            path = os.path.join(base, "identity.json")
+            if base and os.path.isfile(path):
+                with open(path, encoding="utf-8") as fh:
+                    name = _json.load(fh).get("name")
+                return str(name).strip() if isinstance(name, str) and name.strip() else "socxen"
+        return "socxen"
     except Exception:  # noqa: BLE001 -- the audit trail must never depend on this file
         return "socxen"
 

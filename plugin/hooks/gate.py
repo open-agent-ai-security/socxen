@@ -48,11 +48,13 @@ The near-miss is the record that matters in a SOC (`SOCXEN_GATE_LOG=off` disable
 another path overrides) — a first-party record of what was attempted and what the gate said, including
 attempts that never reached the bridge (#87).
 
-The same hook runs as PostToolUse (#5). A call that RAN after the gate asked is the approval record —
-an `ask` reaches the tool only when a human answered yes (headless, it is refused) — so it is appended as
-`"decision": "approved"` with the same safe target fields, beside the `ask` line. A deny-tier tool that
-ran anyway is recorded as `"ran_despite_deny"`. Allow-tier reads leave no post-call line: the gate log is
-a log of decisions, and the bridge's telemetry already records every call. No output on stdout.
+The same hook runs as PostToolUse, invoked with `--post` (#5). An ask-tier call that COMPLETED is
+appended as `"decision": "approved"` with the same safe target fields, beside the `ask` line — inferred
+from completion: an ask completes only when a human answered yes, unless the session ran in a mode where
+nobody could answer (bypassPermissions, dontAsk), recorded as `"ran_unasked"`. A deny-tier tool that ran
+anyway is `"ran_despite_deny"`. Allow-tier tools leave no post-call line: the gate log is a log of
+decisions, and the bridge's telemetry already records every call. Both lines carry the host's
+`permission_mode` and `tool_use_id` when present, so a post line ties to its ask. No output on stdout.
 
 Stdlib only. Exit 0 always; the decision is the JSON on stdout.
 """
@@ -205,44 +207,73 @@ def log_decision(record: dict) -> None:
         pass
 
 
+_UNATTENDED_MODES = {"bypasspermissions", "dontask"}
+
+
+def _context(event) -> dict:
+    """The host fields that let a post-call line be tied to its ask and judged: the permission mode the
+    session ran in and the call's id. Both documented on PreToolUse and PostToolUse; absent = omitted."""
+    out = {}
+    mode = event.get("permission_mode")
+    if isinstance(mode, str) and mode.strip():
+        out["permission_mode"] = mode.strip()[:40]
+    tid = event.get("tool_use_id")
+    if isinstance(tid, str) and tid.strip():
+        out["tool_use_id"] = tid.strip()[:80]
+    return out
+
+
 def _post_call(event, tool: str, target: dict) -> int:
-    """PostToolUse (#5): the call ran. For an ask-tier tool that is the human's yes, recorded as such;
-    for a deny-tier tool it is a bypass worth a line. Never a decision, never stdout."""
+    """PostToolUse (#5): the call completed. For an ask-tier tool that is recorded as `approved` — the gate
+    asked before it, and an ask completes only when a human answered yes — unless the session ran in a
+    mode where nobody could answer (bypassPermissions, dontAsk), which is recorded as `ran_unasked`: the
+    ask did not hold for that call. A deny-tier tool that ran is `ran_despite_deny`. Allow-tier tools
+    leave no line. Never a decision, never stdout: this is a record, not a verdict."""
     try:
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, _reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
     except Exception:  # noqa: BLE001 — unclassifiable: record that it ran, as the ask it would have been
         decision = "ask"
+    ctx = _context(event)
     if decision == "ask":
-        outcome, reason = "approved", "the call ran after the gate asked: the analyst answered yes"
+        if ctx.get("permission_mode", "").lower() in _UNATTENDED_MODES:
+            outcome, reason = "ran_unasked", f"an ask-tier call completed under {ctx['permission_mode']}, where no human could answer: the gate's ask did not hold for this call"
+        else:
+            outcome, reason = "approved", "an ask-tier call completed after the gate asked: inferred from completion, an ask completes only on a yes"
     elif decision == "deny":
         outcome, reason = "ran_despite_deny", "a deny-tier tool ran: the gate's deny was not in effect for this call"
     else:
         return 0                           # allow tier: the telemetry records the call; the gate log records decisions
     record = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-              "tool": tool, "decision": outcome, "reason": reason}
+              "tool": tool, "decision": outcome, "reason": reason, **ctx}
     if target:
         record["target"] = target
     log_decision(record)
     return 0
 
 
-def main() -> int:
-    tool, target = "", {}
+def main(argv=None) -> int:
+    # --post: this invocation is the PostToolUse record (hooks.json passes it). Decided by the command
+    # line, not by stdin, so an unparseable event can never turn a record into a permission decision.
+    post = "--post" in (sys.argv[1:] if argv is None else argv)
+    tool, target, ctx = "", {}, {}
     try:
         event = json.load(sys.stdin)
         tool = str(event.get("tool_name", ""))
         if tool and not is_ours(tool):
             return 0                       # another server's tool: no decision, no record (not our business)
         target = target_fields(event.get("tool_input"))
-        if str(event.get("hook_event_name", "")) == "PostToolUse":
+        if post or str(event.get("hook_event_name", "")) == "PostToolUse":
             return _post_call(event, tool, target)
+        ctx = _context(event)
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
     except Exception as e:  # noqa: BLE001 — cannot classify → the human decides; headless → refused
+        if post:
+            return 0                       # a record we cannot write is not a decision to make
         decision, reason = "ask", f"socxen gate could not evaluate this call ({type(e).__name__}); asking rather than allowing."
     record = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-              "tool": tool, "decision": decision, "reason": reason}
+              "tool": tool, "decision": decision, "reason": reason, **ctx}
     if target:
         record["target"] = target          # what was attempted, on which object — never the free text
     log_decision(record)

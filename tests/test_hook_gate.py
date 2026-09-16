@@ -329,14 +329,26 @@ def test_post_tool_hook_records_the_approval_and_nothing_for_reads(tmp_path):
     import subprocess, os, json as _json
     log = tmp_path / "gate.jsonl"
     env = dict(os.environ, SOCXEN_GATE_LOG=str(log), CLAUDE_PLUGIN_ROOT=str(PLUGIN))
-    def post(tool, tool_input):
-        ev = {"hook_event_name": "PostToolUse", "tool_name": tool, "tool_input": tool_input, "tool_response": [{"type": "text", "text": "ok"}]}
-        return subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py")], input=_json.dumps(ev), capture_output=True, text=True, env=env, check=True)
-    proc = post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471", "alertStatus": "DISMISSED", "note": "SECRET FREE TEXT"}})
+    def post(tool, tool_input, raw=None, **extra):
+        ev = {"hook_event_name": "PostToolUse", "tool_name": tool, "tool_input": tool_input, "tool_response": [{"type": "text", "text": "ok"}], **extra}
+        return subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py"), "--post"], input=raw if raw is not None else _json.dumps(ev),
+                              capture_output=True, text=True, env=env, check=True)
+    proc = post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471", "alertStatus": "DISMISSED", "note": "SECRET FREE TEXT"}},
+                permission_mode="default", tool_use_id="toolu_01ABC")
     assert proc.stdout.strip() == "", "a post-call record is never a decision"
     rec = _json.loads(log.read_text().splitlines()[-1])
     assert rec["decision"] == "approved" and rec["tool"].endswith("exabeam_update_alert")
+    assert rec["permission_mode"] == "default" and rec["tool_use_id"] == "toolu_01ABC"
     assert rec["target"] == {"alertId": "4471", "alertStatus": "DISMISSED"} and "SECRET" not in log.read_text()
+    # under a mode where nobody could answer, a completed ask-tier call is NOT an approval
+    post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471"}}, permission_mode="bypassPermissions")
+    assert _json.loads(log.read_text().splitlines()[-1])["decision"] == "ran_unasked"
+    # malformed stdin on the post invocation: no stdout, no record (never a decision)
+    before = len(log.read_text().splitlines())
+    for raw in ("{not json", "[1,2]", ""):
+        proc = post("", {}, raw=raw)
+        assert proc.stdout.strip() == "" and proc.returncode == 0, raw
+    assert len(log.read_text().splitlines()) == before, "a record the hook cannot write is not a decision"
     post("mcp__plugin_socxen_exabeam__exabeam_disable_analytics_rule", {"arg1": {"ruleId": "r-1"}})
     assert _json.loads(log.read_text().splitlines()[-1])["decision"] == "ran_despite_deny"
     n = len(log.read_text().splitlines())
@@ -350,4 +362,5 @@ def test_hooks_json_registers_the_post_tool_hook_on_the_same_matcher():
     """#5: the approval record needs the gate run after the call too, on exactly the tools the gate covers."""
     pre, post = HOOKS_JSON["hooks"]["PreToolUse"][0], HOOKS_JSON["hooks"]["PostToolUse"][0]
     assert post["matcher"] == pre["matcher"]
-    assert "gate.py" in post["hooks"][0]["command"] and "exit 2" not in post["hooks"][0]["command"], "a failed post-call record must never block"
+    assert "gate.py" in post["hooks"][0]["command"] and "--post" in post["hooks"][0]["command"], "the post invocation is decided by the command line, not stdin"
+    assert "exit 2" not in post["hooks"][0]["command"], "a failed post-call record must never block"

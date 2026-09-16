@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\" || exit 0",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\" --post || exit 0",
             "timeout": 20
           }
         ]

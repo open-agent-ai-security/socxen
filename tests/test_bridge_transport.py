@@ -568,7 +568,7 @@ def test_an_upstream_iserror_result_is_an_error_not_a_success(monkeypatch):
         await B.UPSTREAM.drop(); await proxy.stop()
     run(go())
     err = tel.errors()[0]
-    assert err["stage"] == "upstream_tool" and err["http_status"] == 502, err
+    assert err["stage"] == "upstream_tool" and "http_status" not in err, "no status is guessed from prose (#173)"
     assert "error_message" not in err and "data-lake" not in json.dumps(err), "upstream text never enters the audit record (#173)"
     assert not [d for t, d in tel.events if t == "tool_end"], "never audited as a completed call"
 

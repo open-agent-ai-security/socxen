@@ -1014,35 +1014,38 @@ async def list_tools():
         raise RuntimeError(f"Exabeam MCP unavailable: {leaf.summary('tools/list')}") from e
 
 
-_ERROR_CODE_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,}(?:_[A-Z0-9]{2,}){2,}\b")     # AAA_ESA_1000_400
-_HTTP_STATUS_RE = re.compile(r"(?<![\d.])([45]\d\d)(?![\d.])")
+_ERROR_CODE_RE = re.compile(r"\b[A-Z]{2,5}_[A-Z]{2,5}_\d{3,5}_\d{3}\b")     # the platform's shape: AAA_ESA_1000_400
 
 
 def _error_facts(text):
-    """The structured parts of an upstream error, for the audit record (#173): the platform's error code and
-    an HTTP status, parsed from the platform's `{"errors":[{"code":…}]}` body when the text carries one,
-    else by shape. Never the message itself — it quotes the request, which is tenant content."""
+    """The structured parts of an upstream error, for the audit record (#173): the platform's error code
+    and HTTP status, from the platform's `{"errors":[{"code":…,"status":…}]}` body when the text carries
+    one, else the code by its exact shape. A code is accepted only in the platform's own form, whatever
+    the body says, so free text in a `code` field or an upper-snake token from a model-written filter
+    (a rule name, a host) never becomes the record. Never the message itself. No status is guessed from
+    prose: a number in an error sentence is not an HTTP status."""
     code = status = None
     text = str(text or "")
     try:
         start = text.index("{")
-        body = _json.loads(text[start:text.rindex("}") + 1])
+        body = json.loads(text[start:text.rindex("}") + 1])
         errs = body.get("errors") if isinstance(body, dict) else None
-        first = errs[0] if isinstance(errs, list) and errs and isinstance(errs[0], dict) else (body if isinstance(body, dict) else {})
+        first = errs[0] if isinstance(errs, list) and errs and isinstance(errs[0], dict) else {}
         code = first.get("code") or first.get("errorCode")
-        status = first.get("status") or first.get("httpStatus") or body.get("status")
+        status = first.get("status") or first.get("httpStatus")
     except (ValueError, AttributeError, TypeError, IndexError):
         pass
-    if not isinstance(code, str) or not code.strip():
+    if not (isinstance(code, str) and _ERROR_CODE_RE.fullmatch(code.strip())):
         m = _ERROR_CODE_RE.search(text)
         code = m.group(0) if m else None
+    else:
+        code = code.strip()
     try:
         status = int(status) if status is not None else None
+        if status is not None and not 100 <= status <= 599:
+            status = None
     except (TypeError, ValueError):
         status = None
-    if status is None:
-        m = _HTTP_STATUS_RE.search(text)
-        status = int(m.group(1)) if m else None
     return code, status
 
 

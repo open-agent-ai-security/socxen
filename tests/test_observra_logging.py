@@ -268,7 +268,16 @@ def test_agent_name_comes_from_identity_json_with_socxen_as_the_fallback(monkeyp
     assert mod._agent_name(str(rekeyed)) == "socxen"
     assert mod._agent_name(str(tmp_path / "nowhere")) == "socxen"
     (rekeyed / "identity.json").write_text(json.dumps({"name": "soc"}))
-    assert _fresh(monkeypatch, {"CLAUDE_PLUGIN_ROOT": str(rekeyed)}).AGENT == "soc"
+    # the file beside the running code wins over CLAUDE_PLUGIN_ROOT (an inherited env var can name another plugin)
+    assert _fresh(monkeypatch, {"CLAUDE_PLUGIN_ROOT": str(rekeyed)}).AGENT == "socxen"
+    # with no sibling identity.json, the env var is the fallback: a copy of the shim under a bare tree
+    import importlib.util, shutil
+    bare = tmp_path / "bare" / "connector"; bare.mkdir(parents=True)
+    shutil.copy(ROOT / "plugin" / "connector" / "observra_logging.py", bare / "observra_logging.py")
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(rekeyed))
+    spec = importlib.util.spec_from_file_location("obslog_bare", bare / "observra_logging.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    assert mod.AGENT == "soc"
 
 
 def test_tool_error_records_structure_never_the_upstream_message(monkeypatch, tmp_path):
