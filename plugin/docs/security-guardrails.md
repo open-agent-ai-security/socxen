@@ -85,7 +85,8 @@ OpenTelemetry collector or a webhook. See [Audit logging](logging.md).
 Three facts, and they are good ones:
 
 - **socxen stores nothing.** No server, no database, no queue, no hosted service. The audit log is a local
-  file holding metadata only. Exabeam holds what Exabeam already held.
+  file holding metadata only. Exabeam holds what it already held, plus the case notes and the case and alert
+updates you approve.
 - **What socxen retrieves does enter the model's context** — event lines, alert and case content, identity
   and host context, threat timelines, rule logic — and therefore reaches whichever model provider your
   host agent is configured with. That is how the analysis happens.
