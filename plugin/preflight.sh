@@ -152,7 +152,7 @@ print(state, p.get("version") or "unknown", path)
 check_credentials() {
   CREDS_OK=0
   if [ ! -f "$ENV_FILE" ]; then
-    warn "No credentials yet — create $ENV_FILE (see Next steps)"
+    warn "No credentials yet — create $ENV_FILE with EXABEAM_MCP_URL, EXABEAM_API_KEY and EXABEAM_API_SECRET (chmod 600)"
     return
   fi
   local missing="" k perms

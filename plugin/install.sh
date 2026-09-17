@@ -115,7 +115,7 @@ else
   echo; printf '   %sCannot continue without the claude CLI.%s\n' "$RED" "$RST"
   if command -v codex >/dev/null 2>&1; then
     printf '\n   %sOn Codex?%s This installer is Claude-Code-only, and Codex does not need one —\n' "$BOLD" "$RST"
-    printf '   the gate ships inside the plugin, so there is nothing to merge:\n\n'
+    printf '   the gate ships inside the plugin, so there is nothing to configure:\n\n'
     printf '     %scodex plugin marketplace add %s%s\n' "$CYAN" "$MARKETPLACE_REPO" "$RST"
     printf '     %scodex plugin add %s@%s%s\n' "$CYAN" "$PLUGIN" "$MARKETPLACE_NAME" "$RST"
     printf '     %s%s/preflight.sh%s   %s(checks credentials and connectivity)%s\n\n' \
