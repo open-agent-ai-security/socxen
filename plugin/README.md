@@ -83,8 +83,6 @@ behavior-verified before it ships; the runs, the findings and any waivers are pu
 badge above and the [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md)
 track the current release; `claude plugin list` (or `codex plugin list`) shows your installed version.
 
-Codex support is packaged and red-team gated, not yet field-proven; treat that path as gated but young.
-
 ## Project sponsor
 
 socxen is sponsored by [Exabeam](https://www.exabeam.com/). Exabeam contributed the initial code and

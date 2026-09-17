@@ -271,7 +271,8 @@ action it took</strong> (which alert/case, to what disposition), and <strong>whe
 guardrails</a> fired</strong>. A good agent keeps an audit trail; socxen keeps one <strong>by
 default</strong>, so a production tenant can reconstruct a session or drive anomaly detection instead of relying
 on the free-form investigation report alone.</p>
-<p>It runs inside the local MCP bridge — the one place that sees every Exabeam call — and is built on
+<p>It runs inside the bundled connector (the local MCP bridge, the one place that sees every Exabeam call)
+and is built on
 <a href="https://open-agent-ai-security.github.io/observra/"><strong>observra</strong></a>, an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.</p>
 <p>The bridge installs the observra library it needs (1.1 or newer); nothing for you to set up.</p>
@@ -289,12 +290,12 @@ Events are written as newline-delimited JSON (one object per line) in the CIM-no
 <tr>
 <td><code>mcp_session_start</code> / <code>mcp_session_end</code></td>
 <td>bridge process start / exit</td>
-<td><code>session_id</code>, host context; on start also the configuration attestation: <code>telemetry_backend</code>, <code>telemetry_destination</code> (resolved file path, or scheme + host of the endpoint), <code>dry_run</code>, <code>plugin_version</code>, <code>gate_log</code></td>
+<td><code>session_id</code>, host context; on start also the configuration attestation: <code>telemetry_backend</code>, <code>telemetry_destination</code> (resolved file path, or scheme + host of the endpoint), <code>dry_run</code> (writes simulated; test runs only), <code>plugin_version</code>, <code>gate_log</code></td>
 </tr>
 <tr>
 <td><code>tools_list</code></td>
 <td>the remote's tool definitions arrive (once per session)</td>
-<td><code>tool_count</code> (the definitions the model sees; add <code>metadata_screen_failed</code> for what the remote sent — <code>tool_shas</code> covers both), <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), <code>metadata_screen_failed</code> / <code>withheld_tools</code> (definitions the screen could not process are withheld for the session), <code>odd_names</code> (tool names carrying a hidden code point — spelled out as <code>U+XXXX</code> in the record, never altered in the definition), <code>unclassified_tools</code> (names no tier classifies; treated as writes), <code>directive_tools</code> (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read <code>tool_shas</code> for change), <code>surface_sha</code> (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and <code>tool_shas</code> (the same per tool, 12 hex)</td>
+<td><code>tool_count</code> (the definitions the model sees), <code>metadata_stripped</code> / <code>metadata_flagged</code> (hidden code points removed or flagged in tool descriptions — counts only), <code>withheld_tools</code> (definitions the screen could not read, so the model never saw them), <code>tool_shas</code> (a hash per definition, so a changed definition is visible across sessions)</td>
 </tr>
 <tr>
 <td><code>tool_start</code></td>
@@ -303,7 +304,7 @@ Events are written as newline-delimited JSON (one object per line) in the CIM-no
 </tr>
 <tr>
 <td><code>tool_end</code> with <code>action.wildcardFieldsRedirected: true</code></td>
-<td>a search asked for every column (<code>fields: ["*"]</code>) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text (#160), kept until the server is fixed</td>
+<td>a search asked for every column (<code>fields: ["*"]</code>) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text, kept until the server is fixed</td>
 <td><code>tool_name</code></td>
 </tr>
 <tr>
@@ -352,8 +353,9 @@ three backups). One line per decision:</p>
 <p>The same hook runs again after the call. An ask-tier call that <strong>completed</strong> is recorded as <code>approved</code>,
 beside the <code>ask</code> line — inferred from completion: an ask completes only when a human answered yes. When
 the session ran in a mode where nobody could answer (<code>bypassPermissions</code>, <code>dontAsk</code>) the line says
-<code>ran_unasked</code> instead, because the ask did not hold for that call. Both lines carry the host's
-<code>permission_mode</code> and <code>tool_use_id</code> when present, so a post line ties to its ask:</p>
+<code>ran_unasked</code> instead, because the ask did not hold for that call. That line should never appear; it
+exists so that a gate that somehow did not hold is visible in the record rather than silent. Both lines
+carry the host's <code>permission_mode</code> and <code>tool_use_id</code> when present, so a post line ties to its ask:</p>
 <pre><code class="language-json">{&quot;ts&quot;: &quot;2026-09-05T16:01:41+00:00&quot;, &quot;tool&quot;: &quot;mcp__plugin_socxen_exabeam__exabeam_update_alert&quot;,
  &quot;decision&quot;: &quot;approved&quot;, &quot;reason&quot;: &quot;an ask-tier call completed after the gate asked: inferred from completion, an ask completes only on a yes&quot;,
  &quot;permission_mode&quot;: &quot;default&quot;, &quot;tool_use_id&quot;: &quot;toolu_01ABC&quot;,
@@ -474,17 +476,16 @@ different responses:</p>
 </ul>
 <p>observra's own <strong>backend write errors</strong> are routed to stderr too, prefixed <code>bridge: observra …</code>, so a
 failed write is visible rather than vanishing into a library logger. One gap worth knowing for an audit
-trail: if the internal queue fills, observra drops the oldest event and records it only in a counter
-(<code>observra_events_dropped_total</code>, readable via <code>observra.get_stats()</code>) at debug level — that drop is
-counted, not announced. The security guardrails are independent and keep running throughout.</p>
+trail: if its internal queue fills, observra drops the oldest event and counts the drop rather than
+announcing it. The security guardrails are independent and keep running throughout.</p>
 <h2 id="turning-it-off">Turning it off</h2>
 <pre><code class="language-bash">export SOCXEN_OBSERVRA=off
 </code></pre>
 <p>Off means <em>off</em>: no file, and observra is never imported.</p>
 <h2 id="known-limitation">Known limitation</h2>
-<p>The trail records the <strong>gated action and its disposition deterministically at the write sink</strong>, and in the
-<a href="security-guardrails.html">supported governance posture</a> an
-<code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human approves it — so the write
+<p>The trail records the <strong>gated action and its disposition deterministically at the write sink</strong>, and because
+the gate ships on, an <code>update_alert</code> / <code>update_case</code> write only reaches the bridge <em>after</em> the human
+approves it — so the write
 event is evidence the approval happened. On Claude Code the bundled hook also records the approval,
 as the <code>approved</code> line in <code>gate.jsonl</code> above — inferred from the call completing after an ask, not
 observed. Neither record names <strong>who</strong> answered: that lives in the host agent's approval layer, which

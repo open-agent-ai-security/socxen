@@ -12,7 +12,8 @@ guardrails](security-guardrails.md) fired**. A good agent keeps an audit trail; 
 default**, so a production tenant can reconstruct a session or drive anomaly detection instead of relying
 on the free-form investigation report alone.
 
-It runs inside the local MCP bridge — the one place that sees every Exabeam call — and is built on
+It runs inside the bundled connector (the local MCP bridge, the one place that sees every Exabeam call)
+and is built on
 [**observra**](https://open-agent-ai-security.github.io/observra/), an open-source agent-telemetry SDK.
 Events are written as newline-delimited JSON (one object per line) in the CIM-normalized observra schema.
 
@@ -24,10 +25,10 @@ The bridge installs the observra library it needs (1.1 or newer); nothing for yo
 
 | `event_type` | When | Key fields |
 |---|---|---|
-| `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context; on start also the configuration attestation: `telemetry_backend`, `telemetry_destination` (resolved file path, or scheme + host of the endpoint), `dry_run`, `plugin_version`, `gate_log` |
-| `tools_list` | the remote's tool definitions arrive (once per session) | `tool_count` (the definitions the model sees; add `metadata_screen_failed` for what the remote sent — `tool_shas` covers both), `metadata_stripped` / `metadata_flagged` (hidden code points the metadata screen removed or flagged in descriptions and schema text — counts only), `metadata_screen_failed` / `withheld_tools` (definitions the screen could not process are withheld for the session), `odd_names` (tool names carrying a hidden code point — spelled out as `U+XXXX` in the record, never altered in the definition), `unclassified_tools` (names no tier classifies; treated as writes), `directive_tools` (definitions whose text is instruction-shaped — surfaced, never altered; on the Exabeam MCP as shipped today every definition qualifies, so expect the full list and read `tool_shas` for change), `surface_sha` (a hash of the whole tool surface as the remote presented it this session; compare across sessions) and `tool_shas` (the same per tool, 12 hex) |
+| `mcp_session_start` / `mcp_session_end` | bridge process start / exit | `session_id`, host context; on start also the configuration attestation: `telemetry_backend`, `telemetry_destination` (resolved file path, or scheme + host of the endpoint), `dry_run` (writes simulated; test runs only), `plugin_version`, `gate_log` |
+| `tools_list` | the remote's tool definitions arrive (once per session) | `tool_count` (the definitions the model sees), `metadata_stripped` / `metadata_flagged` (hidden code points removed or flagged in tool descriptions — counts only), `withheld_tools` (definitions the screen could not read, so the model never saw them), `tool_shas` (a hash per definition, so a changed definition is visible across sessions) |
 | `tool_start` | a tool call begins | `tool_name` |
-| `tool_end` with `action.wildcardFieldsRedirected: true` | a search asked for every column (`fields: ["*"]`) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text (#160), kept until the server is fixed | `tool_name` |
+| `tool_end` with `action.wildcardFieldsRedirected: true` | a search asked for every column (`fields: ["*"]`) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text, kept until the server is fixed | `tool_name` |
 | `tool_end` | a tool call succeeds | `tool_name`, `duration_ms`, + the fields below |
 | `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `metadata_screen` = a definition the screen withheld was called by name and the bridge refused it, also with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure the structured parts of what failed: `error_type_name`, `error_code` (the platform's own code, e.g. `AAA_ESA_1000_400`, when it sent one), `http_status` when there was one, `is_retryable`; `outcome_unknown: true` when a write's request had gone out before the session died (verify before re-issuing); `dropped_fields` naming, by the schema's spelling, the fields the bridge dropped from an update. Never the error message itself: it quotes the request. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
 
@@ -79,8 +80,9 @@ three backups). One line per decision:
 The same hook runs again after the call. An ask-tier call that **completed** is recorded as `approved`,
 beside the `ask` line — inferred from completion: an ask completes only when a human answered yes. When
 the session ran in a mode where nobody could answer (`bypassPermissions`, `dontAsk`) the line says
-`ran_unasked` instead, because the ask did not hold for that call. Both lines carry the host's
-`permission_mode` and `tool_use_id` when present, so a post line ties to its ask:
+`ran_unasked` instead, because the ask did not hold for that call. That line should never appear; it
+exists so that a gate that somehow did not hold is visible in the record rather than silent. Both lines
+carry the host's `permission_mode` and `tool_use_id` when present, so a post line ties to its ask:
 
 ```json
 {"ts": "2026-09-05T16:01:41+00:00", "tool": "mcp__plugin_socxen_exabeam__exabeam_update_alert",
@@ -185,9 +187,8 @@ different responses:
 
 observra's own **backend write errors** are routed to stderr too, prefixed `bridge: observra …`, so a
 failed write is visible rather than vanishing into a library logger. One gap worth knowing for an audit
-trail: if the internal queue fills, observra drops the oldest event and records it only in a counter
-(`observra_events_dropped_total`, readable via `observra.get_stats()`) at debug level — that drop is
-counted, not announced. The security guardrails are independent and keep running throughout.
+trail: if its internal queue fills, observra drops the oldest event and counts the drop rather than
+announcing it. The security guardrails are independent and keep running throughout.
 
 ## Turning it off
 
@@ -199,9 +200,9 @@ Off means *off*: no file, and observra is never imported.
 
 ## Known limitation
 
-The trail records the **gated action and its disposition deterministically at the write sink**, and in the
-[supported governance posture](security-guardrails.md) an
-`update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
+The trail records the **gated action and its disposition deterministically at the write sink**, and because
+the gate ships on, an `update_alert` / `update_case` write only reaches the bridge *after* the human
+approves it — so the write
 event is evidence the approval happened. On Claude Code the bundled hook also records the approval,
 as the `approved` line in `gate.jsonl` above — inferred from the call completing after an ask, not
 observed. Neither record names **who** answered: that lives in the host agent's approval layer, which

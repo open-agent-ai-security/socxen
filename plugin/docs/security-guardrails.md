@@ -134,3 +134,11 @@ The methodology, every dated run and the known residuals are in the repository's
   dismiss/close gate. Use the bundled connector for any investigation you rely on.
 - **Judgment.** These controls reduce the blast radius of hostile content. They do not replace the human
   gate, your SOC procedures, or your own review of the verdict.
+
+## Advanced: mirroring the tiers in host policy
+
+Organizations that manage Claude Code through policy can mirror the plugin's allow, ask and deny rules
+as host permission rules, so the same tiers show up in your policy tooling. The plugin publishes them,
+generated from its tier file, as `skills/soc-investigate/settings.snippet.json` inside the installed
+plugin. Applied through managed settings, the two layers agree on every tool because both come from one
+source. This adds nothing to the gate itself, which is on from install.
