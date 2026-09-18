@@ -6,9 +6,9 @@
     "name": "Exabeam",
     "url": "https://www.exabeam.com/"
   },
+  "license": "Apache-2.0",
   "homepage": "https://github.com/open-agent-ai-security/socxen",
   "repository": "https://github.com/open-agent-ai-security/socxen",
-  "license": "Apache-2.0",
   "keywords": [
     "soc",
     "soc-analyst",

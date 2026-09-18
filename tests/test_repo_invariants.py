@@ -828,6 +828,47 @@ def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
 
 
+def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp_path):
+    """A catalog that distributes the payload under its own terms (Exabeam/plugins) sets `distribution`
+    in identity.json — license, homepage, repository. The manifests describe the plugin AS DISTRIBUTED,
+    so they take those values; the source stays under its own license: every SPDX header, the README
+    badge and identity.sh keep the top-level `license`. Without the block the manifests carry the
+    identity's own fields, as before."""
+    import shutil, subprocess, sys, json
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    ident = json.loads((work / "identity.json").read_text())
+    readme_before = (work / "README.md").read_text()
+    headers_before = {p.relative_to(work): p.read_text() for p in work.rglob("*") if p.is_file() and "SPDX-License-Identifier" in p.read_text(errors="ignore")}
+    ident["distribution"] = {"license": "LicenseRef-Exabeam-Enterprise-Agreement",
+                             "homepage": "https://github.com/Exabeam/plugins", "repository": "https://github.com/Exabeam/plugins"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 1, "the manifests are stale until regenerated"
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "manifests carry the distribution's homepage, license, repository" in out, out
+    for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        d = json.loads((work / m).read_text())
+        assert d["license"] == "LicenseRef-Exabeam-Enterprise-Agreement" and d["homepage"] == d["repository"] == "https://github.com/Exabeam/plugins", m
+        assert d["name"] == ident["name"] and d["version"] == ident["version"]
+    assert (work / "README.md").read_text() == readme_before, "the README is the software's, untouched"
+    assert "SOCXEN_ID_LICENSE=Apache-2.0" in (work / "identity.sh").read_text()
+    for rel, text in headers_before.items():
+        if rel.parts[0] not in (".claude-plugin", ".codex-plugin"):
+            assert (work / rel).read_text() == text, f"{rel} changed: the block must not touch the source"
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    # an unknown key is refused, never silently written into a manifest
+    ident["distribution"]["name"] = "other"
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    r = subprocess.run(gen, capture_output=True, text=True)
+    assert r.returncode != 0 and "distribution block accepts only" in r.stderr
+    # the shipped tree has no block: the manifests equal the identity's own fields
+    live = json.loads((ROOT / "plugin" / "identity.json").read_text())
+    for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        d = json.loads((ROOT / "plugin" / m).read_text())
+        assert (d["license"], d["homepage"], d["repository"]) == (live["license"], live["homepage"], live["repository"])
+
+
 def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):
     """#180: a vendor catalog re-keys the plugin by patching identity.json and regenerating. The guides
     then must name THAT distribution's install key and marketplace repo, not the community's — read from

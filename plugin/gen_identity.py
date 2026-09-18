@@ -218,8 +218,24 @@ def rewrite_license(prev_license, identity):
     return changed
 
 
+DISTRIBUTION_KEYS = ("license", "homepage", "repository")
+
+
+def manifest_fields(identity):
+    """The manifest describes the plugin AS DISTRIBUTED. A catalog that serves this payload under its own
+    terms (Exabeam/plugins) sets an optional `distribution` block in identity.json — `license`, `homepage`,
+    `repository` — and the manifests take those values. The top-level `license` keeps meaning the
+    software's license: it drives the SPDX headers, the README badge and identity.sh, and is untouched by
+    the block, so the source stays under its own license while the package states the distribution's."""
+    dist = identity.get("distribution") or {}
+    unknown = sorted(set(dist) - set(DISTRIBUTION_KEYS))
+    if unknown:
+        sys.exit(f"identity.json distribution block accepts only {DISTRIBUTION_KEYS}, got {unknown}")
+    return {k: dist.get(k, identity[k]) for k in DISTRIBUTION_KEYS}
+
+
 def build(identity, perms):
-    common = {k: identity[k] for k in ("name", "version", "description", "author", "homepage", "repository", "license")}
+    common = {k: identity[k] for k in ("name", "version", "description", "author")} | manifest_fields(identity)
     claude = {**common, "keywords": identity["keywords"] + identity["hostKeywords"]["claude"], "skills": "./skills/"}
     # The bundled PreToolUse hook (#148) is deliberately NOT declared here. Claude Code loads
     # hooks/hooks.json from the standard path automatically, so declaring that same path makes the loader
@@ -282,8 +298,10 @@ def main(argv):
     for k, text in want.items():
         OUT[k].write_text(text)
     n = sum(len(v) for v in json.loads(want["snippet"])["permissions"].values())
+    dist = identity.get("distribution") or {}
     print(f"wrote {', '.join(str(OUT[k].relative_to(HERE.parent)) for k in OUT)} — name={identity['name']!r}, "
           f"version {identity['version']}, {n} permission rules"
+          + (f"; manifests carry the distribution's {', '.join(sorted(dist))}" if dist else "")
           + (f"; install key {prev['key']} → {install_key(identity)} in {len(changed)} file(s)" if changed else "")
           + (f"; left {len(kept)} longer identifier(s) untouched: {', '.join(kept)}" if kept else "")
           + (f"; license {prev['license']} → {identity['license']} in {len(relicensed)} file(s)" if relicensed else ""))
