@@ -80,6 +80,24 @@ firing is written to a local, structured audit log, on by default: `~/.socxen/te
 records metadata only — never case notes, evidence or payloads — and can be routed to Exabeam, an
 OpenTelemetry collector or a webhook. See [Audit logging](logging.md).
 
+## Where your data goes
+
+Three facts, and they are good ones:
+
+- **socxen stores nothing.** No server, no database, no queue, no hosted service. The audit log is a local
+  file holding metadata only. Exabeam holds what it already held, plus the case notes and the case and alert
+updates you approve.
+- **What socxen retrieves does enter the model's context** — event lines, alert and case content, identity
+  and host context, threat timelines, rule logic — and therefore reaches whichever model provider your
+  host agent is configured with. That is how the analysis happens.
+- **socxen does not supply, choose or configure that provider.** You bring your own Claude Code or Codex,
+  your own authentication, your own agreement. Residency, retention and processing terms are whatever
+  your agreement with your provider says; socxen is not a party to it and cannot change it.
+
+Compared with a hosted SOC agent, where the vendor runs the analysis and holds a copy of your telemetry
+under its own posture, there is no middle here: socxen runs on the analyst's machine, against your
+tenant, through your provider, on your terms.
+
 ## How it is tested
 
 Claims about agent safety are worth what the testing behind them is worth, so the testing is public

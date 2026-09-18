@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html" class="active">Security</a><ul class="docs-subnav"><li><a href="#a-human-before-anything-is-dismissed-or-closed">A human before anything is dismissed or closed</a></li><li><a href="#what-it-reads-is-screened">What it reads is screened</a></li><li><a href="#what-it-writes-is-neutralized">What it writes is neutralized</a></li><li><a href="#what-it-did-is-on-the-record">What it did is on the record</a></li><li><a href="#how-it-is-tested">How it is tested</a></li><li><a href="#what-these-controls-do-not-cover">What these controls do not cover</a></li></ul></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html" class="active">Security</a><ul class="docs-subnav"><li><a href="#a-human-before-anything-is-dismissed-or-closed">A human before anything is dismissed or closed</a></li><li><a href="#what-it-reads-is-screened">What it reads is screened</a></li><li><a href="#what-it-writes-is-neutralized">What it writes is neutralized</a></li><li><a href="#what-it-did-is-on-the-record">What it did is on the record</a></li><li><a href="#where-your-data-goes">Where your data goes</a></li><li><a href="#how-it-is-tested">How it is tested</a></li><li><a href="#what-these-controls-do-not-cover">What these controls do not cover</a></li></ul></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="security">Security</h1>
 <p>Everything socxen does to be safe to point at a live tenant, on one page: the human gate on
@@ -329,6 +329,22 @@ re-arms a payload that was sitting in the original data:</p>
 firing is written to a local, structured audit log, on by default: <code>~/.socxen/telemetry.jsonl</code>. It
 records metadata only — never case notes, evidence or payloads — and can be routed to Exabeam, an
 OpenTelemetry collector or a webhook. See <a href="logging.html">Audit logging</a>.</p>
+<h2 id="where-your-data-goes">Where your data goes</h2>
+<p>Three facts, and they are good ones:</p>
+<ul>
+<li><strong>socxen stores nothing.</strong> No server, no database, no queue, no hosted service. The audit log is a local
+  file holding metadata only. Exabeam holds what it already held, plus the case notes and the case and alert
+updates you approve.</li>
+<li><strong>What socxen retrieves does enter the model's context</strong> — event lines, alert and case content, identity
+  and host context, threat timelines, rule logic — and therefore reaches whichever model provider your
+  host agent is configured with. That is how the analysis happens.</li>
+<li><strong>socxen does not supply, choose or configure that provider.</strong> You bring your own Claude Code or Codex,
+  your own authentication, your own agreement. Residency, retention and processing terms are whatever
+  your agreement with your provider says; socxen is not a party to it and cannot change it.</li>
+</ul>
+<p>Compared with a hosted SOC agent, where the vendor runs the analysis and holds a copy of your telemetry
+under its own posture, there is no middle here: socxen runs on the analyst's machine, against your
+tenant, through your provider, on your terms.</p>
 <h2 id="how-it-is-tested">How it is tested</h2>
 <p>Claims about agent safety are worth what the testing behind them is worth, so the testing is public
 and every release is gated on it:</p>
