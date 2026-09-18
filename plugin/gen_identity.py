@@ -218,7 +218,7 @@ def rewrite_license(prev_license, identity):
     return changed
 
 
-DISTRIBUTION_KEYS = ("license", "homepage", "repository")
+DISTRIBUTION_KEYS = ("homepage", "repository", "license")      # manifest key order, unchanged from before the block
 
 
 def manifest_fields(identity):
