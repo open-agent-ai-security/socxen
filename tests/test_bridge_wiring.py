@@ -587,3 +587,17 @@ def test_main_refuses_to_start_on_a_cleartext_url_before_posting_anything(monkey
     assert e.value.code == 1 and not posted
     err = capsys.readouterr().err
     assert "refusing to start" in err and "in the clear" in err and "traceback" not in err.lower()
+
+
+def test_error_facts_accepts_only_the_platform_code_shape_and_never_prose():
+    """#173: the audit record's error_code is the platform's own code or nothing. Free text in a `code`
+    field, an upper-snake token a model wrote into a filter, and a number in an error sentence must all
+    stay out."""
+    assert B._error_facts('{"errors":[{"code":"AAA_ESA_1000_400","status":400,"message":"Invalid filter"}]}') == ("AAA_ESA_1000_400", 400)
+    assert B._error_facts("Upstream: AAA_ESA_1003_400 while searching") == ("AAA_ESA_1003_400", None)
+    assert B._error_facts('{"errors":[{"code":"Invalid filter value alert_name:\\"finance user p.mensah\\""}]}') == (None, None)
+    assert B._error_facts('{"code":"p.mensah did a thing"}') == (None, None)
+    assert B._error_facts('alert_name:"FAILED_LOGIN_BRUTE_FORCE from p.mensah" (400)') == (None, None)
+    assert B._error_facts('host:"WIN_SRV_01" rule:"UBA_DC_SVC_ACCT_ANOMALY"') == (None, None)
+    assert B._error_facts("alert 4471 not found: case 447 missing; timeout after 500ms") == (None, None)
+    assert B._error_facts('{"errors":[{"code":"AAA_ESA_1000_400","status":"nope"}]}') == ("AAA_ESA_1000_400", None)

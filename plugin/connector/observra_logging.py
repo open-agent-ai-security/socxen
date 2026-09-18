@@ -54,7 +54,28 @@ import sys
 __all__ = ["enabled", "session_start", "session_end", "tools_list", "tool_start", "tool_end", "tool_error"]
 
 SKILL = "soc-investigate"
-AGENT = "socxen"
+
+
+def _agent_name(root=None):
+    """The plugin's own name, from identity.json beside the connector (#210): a re-keyed copy of this
+    plugin (a vendor catalog shipping it as `soc`) then logs under its own name with no overlay change.
+    `socxen` only when the file is missing or unreadable — never an exception."""
+    try:
+        import json as _json
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates = [root] if root else [here, os.environ.get("CLAUDE_PLUGIN_ROOT") or ""]
+        for base in candidates:                       # the file beside this code wins; the env var is a fallback
+            path = os.path.join(base, "identity.json")
+            if base and os.path.isfile(path):
+                with open(path, encoding="utf-8") as fh:
+                    name = _json.load(fh).get("name")
+                return str(name).strip() if isinstance(name, str) and name.strip() else "socxen"
+        return "socxen"
+    except Exception:  # noqa: BLE001 -- the audit trail must never depend on this file
+        return "socxen"
+
+
+AGENT = _agent_name()
 FRAMEWORK = "mcp"
 _DEFAULT_BACKEND = "jsonl"                              # ON by default — assurance is the default posture
 _DEFAULT_PATH = "~/.socxen/telemetry.jsonl"
@@ -275,14 +296,20 @@ def tool_end(tool, duration_ms, *, defang_notes=None, hygiene_removed=None, acti
     _emit("tool_end", tool_name=tool, **data)
 
 
-def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, error_message=None,
-               http_status=None, is_retryable=None):
+def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, error_code=None,
+               http_status=None, is_retryable=None, outcome_unknown=None, dropped_fields=None):
     """`stage` names the layer that raised: "neutralize" is the write-side guardrail refusing to forward
     (fail-closed — a guardrail acting, recorded as such), "metadata_screen" the bridge refusing a call to a
     definition it withheld (#172, likewise), "remote" is the upstream call, "upstream_tool" the tool ran
     on the proxy and reported isError. The leaf fields (#153) say what ACTUALLY failed:
     `error_class` alone was always the anyio wrapper ("ExceptionGroup") for a remote failure, and 115
-    records in one incident carried zero bits about the cause."""
+    records in one incident carried zero bits about the cause.
+
+    Structured parts only (#173): the platform's error CODE and HTTP status, never its message — an
+    upstream error quotes the request that failed, and a model-written filter is tenant content the audit
+    trail must not hold. The full text still reaches the operator on stderr and the agent in the tool
+    error. `outcome_unknown` marks a write whose request had gone out when the session died (#157);
+    `dropped_fields` names (by the schema's spelling) the fields the bridge dropped from an update."""
     data = {"duration_ms": round(duration_ms, 1), "error_class": type(exc).__name__}
     if stage:
         data["stage"] = stage
@@ -290,12 +317,16 @@ def tool_error(tool, duration_ms, exc, stage=None, *, error_type_name=None, erro
             data["guardrail_refused"] = True                     # a guardrail refusing to forward (#172 for the latter)
     if error_type_name:
         data["error_type_name"] = str(error_type_name)[:80]
-    if error_message:
-        data["error_message"] = str(error_message)[:300]
+    if error_code:
+        data["error_code"] = str(error_code)[:64]
     if http_status is not None:
         data["http_status"] = int(http_status)
     if is_retryable is not None:
         data["is_retryable"] = bool(is_retryable)
+    if outcome_unknown:
+        data["outcome_unknown"] = True
+    if dropped_fields:
+        data["dropped_fields"] = ",".join(str(f) for f in dropped_fields)[:200]
     _emit("tool_error", tool_name=tool, **data)
 
 

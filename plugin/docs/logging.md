@@ -29,9 +29,10 @@ The bridge installs the observra library it needs (1.1 or newer); nothing for yo
 | `tool_start` | a tool call begins | `tool_name` |
 | `tool_end` with `action.wildcardFieldsRedirected: true` | a search asked for every column (`fields: ["*"]`) and was answered with the column list instead of being sent — a workaround for the MCP server's schema text (#160), kept until the server is fixed | `tool_name` |
 | `tool_end` | a tool call succeeds | `tool_name`, `duration_ms`, + the fields below |
-| `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `metadata_screen` = a definition the screen withheld was called by name and the bridge refused it, also with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure what actually failed: `error_type_name`, `error_message` (canonicalized, capped), `http_status` when there was one, `is_retryable`. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
+| `tool_error` | a tool call fails | `tool_name`, `duration_ms`, `error_class`, `stage` (`neutralize` = the write-side guardrail refused to forward, with `guardrail_refused: true`; `metadata_screen` = a definition the screen withheld was called by name and the bridge refused it, also with `guardrail_refused: true`; `remote` = the upstream call failed; `upstream_tool` = the tool ran on the proxy and reported an error), and for a remote failure the structured parts of what failed: `error_type_name`, `error_code` (the platform's own code, e.g. `AAA_ESA_1000_400`, when it sent one), `http_status` when there was one, `is_retryable`; `outcome_unknown: true` when a write's request had gone out before the session died (verify before re-issuing); `dropped_fields` naming, by the schema's spelling, the fields the bridge dropped from an update. Never the error message itself: it quotes the request. A failed `tools/list` at startup is recorded under `tool_name: tools/list`. |
 
-Every event also carries: `framework: "mcp"`, `agent_name: "socxen"`, `skill_name: "soc-investigate"`,
+Every event also carries: `framework: "mcp"`, `agent_name` (the plugin's name from its `identity.json`
+— `socxen` here; a copy shipped under another name logs under that name), `skill_name: "soc-investigate"`,
 ULID `session_id` / `trace_id` / `span_id` for correlation, a `timestamp`, and host context
 (`host`, `user`, `os`, `arch`, `library_version`) for accountability.
 
@@ -75,6 +76,24 @@ three backups). One line per decision:
  "target": {"alertId": "4471", "alertStatus": "DISMISSED"}}
 ```
 
+The same hook runs again after the call. An ask-tier call that **completed** is recorded as `approved`,
+beside the `ask` line — inferred from completion: an ask completes only when a human answered yes. When
+the session ran in a mode where nobody could answer (`bypassPermissions`, `dontAsk`) the line says
+`ran_unasked` instead, because the ask did not hold for that call. Both lines carry the host's
+`permission_mode` and `tool_use_id` when present, so a post line ties to its ask:
+
+```json
+{"ts": "2026-09-05T16:01:41+00:00", "tool": "mcp__plugin_socxen_exabeam__exabeam_update_alert",
+ "decision": "approved", "reason": "an ask-tier call completed after the gate asked: inferred from completion, an ask completes only on a yes",
+ "permission_mode": "default", "tool_use_id": "toolu_01ABC",
+ "target": {"alertId": "4471", "alertStatus": "DISMISSED"}}
+```
+
+A deny-tier tool that ran anyway is recorded as `ran_despite_deny`. Allow-tier reads leave no post-call
+line: this file records decisions, and the telemetry records every call. The host runs the post-call
+hook only when the tool succeeded, so an approved write that failed upstream leaves the `ask` line and
+the bridge's `tool_error` event, and no `approved` line.
+
 `target` carries the same safe identifier and disposition fields the telemetry's `action.*` record uses,
 and nothing else — so a refused attempt reads as *tried to dismiss alert 4471 as dismissed*, which is the
 near-miss a SOC wants to see, while the note, description or reason text a payload can ride in never
@@ -89,6 +108,9 @@ The log stores **metadata about** the agent's actions — never the raw evidence
   `closedReason`, `tags`. The case-note text and alert prose never enter the log.
 - **Tool arguments and results** in general — `tool_args` / `tool_result` are always `null`.
 - **The neutralized payloads themselves** — a defanged formula or phishing URL is counted, never quoted.
+- **Upstream error text** — a failed call is recorded by its error code, HTTP status and class; the
+  platform's message, which quotes the request that failed, goes to stderr for the operator and to the
+  agent, not to the log.
 
 The whole point of the guardrails is to neutralize hostile content; the audit log must not become a second
 copy of it. observra additionally applies its own PII redaction over everything above.
@@ -180,8 +202,9 @@ Off means *off*: no file, and observra is never imported.
 The trail records the **gated action and its disposition deterministically at the write sink**, and in the
 [supported governance posture](security-guardrails.md) an
 `update_alert` / `update_case` write only reaches the bridge *after* the human approves it — so the write
-event is evidence the approval happened. It does **not** yet capture a distinct *approver-identity* event
-(who clicked yes), because that lives in the host agent's approval layer, which the bridge cannot see —
-the prompt the bundled hook raises on Claude Code (its own `gate.jsonl` records the decision, not who
-answered), or Codex's tool-approval modes. An explicit approval event would be added
-via a host-side post-tool hook feeding the same log.
+event is evidence the approval happened. On Claude Code the bundled hook also records the approval,
+as the `approved` line in `gate.jsonl` above — inferred from the call completing after an ask, not
+observed. Neither record names **who** answered: that lives in the host agent's approval layer, which
+neither the hook nor the bridge can see. The operator is carried on every event as host context
+(`user`/`host`). Codex has no hook, so there the write event is the only
+approval record.
