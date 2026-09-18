@@ -231,13 +231,16 @@ def test_gate_never_crashes_on_a_bad_log_path(tmp_path):
     assert proc.returncode == 0 and _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 
-def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0):
+def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0, errors=None):
     """A `claude` on PATH whose `plugin list --json` reports socxen installed at install_path (or nothing),
     and whose `mcp list` prints `mcp_list_out` and exits `mcp_list_rc` (non-zero = a server failed its
     health check, which is how the real CLI behaves)."""
     bin_ = tmp_path / "bin"; bin_.mkdir(exist_ok=True)
-    body = json.dumps([{"id": "socxen@open-agent-ai-security", "version": "0.8.6", "scope": "user", "enabled": True,
-                        "installPath": str(install_path)}] if install_path else [])
+    entry = {"id": "socxen@open-agent-ai-security", "version": "0.8.6", "scope": "user", "enabled": True,
+             "installPath": str(install_path)}
+    if errors:
+        entry["errors"] = errors                                  # what the host reports for a plugin it refused to load
+    body = json.dumps([entry] if install_path else [])
     (bin_ / "mcp_list.txt").write_text(mcp_list_out)
     (bin_ / "claude").write_text(
         "#!/bin/sh\ncase \"$*\" in *'plugin list'*) printf '%s' '" + body + "' ;; "
@@ -246,11 +249,13 @@ def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0):
     return str(bin_)
 
 
-def _preflight(tmp_path, install_path):
+def _preflight(tmp_path, install_path, errors=None, rules_merged=False):
     import subprocess, os
-    settings = tmp_path / "settings.json"; settings.write_text('{"permissions": {}}')
+    settings = tmp_path / "settings.json"
+    settings.write_text((PLUGIN / "skills" / "soc-investigate" / "settings.snippet.json").read_text()
+                        if rules_merged else '{"permissions": {}}')
     env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), SOCXEN_PLATFORM="claude", HOME=str(tmp_path),
-               PATH=_fake_claude(tmp_path, install_path) + os.pathsep + os.environ.get("PATH", ""))
+               PATH=_fake_claude(tmp_path, install_path, errors=errors) + os.pathsep + os.environ.get("PATH", ""))
     return subprocess.run(["bash", str(PLUGIN / "preflight.sh"), "--skip-connectivity"], capture_output=True, text=True, env=env)
 
 
@@ -290,6 +295,37 @@ def test_preflight_never_attests_a_hook_the_installed_plugin_lacks(tmp_path):
     assert "gate ON" not in proc.stdout and "predates the bundled hook" in proc.stdout, proc.stdout
     proc = _preflight(tmp_path, None)                          # not installed at all
     assert "gate ON" not in proc.stdout and "not installed or not enabled" in proc.stdout, proc.stdout
+
+
+def test_preflight_reports_a_plugin_the_host_refused_to_load_as_gate_off(tmp_path):
+    """#226: `enabled: true` and hooks/hooks.json on disk are both true for a plugin the host refused to
+    load; only errors[] carries that. With or without the permission rules merged, preflight must say the
+    plugin failed to load, name the error, and never print a gate ON line."""
+    import subprocess, os
+    err = "Invalid manifest: hooks must not be declared in plugin.json"
+    for merged in (False, True):
+        proc = _preflight(tmp_path, PLUGIN, errors=[err], rules_merged=merged)
+        out = proc.stdout + proc.stderr
+        assert "gate ON" not in out, out
+        assert "FAILED TO LOAD" in out and err in out, out
+        assert "unbound variable" not in out
+    # the rules-merged control: without a load error the merged rules still read ON
+    assert "the permission rules are merged" in _preflight(tmp_path, PLUGIN, rules_merged=True).stdout
+    # and the installer's own governance block, same fake, both settings states: never a green line
+    for merged in (False, True):
+        settings = tmp_path / "settings.json"
+        settings.write_text((PLUGIN / "skills" / "soc-investigate" / "settings.snippet.json").read_text()
+                            if merged else '{"permissions": {}}')
+        env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), HOME=str(tmp_path),
+                   PATH=_fake_claude(tmp_path, PLUGIN, errors=[err]) + os.pathsep + os.environ.get("PATH", ""))
+        proc = subprocess.run(["bash", str(PLUGIN / "install.sh"), "--checks-only", "--skip-connectivity", "--no-color"],
+                              capture_output=True, text=True, env=env)
+        out = proc.stdout + proc.stderr
+        assert "gate ON" not in out, out
+        assert "FAILED TO LOAD" in out and err in out, out
+        assert proc.returncode != 0, "a plugin the host refused to load must fail the installer's checks"
+    # and a healthy listing (no errors key at all, which is what the host prints) still reads ON via the hook
+    assert "gate ON via the bundled hook in the INSTALLED plugin" in _preflight(tmp_path, PLUGIN).stdout
 
 
 def test_decision_log_records_the_safe_target_fields_and_never_free_text(tmp_path):

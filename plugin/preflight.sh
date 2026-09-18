@@ -116,7 +116,10 @@ check_toolchain() {
 # The bundled hook, as INSTALLED: the copy Claude Code actually loads (claude plugin list --json), enabled,
 # with hooks/hooks.json in it. The plugin copy this script sits in proves nothing about the install --
 # a clone with the hook beside an older installed version read "gate ON" (review, 2026-09-05).
-# Prints: "on <version> <path>" | "off <version> <path>" (installed copy has no hook) | "none" | "unknown".
+# Prints: "on <version> <path>" | "off <version> <path>" (installed copy has no hook) | "none" | "unknown"
+# | "failed <version> <path>" followed by the load error on a second line -- the host reports a plugin it
+# refused to load under errors[], with enabled still true and the files still on disk, so neither of
+# those proves the hook is registered.
 installed_hook_state() {
   local json key="$PLUGIN_KEY"
   command -v claude >/dev/null 2>&1 || { printf 'unknown'; return; }
@@ -134,6 +137,13 @@ if not hits:
     print("none"); sys.exit(0)
 p = hits[0]
 path = p.get("installPath") or ""
+raw = p.get("errors")
+errs = [str(e) for e in (raw if isinstance(raw, list) else ([raw] if raw else [])) if str(e).strip()]
+if errs:
+    print("failed", p.get("version") or "unknown", path)
+    msg = "; ".join(errs).replace("\n", " ")
+    print(msg if len(msg) <= 300 else msg[:297] + "...")
+    sys.exit(0)
 state = "on" if path and os.path.isfile(os.path.join(path, "hooks", "hooks.json")) else "off"
 print(state, p.get("version") or "unknown", path)
 ' "$key" 2>/dev/null || printf 'unknown'
@@ -198,7 +208,7 @@ check_connectivity() {
     if out="$(uv run --quiet "$bridge" --check 2>&1)"; then
       ok "Exabeam MCP reachable — ${out##*OK — }"
     else
-      warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1)"
+      warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1) — check the region in EXABEAM_MCP_URL first (the slug from your console address), then the key and secret"
     fi
   fi
 }
@@ -378,11 +388,17 @@ check_gate() {
     claude)
       check_gate_reach
       state="$(gate_state_claude)"
+      local hook hstate hver hpath herr
+      hook="$(installed_hook_state)"; herr="${hook#*$'\n'}"; [ "$herr" = "$hook" ] && herr=""; hook="${hook%%$'\n'*}"
+      hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="${hook#* * }"
       case "$state" in
-        on)  ok "Human-in-the-loop gate ON — the permission rules are merged (dismiss/close in the ask tier, containment denied); the bundled hook gates the same when the installed plugin carries it" ;;
-        off) local hook hstate hver hpath
-             hook="$(installed_hook_state)"; hstate="${hook%% *}"; hver="$(printf '%s' "$hook" | awk '{print $2}')"; hpath="${hook#* * }"
-             case "$hstate" in
+        on)  if [ "$hstate" = failed ]; then
+               fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) FAILED TO LOAD: ${herr}. The permission rules are merged but nothing they gate is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'"
+             else
+               ok "Human-in-the-loop gate ON — the permission rules are merged (dismiss/close in the ask tier, containment denied); the bundled hook gates the same when the installed plugin carries it"
+             fi ;;
+        off) case "$hstate" in
+               failed) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) FAILED TO LOAD: ${herr}. Nothing is registered (no hook, no MCP server) and no permission rules are merged; update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
                on)  ok "Human-in-the-loop gate ON via the bundled hook in the INSTALLED plugin (${hver} at ${hpath}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions"
                     ok "Permission rules not merged — not needed: the hook gates dismiss/close, denies containment and allows the reads. Merging adds a second lock that does not depend on the hook: install.sh --merge-permissions" ;;
                off) fail "Gate is OFF — the installed plugin (${hver} at ${hpath}) predates the bundled hook and no permission rules are merged; update the plugin (install.sh), or merge with: install.sh --merge-permissions" ;;

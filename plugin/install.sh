@@ -494,7 +494,8 @@ fi
 # would otherwise tell them the gate is on (Praxen 2026-09-07-002). Same reading preflight's check_gate
 # makes; HOOK_NOTE is the one phrase every "rules not merged" line below carries.
 PLUGIN_KEY="${PLUGIN}@${MARKETPLACE_NAME}"
-HOOK="$(installed_hook_state)"; HOOK_STATE="${HOOK%% *}"
+HOOK="$(installed_hook_state)"; HOOK_ERR="${HOOK#*$'\n'}"; [ "$HOOK_ERR" = "$HOOK" ] && HOOK_ERR=""; HOOK="${HOOK%%$'\n'*}"
+HOOK_STATE="${HOOK%% *}"
 HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="${HOOK#* * }"          # the path may carry spaces
 MERGE_LABEL="(needed)"; HOOK_TAIL=""
 case "$HOOK_STATE" in
@@ -502,6 +503,7 @@ case "$HOOK_STATE" in
         MERGE_LABEL="(optional)"; HOOK_TAIL=" (the installed hook's deny/ask still fire)" ;;
   off)  HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) carries NO hook, so the rules are the only lock until the plugin is updated" ;;
   none) HOOK_NOTE="no plugin is installed or enabled for Claude Code (${PLUGIN_KEY}), so nothing gates dismiss/close until it is" ;;
+  failed) HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD — ${HOOK_ERR} — so no gate and no MCP server is registered until it is fixed (claude plugin update ${PLUGIN_KEY})" ;;
   *)    HOOK_NOTE="the installed hook could not be verified (needs the claude CLI with 'plugin list --json' and python3), so treat the rules as the lock" ;;
 esac
 [ "$GATE_STATE" = on ] && { MERGE_LABEL="(already merged)"; HOOK_NOTE="the permission rules are merged into $SETTINGS and gate dismiss/close on their own; $HOOK_NOTE"; }
@@ -517,6 +519,8 @@ elif [ "$MERGE_PERMS" = 1 ]; then
   run_merge
 elif [ "$GATE_STATE" = unknown ]; then
   warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into $SETTINGS"
+elif [ "$GATE_STATE" = on ] && [ "$HOOK_STATE" = failed ]; then
+  fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD: ${HOOK_ERR}. The permission rules are merged but nothing they gate is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'"
 elif [ "$GATE_STATE" = on ]; then
   ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
 else
@@ -526,6 +530,7 @@ else
     on)   ok "Governance gate ON via the bundled hook in the INSTALLED plugin (${HOOK_VER} at ${HOOK_PATH}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions" ;;
     off)  fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) predates the bundled hook and no permission rules are merged; update the plugin (re-run without --checks-only), or merge the rules" ;;
     none) fail "Governance gate OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}) and no permission rules are merged" ;;
+    failed) fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD: ${HOOK_ERR}. Nothing is registered (no hook, no MCP server) and no permission rules are merged; update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
     *)    warn "Cannot verify the bundled hook in the installed plugin (needs the claude CLI with 'plugin list --json' and python3) — only the INSTALLED copy gates; check 'claude plugin list'" ;;
   esac
   if [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
