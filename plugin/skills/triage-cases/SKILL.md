@@ -97,7 +97,7 @@ Two reminders that matter here specifically:
 
 **1 — Pull the open queue (bounded).** `exabeam_search_cases` for open cases. **Override the tool's
 default `fields:["*"]`** — it returns the full record set and overflows context. Name an explicit,
-compact field set (e.g. `case_id, case_number, name, priority, risk_score, stage, queue, user`) and
+compact field set (e.g. `case_id, case_number, name, priority, risk_score, stage, assignee, user`) and
 order by `risk_score DESC` (a useful first cut even while saturated). Scope to the working window
 (e.g. open + last N days). Note the total so you can report coverage honestly if you cap.
 

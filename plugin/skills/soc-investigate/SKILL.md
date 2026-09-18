@@ -117,13 +117,13 @@ host or disable an account. So the risk model here is not "destructive action"; 
 verdict suppressing a real threat.** Three tiers:
 
 1. **Read & document (run freely):** every read tool — Search queries, `get_case_details` + threat
-   timelines, alert/case retrieval, entity context (Attack Surface Insights), detection-rule details,
-   MITRE coverage — plus the two safe writes: `exabeam_create_case_notes` (documentation) and
+   timelines, alert/case retrieval, detection-rule details, MITRE coverage — plus the two safe writes: `exabeam_create_case_notes` (documentation) and
    `exabeam_create_case` (escalating is always safe; err toward it when unsure).
 
-2. **Close decisions (STOP and get an explicit yes):** `exabeam_update_alert` (dismiss) and
-   `exabeam_update_case` (close, esp. as false-positive). This is the one place an AI mistake does real
-   harm — suppressing a genuine threat. Before calling either tool, state the action and your reason,
+2. **Close decisions and outbound mail (STOP and get an explicit yes):** `exabeam_update_alert`
+   (dismiss), `exabeam_update_case` (close, esp. as false-positive) and `exabeam_send_email` (show the
+   recipients and the full body as the outbound mail it is; the analyst approves every send). A close is
+   the one place an AI mistake does real harm — suppressing a genuine threat. Before calling any of these tools, state the action and your reason,
    then **ask the analyst directly — e.g. "Dismiss alert X as a false positive? (yes / no)" — and WAIT
    for a clear yes. Do not call the tool until they answer.** The host gates these too — on Claude Code
    the plugin's bundled hook, which holds even under `--dangerously-skip-permissions`; on Codex the
