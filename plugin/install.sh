@@ -5,9 +5,9 @@
 # socxen installer — adds the marketplace, installs the plugin (three skills) into
 # Claude Code, and runs a connectivity preflight. Idempotent; safe to re-run.
 #
-# Claude Code only, deliberately. Most of this script is `claude plugin` CLI handling plus
-# the governance-gate merge, and Codex needs neither: its gate ships inside the plugin, so
-# installing there is just `codex plugin marketplace add` + `codex plugin add`. The checks
+# Claude Code only, deliberately. Most of this script is `claude plugin` CLI handling, and
+# Codex does not need it: installing there is just `codex plugin marketplace add` + `codex plugin
+# add`, and the gate ships inside the plugin on both hosts. The checks
 # that ARE shared — credentials, toolchain, live connectivity — live in preflight.sh, which
 # this script sources and Codex users run directly:
 #
@@ -17,17 +17,14 @@
 # installed plugin directory (the payload ships under plugin/, so the two differ):
 #   install.sh                     install at user scope, then check connectivity
 #   install.sh --checks-only       run diagnostics only (no install/changes)
-#   install.sh --merge-permissions merge the governance gate into the resolved settings file
-#                                  (SOCXEN_SETTINGS_FILE below), NOT always ~/.claude/settings.json
 #   install.sh --skip-connectivity install but skip the live MCP check
 #   install.sh --skip-update       keep an existing install as-is (e.g. offline re-runs)
-#   install.sh -y                  non-interactive (assume yes; never merges on its own)
+#   install.sh -y                  non-interactive (assume yes)
 #   install.sh --no-color          plain output
 #   install.sh -h | --help
 #
 # Env (all overridable):
 #   SOCXEN_SCOPE=user|project   SOCXEN_REPO   SOCXEN_MARKETPLACE   SOCXEN_PLUGIN
-#   SOCXEN_SETTINGS_FILE        the settings.json the governance gate is checked/merged in
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,12 +45,11 @@ ENV_FILE="${EXABEAM_ENV_FILE:-$HOME/.exabeam-mcp.env}"
 BRIDGE="$SCRIPT_DIR/connector/exabeam-mcp-bridge.py"
 
 # ---- flags ----
-ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; SKIP_UPDATE=0; USE_COLOR=1; MERGE_PERMS=0
+ASSUME_YES=0; CHECKS_ONLY=0; SKIP_CONN=0; SKIP_UPDATE=0; USE_COLOR=1
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
     --checks-only) CHECKS_ONLY=1 ;;
-    --merge-permissions) MERGE_PERMS=1 ;;
     --skip-connectivity) SKIP_CONN=1 ;;
     --skip-update) SKIP_UPDATE=1 ;;
     --no-color) USE_COLOR=0 ;;
@@ -119,7 +115,7 @@ else
   echo; printf '   %sCannot continue without the claude CLI.%s\n' "$RED" "$RST"
   if command -v codex >/dev/null 2>&1; then
     printf '\n   %sOn Codex?%s This installer is Claude-Code-only, and Codex does not need one —\n' "$BOLD" "$RST"
-    printf '   the gate ships inside the plugin, so there is nothing to merge:\n\n'
+    printf '   the gate ships inside the plugin, so there is nothing to configure:\n\n'
     printf '     %scodex plugin marketplace add %s%s\n' "$CYAN" "$MARKETPLACE_REPO" "$RST"
     printf '     %scodex plugin add %s@%s%s\n' "$CYAN" "$PLUGIN" "$MARKETPLACE_NAME" "$RST"
     printf '     %s%s/preflight.sh%s   %s(checks credentials and connectivity)%s\n\n' \
@@ -413,145 +409,23 @@ head2 "Connectivity"
 check_connectivity
 
 # ---- governance ----
-# A false "gate is ON" is the dangerous direction, so verify the close tools are specifically in the
-# `ask` tier — not merely that settings.json mentions them (a mis-merge into allow/deny must read as OFF).
-# Three outcomes, not two: without python3 the check CANNOT run, which must read as "cannot verify",
-# never as "gate is OFF" (that would send users re-merging a working gate).
+# The gate is the bundled hook in the INSTALLED plugin -- the copy Claude Code loads, not the clone
+# this script sits in. Ask before saying anything reassuring: a `claude plugin update` failure is
+# downgraded to a warning above, so an offline operator can hold a hook-less older copy while this
+# block would otherwise tell them the gate is on (Praxen 2026-09-07-002). Same reading preflight's
+# check_gate makes. A false "gate ON" is the dangerous direction: off / none / failed FAIL.
 head2 "Governance"
-# Check and merge the settings file Claude Code will actually READ: a gate merged into a file the
-# running Claude Code ignores would report ON while protecting nothing. CLAUDE_CONFIG_DIR relocates Claude's config dir (the release
-# smoke script isolates whole installs with it), and SOCXEN_SETTINGS_FILE is the explicit override —
-# same escape hatch EXABEAM_ENV_FILE gives the credentials path, and what lets an automated test
-# exercise the merge without writing the operator's real settings.
-SETTINGS="${SOCXEN_SETTINGS_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json}"
-SNIPPET="$SCRIPT_DIR/skills/soc-investigate/settings.snippet.json"
-MERGER="$SCRIPT_DIR/skills/soc-investigate/merge_permissions.py"
-gate_on() {
-  [ -f "$SETTINGS" ] || return 1
-  python3 - "$SETTINGS" <<'PY' 2>/dev/null
-import json, sys
-try:
-    ask = json.load(open(sys.argv[1])).get("permissions", {}).get("ask", [])
-except Exception:
-    sys.exit(1)
-bare = {t.split("__")[-1] for t in ask}
-sys.exit(0 if {"exabeam_update_alert", "exabeam_update_case"} <= bare else 1)
-PY
-}
-
-# Why the merge can't run, or "" when it can. The snippet and the merger ship beside each other in
-# the skill directory, so normally they are both present or both absent (marketplace-only installs
-# have neither — install.sh is a clone-path tool) — but report which one is missing so a partial
-# checkout doesn't masquerade as an unsupported install path.
-merge_blocker() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    printf 'python3 not found'
-  elif [ ! -f "$SNIPPET" ]; then
-    printf 'settings.snippet.json not found (run from a cloned repo)'
-  elif [ ! -f "$MERGER" ]; then
-    printf 'merge_permissions.py not found (run from a cloned repo)'
-  fi
-}
-
-# Run the merger and report. Mirrors its four exit codes; every path that ends with the gate not ON
-# is reported as such. Verification is the pre-existing gate_on() re-read, NOT the merger's own exit
-# code: the same "a 0-exit doesn't prove it landed" discipline the install block uses above.
-run_merge() {
-  local out rc
-  out="$(python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" 2>&1)" && rc=0 || rc=$?
-  case "$rc" in
-    0|10)
-      if ! gate_on; then
-        # merger reported success but the gate still doesn't read ON — never call that green
-        fail "Merge reported success but the gate still reads OFF — inspect $SETTINGS"
-      elif [ "$rc" = 10 ]; then
-        ok "Governance gate ON — permissions were already merged, nothing to change"
-      else
-        ok "Governance gate ON — merged into $SETTINGS; restart Claude Code to apply"
-      fi
-      ;;
-    20) fail "Governance merge stopped — a rule already sits in a different tier (nothing was written)" ;;
-    *)  fail "Governance merge failed — nothing was written; merge $SNIPPET into $SETTINGS by hand" ;;
-  esac
-  [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/     /' || true
-}
-
-# --checks-only promises "no install/changes" — that promise outranks a merge request.
-if [ "$CHECKS_ONLY" = 1 ] && [ "$MERGE_PERMS" = 1 ]; then
-  skip "--merge-permissions ignored under --checks-only (diagnostics change nothing) — re-run without it"
-  MERGE_PERMS=0
-fi
-
-BLOCKER="$(merge_blocker)"
-if ! command -v python3 >/dev/null 2>&1; then GATE_STATE=unknown
-elif gate_on; then GATE_STATE=on
-else GATE_STATE=off
-fi
-
-# The other lock is the bundled hook -- in the INSTALLED plugin, the copy Claude Code loads, not the
-# clone this script sits in. Ask before saying anything reassuring: a `claude plugin update` failure is
-# downgraded to a warning above, so an offline operator can hold a hook-less older copy while this block
-# would otherwise tell them the gate is on (Praxen 2026-09-07-002). Same reading preflight's check_gate
-# makes; HOOK_NOTE is the one phrase every "rules not merged" line below carries.
 PLUGIN_KEY="${PLUGIN}@${MARKETPLACE_NAME}"
 HOOK="$(installed_hook_state)"; HOOK_ERR="${HOOK#*$'\n'}"; [ "$HOOK_ERR" = "$HOOK" ] && HOOK_ERR=""; HOOK="${HOOK%%$'\n'*}"
 HOOK_STATE="${HOOK%% *}"
 HOOK_VER="$(printf '%s' "$HOOK" | awk '{print $2}')"; HOOK_PATH="${HOOK#* * }"          # the path may carry spaces
-MERGE_LABEL="(needed)"; HOOK_TAIL=""
 case "$HOOK_STATE" in
-  on)   HOOK_NOTE="the bundled hook in the installed plugin already gates dismiss/close, so the rules are an optional second lock that does not depend on the hook"
-        MERGE_LABEL="(optional)"; HOOK_TAIL=" (the installed hook's deny/ask still fire)" ;;
-  off)  HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) carries NO hook, so the rules are the only lock until the plugin is updated" ;;
-  none) HOOK_NOTE="no plugin is installed or enabled for Claude Code (${PLUGIN_KEY}), so nothing gates dismiss/close until it is" ;;
-  failed) HOOK_NOTE="the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD — ${HOOK_ERR} — so no gate and no MCP server is registered until it is fixed (claude plugin update ${PLUGIN_KEY})" ;;
-  *)    HOOK_NOTE="the installed hook could not be verified (needs the claude CLI with 'plugin list --json' and python3), so treat the rules as the lock" ;;
+  on)     ok "Governance gate ON via the bundled hook in the INSTALLED plugin (${HOOK_VER} at ${HOOK_PATH}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions" ;;
+  off)    fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) predates the bundled hook; update the plugin (re-run without --checks-only)" ;;
+  none)   fail "Governance gate OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY})" ;;
+  failed) fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD: ${HOOK_ERR}. Nothing is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
+  *)      warn "Cannot verify the bundled hook in the installed plugin (needs the claude CLI with 'plugin list --json' and python3) — only the INSTALLED copy gates; check 'claude plugin list'" ;;
 esac
-[ "$GATE_STATE" = on ] && { MERGE_LABEL="(already merged)"; HOOK_NOTE="the permission rules are merged into $SETTINGS and gate dismiss/close on their own; $HOOK_NOTE"; }
-
-if [ "$MERGE_PERMS" = 1 ] && [ -n "$BLOCKER" ]; then
-  # Same "cannot do it ≠ pretend it's done" discipline as the gate check: say why, give the manual path.
-  warn "Cannot merge permissions ($BLOCKER) — merge the permissions block from settings.snippet.json into $SETTINGS by hand"
-elif [ "$MERGE_PERMS" = 1 ]; then
-  # Explicitly requested: the flag IS the consent, so no second confirmation. The merger is additive,
-  # backs up first, and refuses on tier conflicts, so re-running is safe even when the gate reads ON
-  # (a hand-merge of just the three ask lines leaves the whole containment deny list missing).
-  step "Merging governance permissions into $SETTINGS"
-  run_merge
-elif [ "$GATE_STATE" = unknown ]; then
-  warn "Cannot verify the governance gate (python3 not found) — check that settings.snippet.json is merged into $SETTINGS"
-elif [ "$GATE_STATE" = on ] && [ "$HOOK_STATE" = failed ]; then
-  fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD: ${HOOK_ERR}. The permission rules are merged but nothing they gate is registered (no hook, no MCP server); update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'"
-elif [ "$GATE_STATE" = on ]; then
-  ok "Governance gate ON — dismiss/close (update_alert/update_case) is in the ask tier"
-else
-  # The rules are not merged, so the gate is whatever the INSTALLED hook is. A false "gate ON" is the
-  # dangerous direction: off/none FAIL, exactly as preflight's check_gate reads them.
-  case "$HOOK_STATE" in
-    on)   ok "Governance gate ON via the bundled hook in the INSTALLED plugin (${HOOK_VER} at ${HOOK_PATH}) — asks on dismiss/close, denies containment, holds even under --dangerously-skip-permissions" ;;
-    off)  fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) predates the bundled hook and no permission rules are merged; update the plugin (re-run without --checks-only), or merge the rules" ;;
-    none) fail "Governance gate OFF — the plugin is not installed or not enabled for Claude Code (${PLUGIN_KEY}) and no permission rules are merged" ;;
-    failed) fail "Governance gate OFF — the installed plugin (${HOOK_VER} at ${HOOK_PATH}) FAILED TO LOAD: ${HOOK_ERR}. Nothing is registered (no hook, no MCP server) and no permission rules are merged; update the plugin (claude plugin update ${PLUGIN_KEY}) and restart, then check 'claude plugin list'" ;;
-    *)    warn "Cannot verify the bundled hook in the installed plugin (needs the claude CLI with 'plugin list --json' and python3) — only the INSTALLED copy gates; check 'claude plugin list'" ;;
-  esac
-  if [ -n "$BLOCKER" ] || [ "$ASSUME_YES" = 1 ] || [ ! -t 0 ]; then
-    # We can't ask (no tty, or -y). Note that -y does NOT stand in for consent here: "assume yes"
-    # answers the installer's own questions, it does not authorize writing to the operator's
-    # settings.json. Installation alone must never change that file (#70 non-goal).
-    warn "Permission rules not merged — ${HOOK_NOTE} (re-run with --merge-permissions)"
-  else
-    # Interactive, and we can do something about it — offer, showing exactly what would change first.
-    # Declining leaves the warning above.
-    printf '\n   %sPermission rules not merged — %s.%s I can merge them now — additive only,\n' "$YLW" "$HOOK_NOTE" "$RST"
-    printf '   nothing of yours removed or reordered, and %s is backed up first:\n\n' "$SETTINGS"
-    python3 "$MERGER" --snippet "$SNIPPET" --settings "$SETTINGS" --dry-run 2>&1 | sed 's/^/     /' || true
-    printf '\n   Merge it now? [y/N] '
-    read -r reply || reply=""
-    case "$reply" in
-      [yY]|[yY][eE][sS]) run_merge ;;
-      *) warn "Permission rules not merged (declined) — ${HOOK_NOTE}" ;;
-    esac
-  fi
-fi
 
 # ---- summary ----
 hr
@@ -567,12 +441,7 @@ ${BOLD}   Next steps${RST}
         EXABEAM_MCP_URL=https://api.<region>.exabeam.cloud/mcp
         EXABEAM_API_KEY=<your key>
         EXABEAM_API_SECRET=<your secret>
-   2. ${MERGE_LABEL} Merge the ${BOLD}permissions${RST} block from
-        ${SNIPPET}
-      into ${SETTINGS} — ${HOOK_NOTE}:
-        ${CYAN}${SCRIPT_DIR}/install.sh --merge-permissions${RST}
-      ${YLW}⚠ keep permissions on: skip-permissions modes turn the rules off${HOOK_TAIL}.${RST}
-   3. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
+   2. Restart Claude Code, then:  ${CYAN}"investigate alert <id>"${RST}
 NEXT
 else
   printf '\n%s   Ready.%s Restart Claude Code, then:  %s"investigate alert <id>"%s\n' "$GRN" "$RST" "$CYAN" "$RST"
