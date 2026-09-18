@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#key-entitlements">Key entitlements</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="installation-setup">Installation &amp; setup</h1>
 <p>socxen is a plugin for <strong>Claude Code</strong> and <strong>OpenAI Codex</strong> that works your <strong>Exabeam New-Scale</strong> tenant
@@ -281,12 +281,18 @@ there to answer, an ask is refused.</p>
   for how the supported models are validated.</li>
 <li><strong><a href="https://docs.astral.sh/uv/"><code>uv</code></a></strong> on your <code>PATH</code>. It runs the bundled Exabeam connector and
   installs the connector's own Python dependencies; there is nothing to <code>pip install</code>.</li>
-<li><strong>An Exabeam New-Scale API key and secret</strong>, created in your New-Scale console. The connector inherits
-  the key's role, so the key needs a role that can read alerts, cases and events and open cases and
-  write case notes. A read-only key works for investigating but not for the case actions.</li>
-<li><strong>Your New-Scale region</strong> — one of <code>us-west</code>, <code>us-east</code>, <code>ca</code>, <code>eu</code>, <code>sa</code>, <code>sg</code>, <code>ch</code>, <code>jp</code>, <code>au</code>.
-  It is the region your tenant is hosted in; your Exabeam administrator or your console address tells
-  you which.</li>
+<li><strong>An Exabeam New-Scale API key and secret</strong>, created under <strong>Settings → API Keys</strong> in your New-Scale
+  console. Keys don't carry a role — you grant them <strong>access entitlements</strong>, and socxen gets exactly what
+  the key was issued with. Entitle the key to read alerts, cases, events, threat summaries, MITRE
+  coverage and detection content (rules, parsers, context tables), and to create cases and write case
+  notes; a read-only key
+  investigates fine but cannot record an outcome. The exact list is under
+  <a href="#key-entitlements">Key entitlements</a> below.</li>
+<li><strong>Your New-Scale region.</strong> It is the slug in <code>https://api.&lt;region&gt;.exabeam.cloud/mcp</code>, for example
+  <code>us-west</code>. Most tenant console URLs contain it — read it from the address bar. Some named environments
+  (for example a demo or a dedicated tenant) have no region in the URL; ask your Exabeam administrator
+  which region hosts them. The <strong>Region Deployed</strong> field under <em>Service Health and Consumption → License
+  View</em> is <strong>not</strong> reliable for this — it may show a country rather than the hosting region.</li>
 <li><strong>Windows:</strong> socxen is not supported natively on Windows; use <strong>WSL</strong>. The diagnostics and the safety
   gate are shell scripts and Python, and the credentials file below is protected by Unix file
   permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
@@ -379,9 +385,13 @@ or fleet-wide in a managed <code>settings.json</code>:</p>
 <p>Run <code>preflight.sh</code> first (step 3 above); it checks the CLI, <code>uv</code>, the credentials file, the connection
 to your tenant, and the safety gate, and names the failing step.</p>
 <ul>
-<li><strong><code>Exabeam MCP reachable</code> fails.</strong> Check the region in <code>EXABEAM_MCP_URL</code>, that the URL starts with
-  <code>https://</code>, and that the key and secret are the ones your console shows. The connector refuses to
-  start over <code>http://</code>, on purpose.</li>
+<li><strong><code>Exabeam MCP reachable</code> fails.</strong> The region in <code>EXABEAM_MCP_URL</code> is the first thing to check: it
+  must be the slug from your console address, not the country shown in License View. Then check that
+  the URL starts with <code>https://</code> and that the key and secret are the ones your console shows. The
+  connector refuses to start over <code>http://</code>, on purpose.</li>
+<li><strong>Investigations work but rule-tuning returns nothing.</strong> The key is entitled for alerts and cases but
+  not for detection content. An under-entitled key installs and connects cleanly, and the reads it
+  lacks may come back empty rather than failing. See <a href="#key-entitlements">Key entitlements</a>.</li>
 <li><strong>The skill says the Exabeam MCP is not connected.</strong> The credentials file is missing or was added
   after the host started; add it and restart the host.</li>
 <li><strong><code>claude plugin list</code> shows an error beside socxen.</strong> The plugin installed but did not load; run
@@ -404,6 +414,36 @@ importantly, socxen's guardrails — the screening of what it reads, the neutral
 it writes, and the audit trail — live in the bundled connector, so
 none of them run when Claude Code talks to the remote MCP directly. Only the dismiss/close gate
 survives, and only if the server is named <code>exabeam</code>. Use this for a connectivity check, not for investigations you rely on.</p>
+<h2 id="key-entitlements">Key entitlements</h2>
+<p>Whoever grants the key's access entitlements can check against this list rather than guessing. These are
+the Exabeam MCP tools socxen calls, shown without their <code>exabeam_</code> prefix. Every containment or
+rule-writing tool is refused before it reaches your tenant, and any tool not on this list asks you first.</p>
+<table>
+<thead>
+<tr>
+<th>Needed for</th>
+<th>Tools</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Investigating alerts and cases</td>
+<td><code>search_alerts</code>, <code>get_alert_details</code>, <code>get_alert_threat_timeline</code>, <code>search_cases</code>, <code>get_case_details</code>, <code>get_case_notes</code>, <code>get_case_threat_timeline</code>, <code>search_events</code>, <code>threat_summary</code>, <code>get_mitre_coverage</code>, <code>get_correlation_rule_details</code></td>
+</tr>
+<tr>
+<td>Rule tuning</td>
+<td><code>analytics_rule_list</code>, <code>analytics_rule_details</code>, <code>correlation_rule_list</code>, <code>parser_list</code>, <code>get_parser_details</code>, <code>context_table_list</code>, <code>get_context_table_records</code>, <code>get_use_case_score</code></td>
+</tr>
+<tr>
+<td>Recording an outcome</td>
+<td><code>create_case</code>, <code>create_case_notes</code> (allowed as escalation); <code>update_alert</code>, <code>update_case</code> (always ask you first)</td>
+</tr>
+<tr>
+<td>Optional</td>
+<td><code>send_email</code> (always asks you first; everything else works without it)</td>
+</tr>
+</tbody>
+</table>
 <h2 id="uninstalling">Uninstalling</h2>
 <pre><code class="language-bash"># Claude Code
 claude plugin uninstall socxen@open-agent-ai-security
