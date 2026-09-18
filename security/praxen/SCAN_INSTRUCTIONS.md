@@ -12,7 +12,7 @@
 
 **Do not scan any one skill in isolation.** socxen's security architecture is a *system*: the
 agent skills, a bundled MCP bridge, a bundled PreToolUse hook (the human-in-the-loop gate, active on
-install), an optional permissions pack the operator may merge, two always-on connector guardrails, and
+install), a published permission snippet (the same tiers, for fleets that push them as host policy), two always-on connector guardrails, and
 default-on audit logging. Scoping to a single `SKILL.md`
 alone would miss every enforcement mechanism and mis-score the whole target.
 
@@ -35,8 +35,7 @@ These are the load-bearing ones — resolve each **in code**, and state which la
    it never fails open (unreadable tiers or a malformed event → ask). Verify each claim **in code**: the
    hook file is present at the conventional path and no manifest names it; the matcher covers the bundled prefix, the plugin-key-agnostic
    prefix and a manually wired `exabeam` server; the tier read fails closed; the emitted decision is the
-   shape the host honors. Then separate what remains **opt-in** — the permission-rules merge
-   (`--merge-permissions`; an optional second lock — the hook's *allow* already makes the reads prompt-free, and a manual server must be named `exabeam` for either layer to see it) — and what a **Codex**
+   shape the host honors. Then separate what remains **opt-in** — the published permission snippet (`settings.snippet.json`, the same tiers for organizations that push them as host policy; a manual server must be named `exabeam` for either layer to see it) — and what a **Codex**
    install gets (`.mcp.codex.json` approval mode + `disabled_tools`). The skill's in-prompt confirmation
    is the third, model-side layer. Apply the boundary rules: a control the operator must opt into is
    **capability, not posture**, on the shipped default path; a control that ships active is posture.

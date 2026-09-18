@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Merge socxen's governance permissions snippet into a Claude Code settings.json.
 
-This is the write half of the governance gate. `install.sh` has always *detected*
-whether the gate is on (`gate_on()`) and warned when it wasn't — but nothing ever
-performed the merge, so the shipped default was "gate OFF until the operator hand-edits
-~/.claude/settings.json" and the installer was a detection control, not an enforcement
-one (#70). This module closes that gap without giving up the consent model: it never
-runs unless the operator explicitly asks for it.
+For organizations that push the plugin's tiers as host policy (#226): the gate itself is
+the bundled hook, active on install, and nothing in the install path runs this. It is a
+maintained tool for generating a merged settings file from the published snippet, run by
+an operator who asks for it.
 
 Design rules, all of them load-bearing:
 
@@ -22,7 +20,7 @@ Design rules, all of them load-bearing:
 * **Backup before write, restore on failure.** The target is the operator's real
   settings file; a half-written settings.json breaks Claude Code entirely.
 * **Idempotent.** Re-running detects an already-merged gate and changes nothing.
-  Callers verify with install.sh's `gate_on()` afterwards rather than trusting our
+  Callers verify by re-reading the settings file afterwards rather than trusting our
   exit code.
 
 Note that a merge can be a no-op for the `ask` tier and still have real work to do:
@@ -30,8 +28,8 @@ an operator who hand-copied only the two dismiss/close lines has a gate that rea
 while the entire containment `deny` list is missing. So "gate is on" is not a reason
 to skip the merge — only "every snippet entry is already in its tier" is.
 
-Exit codes (install.sh branches on these; deliberately not 0/1 so an unhandled
-traceback's exit 1 can never be mistaken for a real answer):
+Exit codes (deliberately not 0/1 so an unhandled traceback's exit 1 can never be
+mistaken for a real answer):
 
     0   changes applied  (or, with --dry-run, changes are pending)
     10  already merged — nothing to do

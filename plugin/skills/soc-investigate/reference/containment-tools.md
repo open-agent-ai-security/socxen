@@ -14,7 +14,7 @@
 
 Because containment isn't an MCP capability, the skill always **recommends** it in the report; the
 analyst performs it in their EDR/IAM. The *real* human gate for this MCP is on **dismiss/close**
-(`update_alert` / `update_case`) — see `settings.snippet.json` `ask` — because a wrong suppression is
+(`update_alert` / `update_case`) — see the `ask` tier in `permissions.json` — because a wrong suppression is
 the actual way an AI verdict does harm here.
 
 Additions to this list are fine; removals need a maintainer's review.
@@ -91,7 +91,7 @@ for the human gate, so the line is drawn here.
 
 These are normalized names with any server prefix stripped. Every tool the Exabeam MCP exposes today follows
 the `exabeam_<verb>` convention (see `tool-map.md`), so a containment tool would most likely arrive as
-`exabeam_isolate_host`. `settings.snippet.json` therefore denies **both spellings** of every name here
+`exabeam_isolate_host`. The tier file therefore denies **both spellings** of every name here
 — bare and `exabeam_`-prefixed — in **both namespaces** (the bundled plugin's
 `mcp__plugin_socxen_exabeam__` — the prefix derives from `name` in `plugin/identity.json`, from which the snippet is generated — and the manual-wiring `mcp__exabeam__`), and a repo invariant test
 (`test_deny_list_matches_containment_doc`) keeps this file and the snippet in sync. If a live tool list ever shows a containment tool under a *different* name, add

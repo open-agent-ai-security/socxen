@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#optional-a-second-lock-on-claude-code">Optional: a second lock on Claude Code</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#key-entitlements">Key entitlements</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#key-entitlements">Key entitlements</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="installation-setup">Installation &amp; setup</h1>
 <p>socxen is a plugin for <strong>Claude Code</strong> and <strong>OpenAI Codex</strong> that works your <strong>Exabeam New-Scale</strong> tenant
@@ -401,14 +401,12 @@ to your tenant, and the safety gate, and names the failing step.</p>
 <li><strong>On Codex, no <code>exabeam</code> server appears.</strong> Codex drops a bundled server silently if any part of its
   configuration is invalid; run <code>codex plugin add socxen@open-agent-ai-security</code> again and re-check.</li>
 </ul>
-<h2 id="optional-a-second-lock-on-claude-code">Optional: a second lock on Claude Code</h2>
+<h2 id="for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</h2>
 <p>The safety gate that ships in the plugin is a hook the host enforces; you do not need anything else.
-If your organization wants dismiss and close held by Claude Code's own permission rules as well, the
-plugin ships the rules as a snippet, and a clone of the repository can merge them for you:</p>
-<pre><code class="language-bash">git clone https://github.com/open-agent-ai-security/socxen.git
-cd socxen &amp;&amp; ./plugin/install.sh --merge-permissions
-</code></pre>
-<p>The merge is additive, backs up your settings file first, and does nothing without the flag.</p>
+Organizations that manage Claude Code through policy can apply the same allow, ask and deny tiers as
+host permission rules: the plugin publishes them, generated from its tier file, as
+<code>skills/soc-investigate/settings.snippet.json</code> inside the installed plugin. Push that block through
+your managed settings; the two layers agree on every tool because both come from one source.</p>
 <h2 id="advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</h2>
 <p>You can register the remote Exabeam MCP in your host directly (<code>claude mcp add … exabeam …</code>) with a
 bearer token you mint yourself. Two things to know: the token expires in about four hours, and, more

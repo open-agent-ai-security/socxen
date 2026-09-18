@@ -54,8 +54,7 @@ nothing happens. This is the first lock.
 
 **The host asking.** Independently, your agent's own permission system stops the dismiss/close tool call
 and asks you to approve it. On Claude Code that is the permission prompt for `exabeam_update_alert` or
-`exabeam_update_case`, raised by the hook that ships inside the plugin (and by the optional permission
-rules, if you merged them — they agree, so you are asked once). On Codex it is the tool-approval prompt Codex
+`exabeam_update_case`, raised by the hook that ships inside the plugin. On Codex it is the tool-approval prompt Codex
 shows for a destructive tool — and if there is no human present, for example under `codex exec`, Codex
 cancels the call. This is the second lock. Both must open for a dismiss or close to happen. The same
 prompt guards `exabeam_send_email`: mail only goes out when you approve it, and the Exabeam MCP service

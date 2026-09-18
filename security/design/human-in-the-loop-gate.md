@@ -42,9 +42,13 @@ package already had from its tool-approval policy, so shipping the hook (#148) m
 **nothing to merge on either host, and the gate is on.** Verified live on 2026-09-04, including the
 headless refusal and the bypass flag.
 
-The permission snippet (`settings.snippet.json`, merged by `merge_permissions.py`) stays as an **optional
-second lock** that does not depend on the hook — the same tiers under the plugin's prefixed rule names.
-Merged, the two agree on every tool because both are generated from the same file (§5).
+The permission snippet (`settings.snippet.json`) stays as a **published artifact** — the same tiers
+under the plugin's prefixed rule names, for organizations that push them as host policy through managed
+settings. The installer no longer merges it and the docs no longer offer it as a second lock (#226): in
+the mode where a second lock would matter, skip-permissions, the rules are the weaker one, and the hook's
+status is verified from the installed plugin's load state. `scripts/merge_permissions.py` remains in the
+repository for a fleet that wants to generate from it. Applied, the two agree on every tool because both
+are generated from the same file (§5).
 
 ## 3. Which servers the hook governs
 
@@ -103,7 +107,11 @@ Each decision — including refusals and the near-miss that never reached the br
 best-effort to `~/.socxen/gate.jsonl` with the call's **safe target fields** only: identifiers and
 dispositions (`alertId`, `caseId`, `alertStatus`, `stage`, …), never free text, values capped. So a
 refused attempt reads as "tried to dismiss alert X as false positive", which is the record that matters
-in a SOC (#87). `SOCXEN_GATE_LOG=off` disables it; the bridge's audit trail records the calls that do
+in a SOC (#87). The same hook runs again after the call (`PostToolUse`, invoked with `--post`) and
+appends `approved` for an ask-tier call that completed — inferred from completion, an ask completes only
+on a yes — or `ran_unasked` when the session's permission mode meant nobody could answer, and
+`ran_despite_deny` for a deny-tier tool that ran; never a decision, never stdout (#5).
+`SOCXEN_GATE_LOG=off` disables it; the bridge's audit trail records the calls that do
 reach it ([logging guide](../../plugin/docs/logging.md)).
 
 ## 7. The model-side layer beneath

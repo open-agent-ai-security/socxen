@@ -231,13 +231,16 @@ def test_gate_never_crashes_on_a_bad_log_path(tmp_path):
     assert proc.returncode == 0 and _json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 
-def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0):
+def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0, errors=None):
     """A `claude` on PATH whose `plugin list --json` reports socxen installed at install_path (or nothing),
     and whose `mcp list` prints `mcp_list_out` and exits `mcp_list_rc` (non-zero = a server failed its
     health check, which is how the real CLI behaves)."""
     bin_ = tmp_path / "bin"; bin_.mkdir(exist_ok=True)
-    body = json.dumps([{"id": "socxen@open-agent-ai-security", "version": "0.8.6", "scope": "user", "enabled": True,
-                        "installPath": str(install_path)}] if install_path else [])
+    entry = {"id": "socxen@open-agent-ai-security", "version": "0.8.6", "scope": "user", "enabled": True,
+             "installPath": str(install_path)}
+    if errors:
+        entry["errors"] = errors                                  # what the host reports for a plugin it refused to load
+    body = json.dumps([entry] if install_path else [])
     (bin_ / "mcp_list.txt").write_text(mcp_list_out)
     (bin_ / "claude").write_text(
         "#!/bin/sh\ncase \"$*\" in *'plugin list'*) printf '%s' '" + body + "' ;; "
@@ -246,11 +249,10 @@ def _fake_claude(tmp_path, install_path, mcp_list_out="", mcp_list_rc=0):
     return str(bin_)
 
 
-def _preflight(tmp_path, install_path):
+def _preflight(tmp_path, install_path, errors=None):
     import subprocess, os
-    settings = tmp_path / "settings.json"; settings.write_text('{"permissions": {}}')
-    env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), SOCXEN_PLATFORM="claude", HOME=str(tmp_path),
-               PATH=_fake_claude(tmp_path, install_path) + os.pathsep + os.environ.get("PATH", ""))
+    env = dict(os.environ, SOCXEN_PLATFORM="claude", HOME=str(tmp_path),
+               PATH=_fake_claude(tmp_path, install_path, errors=errors) + os.pathsep + os.environ.get("PATH", ""))
     return subprocess.run(["bash", str(PLUGIN / "preflight.sh"), "--skip-connectivity"], capture_output=True, text=True, env=env)
 
 
@@ -263,8 +265,7 @@ def test_preflight_survives_an_unhealthy_mcp_server_and_still_reports_the_gate(t
     listing = ("Checking MCP server health…\n\n"
                "siem: uv run /x/exabeam-mcp-bridge.py - ✗ Failed to connect\n"
                "exabeam: uv run /x/exabeam-mcp-bridge.py - ✓ Connected\n")
-    settings = tmp_path / "settings.json"; settings.write_text('{"permissions": {}}')
-    env = dict(os.environ, SOCXEN_SETTINGS_FILE=str(settings), SOCXEN_PLATFORM="claude", HOME=str(tmp_path),
+    env = dict(os.environ, SOCXEN_PLATFORM="claude", HOME=str(tmp_path),
                PATH=_fake_claude(tmp_path, PLUGIN, mcp_list_out=listing, mcp_list_rc=1) + os.pathsep + os.environ.get("PATH", ""))
     # no --skip-connectivity: the reach check must run (connectivity itself is skipped: no credentials under HOME)
     proc = subprocess.run(["bash", str(PLUGIN / "preflight.sh")], capture_output=True, text=True, env=env)
@@ -274,8 +275,8 @@ def test_preflight_survives_an_unhealthy_mcp_server_and_still_reports_the_gate(t
     assert proc.returncode == 0, out
 
 
-def test_preflight_reports_the_hook_when_no_rules_are_merged(tmp_path):
-    """Rules not merged (the documented default) must report the hook ON -- attested from the INSTALLED
+def test_preflight_reports_the_installed_hook(tmp_path):
+    """Preflight must report the hook ON -- attested from the INSTALLED
     plugin (claude plugin list --json), not from the copy the script sits in (review 2026-09-05) -- and
     must not die on an unbound variable (an earlier review: _PF_DIR under set -u)."""
     proc = _preflight(tmp_path, PLUGIN)                       # installed copy == this tree, which has the hook
@@ -290,6 +291,29 @@ def test_preflight_never_attests_a_hook_the_installed_plugin_lacks(tmp_path):
     assert "gate ON" not in proc.stdout and "predates the bundled hook" in proc.stdout, proc.stdout
     proc = _preflight(tmp_path, None)                          # not installed at all
     assert "gate ON" not in proc.stdout and "not installed or not enabled" in proc.stdout, proc.stdout
+
+
+def test_preflight_reports_a_plugin_the_host_refused_to_load_as_gate_off(tmp_path):
+    """#226: `enabled: true` and hooks/hooks.json on disk are both true for a plugin the host refused to
+    load; only errors[] carries that. Preflight must say the plugin failed to load, name the error, and
+    never print a gate ON line."""
+    import subprocess, os
+    err = "Invalid manifest: hooks must not be declared in plugin.json"
+    proc = _preflight(tmp_path, PLUGIN, errors=[err])
+    out = proc.stdout + proc.stderr
+    assert "gate ON" not in out, out
+    assert "FAILED TO LOAD" in out and err in out, out
+    assert "unbound variable" not in out
+    # and the installer's own governance block, same fake: never a green line, and the checks fail
+    env = dict(os.environ, HOME=str(tmp_path), PATH=_fake_claude(tmp_path, PLUGIN, errors=[err]) + os.pathsep + os.environ.get("PATH", ""))
+    proc = subprocess.run(["bash", str(PLUGIN / "install.sh"), "--checks-only", "--skip-connectivity", "--no-color"],
+                          capture_output=True, text=True, env=env)
+    out = proc.stdout + proc.stderr
+    assert "gate ON" not in out, out
+    assert "FAILED TO LOAD" in out and err in out, out
+    assert proc.returncode != 0, "a plugin the host refused to load must fail the installer's checks"
+    # and a healthy listing (no errors key at all, which is what the host prints) still reads ON via the hook
+    assert "gate ON via the bundled hook in the INSTALLED plugin" in _preflight(tmp_path, PLUGIN).stdout
 
 
 def test_decision_log_records_the_safe_target_fields_and_never_free_text(tmp_path):
@@ -320,3 +344,47 @@ def test_decision_log_records_the_safe_target_fields_and_never_free_text(tmp_pat
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_post_tool_hook_records_the_approval_and_nothing_for_reads(tmp_path):
+    """#5: the same gate, run as PostToolUse, appends the human's yes: an ask-tier call that ran is recorded
+    as `approved` with the safe target fields, a deny-tier call that ran as `ran_despite_deny`, and an
+    allow-tier read leaves no line. Never a decision on stdout."""
+    import subprocess, os, json as _json
+    log = tmp_path / "gate.jsonl"
+    env = dict(os.environ, SOCXEN_GATE_LOG=str(log), CLAUDE_PLUGIN_ROOT=str(PLUGIN))
+    def post(tool, tool_input, raw=None, **extra):
+        ev = {"hook_event_name": "PostToolUse", "tool_name": tool, "tool_input": tool_input, "tool_response": [{"type": "text", "text": "ok"}], **extra}
+        return subprocess.run([sys.executable, str(PLUGIN / "hooks" / "gate.py"), "--post"], input=raw if raw is not None else _json.dumps(ev),
+                              capture_output=True, text=True, env=env, check=True)
+    proc = post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471", "alertStatus": "DISMISSED", "note": "SECRET FREE TEXT"}},
+                permission_mode="default", tool_use_id="toolu_01ABC")
+    assert proc.stdout.strip() == "", "a post-call record is never a decision"
+    rec = _json.loads(log.read_text().splitlines()[-1])
+    assert rec["decision"] == "approved" and rec["tool"].endswith("exabeam_update_alert")
+    assert rec["permission_mode"] == "default" and rec["tool_use_id"] == "toolu_01ABC"
+    assert rec["target"] == {"alertId": "4471", "alertStatus": "DISMISSED"} and "SECRET" not in log.read_text()
+    # under a mode where nobody could answer, a completed ask-tier call is NOT an approval
+    post("mcp__plugin_socxen_exabeam__exabeam_update_alert", {"arg1": {"alertId": "4471"}}, permission_mode="bypassPermissions")
+    assert _json.loads(log.read_text().splitlines()[-1])["decision"] == "ran_unasked"
+    # malformed stdin on the post invocation: no stdout, no record (never a decision)
+    before = len(log.read_text().splitlines())
+    for raw in ("{not json", "[1,2]", ""):
+        proc = post("", {}, raw=raw)
+        assert proc.stdout.strip() == "" and proc.returncode == 0, raw
+    assert len(log.read_text().splitlines()) == before, "a record the hook cannot write is not a decision"
+    post("mcp__plugin_socxen_exabeam__exabeam_disable_analytics_rule", {"arg1": {"ruleId": "r-1"}})
+    assert _json.loads(log.read_text().splitlines()[-1])["decision"] == "ran_despite_deny"
+    n = len(log.read_text().splitlines())
+    post("mcp__plugin_socxen_exabeam__exabeam_search_alerts", {"arg0": {"filter": "x"}})
+    assert len(log.read_text().splitlines()) == n, "an allow-tier read leaves no post-call line"
+    post("mcp__other__some_tool", {"x": 1})
+    assert len(log.read_text().splitlines()) == n, "another server's tool is not our business"
+
+
+def test_hooks_json_registers_the_post_tool_hook_on_the_same_matcher():
+    """#5: the approval record needs the gate run after the call too, on exactly the tools the gate covers."""
+    pre, post = HOOKS_JSON["hooks"]["PreToolUse"][0], HOOKS_JSON["hooks"]["PostToolUse"][0]
+    assert post["matcher"] == pre["matcher"]
+    assert "gate.py" in post["hooks"][0]["command"] and "--post" in post["hooks"][0]["command"], "the post invocation is decided by the command line, not stdin"
+    assert "exit 2" not in post["hooks"][0]["command"], "a failed post-call record must never block"

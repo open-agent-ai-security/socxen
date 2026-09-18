@@ -175,18 +175,13 @@ to your tenant, and the safety gate, and names the failing step.
 - **On Codex, no `exabeam` server appears.** Codex drops a bundled server silently if any part of its
   configuration is invalid; run `codex plugin add socxen@open-agent-ai-security` again and re-check.
 
-## Optional: a second lock on Claude Code
+## For organizations: the same tiers as host policy
 
 The safety gate that ships in the plugin is a hook the host enforces; you do not need anything else.
-If your organization wants dismiss and close held by Claude Code's own permission rules as well, the
-plugin ships the rules as a snippet, and a clone of the repository can merge them for you:
-
-```bash
-git clone https://github.com/open-agent-ai-security/socxen.git
-cd socxen && ./plugin/install.sh --merge-permissions
-```
-
-The merge is additive, backs up your settings file first, and does nothing without the flag.
+Organizations that manage Claude Code through policy can apply the same allow, ask and deny tiers as
+host permission rules: the plugin publishes them, generated from its tier file, as
+`skills/soc-investigate/settings.snippet.json` inside the installed plugin. Push that block through
+your managed settings; the two layers agree on every tool because both come from one source.
 
 ## Advanced: wiring the Exabeam MCP by hand (not recommended)
 
