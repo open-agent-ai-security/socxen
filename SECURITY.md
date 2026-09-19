@@ -21,9 +21,9 @@ document describes how to report one privately, what is in scope, and what to ex
   generators (`plugin/gen_identity.py` with `identity.json`; `scripts/gen_codex_mcp.py`) — anything
   that could silently un-gate a dismiss/close, mail or containment-class tool, let a gated call through
   headless, or regenerate a gate that doesn't take effect.
-- The **optional permission snippet** (`settings.snippet.json`), the only code that *writes* to your
-  settings file (`merge_permissions.py`), and `reference/containment-tools.md` (the deny-list) — a
-  merge that doesn't take effect, or a merged rule that loosens a tier.
+- The **published permission snippet** (`settings.snippet.json`, the same tiers for organizations that
+  push them as host policy) and `reference/containment-tools.md` (the deny-list) — a generated rule
+  that loosens a tier.
 - The connector bridge `plugin/connector/exabeam-mcp-bridge.py` and its two filters — the
   **input canonicalizer** (`canonicalize.py`, including the screen over the remote's tool
   definitions) and the **output neutralizer** (`neutralize_output.py`) — plus the bridge's own

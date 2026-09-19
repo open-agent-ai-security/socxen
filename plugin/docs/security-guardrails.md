@@ -80,6 +80,24 @@ firing is written to a local, structured audit log, on by default: `~/.socxen/te
 records metadata only — never case notes, evidence or payloads — and can be routed to Exabeam, an
 OpenTelemetry collector or a webhook. See [Audit logging](logging.md).
 
+## Where your data goes
+
+Three facts, and they are good ones:
+
+- **socxen stores nothing.** No server, no database, no queue, no hosted service. The audit log is a local
+  file holding metadata only. Exabeam holds what it already held, plus the case notes and the case and alert
+updates you approve.
+- **What socxen retrieves does enter the model's context** — event lines, alert and case content, identity
+  and host context, threat timelines, rule logic — and therefore reaches whichever model provider your
+  host agent is configured with. That is how the analysis happens.
+- **socxen does not supply, choose or configure that provider.** You bring your own Claude Code or Codex,
+  your own authentication, your own agreement. Residency, retention and processing terms are whatever
+  your agreement with your provider says; socxen is not a party to it and cannot change it.
+
+Compared with a hosted SOC agent, where the vendor runs the analysis and holds a copy of your telemetry
+under its own posture, there is no middle here: socxen runs on the analyst's machine, against your
+tenant, through your provider, on your terms.
+
 ## How it is tested
 
 Claims about agent safety are worth what the testing behind them is worth, so the testing is public
@@ -91,7 +109,9 @@ and every release is gated on it:
   sounded cautious. A landing in the blocking classes stops a release until it is fixed, or waived in
   writing with the reason recorded.
 - **Behavior verification.** Each release candidate is scanned against socxen's declared policy by an
-  independent verifier, and no release ships with an open Critical finding.
+  independent verifier, with an audit pass over the findings and a threat model. No release ships with
+  an open Critical finding; every other finding is triaged into an issue, and the decision to ship with
+  it is written down beside the scan.
 - **Bills of materials.** Every release carries an AI BOM and a software BOM listing the models, tools
   and dependencies in play.
 
@@ -114,5 +134,17 @@ The methodology, every dated run and the known residuals are in the repository's
 - **A server you wire by hand.** The screening, the neutralizer and the audit trail live in the bundled
   connector; registering the remote Exabeam MCP directly bypasses all three, leaving only the
   dismiss/close gate. Use the bundled connector for any investigation you rely on.
+- **A queue sweep's restraint.** During a triage sweep the skill is instructed not to write. The host
+  gate does not enforce that distinction: opening a case or writing a note is allowed for every skill,
+  so a sweep that writes is stopped by the instruction alone. Dismiss, close and containment stay gated
+  in a sweep exactly as everywhere else.
 - **Judgment.** These controls reduce the blast radius of hostile content. They do not replace the human
   gate, your SOC procedures, or your own review of the verdict.
+
+## Advanced: mirroring the tiers in host policy
+
+Organizations that manage Claude Code through policy can mirror the plugin's allow, ask and deny rules
+as host permission rules, so the same tiers show up in your policy tooling. The plugin publishes them,
+generated from its tier file, as `skills/soc-investigate/settings.snippet.json` inside the installed
+plugin. Applied through managed settings, the two layers agree on every tool because both come from one
+source. This adds nothing to the gate itself, which is on from install.

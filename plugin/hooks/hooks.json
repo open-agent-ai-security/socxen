@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__[A-Za-z0-9._-]*[Ee][Xx][Aa][Bb][Ee][Aa][Mm][A-Za-z0-9._-]*__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\" --post || exit 0",
+            "timeout": 20
+          }
+        ]
+      }
     ]
   }
 }

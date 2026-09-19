@@ -270,6 +270,36 @@ def test_no_dangling_reference_links():
     assert not missing, "dangling references:\n" + "\n".join(sorted(missing))
 
 
+def test_skill_reference_text_matches_the_tool_surface():
+    """#223 / #235: SKILL.md is the program the model runs, so its reference text must match the
+    connector. The rule-tuning disposition buckets name no value the platform never returns, name the
+    two engineer-stated noise dispositions, and tell the model what to do with a value it does not
+    recognize; the tiers name every ask-tier tool; the worked search_cases field list uses real columns;
+    no skill names a tool the server does not expose."""
+    import re
+    skills = ROOT / "plugin" / "skills"
+    tuning = (skills / "rule-tuning" / "SKILL.md").read_text()
+    m = re.search(r"\*\*Disposition sample.*?(?=\n- \*\*)", tuning, re.S)
+    assert m, "rule-tuning lost its disposition-sample signal"
+    block = m.group(0)
+    for phantom in ("*Benign*", "*Confirmed*"):
+        assert phantom not in block, f"rule-tuning buckets on {phantom}, a closedReason the platform never returns"
+    for real in ("Rule Misconfiguration", "Policy or Setup Issue", "Low Risk", "False Positive or Duplicate"):
+        assert real in block, f"rule-tuning no longer names the {real!r} disposition"
+    assert "don't recognize" in block and "unrecognized" in block, "rule-tuning must say what to do with an unknown closedReason"
+    assert "no write path exists" not in tuning, "rule-tuning contradicts its own tier text (the rule-write tools exist and are denied)"
+    invest = (skills / "soc-investigate" / "SKILL.md").read_text()
+    assert "exabeam_send_email" in invest, "soc-investigate's tiers omit the third ask-tier tool"
+    assert "entity context (Attack Surface Insights)" not in invest, "soc-investigate lists a tool the server does not expose"
+    bridge = (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py").read_text()
+    cols = re.search(r'"exabeam_search_cases": \[(.*?)\]', bridge).group(1)
+    real_cols = set(re.findall(r'"(\w+)"', cols))
+    triage = (skills / "triage-cases" / "SKILL.md").read_text()
+    example = re.search(r"compact field set \(e\.g\. `([^`]+)`\)", triage).group(1)
+    for c in (x.strip() for x in example.split(",")):
+        assert c in real_cols, f"triage-cases' worked search_cases field list names {c!r}, not a column the endpoint returns"
+
+
 def test_skill_frontmatter_is_valid():
     """Every plugin/skills/*/SKILL.md must have YAML frontmatter whose `name` matches its
     OWN directory and a non-empty `description` within Claude Code's 1024-char cap — else
@@ -345,8 +375,8 @@ def test_shipped_docs_never_link_outside_the_plugin():
 # TIER 1 (cont.) — the Codex gate
 #
 # socxen ships the same human-in-the-loop gate to two host agents that enforce it in
-# different places. Claude Code reads permission tiers out of the operator's
-# settings.json; Codex reads approval modes out of the plugin's own .mcp.codex.json.
+# different places. Claude Code reads the tiers in the plugin's bundled hook; Codex reads
+# approval modes out of the plugin's own .mcp.codex.json.
 # Two hand-maintained copies of a safety control is exactly the drift this file exists
 # to catch, so the Codex copy is generated and pinned here.
 # =====================================================================
@@ -427,7 +457,7 @@ def test_codex_and_claude_manifests_agree():
 # TIER 1 (cont.) — the installer / preflight split
 #
 # install.sh is Claude-Code-specific by nature: 63% of it is `claude plugin` CLI
-# quirk-handling and a gate merge Codex does not need. Everything genuinely shared —
+# quirk-handling that Codex does not need. Everything genuinely shared —
 # credentials, toolchain, live connectivity — lives in preflight.sh, which BOTH entry
 # points use. A check that behaves differently depending on which script you ran is
 # the bug that reproduces on one platform and not the other.
@@ -487,9 +517,8 @@ def test_preflight_never_writes():
     """preflight.sh is a mirror, not a hand.
 
     On both hosts the gate ships inside the plugin (a hook on Claude Code, approval policy on
-    Codex). The Claude permission rules are an optional second lock whose merge is a consent-gated
-    action that belongs to install.sh --merge-permissions. A fixer here would re-import exactly the consent
-    problem the Codex packaging removed, so mutation stays out of this file."""
+    Codex). A fixer here would turn a diagnostic into a hand that edits the operator's config, so
+    mutation stays out of this file."""
     code = _shell_code_only(PREFLIGHT_SH)
     forbidden = [
         ("merge_permissions", "runs the settings.json merger"),
@@ -529,10 +558,10 @@ def test_codex_gate_check_sees_per_tool_overrides():
 def test_preflight_reports_cannot_verify_separately_from_off():
     """Three outcomes, not two, on both hosts.
 
-    'Cannot verify' reported as 'OFF' sends an operator re-merging a working gate; on
+    'Cannot verify' reported as 'OFF' sends an operator reinstalling a working gate; on
     Codex it would send them reinstalling over a server that a bad approval_mode had
     silently dropped. Both gate readers must have an unknown branch."""
-    for fn in ("gate_state_claude", "gate_state_codex"):
+    for fn in ("installed_hook_state", "gate_state_codex"):
         body = PREFLIGHT_SH.split(f"{fn}()", 1)[1].split("\n}", 1)[0]
         assert "unknown" in body, f"{fn} has no 'cannot verify' outcome"
 
@@ -797,6 +826,47 @@ def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
     again = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
     assert " → " not in again and headers(work) == after and readme.read_text() == text
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+
+
+def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp_path):
+    """A catalog that distributes the payload under its own terms (Exabeam/plugins) sets `distribution`
+    in identity.json — license, homepage, repository. The manifests describe the plugin AS DISTRIBUTED,
+    so they take those values; the source stays under its own license: every SPDX header, the README
+    badge and identity.sh keep the top-level `license`. Without the block the manifests carry the
+    identity's own fields, as before."""
+    import shutil, subprocess, sys, json
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    ident = json.loads((work / "identity.json").read_text())
+    readme_before = (work / "README.md").read_text()
+    headers_before = {p.relative_to(work): p.read_text() for p in work.rglob("*") if p.is_file() and "SPDX-License-Identifier" in p.read_text(errors="ignore")}
+    ident["distribution"] = {"license": "LicenseRef-Exabeam-Enterprise-Agreement",
+                             "homepage": "https://github.com/Exabeam/plugins", "repository": "https://github.com/Exabeam/plugins"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 1, "the manifests are stale until regenerated"
+    out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
+    assert "manifests carry the distribution's homepage, license, repository" in out, out
+    for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        d = json.loads((work / m).read_text())
+        assert d["license"] == "LicenseRef-Exabeam-Enterprise-Agreement" and d["homepage"] == d["repository"] == "https://github.com/Exabeam/plugins", m
+        assert d["name"] == ident["name"] and d["version"] == ident["version"]
+    assert (work / "README.md").read_text() == readme_before, "the README is the software's, untouched"
+    assert "SOCXEN_ID_LICENSE=Apache-2.0" in (work / "identity.sh").read_text()
+    for rel, text in headers_before.items():
+        if rel.parts[0] not in (".claude-plugin", ".codex-plugin"):
+            assert (work / rel).read_text() == text, f"{rel} changed: the block must not touch the source"
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
+    # an unknown key is refused, never silently written into a manifest
+    ident["distribution"]["name"] = "other"
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    r = subprocess.run(gen, capture_output=True, text=True)
+    assert r.returncode != 0 and "distribution block accepts only" in r.stderr
+    # the shipped tree has no block: the manifests equal the identity's own fields
+    live = json.loads((ROOT / "plugin" / "identity.json").read_text())
+    for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+        d = json.loads((ROOT / "plugin" / m).read_text())
+        assert (d["license"], d["homepage"], d["repository"]) == (live["license"], live["homepage"], live["repository"])
 
 
 def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):

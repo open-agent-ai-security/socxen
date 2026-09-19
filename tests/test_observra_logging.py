@@ -251,3 +251,49 @@ def test_destination_never_leaks_userinfo_or_a_raw_endpoint(monkeypatch):
     monkeypatch.setenv("EXABEAM_ENDPOINT", "https://api:tok@x.exabeam.cloud/ingest?k=1")
     assert t._destination("exabeam", {}) == "https://x.exabeam.cloud"
     assert t._destination("jsonl", {"path": "/tmp/t.jsonl"}) == "/tmp/t.jsonl"
+
+
+# ---- #210 / #173: the stream contract ---------------------------------------------------------------
+
+def test_agent_name_comes_from_identity_json_with_socxen_as_the_fallback(monkeypatch, tmp_path):
+    """#210: a re-keyed copy (a vendor catalog shipping this plugin as `soc`) must log under its own name,
+    read from identity.json beside the connector; no file, or a broken one, means `socxen`, never an error."""
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    mod = _fresh(monkeypatch, {})
+    assert mod.AGENT == "socxen", "this tree's identity.json names the plugin socxen"
+    rekeyed = tmp_path / "rekeyed"; rekeyed.mkdir()
+    (rekeyed / "identity.json").write_text(json.dumps({"name": "soc", "version": "0.8.7"}))
+    assert mod._agent_name(str(rekeyed)) == "soc"
+    (rekeyed / "identity.json").write_text("{not json")
+    assert mod._agent_name(str(rekeyed)) == "socxen"
+    assert mod._agent_name(str(tmp_path / "nowhere")) == "socxen"
+    (rekeyed / "identity.json").write_text(json.dumps({"name": "soc"}))
+    # the file beside the running code wins over CLAUDE_PLUGIN_ROOT (an inherited env var can name another plugin)
+    assert _fresh(monkeypatch, {"CLAUDE_PLUGIN_ROOT": str(rekeyed)}).AGENT == "socxen"
+    # with no sibling identity.json, the env var is the fallback: a copy of the shim under a bare tree
+    import importlib.util, shutil
+    bare = tmp_path / "bare" / "connector"; bare.mkdir(parents=True)
+    shutil.copy(ROOT / "plugin" / "connector" / "observra_logging.py", bare / "observra_logging.py")
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(rekeyed))
+    spec = importlib.util.spec_from_file_location("obslog_bare", bare / "observra_logging.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    assert mod.AGENT == "soc"
+
+
+def test_tool_error_records_structure_never_the_upstream_message(monkeypatch, tmp_path):
+    """#173: the audit record of a failed call carries the error code, HTTP status, class and retryability
+    — and no message text, which quotes the request (a model-written filter is tenant content)."""
+    path = tmp_path / "t.jsonl"
+    mod = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(path)})
+    if not mod.enabled():
+        pytest.skip("observra not installed")
+    mod.tool_error("exabeam_search_alerts", 12.5, RuntimeError("Invalid filter value alert_name:\"finance user p.mensah\""),
+                   stage="remote", error_type_name="HTTPStatusError", error_code="AAA_ESA_1000_400", http_status=400,
+                   is_retryable=False, outcome_unknown=True, dropped_fields=["note", "tags"])
+    mod._shutdown()
+    rec = [json.loads(l) for l in path.read_text().splitlines() if '"tool_error"' in l][-1]
+    data = rec["data"]
+    assert data["error_code"] == "AAA_ESA_1000_400" and data["http_status"] == 400 and data["is_retryable"] is False
+    assert data["outcome_unknown"] is True and data["dropped_fields"] == "note,tags"
+    assert not data.get("error_message"), "observra's event schema carries the key; this shim never fills it"
+    assert "p.mensah" not in path.read_text()

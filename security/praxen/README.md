@@ -38,7 +38,53 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — remit v1.7 @ `5345de4` (2026-09-14, the release candidate after the 0.8.7 hotfix)
+## Current status — remit v1.7 @ `d5d7097` (2026-09-19, the 0.9.0 release candidate)
+
+| | |
+|---|---|
+| Scanned | **`praxen/rc-0.9.0-scan`** (`d5d7097`) — `dev` after the 0.8.8 release plus the 1.0 glide-path stack: preflight reads the host's `errors[]` (#239), the Claude Code permission pack retired so the bundled hook is the only gate (#243), the telemetry stream contract with structured errors and the PostToolUse approval record (#241), the skill reference-text and disposition-bucket corrections (#240), the identity `distribution` block (#245) and the docs passes (#234, #237, #238, #244). Worker Remit unchanged at **v1.7**. |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project files, the workspace a pinned worktree). |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **1 High** · 1 Medium · 5 Low — 7 CONFIRMED by the audit pass, 1 UNSUPPORTED (dropped), 0 remit defects |
+| Weighted RAISE posture | **3.55 / 5** (Established) |
+| Remit coverage | Remit **v1.7** · 72 rules as extracted — 55 verified · 8 partial · 0 gap · 9 enforcement-not-possible |
+| Threat model | 22 nodes · 30 edges · 7 trust boundaries · 3 attack paths — [`-threatmodel.html`](results/2026-09-19-socxen-rc-0.9.0-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-19-socxen-rc-0.9.0.html) · [findings JSON](results/2026-09-19-socxen-rc-0.9.0.json) ·
+[audit](results/2026-09-19-socxen-rc-0.9.0-audit.md) · [text](results/2026-09-19-socxen-rc-0.9.0.txt) ·
+[threat model](results/2026-09-19-socxen-rc-0.9.0-threatmodel.html) ([json](results/2026-09-19-socxen-rc-0.9.0-threatmodel.json)).
+
+**The findings.** The scanner's own summary: enforcement is deterministic at the two chokepoints socxen
+owns — the bundled hook on every disposition change, outbound mail, containment and rule write; the
+bridge's fail-closed read screen and write neutralization — and no telemetry-to-action chain survives
+them, so the residual gaps sit where the hook cannot see intent. High: the queue sweep's no-write rule is
+prompt-only, because `create_case` and `create_case_notes` are allow-tier for every skill and the hook
+carries no skill identity (`-001`; the 09-14 scan reported the same fact as Medium `-002`, and the remit
+says so — the severity moved, the fact did not; the product call on whether the gate must enforce it is #247). Medium: the bridge launches with plain `uv run`, so the
+hash-pinned lock is honored only if the operator's uv supports script locks (`-003`, new, #248). Lows: the audit
+record of a case close omits `closedReason`, now a six-value enum (`-004`); `SOCXEN_OBSERVRA=off` turns
+the trail off without a stderr line (`-005`, #215); the gate log copies `send_email` recipients from raw
+tool arguments (`-006`, new); the Codex preflight override check covers two of the three gated writes,
+not `send_email` (`-007`, new); unclassified write tools get ask rather than deny and free text is
+neutralized under eight field names only (`-008`, the documented design). The auditor dropped one finding
+as unsupported (the skills do tell the model to report an attempted injection, two of three).
+
+**Disposition (maintainer approval, Steve Wilson, 2026-09-19).** The High (`-001`, #247) and the Medium
+(`-003`, #248) are accepted for the 0.9.0 release as not release-blocking: the High is the same fact the
+0.8.8 gate carried as a Medium and the remit already declares, and the Medium is a supply-chain hardening
+whose fix re-opens the gate. Both are tracked as issues for the product call and the fix; the Lows are
+tracked where they already were (#215) or accepted as the documented design.
+
+**Against the 09-14 scan** (0 High · 9 Medium · 2 Low, RAISE 3.70): the upstream-error-text Medium (`-005`,
+#173) is closed by the telemetry contract in this tree and does not recur; six other Mediums and both Lows
+from that scan are not reported this time, which on a tree that changed functionally is read as variance
+plus the new code, not as closures. The RAISE and coverage deltas (3.70 → 3.55; 70 → 72 rules extracted on
+an unchanged remit) are inside the run-to-run range measured on 2026-09-08.
+
+## Previous — remit v1.7 @ `5345de4` (2026-09-14, the release candidate after the 0.8.7 hotfix; gated 0.8.8)
 
 | | |
 |---|---|
@@ -386,67 +432,69 @@ and are never edited after the fact.
 |---|---|
 | `WORKER_REMIT.md` | **The policy.** What socxen is authorized to do — the standard every scan judges the code against. |
 | `SCAN_INSTRUCTIONS.md` | Scan-time scope: *what to scan* for this target. Distinct from the remit, which is *what the agent should do*. |
-| `results/<date>-socxen-<version>.html` | The rendered report — findings with `file:line` evidence, remit coverage, RAISE scorecard, OWASP mappings. Self-contained; open it in a browser. |
-| `results/<date>-socxen-<version>.json` | The same analysis, machine-readable. |
-| `results/<date>-socxen-<version>-audit.md` | Independent audit record — a context-unaware second pass that re-reads every cited line and tries to refute each finding. |
+| `results/<date>-socxen-<label>.html` | The rendered report — findings with `file:line` evidence, remit coverage, RAISE scorecard, OWASP mappings. Self-contained; open it in a browser. |
+| `results/<date>-socxen-<label>.json` | The same analysis, machine-readable. |
+| `results/<date>-socxen-<label>.txt` | The plain-text summary, when the scan produced one. |
+| `results/<date>-socxen-<label>-audit.md` | The high-mode audit record — a context-unaware second pass that re-reads every cited line and tries to refute each finding. |
+| `results/<date>-socxen-<label>-threatmodel.html` / `.json` | The evidence-derived threat model — nodes, edges, trust boundaries, attack paths — when the scan asked for one. |
 
 ### Which scan gated which release
 
-Artifacts are named `<scan date>-socxen-<version at scan time>` — the version the scan **read**, not the
-release it **gated**. A gate scan necessarily runs before the version bump, so the two never match. The
-mapping, newest first:
-
-| Artifact | Scanned | Gated the release | Verdict |
-|---|---|---|---|
-| `2026-08-19-socxen-0.7.0.*` | `dev` @ `1a93c22`, then at 0.7.0 | **0.8.0** | 0 Critical — pass · RAISE 3.15 |
-| `2026-08-12-socxen-0.6.9.*` | `dev` @ `005fa4c`, then at 0.6.9 | **0.7.0** | 0 Critical — pass · RAISE 2.45 |
-
-Keep this table current when a scan is archived: the filenames alone are ambiguous a year out, and the
-gate record is release evidence.
-
-## Reproducing a scan
-
-Praxen installs from the same community marketplace as socxen:
-
-```bash
-claude plugin marketplace add open-agent-ai-security/plugins
-claude plugin install praxen@open-agent-ai-security
-```
-
-Then, from a clone of socxen at the commit you want to check:
-
-> *"Run a Praxen analysis of this workspace against `security/praxen/WORKER_REMIT.md`,
-> using `security/praxen/SCAN_INSTRUCTIONS.md` for scope."*
-
-Add **high thinking mode** to the request when the remit has changed — it adds a
-context-unaware audit pass over the findings *and* checks the remit's own rules against
-socxen's documentation, at roughly 1.2× tokens and 1.8× wall-clock. That is how the
-`-audit.md` record in `results/` is produced.
-
-Scan results vary run to run — synthesis is judgment, not a fixed function. Themes are
-the stable signal; treat the weighted score as advisory and the Critical count as the gate.
+Artifacts are named `<scan date>-socxen-<label>`, where the label names the tree scanned (`dev-rc`,
+`fix163`, `rc-remit17`, …). The status block for each scan, above, records the commit it read and, where
+it gated a release, which one; that is the gate record.
 
 ## Maintaining the remit
 
-**The remit is the standard, so a defect in it is worse than a defect in a report.** An
-over-broad or invented rule produces a finding that looks entirely real — correct file,
-correct line, an honest violation of the rule *as written* — because the rule is what's
-wrong. That cannot be spotted by reading findings; the rules have to be checked.
+The remit is the standard, so a defect in it is worse than a defect in a report: an over-broad or
+invented rule produces a finding that looks entirely real — correct file, correct line, an honest
+violation of the rule as written. Check the rules, not only the findings.
 
-Two rules of thumb, both learned the hard way while authoring this one:
+- **Write rules from documented intent, never from the implementation.** A remit written from the
+  code describes what socxen *does*, not what it *should* do, and a scan against it finds nothing.
+  Author from `README.md`, `SECURITY.md` and `docs/**`.
+- **A rule the code does not satisfy is a finding, not a remit bug.** Only narrow a rule when the
+  target's own documentation contradicts it.
+- **Unresolved questions are maintainer decisions.** When the docs settle a question, resolve it in
+  the remit and cite the doc. When they don't, record the decision in the remit's **Open Questions**
+  section with who decided and when.
 
-- **Write rules from documented intent, never from the implementation.** A remit written
-  from the code describes what socxen *does*, not what it *should* do — and a scan against
-  it finds nothing. This remit was authored blind, from `README.md`, `SECURITY.md` and
-  `docs/**` only, with no access to `skills/` or `connector/`.
-- **A rule the code does not satisfy is a finding, not a remit bug.** Those are the
-  valuable rules. Only narrow a rule when the target's own *documentation* contradicts it.
+Praxen's own guidance: [Writing Worker Remits](https://open-agent-ai-security.github.io/praxen/guide/writing-remits.html).
 
-When the docs settle a question, resolve it in the remit and cite the doc. When they
-don't — approver identity, volume limits, whether unattended operation is permitted — it
-is a maintainer decision, not something to infer. The remit's **Open Questions** section
-records each one with who decided and when.
+## Reproducing a scan
 
-Praxen's own guidance: [Writing Worker Remits](https://open-agent-ai-security.github.io/praxen/guide/writing-remits.html),
-including the *Advanced — hardening a new remit* section that describes the audit-and-review
-pass used on this remit.
+The gate runs on **Praxen 2.0.0-beta.1** with **Claude Opus 5**. That build is the `praxen-beta` entry of
+the community marketplace (the `praxen` entry serves the 1.x release, which is not what the recorded scans
+used):
+
+```bash
+claude plugin marketplace add open-agent-ai-security/plugins
+claude plugin install praxen-beta@open-agent-ai-security
+```
+
+Scan a pinned tree, not a working copy, from a directory outside any checkout so the session carries no
+project context:
+
+```bash
+git -C <socxen clone> worktree add /tmp/socxen-scan <commit>
+mkdir -p /tmp/praxen-run && cd /tmp/praxen-run
+```
+
+Then, in a fresh session (`--model opus`):
+
+> *"Use the praxen-beta:behavior-verifier skill in high thinking mode, and produce a threat model as well.
+> Worker Remit: `/tmp/socxen-scan/security/praxen/WORKER_REMIT.md`. Scan instructions:
+> `/tmp/socxen-scan/security/praxen/SCAN_INSTRUCTIONS.md`. Workspace to scan: `/tmp/socxen-scan`. Write
+> the reports to `./reports/`."*
+
+- **High thinking mode** adds the context-unaware audit pass over the findings and checks the remit's own
+  rules against the documentation; it produces the `-audit.md` record.
+- **The threat model** is part of every release-candidate scan; it produces the `-threatmodel.*` artifacts.
+  A documentation-only rescan may skip it and say so in its status block.
+- **Headless** (`claude -p`): set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, or print mode ends the skill's
+  background sub-agents after ten minutes and the scan stops at the evidence checkpoint.
+
+Copy the artifacts from `./reports/` into `results/` under the naming above, and add the status block.
+
+Scan results vary run to run — synthesis is judgment, not a fixed function. Themes are the stable
+signal; treat the weighted score as advisory and the Critical count as the gate.

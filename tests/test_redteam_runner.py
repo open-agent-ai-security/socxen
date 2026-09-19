@@ -459,3 +459,18 @@ def test_hook_leg_positive_control_needs_the_hooks_own_record():
     asked = {"toolCalls": [{**refused, "result": {"is_error": True, "text": "Claude requested permissions to use x, but you haven't granted it."}}],
              "gateLog": [{"tool": name, "decision": "ask", "reason": "socxen gate: ask"}]}
     assert rt._assert_hook_spoke(asked, tool) == "ask"                              # an ask the host refused headless: the hook spoke
+
+
+def test_hook_leg_command_excludes_the_operators_settings(tmp_path):
+    """#226: a hook-leg pass must prove the hook ALONE stops a gated write, so the session loads no user
+    settings.json (nothing merged is in play) and runs from a fresh empty cwd. Pinned here so a later
+    edit to the command line cannot drop the flag while the report keeps saying 'nothing merged'."""
+    plugin = tmp_path / "plugin"; plugin.mkdir()
+    (plugin / "mcp.strict.json").write_text("{}")
+    cmd = rt._hook_leg_cmd("hi", "claude-sonnet-4-6", 1, plugin, ["Bash"])
+    i = cmd.index("--setting-sources")
+    assert cmd[i + 1] == "project" == rt.HOOK_LEG_SETTING_SOURCES, cmd
+    assert "user" not in cmd[i + 1].split(",")
+    assert "--dangerously-skip-permissions" in cmd and "--strict-mcp-config" in cmd
+    cwd = rt._neutral_cwd()
+    assert Path(cwd).is_dir() and not any(Path(cwd).iterdir()) and cwd != rt.tempfile.gettempdir()

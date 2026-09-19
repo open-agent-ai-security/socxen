@@ -56,11 +56,20 @@ Rank rules by **noise = volume × (1 − precision)**. Volume is easy; precision
 from as many of these signals as the data offers, most decisive first:
 
 - **Disposition sample (ground truth, when reachable).** Closed cases carry a structured
-  `closedReason` (e.g. *False Positive*, *Benign*, *Already Mitigated / Resolved*, vs. *Confirmed* /
-  escalated). **Caveat:** `closedReason` is **not searchable** — it is only readable per-case via
-  `exabeam_get_case_details`, so *sample* a rule's closed cases; don't try to fetch them all. And map
-  the full vocabulary into precision buckets: FP / benign / mitigated-resolved → low precision;
-  confirmed / escalated → true positive. A naive "literal False-Positive rate" *undercounts* noise.
+  `closedReason`. The vocabulary is the platform's, not yours: read the value exactly as the tenant
+  returns it. **Caveat:** `closedReason` is **not searchable** — it is only readable per-case via
+  `exabeam_get_case_details`, so *sample* a rule's closed cases; don't try to fetch them all. Bucket
+  what you read: *Rule Misconfiguration* and *Policy or Setup Issue* are the **strongest noise signal**
+  there is — a detection engineer recording that the rule or its setup is wrong — so weight them above
+  everything else and name them in the report; *False Positive or Duplicate* → low precision; *Low Risk*
+  and *Already Mitigated / Resolved* → judgment (low value or already handled, not wrong); *Other* →
+  unknown, excluded from the rate. The close vocabulary has no "true positive" value: a real detection
+  is handled and then closed, or becomes a case — so the disposition sample gives you the **noise share
+  among classified closed cases**, and the true-positive side comes from the escalation and
+  corroboration signals below. Differences of case, spacing or punctuation are the same value; **a
+  value you don't recognize (a different word) is counted and reported as unrecognized, never bucketed
+  by resemblance** — say how many and what they were. A naive "literal False-Positive rate"
+  *undercounts* noise.
 - **Corroboration rate.** How often do a rule's firings co-occur with anything higher-fidelity (a TI /
   malicious-category hit, a destructive action, a multi-source chain)? A rule that *never* corroborates
   is low-precision by construction — this is the same discriminator `triage-cases` and `soc-investigate`
@@ -191,7 +200,7 @@ Then two short lists, no prose:
 - **Leave alone** — the loud-but-precise rules, named, so no one over-tunes them.
 - **Validate first** — the one-line backtest to run before rollout.
 
-Close with: *no rule was changed — this is a proposal* (no write path exists). Every volume,
+Close with: *no rule was changed — this is a proposal* (the rule-write tools exist and are denied on both hosts). Every volume,
 `closedReason`, or config value cited must come from a query you ran, never the rule name alone.
 
 ## Tool names, calling convention & constraints

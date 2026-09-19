@@ -8,7 +8,7 @@
 
 [![Project level: Incubator](https://img.shields.io/badge/project_level-incubator-d29922)](https://open-agent-ai-security.github.io/project-levels/)
 [![CI](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml/badge.svg)](https://github.com/open-agent-ai-security/socxen/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-v0.8.8-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-v0.9.0-blue)](.claude-plugin/plugin.json)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -82,8 +82,6 @@ behavior-verified before it ships; the runs, the findings and any waivers are pu
 [`security/`](https://github.com/open-agent-ai-security/socxen/tree/main/security) directory. The version
 badge above and the [changelog](https://github.com/open-agent-ai-security/socxen/blob/main/CHANGELOG.md)
 track the current release; `claude plugin list` (or `codex plugin list`) shows your installed version.
-
-Codex support is packaged and red-team gated, not yet field-proven; treat that path as gated but young.
 
 ## Project sponsor
 

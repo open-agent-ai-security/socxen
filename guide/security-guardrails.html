@@ -262,7 +262,7 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html" class="active">Security</a><ul class="docs-subnav"><li><a href="#a-human-before-anything-is-dismissed-or-closed">A human before anything is dismissed or closed</a></li><li><a href="#what-it-reads-is-screened">What it reads is screened</a></li><li><a href="#what-it-writes-is-neutralized">What it writes is neutralized</a></li><li><a href="#what-it-did-is-on-the-record">What it did is on the record</a></li><li><a href="#how-it-is-tested">How it is tested</a></li><li><a href="#what-these-controls-do-not-cover">What these controls do not cover</a></li></ul></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html" class="active">Security</a><ul class="docs-subnav"><li><a href="#a-human-before-anything-is-dismissed-or-closed">A human before anything is dismissed or closed</a></li><li><a href="#what-it-reads-is-screened">What it reads is screened</a></li><li><a href="#what-it-writes-is-neutralized">What it writes is neutralized</a></li><li><a href="#what-it-did-is-on-the-record">What it did is on the record</a></li><li><a href="#where-your-data-goes">Where your data goes</a></li><li><a href="#how-it-is-tested">How it is tested</a></li><li><a href="#what-these-controls-do-not-cover">What these controls do not cover</a></li><li><a href="#advanced-mirroring-the-tiers-in-host-policy">Advanced: mirroring the tiers in host policy</a></li></ul></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="security">Security</h1>
 <p>Everything socxen does to be safe to point at a live tenant, on one page: the human gate on
@@ -329,6 +329,22 @@ re-arms a payload that was sitting in the original data:</p>
 firing is written to a local, structured audit log, on by default: <code>~/.socxen/telemetry.jsonl</code>. It
 records metadata only — never case notes, evidence or payloads — and can be routed to Exabeam, an
 OpenTelemetry collector or a webhook. See <a href="logging.html">Audit logging</a>.</p>
+<h2 id="where-your-data-goes">Where your data goes</h2>
+<p>Three facts, and they are good ones:</p>
+<ul>
+<li><strong>socxen stores nothing.</strong> No server, no database, no queue, no hosted service. The audit log is a local
+  file holding metadata only. Exabeam holds what it already held, plus the case notes and the case and alert
+updates you approve.</li>
+<li><strong>What socxen retrieves does enter the model's context</strong> — event lines, alert and case content, identity
+  and host context, threat timelines, rule logic — and therefore reaches whichever model provider your
+  host agent is configured with. That is how the analysis happens.</li>
+<li><strong>socxen does not supply, choose or configure that provider.</strong> You bring your own Claude Code or Codex,
+  your own authentication, your own agreement. Residency, retention and processing terms are whatever
+  your agreement with your provider says; socxen is not a party to it and cannot change it.</li>
+</ul>
+<p>Compared with a hosted SOC agent, where the vendor runs the analysis and holds a copy of your telemetry
+under its own posture, there is no middle here: socxen runs on the analyst's machine, against your
+tenant, through your provider, on your terms.</p>
 <h2 id="how-it-is-tested">How it is tested</h2>
 <p>Claims about agent safety are worth what the testing behind them is worth, so the testing is public
 and every release is gated on it:</p>
@@ -339,7 +355,9 @@ and every release is gated on it:</p>
   sounded cautious. A landing in the blocking classes stops a release until it is fixed, or waived in
   writing with the reason recorded.</li>
 <li><strong>Behavior verification.</strong> Each release candidate is scanned against socxen's declared policy by an
-  independent verifier, and no release ships with an open Critical finding.</li>
+  independent verifier, with an audit pass over the findings and a threat model. No release ships with
+  an open Critical finding; every other finding is triaged into an issue, and the decision to ship with
+  it is written down beside the scan.</li>
 <li><strong>Bills of materials.</strong> Every release carries an AI BOM and a software BOM listing the models, tools
   and dependencies in play.</li>
 </ul>
@@ -361,9 +379,19 @@ and every release is gated on it:</p>
 <li><strong>A server you wire by hand.</strong> The screening, the neutralizer and the audit trail live in the bundled
   connector; registering the remote Exabeam MCP directly bypasses all three, leaving only the
   dismiss/close gate. Use the bundled connector for any investigation you rely on.</li>
+<li><strong>A queue sweep's restraint.</strong> During a triage sweep the skill is instructed not to write. The host
+  gate does not enforce that distinction: opening a case or writing a note is allowed for every skill,
+  so a sweep that writes is stopped by the instruction alone. Dismiss, close and containment stay gated
+  in a sweep exactly as everywhere else.</li>
 <li><strong>Judgment.</strong> These controls reduce the blast radius of hostile content. They do not replace the human
   gate, your SOC procedures, or your own review of the verdict.</li>
-</ul></article>
+</ul>
+<h2 id="advanced-mirroring-the-tiers-in-host-policy">Advanced: mirroring the tiers in host policy</h2>
+<p>Organizations that manage Claude Code through policy can mirror the plugin's allow, ask and deny rules
+as host permission rules, so the same tiers show up in your policy tooling. The plugin publishes them,
+generated from its tier file, as <code>skills/soc-investigate/settings.snippet.json</code> inside the installed
+plugin. Applied through managed settings, the two layers agree on every tool because both come from one
+source. This adds nothing to the gate itself, which is on from install.</p></article>
     <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/security-guardrails.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
