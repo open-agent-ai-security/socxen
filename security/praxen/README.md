@@ -63,7 +63,7 @@ bridge's fail-closed read screen and write neutralization — and no telemetry-t
 them, so the residual gaps sit where the hook cannot see intent. High: the queue sweep's no-write rule is
 prompt-only, because `create_case` and `create_case_notes` are allow-tier for every skill and the hook
 carries no skill identity (`-001`; the 09-14 scan reported the same fact as Medium `-002`, and the remit
-says so — the severity moved, the fact did not). Medium: the bridge launches with plain `uv run`, so the
+says so — the severity moved, the fact did not; the product call on whether the gate must enforce it is #247). Medium: the bridge launches with plain `uv run`, so the
 hash-pinned lock is honored only if the operator's uv supports script locks (`-003`, new). Lows: the audit
 record of a case close omits `closedReason`, now a six-value enum (`-004`); `SOCXEN_OBSERVRA=off` turns
 the trail off without a stderr line (`-005`, #215); the gate log copies `send_email` recipients from raw
