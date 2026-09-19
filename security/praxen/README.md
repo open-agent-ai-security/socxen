@@ -38,7 +38,47 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — remit v1.7 @ `5345de4` (2026-09-14, the release candidate after the 0.8.7 hotfix)
+## Current status — remit v1.7 @ `d5d7097` (2026-09-19, the 0.9.0 release candidate)
+
+| | |
+|---|---|
+| Scanned | **`praxen/rc-0.9.0-scan`** (`d5d7097`) — `dev` after the 0.8.8 release plus the 1.0 glide-path stack: preflight reads the host's `errors[]` (#239), the Claude Code permission pack retired so the bundled hook is the only gate (#243), the telemetry stream contract with structured errors and the PostToolUse approval record (#241), the skill reference-text and disposition-bucket corrections (#240), the identity `distribution` block (#245) and the docs passes (#234, #237, #238, #244). Worker Remit unchanged at **v1.7**. |
+| Scanner | **Praxen 2.0.0-beta.1**, Claude Opus 5, **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project files, the workspace a pinned worktree). |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | **1 High** · 1 Medium · 5 Low — 7 CONFIRMED by the audit pass, 1 UNSUPPORTED (dropped), 0 remit defects |
+| Weighted RAISE posture | **3.55 / 5** (Established) |
+| Remit coverage | Remit **v1.7** · 72 rules as extracted — 55 verified · 8 partial · 0 gap · 9 enforcement-not-possible |
+| Threat model | 22 nodes · 30 edges · 7 trust boundaries · 3 attack paths — [`-threatmodel.html`](results/2026-09-19-socxen-rc-0.9.0-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 3 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-19-socxen-rc-0.9.0.html) · [findings JSON](results/2026-09-19-socxen-rc-0.9.0.json) ·
+[audit](results/2026-09-19-socxen-rc-0.9.0-audit.md) · [text](results/2026-09-19-socxen-rc-0.9.0.txt) ·
+[threat model](results/2026-09-19-socxen-rc-0.9.0-threatmodel.html) ([json](results/2026-09-19-socxen-rc-0.9.0-threatmodel.json)).
+
+**The findings.** The scanner's own summary: enforcement is deterministic at the two chokepoints socxen
+owns — the bundled hook on every disposition change, outbound mail, containment and rule write; the
+bridge's fail-closed read screen and write neutralization — and no telemetry-to-action chain survives
+them, so the residual gaps sit where the hook cannot see intent. High: the queue sweep's no-write rule is
+prompt-only, because `create_case` and `create_case_notes` are allow-tier for every skill and the hook
+carries no skill identity (`-001`; the 09-14 scan reported the same fact as Medium `-002`, and the remit
+says so — the severity moved, the fact did not). Medium: the bridge launches with plain `uv run`, so the
+hash-pinned lock is honored only if the operator's uv supports script locks (`-003`, new). Lows: the audit
+record of a case close omits `closedReason`, now a six-value enum (`-004`); `SOCXEN_OBSERVRA=off` turns
+the trail off without a stderr line (`-005`, #215); the gate log copies `send_email` recipients from raw
+tool arguments (`-006`, new); the Codex preflight override check covers two of the three gated writes,
+not `send_email` (`-007`, new); unclassified write tools get ask rather than deny and free text is
+neutralized under eight field names only (`-008`, the documented design). The auditor dropped one finding
+as unsupported (the skills do tell the model to report an attempted injection, two of three).
+
+**Against the 09-14 scan** (0 High · 9 Medium · 2 Low, RAISE 3.70): the upstream-error-text Medium (`-005`,
+#173) is closed by the telemetry contract in this tree and does not recur; six other Mediums and both Lows
+from that scan are not reported this time, which on a tree that changed functionally is read as variance
+plus the new code, not as closures. The RAISE and coverage deltas (3.70 → 3.55; 70 → 72 rules extracted on
+an unchanged remit) are inside the run-to-run range measured on 2026-09-08.
+
+## Previous — remit v1.7 @ `5345de4` (2026-09-14, the release candidate after the 0.8.7 hotfix; gated 0.8.8)
 
 | | |
 |---|---|
