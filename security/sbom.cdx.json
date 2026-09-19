@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:f4d04442-9e33-51b0-aae3-a505d9f4e7b7",
+  "serialNumber": "urn:uuid:53af36d8-eebd-50fa-bdfe-fac86b559040",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-09-15T23:58:03Z",
+    "timestamp": "2026-09-19T20:00:49Z",
     "tools": {
       "components": [
         {
@@ -21,10 +21,10 @@
       ]
     },
     "component": {
-      "bom-ref": "socxen@0.8.8",
+      "bom-ref": "socxen@0.9.0",
       "type": "application",
       "name": "socxen",
-      "version": "0.8.8",
+      "version": "0.9.0",
       "description": "socxen plugin — the bundled Exabeam MCP bridge (plugin/connector/exabeam-mcp-bridge.py) and its locked Python dependency tree. The skills themselves are prompt/markdown and carry no runtime dependencies.",
       "licenses": [
         {
@@ -48,7 +48,7 @@
         {
           "type": "bom",
           "url": "aibom.cdx.json",
-          "comment": "The AI bill of materials for the same release (models, services, AI artifacts) — urn:uuid:13ff9c56-52b8-5316-82d9-2ae3d328824f"
+          "comment": "The AI bill of materials for the same release (models, services, AI artifacts) — urn:uuid:39f13b5c-eb44-5a53-ba79-7cc3a7811156"
         }
       ]
     },
@@ -2656,7 +2656,7 @@
   ],
   "dependencies": [
     {
-      "ref": "socxen@0.8.8",
+      "ref": "socxen@0.9.0",
       "dependsOn": [
         "pkg:pypi/certifi@2026.7.22",
         "pkg:pypi/httpx@0.28.1",
