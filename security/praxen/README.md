@@ -72,6 +72,12 @@ not `send_email` (`-007`, new); unclassified write tools get ask rather than den
 neutralized under eight field names only (`-008`, the documented design). The auditor dropped one finding
 as unsupported (the skills do tell the model to report an attempted injection, two of three).
 
+**Disposition (maintainer approval, Steve Wilson, 2026-09-19).** The High (`-001`, #247) and the Medium
+(`-003`, #248) are accepted for the 0.9.0 release as not release-blocking: the High is the same fact the
+0.8.8 gate carried as a Medium and the remit already declares, and the Medium is a supply-chain hardening
+whose fix re-opens the gate. Both are tracked as issues for the product call and the fix; the Lows are
+tracked where they already were (#215) or accepted as the documented design.
+
 **Against the 09-14 scan** (0 High · 9 Medium · 2 Low, RAISE 3.70): the upstream-error-text Medium (`-005`,
 #173) is closed by the telemetry contract in this tree and does not recur; six other Mediums and both Lows
 from that scan are not reported this time, which on a tree that changed functionally is read as variance
