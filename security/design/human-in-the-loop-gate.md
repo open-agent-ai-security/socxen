@@ -146,5 +146,7 @@ attempt on purpose, so the hook's save is observable.
   not reach.
 - The "any other agent" install path (no plugin host) has no gate at all — the installation guide marks
   it evaluation-only.
-- The permission snippet governs MCP tools only; a host's own Bash, Write and Edit tools stay at the session
-  default (tracked as an issue).
+- The hook governs MCP tools only; a host's own Bash, Write and Edit tools stay at the session default.
+- The hook has no skill or mode input, so the queue sweep's no-write rule is carried by the skill text
+  alone: `create_case` and `create_case_notes` are allow-tier for every skill (Praxen 2026-09-19-001;
+  the product call on enforcing it is #247).
