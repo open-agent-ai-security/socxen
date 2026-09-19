@@ -8,6 +8,92 @@
 Notable changes to socxen. Versions track `plugin/.claude-plugin/plugin.json`; releases follow the dev→main
 governance model (feature → `dev`, release `dev` → `main`).
 
+## [0.9.0] — 2026-09-19
+
+**The bundled hook is the only gate, the audit trail is structured end to end, and the install guide is
+written for the person installing.** Since 0.8.8: the Claude Code permission pack is retired, so there is
+nothing to merge and the hook's status is read from the plugin the host actually loaded; the telemetry
+stream drops upstream error text for the platform's error code and status, names the plugin it runs as,
+and records the analyst's approval of a gated write; the rule-tuning skill buckets closed cases on the
+dispositions the platform really returns; and a catalog that distributes the plugin under its own terms
+can say so in the manifests without relabeling the source.
+
+*Release gate:* the full red-team corpus on both hosts (hook leg 145/145, Codex 145/145, 0 landed, 0 HOOK
+MISS) and a Praxen scan (0 Critical, 1 High and 1 Medium accepted for this release by the maintainer, #247
+and #248), both run 2026-09-19 on `d5d7097` — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
+and [`security/praxen/README.md`](security/praxen/README.md). Nothing functional landed after that tree:
+the commits between it and this release are the two gate records and this version bump.
+
+### Breaking
+
+- **`tool_error` no longer carries `error_message`** (#173). Any consumer of `~/.socxen/telemetry.jsonl`
+  keying on that field must move: the replacement is a different shape, not a rename — `error_code` (the
+  platform's own code, e.g. `AAA_ESA_1000_400`, when it sent one), `http_status`, `error_type_name`,
+  `is_retryable`, plus `outcome_unknown` for a write whose request had gone out when the session died
+  and `dropped_fields` naming, by the schema's spelling, what the bridge dropped from an update. The
+  upstream text still reaches the operator on stderr and the agent in the tool error; it no longer
+  persists where a model-written filter could carry tenant content into the audit record.
+- **`install.sh --merge-permissions` and `SOCXEN_SETTINGS_FILE` are gone** (#226). See *Removed*.
+
+### Removed
+
+- **The Claude Code permission pack** (#226, #92). The installer no longer merges permission rules into
+  `settings.json`; its job is install plus preflight. Gone with it: the consent, backup and conflict
+  logic, the settings-file resolution, preflight's merged-rules reading, the release smoke's
+  governance-merge leg, and the "optional second lock" from every page. The bundled hook is the gate on
+  Claude Code, on from install, and it is at least as strict as the rules it replaces: ask on dismiss,
+  close and mail, deny on containment and rule writes, allow on reads and the two escalation writes for
+  the bundled server only. `settings.snippet.json` is still generated from the tier file and published
+  inside the plugin for organizations that mirror the tiers as host policy; the merge script lives in
+  `scripts/`, out of the install path. The red-team hook leg now runs with the operator's settings
+  excluded (`--setting-sources project`) and a fresh private working directory, so its pass proves the
+  hook alone stops every gated write.
+
+### Security
+
+- **Preflight reads the host's `errors[]` before reporting the gate** (#239, the precondition for the
+  removal above). `enabled: true` and a hook file on disk are both true for a plugin the host refused to
+  load; only `errors[]` carries that. Preflight and the installer now report *Gate is OFF — the installed
+  plugin FAILED TO LOAD* with the host's error, in every settings state, and never a green line for that
+  install. Preflight's scheme check is case-insensitive like the bridge's (#231), the loopback comparison
+  too, and the reachability failure names the region as the first thing to check (#227).
+- **The gate records the approval** (#5). The bundled hook also runs after the call: an ask-tier call that
+  completed is appended to `gate.jsonl` as `approved` — inferred from completion, since an ask completes
+  only on a yes — or as `ran_unasked` when the session's permission mode meant nobody could answer; a
+  deny-tier tool that ran is `ran_despite_deny`. Both the pre and post lines carry `permission_mode` and
+  `tool_use_id`. Never a decision, never stdout; the post invocation is chosen by the command line, so an
+  unparseable event can never become a permission decision.
+- **Telemetry names the plugin it runs as** (#210). `agent_name` comes from `identity.json` beside the
+  connector, `socxen` as the fallback, so a re-keyed copy logs under its own name.
+
+### Changed
+
+- **The rule-tuning disposition sample uses the platform's vocabulary** (#223, #235). `Benign` and
+  `Confirmed`, values the platform never returns, are gone; `Rule Misconfiguration` and `Policy or Setup
+  Issue` are named as the strongest noise signal; an unrecognized value is counted and reported, never
+  bucketed by resemblance; the close vocabulary has no true-positive value, so the sample yields the noise
+  share among classified closed cases and the true-positive side comes from escalation and corroboration.
+  Also from the same review: the phantom entity-context tool is out of soc-investigate's tier text,
+  `exabeam_send_email` joins its ask tier, and triage-cases' worked field list uses a real column. Re-driven
+  before merge: the seven affected fixtures, both legs, 70/70 resisted.
+- **`identity.json` accepts a `distribution` block** (#245) — `license`, `homepage`, `repository` — that
+  the host manifests take when present, while the top-level `license` keeps driving the SPDX headers,
+  README badge and `identity.sh`. A catalog can state its distribution's terms in the package metadata
+  without relabeling the source. The shipped tree sets no block.
+
+### Documentation
+
+- **The install guide is written for the person installing** (#227, #244). `python3` is named as a Claude
+  Code prerequisite; step 1 shows what the CLI prints and what a load error looks like; step 3 states the
+  real preflight outcomes on both hosts; the API key is created under Settings → API Keys and carries
+  access entitlements, not a role, with a table of the 24 tools grouped by what needs them; the region is
+  read from the console URL, and the License View field that shows a country is called out. The
+  organizations note lives on the Security page as *Advanced: mirroring the tiers in host policy*.
+- **The Security page says where your data goes** (#101, #234) and states the sweep's restraint as a
+  limitation the host does not enforce (#247). The logging page describes the new stream shape and says
+  the approval is inferred from completion. The praxen README's reproduce-a-scan procedure matches the
+  scans the gate records (#236, #237). Codex is described as co-equal.
+
 ## [0.8.8] — 2026-09-15
 
 **The read path fails closed, the transport is https-only, and the docs are for the people who use them.**
