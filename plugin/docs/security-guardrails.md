@@ -109,7 +109,9 @@ and every release is gated on it:
   sounded cautious. A landing in the blocking classes stops a release until it is fixed, or waived in
   writing with the reason recorded.
 - **Behavior verification.** Each release candidate is scanned against socxen's declared policy by an
-  independent verifier, and no release ships with an open Critical finding.
+  independent verifier, with an audit pass over the findings and a threat model. No release ships with
+  an open Critical finding; every other finding is triaged into an issue, and the decision to ship with
+  it is written down beside the scan.
 - **Bills of materials.** Every release carries an AI BOM and a software BOM listing the models, tools
   and dependencies in play.
 
@@ -132,6 +134,10 @@ The methodology, every dated run and the known residuals are in the repository's
 - **A server you wire by hand.** The screening, the neutralizer and the audit trail live in the bundled
   connector; registering the remote Exabeam MCP directly bypasses all three, leaving only the
   dismiss/close gate. Use the bundled connector for any investigation you rely on.
+- **A queue sweep's restraint.** During a triage sweep the skill is instructed not to write. The host
+  gate does not enforce that distinction: opening a case or writing a note is allowed for every skill,
+  so a sweep that writes is stopped by the instruction alone. Dismiss, close and containment stay gated
+  in a sweep exactly as everywhere else.
 - **Judgment.** These controls reduce the blast radius of hostile content. They do not replace the human
   gate, your SOC procedures, or your own review of the verdict.
 
