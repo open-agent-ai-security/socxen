@@ -64,7 +64,7 @@ Details, how it is tested, and what these do not cover: [Security](security-guar
 
 ## Quick reference
 
-- Install: `claude plugin marketplace add open-agent-ai-security/plugins` then `claude plugin install socxen@open-agent-ai-security` (Codex: `codex plugin marketplace add …` / `codex plugin add …`)
+- Install: `claude plugin marketplace add open-agent-ai-security/plugins` then `claude plugin install socxen@open-agent-ai-security` (Codex: `codex plugin marketplace add open-agent-ai-security/plugins` then `codex plugin add socxen@open-agent-ai-security`)
 - Credentials: `~/.exabeam-mcp.env` — the Exabeam MCP URL, API key and secret; see [Installation](installation.md)
 - Skills: `soc-investigate` · `triage-cases` · `rule-tuning`
 - Audit trail: `~/.socxen/telemetry.jsonl` — see [Audit logging](logging.md)

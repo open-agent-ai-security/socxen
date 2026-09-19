@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Installation &amp; setup · socxen Docs</title>
-<meta name="description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP. Setup is the same shape on both…">
+<meta name="description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP, Exabeam&#x27;s tool interface for AI…">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/guide/installation.html">
 <link rel="icon" type="image/png" sizes="32x32" href="../graphics/web/favicon-32.png">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="socxen">
 <meta property="og:title" content="Installation &amp; setup · socxen Docs">
-<meta property="og:description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP. Setup is the same shape on both…">
+<meta property="og:description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP, Exabeam&#x27;s tool interface for AI…">
 <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/guide/installation.html">
 <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Installation &amp; setup · socxen Docs">
-<meta name="twitter:description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP. Setup is the same shape on both…">
+<meta name="twitter:description" content="socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP, Exabeam&#x27;s tool interface for AI…">
 <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
 <script type="application/ld+json">
-{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Installation & setup", "description": "socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP. Setup is the same shape on both\u2026",
+{ "@context": "https://schema.org", "@type": "TechArticle", "headline": "Installation & setup", "description": "socxen is a plugin for Claude Code and OpenAI Codex that works your Exabeam New-Scale tenant through the Exabeam MCP, Exabeam's tool interface for AI\u2026",
   "url": "https://open-agent-ai-security.github.io/socxen/guide/installation.html", "isPartOf": { "@type": "WebSite", "name": "socxen", "url": "https://open-agent-ai-security.github.io/socxen/" },
   "publisher": { "@type": "Organization", "name": "Exabeam", "url": "https://www.exabeam.com/" } }
 </script>
@@ -262,17 +262,18 @@ img { max-width: 100%; display: block; }
   </div>
 </header>
 <div class="docs-shell">
-  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#key-entitlements">Key entitlements</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
+  <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html" class="active">Installation &amp; setup</a><ul class="docs-subnav"><li><a href="#before-you-start">Before you start</a></li><li><a href="#quick-start-claude-code">Quick start — Claude Code</a></li><li><a href="#quick-start-codex">Quick start — Codex</a></li><li><a href="#updating">Updating</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</a></li><li><a href="#key-entitlements">Key entitlements</a></li><li><a href="#uninstalling">Uninstalling</a></li></ul></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html">Support</a></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="installation-setup">Installation &amp; setup</h1>
 <p>socxen is a plugin for <strong>Claude Code</strong> and <strong>OpenAI Codex</strong> that works your <strong>Exabeam New-Scale</strong> tenant
-through the Exabeam MCP. Setup is the same shape on both hosts: install the plugin, add one credentials
+through the Exabeam MCP, Exabeam's tool interface for AI agents. Setup is the same shape on both hosts: install the plugin, add one credentials
 file, check, and run your first investigation. Five minutes.</p>
 <p>The safety gate is on from the moment the plugin is installed: dismissing an alert or closing a case
 always asks you first, and containment is never executed. Nothing to configure for that. On Claude Code
-the gate is a hook inside the plugin, and it holds even if you run with permissions skipped or auto-accept
-on: its deny on containment and its ask on dismiss and close still fire in those modes, and with nobody
-there to answer, an ask is refused.</p>
+the gate is a hook inside the plugin. It runs even when you start Claude Code with permission prompts
+turned off: containment is still refused, and a dismiss or close still needs a yes. Its deny on
+containment and its ask on dismiss and close still fire in those modes, and if nobody is there to give
+one, the call is refused.</p>
 <h2 id="before-you-start">Before you start</h2>
 <ul>
 <li><strong>A host agent:</strong> the <code>claude</code> CLI (Claude Code) or the <code>codex</code> CLI (Codex), signed in.</li>
@@ -281,6 +282,9 @@ there to answer, an ask is refused.</p>
   for how the supported models are validated.</li>
 <li><strong><a href="https://docs.astral.sh/uv/"><code>uv</code></a></strong> on your <code>PATH</code>. It runs the bundled Exabeam connector and
   installs the connector's own Python dependencies; there is nothing to <code>pip install</code>.</li>
+<li><strong><code>python3</code> (3.7 or newer) on your <code>PATH</code></strong> — Claude Code only. The safety gate is a small Python script
+  the host runs before each Exabeam call; without <code>python3</code> every gated call is refused. macOS and most
+  Linux distributions already have it (<code>python3 --version</code>). Codex does not need it.</li>
 <li><strong>An Exabeam New-Scale API key and secret</strong>, created under <strong>Settings → API Keys</strong> in your New-Scale
   console. Keys don't carry a role — you grant them <strong>access entitlements</strong>, and socxen gets exactly what
   the key was issued with. Entitle the key to read alerts, cases, events, threat summaries, MITRE
@@ -288,7 +292,7 @@ there to answer, an ask is refused.</p>
   notes; a read-only key
   investigates fine but cannot record an outcome. The exact list is under
   <a href="#key-entitlements">Key entitlements</a> below.</li>
-<li><strong>Your New-Scale region.</strong> It is the slug in <code>https://api.&lt;region&gt;.exabeam.cloud/mcp</code>, for example
+<li><strong>Your New-Scale region.</strong> It is the <code>&lt;region&gt;</code> part of <code>https://api.&lt;region&gt;.exabeam.cloud/mcp</code>, for example
   <code>us-west</code>. Most tenant console URLs contain it — read it from the address bar. Some named environments
   (for example a demo or a dedicated tenant) have no region in the URL; ask your Exabeam administrator
   which region hosts them. The <strong>Region Deployed</strong> field under <em>Service Health and Consumption → License
@@ -300,13 +304,17 @@ there to answer, an ask is refused.</p>
 <li><strong>Exabeam customers:</strong> the supported build is delivered through the Exabeam Plug-in Forge, with its
   own install command; your Exabeam representative can point you at it. These instructions cover the
   community release; see <a href="support.html">Support</a>.</li>
+<li><strong>Your own subscription.</strong> socxen runs inside your Claude Code or Codex plan. An investigation is a long
+  agent session and is billed by your provider like any other.</li>
 </ul>
 <h2 id="quick-start-claude-code">Quick start — Claude Code</h2>
 <p><strong>1. Install the plugin.</strong></p>
 <pre><code class="language-bash">claude plugin marketplace add open-agent-ai-security/plugins
 claude plugin install socxen@open-agent-ai-security
-claude plugin list      # expect: socxen@open-agent-ai-security  &lt;version&gt;  enabled, no errors
+claude plugin list      # expect a block for socxen@open-agent-ai-security ending in: Status: ✔ enabled
 </code></pre>
+<p>If the block shows an error line under it, the plugin installed but did not load — see
+<a href="#troubleshooting">Troubleshooting</a>.</p>
 <p><strong>2. Add your credentials.</strong> One file, in your home directory:</p>
 <pre><code class="language-bash">cat &gt; ~/.exabeam-mcp.env &lt;&lt;'ENV'
 EXABEAM_MCP_URL=https://api.&lt;region&gt;.exabeam.cloud/mcp
@@ -316,16 +324,15 @@ ENV
 chmod 600 ~/.exabeam-mcp.env
 </code></pre>
 <p>Replace <code>&lt;region&gt;</code> with your region. The URL must be <code>https://</code>. Then restart Claude Code, or run
-<code>/reload-plugins</code> inside it.</p>
+<code>/reload-plugins</code> inside it — the connector reads this file when it starts.</p>
 <p><strong>3. Check the setup.</strong> The plugin ships a read-only diagnostic that tells you what, if anything, is
-missing. It lives in the installed plugin directory: take the version <code>claude plugin list</code> shows and
-run</p>
+missing. It lives in the installed plugin. Run it with the exact version step 1 showed (not a wildcard:
+the cache keeps earlier versions, and a wildcard would run the oldest one):</p>
 <pre><code class="language-bash">bash ~/.claude/plugins/cache/open-agent-ai-security/socxen/&lt;version&gt;/preflight.sh
 </code></pre>
-<p>Use the exact version, not a wildcard — the cache keeps earlier versions after an update, and a
-wildcard would run the oldest one.</p>
-<p>Expect every line to start with <code>✓</code>, including <strong><code>Exabeam MCP reachable</code></strong> and <strong><code>Human-in-the-loop
-gate ON</code></strong>. A <code>✗</code> line names the step to fix.</p>
+<p>Expect <code>✓</code> on every line, including <strong><code>Exabeam MCP reachable</code></strong> and <strong><code>Human-in-the-loop gate ON</code></strong>. A
+<code>!</code> or <code>✗</code> line names what to fix; a <code>↷</code> line was skipped because an earlier line failed, so fix that one
+first. If you see <code>No credentials yet</code>, go back to step 2.</p>
 <p><strong>4. Run your first investigation.</strong> Start Claude Code and hand it an alert:</p>
 <blockquote>
 <p>investigate alert <code>&lt;alert id&gt;</code></p>
@@ -346,10 +353,13 @@ codex plugin list      # expect: socxen@open-agent-ai-security  installed, enabl
 </code></pre>
 <p><strong>2. Add your credentials</strong> — the same file as for Claude Code, above (<code>~/.exabeam-mcp.env</code>, <code>https://</code>,
 <code>chmod 600</code>). Then start a new Codex session.</p>
-<p><strong>3. Check the setup.</strong> From the installed plugin directory (<code>codex plugin list</code> prints its path):</p>
-<pre><code class="language-bash">./preflight.sh --platform codex
+<p><strong>3. Check the setup.</strong> <code>codex plugin list</code> prints the plugin's path in its last column. Run the
+diagnostic from there:</p>
+<pre><code class="language-bash">bash &lt;that path&gt;/preflight.sh --platform codex
 </code></pre>
-<p>Expect <code>✓</code> on every line, including <strong><code>Exabeam MCP reachable</code></strong> and <strong><code>Human-in-the-loop gate ON</code></strong>.</p>
+<p>Expect <code>✓</code> on every line, including <strong><code>Exabeam MCP reachable</code></strong> and <strong><code>Human-in-the-loop gate ON</code></strong>. A
+<code>!</code> or <code>✗</code> line names what to fix; a <code>↷</code> line was skipped because an earlier line failed, so fix that one
+first. If you see <code>No credentials yet</code>, go back to step 2.</p>
 <p><strong>4. Run your first investigation.</strong> In a Codex session:</p>
 <blockquote>
 <p>investigate alert <code>&lt;alert id&gt;</code></p>
@@ -386,7 +396,7 @@ or fleet-wide in a managed <code>settings.json</code>:</p>
 to your tenant, and the safety gate, and names the failing step.</p>
 <ul>
 <li><strong><code>Exabeam MCP reachable</code> fails.</strong> The region in <code>EXABEAM_MCP_URL</code> is the first thing to check: it
-  must be the slug from your console address, not the country shown in License View. Then check that
+  must be the region from your console address, not the country shown in License View. Then check that
   the URL starts with <code>https://</code> and that the key and secret are the ones your console shows. The
   connector refuses to start over <code>http://</code>, on purpose.</li>
 <li><strong>Investigations work but rule-tuning returns nothing.</strong> The key is entitled for alerts and cases but
@@ -401,12 +411,6 @@ to your tenant, and the safety gate, and names the failing step.</p>
 <li><strong>On Codex, no <code>exabeam</code> server appears.</strong> Codex drops a bundled server silently if any part of its
   configuration is invalid; run <code>codex plugin add socxen@open-agent-ai-security</code> again and re-check.</li>
 </ul>
-<h2 id="for-organizations-the-same-tiers-as-host-policy">For organizations: the same tiers as host policy</h2>
-<p>The safety gate that ships in the plugin is a hook the host enforces; you do not need anything else.
-Organizations that manage Claude Code through policy can apply the same allow, ask and deny tiers as
-host permission rules: the plugin publishes them, generated from its tier file, as
-<code>skills/soc-investigate/settings.snippet.json</code> inside the installed plugin. Push that block through
-your managed settings; the two layers agree on every tool because both come from one source.</p>
 <h2 id="advanced-wiring-the-exabeam-mcp-by-hand-not-recommended">Advanced: wiring the Exabeam MCP by hand (not recommended)</h2>
 <p>You can register the remote Exabeam MCP in your host directly (<code>claude mcp add … exabeam …</code>) with a
 bearer token you mint yourself. Two things to know: the token expires in about four hours, and, more
