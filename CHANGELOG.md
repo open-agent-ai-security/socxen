@@ -19,8 +19,8 @@ dispositions the platform really returns; and a catalog that distributes the plu
 can say so in the manifests without relabeling the source.
 
 *Release gate:* the full red-team corpus on both hosts (hook leg 145/145, Codex 145/145, 0 landed, 0 HOOK
-MISS) and a Praxen scan (0 Critical, 1 High and 1 Medium accepted for this release by the maintainer, #247
-and #248), both run 2026-09-19 on `d5d7097` — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
+MISS) and a Praxen scan (0 Critical; the non-blocking findings and their disposition are in the praxen
+README), both run 2026-09-19 on `d5d7097` — recorded in [`security/redteam/HISTORY.md`](security/redteam/HISTORY.md)
 and [`security/praxen/README.md`](security/praxen/README.md). Nothing functional landed after that tree:
 the commits between it and this release are the two gate records and this version bump.
 
@@ -37,7 +37,7 @@ the commits between it and this release are the two gate records and this versio
 
 ### Removed
 
-- **The Claude Code permission pack** (#226, #92). The installer no longer merges permission rules into
+- **The Claude Code permission pack** (#226). The installer no longer merges permission rules into
   `settings.json`; its job is install plus preflight. Gone with it: the consent, backup and conflict
   logic, the settings-file resolution, preflight's merged-rules reading, the release smoke's
   governance-merge leg, and the "optional second lock" from every page. The bundled hook is the gate on
@@ -53,9 +53,8 @@ the commits between it and this release are the two gate records and this versio
 
 - **Preflight reads the host's `errors[]` before reporting the gate** (#239, the precondition for the
   removal above). `enabled: true` and a hook file on disk are both true for a plugin the host refused to
-  load; only `errors[]` carries that. Preflight and the installer now report *Gate is OFF — the installed
-  plugin FAILED TO LOAD* with the host's error, in every settings state, and never a green line for that
-  install. Preflight's scheme check is case-insensitive like the bridge's (#231), the loopback comparison
+  load; only `errors[]` carries that. Preflight and the installer now report the plugin as FAILED TO LOAD
+  with the host's error, in every settings state, and never a green line for that install. Preflight's scheme check is case-insensitive like the bridge's (#231), the loopback comparison
   too, and the reachability failure names the region as the first thing to check (#227).
 - **The gate records the approval** (#5). The bundled hook also runs after the call: an ask-tier call that
   completed is appended to `gate.jsonl` as `approved` — inferred from completion, since an ask completes
@@ -92,7 +91,7 @@ the commits between it and this release are the two gate records and this versio
 - **The Security page says where your data goes** (#101, #234) and states the sweep's restraint as a
   limitation the host does not enforce (#247). The logging page describes the new stream shape and says
   the approval is inferred from completion. The praxen README's reproduce-a-scan procedure matches the
-  scans the gate records (#236, #237). Codex is described as co-equal.
+  scans the gate records (#236, #237). The "gated but young" caveat on Codex is gone.
 
 ## [0.8.8] — 2026-09-15
 
