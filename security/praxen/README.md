@@ -64,7 +64,7 @@ them, so the residual gaps sit where the hook cannot see intent. High: the queue
 prompt-only, because `create_case` and `create_case_notes` are allow-tier for every skill and the hook
 carries no skill identity (`-001`; the 09-14 scan reported the same fact as Medium `-002`, and the remit
 says so — the severity moved, the fact did not; the product call on whether the gate must enforce it is #247). Medium: the bridge launches with plain `uv run`, so the
-hash-pinned lock is honored only if the operator's uv supports script locks (`-003`, new). Lows: the audit
+hash-pinned lock is honored only if the operator's uv supports script locks (`-003`, new, #248). Lows: the audit
 record of a case close omits `closedReason`, now a six-value enum (`-004`); `SOCXEN_OBSERVRA=off` turns
 the trail off without a stderr line (`-005`, #215); the gate log copies `send_email` recipients from raw
 tool arguments (`-006`, new); the Codex preflight override check covers two of the three gated writes,
