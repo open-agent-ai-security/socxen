@@ -73,7 +73,7 @@ The full five-minute quick start, with what to expect at each step, is in
 | **[Example investigation](skills/soc-investigate/reference/examples/coordinated-credential-access.md)** | a real run, from alert to verdict |
 | **[Security](docs/security-guardrails.md)** | the human gate, the guardrails, the audit trail, how it is tested, what it does not cover |
 | **[Audit logging](docs/logging.md)** | exactly what is recorded, where the log lives, how to route or disable it |
-| **[Support](docs/support.md)** | community support, where to ask, and Exabeam's supported SOC Agent pack |
+| **[Support](docs/support.md)** | where to ask for help, and the terms this copy is supported under |
 
 ## Status
 
@@ -91,5 +91,11 @@ security in an increasingly agentic world.
 
 ## License
 
-Apache-2.0 — see `LICENSE` / `NOTICE`. socxen is community supported, as is; see
-[Support](docs/support.md).
+Apache-2.0 — see `LICENSE` / `NOTICE`.
+<!-- community-only -->
+socxen is community supported, as is; see [Support](docs/support.md).
+<!-- /community-only -->
+<!-- distribution-only
+This copy is distributed under the terms in `LICENSE`; the software it includes is open source under the
+Apache License 2.0, see `LICENSE-APACHE` and `NOTICE`. Support: [Support](docs/support.md).
+/distribution-only -->

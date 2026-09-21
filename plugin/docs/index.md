@@ -25,7 +25,7 @@ every call on an audit trail.
 | Wanting to see a real one end to end | [Example investigation](../skills/soc-investigate/reference/examples/coordinated-credential-access.md) — a coordinated credential-access case, from intake to verdict |
 | Wondering what keeps this safe, or why a link in a note looks "broken" | [Security](security-guardrails.md) — the human gate, the guardrails on what socxen reads and writes, the audit trail, how it is tested, and what it does not cover |
 | Asked "what did the agent actually do?" | [Audit logging](logging.md) — the on-by-default audit trail: what is recorded, what deliberately is not, where it lives |
-| Looking for help, or a supported build | [Support](support.md) — community support, where to ask, and Exabeam's supported SOC Agent pack |
+| Looking for help, or a supported build | [Support](support.md) — where to ask for help, and the terms this copy is supported under |
 
 ## The three skills
 

@@ -851,10 +851,16 @@ def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp
         d = json.loads((work / m).read_text())
         assert d["license"] == "LicenseRef-Exabeam-Enterprise-Agreement" and d["homepage"] == d["repository"] == "https://github.com/Exabeam/plugins", m
         assert d["name"] == ident["name"] and d["version"] == ident["version"]
-    assert (work / "README.md").read_text() == readme_before, "the README is the software's, untouched"
+    # the README changes only in its marked community-only / distribution-only blocks (#256): with those
+    # switched on the "before" text the same way, the rest is byte-identical — badge, License line, headers
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("gen_identity_dist", work / "gen_identity.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    assert (work / "README.md").read_text() == mod._switch_distribution_prose(readme_before), "the README is the software's outside the marked blocks"
+    assert "badge/license-Apache_2.0-" in (work / "README.md").read_text()
     assert "SOCXEN_ID_LICENSE=Apache-2.0" in (work / "identity.sh").read_text()
     for rel, text in headers_before.items():
-        if rel.parts[0] not in (".claude-plugin", ".codex-plugin"):
+        if rel.parts[0] not in (".claude-plugin", ".codex-plugin", "docs") and rel.name != "README.md":   # prose switches its marked blocks (#256); the code must not move
             assert (work / rel).read_text() == text, f"{rel} changed: the block must not touch the source"
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
     # an unknown key is refused, never silently written into a manifest
@@ -867,6 +873,52 @@ def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp
     for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         d = json.loads((ROOT / "plugin" / m).read_text())
         assert (d["license"], d["homepage"], d["repository"]) == (live["license"], live["homepage"], live["repository"])
+
+
+def test_gen_identity_rekey_with_a_distribution_block_serves_that_distributions_docs(tmp_path):
+    """#256: a re-keyed copy's docs must name the distribution everywhere a user pastes from — the bare
+    marketplace name (`marketplace update <name>`, the settings key), the plugin cache path — and must not
+    tell a distribution's customer that they hold the community release. Source links (the community site,
+    the source repo) keep pointing at the source. Without a `distribution` block the markers stay as
+    comments and the prose is untouched."""
+    import shutil, subprocess, sys, json, re
+    work = tmp_path / "plugin"
+    shutil.copytree(ROOT / "plugin", work, ignore=shutil.ignore_patterns("__pycache__"))
+    gen = [sys.executable, str(work / "gen_identity.py")]
+    guide, support, readme = work / "docs" / "installation.md", work / "docs" / "support.md", work / "README.md"
+    for f in (guide, support, readme):
+        assert "<!-- community-only -->" in f.read_text() and "<!-- distribution-only" in f.read_text(), f
+    # re-key WITHOUT a distribution block: names move, markers and prose stay
+    ident = json.loads((work / "identity.json").read_text())
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    subprocess.run(gen, check=True, capture_output=True, text=True)
+    g = guide.read_text()
+    assert "plugins/cache/exabeam/soc/<version>/preflight.sh" in g and "plugins/cache/open-agent-ai-security" not in g
+    assert "claude plugin marketplace update exabeam" in g and 'marketplace remove exabeam' in g and '"exabeam": {' in g
+    assert "<!-- community-only -->" in g and "community release" in g, "no distribution block: the community prose stays"
+    # now WITH the block: the community-only prose goes, the distribution-only prose appears
+    ident["distribution"] = {"license": "LicenseRef-Exabeam-Enterprise-Agreement",
+                             "homepage": "https://github.com/Exabeam/plugins", "repository": "https://github.com/Exabeam/plugins"}
+    (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
+    subprocess.run(gen, check=True, capture_output=True, text=True)
+    for f in (guide, support, readme):
+        t = f.read_text()
+        assert "community-only" not in t and "distribution-only" not in t, f"{f.name}: markers must be consumed"
+    g, sp, rd = guide.read_text(), support.read_text(), readme.read_text()
+    assert "community release" not in g and "This copy is a distribution" in g
+    assert "community supported" not in sp and "Supported by Exabeam" not in sp and "distributed under the terms in its `LICENSE`" in sp
+    assert "community supported" not in rd and "LICENSE-APACHE" in rd
+    # every bare community marketplace name left is a source link, never a command or a key
+    for f in (guide, support, readme, work / "docs" / "index.md"):
+        for m in re.finditer(r"open-agent-ai-security", f.read_text()):
+            ctx = f.read_text()[max(0, m.start() - 20):m.end() + 12]
+            assert "github.com/open-agent-ai-security/" in ctx or "open-agent-ai-security.github.io" in ctx, (f.name, ctx)
+    # idempotent and --check clean
+    before = (g, sp, rd)
+    subprocess.run(gen, check=True, capture_output=True, text=True)
+    assert (guide.read_text(), support.read_text(), readme.read_text()) == before
+    assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
 
 
 def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(tmp_path):

@@ -265,25 +265,48 @@ img { max-width: 100%; display: block; }
   <aside class="docs-sidebar"><nav class="docs-nav"><div class="docs-nav-title">Documentation</div><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation &amp; setup</a></li><li><a href="usage.html">Using the skills</a></li><li><a href="example.html">Example investigation</a></li><li><a href="security-guardrails.html">Security</a></li><li><a href="logging.html">Audit logging</a></li><li><a href="support.html" class="active">Support</a><ul class="docs-subnav"><li><a href="#getting-help">Getting help</a></li><li><a href="#supported-by-exabeam">Supported by Exabeam</a></li></ul></li></ul></nav></aside>
   <main class="docs-main">
     <article class="prose"><h1 id="support">Support</h1>
+<!-- community-only -->
 <p>socxen is an open-source project, published by the
 <a href="https://open-agent-ai-security.github.io/">Open Agent and AI Security community</a> and sponsored by
 <a href="https://www.exabeam.com/">Exabeam</a>. It is <strong>community supported, as is</strong>, under the
 <a href="https://github.com/open-agent-ai-security/socxen/blob/main/LICENSE">Apache-2.0 license</a>. There is no
 service level, no support desk and no warranty; the people who build it answer questions as they can.</p>
+<!-- /community-only -->
+<!-- distribution-only
+This copy is distributed under the terms in its `LICENSE` file, by the organization named there, which
+also provides its support. The software it includes is socxen, open source under the Apache License 2.0
+(see `LICENSE-APACHE`); its source is at
+[github.com/open-agent-ai-security/socxen](https://github.com/open-agent-ai-security/socxen).
+/distribution-only -->
+
 <h2 id="getting-help">Getting help</h2>
 <ul>
 <li><strong>Something isn't working?</strong> Run the diagnostics first — they name the missing step:
   <code>preflight.sh</code> in the installed plugin (<code>claude plugin list</code> or <code>codex plugin list</code> prints its path).</li>
+</ul>
+<!-- community-only -->
+<ul>
 <li><strong>Questions and bug reports:</strong> open an issue at
   <a href="https://github.com/open-agent-ai-security/socxen/issues">github.com/open-agent-ai-security/socxen/issues</a>.
   Include the host (Claude Code or Codex), the plugin version, and the <code>preflight.sh</code> output.</li>
+</ul>
+<!-- /community-only -->
+<!-- distribution-only
+- **Questions and bug reports:** through the support path of the organization that distributes this
+  copy. Include the host (Claude Code or Codex), the plugin version, and the `preflight.sh` output. A
+  defect in the open-source software itself may also be reported at
+  [github.com/open-agent-ai-security/socxen/issues](https://github.com/open-agent-ai-security/socxen/issues).
+/distribution-only -->
+<ul>
 <li><strong>Security vulnerabilities:</strong> please do not open a public issue — follow
   <a href="https://github.com/open-agent-ai-security/socxen/blob/main/SECURITY.md">SECURITY.md</a>.</li>
 </ul>
+<!-- community-only -->
 <h2 id="supported-by-exabeam">Supported by Exabeam</h2>
 <p>Exabeam offers a <strong>supported SOC Agent pack</strong> — the same agentic SOC skills, delivered and supported
 under Exabeam's commercial terms — through the <strong>Exabeam Plug-in Forge</strong>. If you are an Exabeam customer
-and want a supported build with a support path, your Exabeam representative can point you at it.</p></article>
+and want a supported build with a support path, your Exabeam representative can point you at it.</p>
+<!-- /community-only --></article>
     <p class="docs-edit"><a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/docs/support.md" target="_blank" rel="noopener">Edit this page on GitHub ↗</a></p>
   </main>
 </div>
