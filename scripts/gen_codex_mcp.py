@@ -58,7 +58,7 @@ TARGET = ROOT / "plugin" / ".mcp.codex.json"
 # `cwd` against the installed plugin root. Verified against codex-cli 0.146.0.
 TRANSPORT = {
     "command": "uv",
-    "args": ["run", "--quiet", "connector/exabeam-mcp-bridge.py"],
+    "args": ["run", "--quiet", "--locked", "connector/exabeam-mcp-bridge.py"],
     "cwd": ".",
 }
 

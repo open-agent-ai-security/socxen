@@ -87,11 +87,25 @@ detect_platform() {
 
 # ---- shared checks (identical on every host) ----
 
+# The bridge is launched with `uv run --locked`: its dependencies are pinned by hash in the script lock
+# beside it, and uv refuses to start it if that lock is missing or stale instead of resolving without it
+# (#248). Script locks need uv 0.5.17; the `--locked` warning on scripts went away in 0.5.23, so that is
+# the floor. Below it the bridge does not start at all, which is the safe direction — say so here.
+UV_MIN="0.5.23"
+uv_version() { uv --version 2>/dev/null | awk '{print $2}'; }
+version_ge() {     # version_ge A B: true when A is at least B, numerically per dot-field
+  [ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" = "$2" ]
+}
 check_toolchain() {
   if command -v uv >/dev/null 2>&1; then
-    ok "uv present — $(uv --version 2>/dev/null)"
+    local uvv; uvv="$(uv_version)"
+    if [ -n "$uvv" ] && version_ge "$uvv" "$UV_MIN"; then
+      ok "uv present — $(uv --version 2>/dev/null)"
+    else
+      fail "uv ${uvv:-?} is older than ${UV_MIN} — the bundled Exabeam bridge starts with 'uv run --locked' so its hash-pinned dependencies are honored, and that needs uv ${UV_MIN} or newer; upgrade: uv self update (or https://docs.astral.sh/uv/)"
+    fi
   else
-    warn "uv not found — the bundled Exabeam bridge needs it: https://docs.astral.sh/uv/"
+    warn "uv not found — the bundled Exabeam bridge needs it (${UV_MIN} or newer): https://docs.astral.sh/uv/"
   fi
   if command -v python3 >/dev/null 2>&1; then
     if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' 2>/dev/null; then
@@ -205,7 +219,7 @@ check_connectivity() {
     skip "MCP connectivity check skipped — bridge not found (run from a cloned repo)"
   else
     step "Connecting to Exabeam MCP via the bundled bridge…"
-    if out="$(uv run --quiet "$bridge" --check 2>&1)"; then
+    if out="$(uv run --quiet --locked "$bridge" --check 2>&1)"; then
       ok "Exabeam MCP reachable — ${out##*OK — }"
     else
       warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1) — check the region in EXABEAM_MCP_URL first (the slug from your console address), then the key and secret"

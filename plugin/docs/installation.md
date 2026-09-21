@@ -22,8 +22,10 @@ one, the call is refused.
 - **A supported model.** On Claude Code, Sonnet 4.6 or newer, or Opus; on Codex, GPT-5.6 Terra or Sol.
   Smaller models (Haiku, Luna) are not supported. See [Security](security-guardrails.md#how-it-is-tested)
   for how the supported models are validated.
-- **[`uv`](https://docs.astral.sh/uv/)** on your `PATH`. It runs the bundled Exabeam connector and
-  installs the connector's own Python dependencies; there is nothing to `pip install`.
+- **[`uv`](https://docs.astral.sh/uv/) 0.5.23 or newer** on your `PATH`. It runs the bundled Exabeam
+  connector and installs the connector's own Python dependencies; there is nothing to `pip install`.
+  Those dependencies are pinned by hash, and uv refuses to start the connector if the pin cannot be
+  honored, which is why the version matters (`uv self update` brings an older uv current).
 - **`python3` (3.7 or newer) on your `PATH`** — Claude Code only. The safety gate is a small Python script
   the host runs before each Exabeam call; without `python3` every gated call is refused. macOS and most
   Linux distributions already have it (`python3 --version`). Codex does not need it.

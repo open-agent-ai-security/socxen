@@ -96,7 +96,7 @@ def test_check_without_creds_exits_clean():
     env["UV_CACHE_DIR"] = real_cache
     try:
         proc = subprocess.run(
-            ["uv", "run", "--quiet", str(BRIDGE), "--check"],
+            ["uv", "run", "--quiet", "--locked", str(BRIDGE), "--check"],
             capture_output=True, text=True, timeout=300, env=env,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
