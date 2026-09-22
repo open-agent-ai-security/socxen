@@ -158,16 +158,48 @@ _BARE_BEFORE = r"[A-Za-z0-9_./@-]"   # `@`: a name after an @ is part of an inst
 # markers in the shipped docs (#256). A copy re-keyed WITH a `distribution` block drops the community-only
 # blocks and unwraps the distribution-only ones; the upstream tree keeps both as HTML comments, which the
 # guide builder and GitHub render as nothing.
-_COMMUNITY_BLOCK = re.compile(r"[ \t]*<!-- community-only -->\n.*?<!-- /community-only -->\n", re.S)
-_DISTRIBUTION_OPEN = re.compile(r"^[ \t]*<!-- distribution-only\n", re.M)
-_DISTRIBUTION_CLOSE = re.compile(r"^[ \t]*/distribution-only -->\n", re.M)
+_MARK_OPEN, _MARK_CLOSE = "<!-- community-only -->", "<!-- /community-only -->"
+_DIST_OPEN, _DIST_CLOSE = "<!-- distribution-only", "/distribution-only -->"
+_MARKER_LINE = re.compile(r"^[ \t]*(<!-- community-only -->|<!-- /community-only -->|<!-- distribution-only|/distribution-only -->)[ \t]*$")
+_COMMUNITY_BLOCK = re.compile(r"^[ \t]*<!-- community-only -->[ \t]*\n.*?^[ \t]*<!-- /community-only -->[ \t]*\n", re.S | re.M)
+_DISTRIBUTION_WRAP = re.compile(r"^[ \t]*(<!-- distribution-only|/distribution-only -->)[ \t]*\n", re.M)
+_BADGE_LINK = re.compile(r"(\[!\[License: [^\]]+\]\([^)]*badge/license-[^)]+\)\]\()LICENSE\)")
+
+
+def check_markers(text):
+    """The marked blocks a distribution copy switches must be well formed, or a stray marker ships prose it
+    should not. Returns a list of problems: a marker sharing a line with prose, opens and closes that do not
+    alternate or balance, or a marker of one kind closed by the other."""
+    problems, stack = [], []
+    for n, line in enumerate(text.split("\n"), 1):
+        if not any(m in line for m in (_MARK_OPEN, _MARK_CLOSE, _DIST_OPEN, _DIST_CLOSE)):
+            continue
+        m = _MARKER_LINE.match(line)
+        if not m:
+            problems.append(f"line {n}: a marker must stand alone on its line"); continue
+        tok = m.group(1)
+        if tok in (_MARK_OPEN, _DIST_OPEN):
+            if stack: problems.append(f"line {n}: {tok} opened inside an open block")
+            stack.append((tok, n))
+        else:
+            want = _MARK_OPEN if tok == _MARK_CLOSE else _DIST_OPEN
+            if not stack or stack[-1][0] != want:
+                problems.append(f"line {n}: {tok} closes nothing (or the wrong kind)")
+            else:
+                stack.pop()
+    problems += [f"line {n}: {tok} never closed" for tok, n in stack]
+    return problems
 
 
 def _switch_distribution_prose(text):
-    """Drop community-only blocks, unwrap distribution-only blocks. Idempotent: a second pass finds none."""
+    """Drop community-only blocks, unwrap distribution-only blocks, point the license badge at the Apache
+    text (LICENSE holds the distribution's terms in such a copy), and tidy the blank lines the removals
+    leave. Idempotent: a second pass finds nothing."""
     text = _COMMUNITY_BLOCK.sub("", text)
-    text = _DISTRIBUTION_OPEN.sub("", text)
-    return _DISTRIBUTION_CLOSE.sub("", text)
+    text = _DISTRIBUTION_WRAP.sub("", text)
+    text = _BADGE_LINK.sub(r"\1LICENSE-APACHE)", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.rstrip("\n") + "\n" if text.strip() else text
 
 
 def rewrite_docs(prev, identity):
@@ -316,6 +348,9 @@ def main(argv):
         readme = HERE / "README.md"
         if readme.exists() and (lic not in readme.read_text() or f"badge/license-{badge_slug(lic)}-" not in readme.read_text()):
             names.append("plugin/README.md (does not name this distribution's license)")
+        bad = [f"{f.relative_to(HERE.parent)} ({'; '.join(p)})" for f in doc_files() for p in [check_markers(f.read_text())] if p]
+        if bad:
+            names.append("malformed community-only / distribution-only markers in " + ", ".join(bad))
         key = install_key(identity)
         literal = [f for f in SHELL_FILES if (HERE / f).is_file()
                    and re.search(rf"(?<!{_BEFORE}){re.escape(key)}(?!{_AFTER})", (HERE / f).read_text())]

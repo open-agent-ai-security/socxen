@@ -20,7 +20,7 @@ Start with installation; the rest you reach for when you need it.
   writes, the audit trail, how it is tested, and what it does not cover — on one page.
 - **[Audit logging](logging.md)** — exactly what is recorded, where the log lives, how to route or
   disable it.
-- **[Support](support.md)** — community support, where to ask, and Exabeam's supported SOC Agent pack.
+- **[Support](support.md)** — where to ask for help, and the terms this copy is supported under.
 
 Working on the code? The developer material — contributing, testing, the release gates and their
 ledgers — lives in the [repository](https://github.com/open-agent-ai-security/socxen#working-on-socxen).

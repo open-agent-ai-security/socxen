@@ -91,11 +91,11 @@ security in an increasingly agentic world.
 
 ## License
 
-Apache-2.0 — see `LICENSE` / `NOTICE`.
 <!-- community-only -->
-socxen is community supported, as is; see [Support](docs/support.md).
+Apache-2.0 — see `LICENSE` / `NOTICE`. socxen is community supported, as is; see
+[Support](docs/support.md).
 <!-- /community-only -->
 <!-- distribution-only
 This copy is distributed under the terms in `LICENSE`; the software it includes is open source under the
-Apache License 2.0, see `LICENSE-APACHE` and `NOTICE`. Support: [Support](docs/support.md).
+Apache License 2.0 — see `LICENSE-APACHE` and `NOTICE`. Support: [Support](docs/support.md).
 /distribution-only -->

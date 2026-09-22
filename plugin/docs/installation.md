@@ -156,7 +156,7 @@ codex plugin add socxen@open-agent-ai-security
 
 Both commands matter on Claude Code: the first refreshes the catalog, the second installs from it.
 Restart or `/reload-plugins` to apply. Auto-update on Claude Code is per marketplace and off by default
-for community marketplaces; turn it on under `/plugin` → **Marketplaces** → `open-agent-ai-security`,
+for marketplaces you add yourself; turn it on under `/plugin` → **Marketplaces** → `open-agent-ai-security`,
 or fleet-wide in a managed `settings.json`:
 
 ```json

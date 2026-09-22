@@ -860,7 +860,11 @@ def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp
     assert "badge/license-Apache_2.0-" in (work / "README.md").read_text()
     assert "SOCXEN_ID_LICENSE=Apache-2.0" in (work / "identity.sh").read_text()
     for rel, text in headers_before.items():
-        if rel.parts[0] not in (".claude-plugin", ".codex-plugin", "docs") and rel.name != "README.md":   # prose switches its marked blocks (#256); the code must not move
+        if rel.parts[0] in (".claude-plugin", ".codex-plugin"):
+            continue
+        if rel.parts[0] == "docs" or rel.name == "README.md":      # prose switches its marked blocks and nothing else (#256)
+            assert (work / rel).read_text() == mod._switch_distribution_prose(text), f"{rel} changed outside its marked blocks"
+        else:
             assert (work / rel).read_text() == text, f"{rel} changed: the block must not touch the source"
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 0
     # an unknown key is refused, never silently written into a manifest
@@ -873,6 +877,30 @@ def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp
     for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         d = json.loads((ROOT / "plugin" / m).read_text())
         assert (d["license"], d["homepage"], d["repository"]) == (live["license"], live["homepage"], live["repository"])
+
+
+def test_marked_prose_blocks_are_well_formed_everywhere():
+    """#256: a stray or malformed marker would ship community prose in a distribution copy (or eat prose it
+    should keep). Every doc file's markers stand alone, alternate and balance, and the switch leaves none."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("gen_identity_markers", ROOT / "plugin" / "gen_identity.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    marked = 0
+    for f in mod.doc_files():
+        text = f.read_text()
+        assert not mod.check_markers(text), (f.name, mod.check_markers(text))
+        if "community-only" in text or "distribution-only" in text:
+            marked += 1
+            switched = mod._switch_distribution_prose(text)
+            assert "community-only" not in switched and "distribution-only" not in switched, f.name
+            assert switched == mod._switch_distribution_prose(switched), f"{f.name}: switching is not idempotent"
+    assert marked >= 4, "the install guide, support page, docs index and README carry marked blocks"
+    # and the checker rejects the shapes that would misbehave
+    assert mod.check_markers("x\n<!-- community-only -->\nprose\n")            # never closed
+    assert mod.check_markers("<!-- community-only --> tail\n<!-- /community-only -->\n")   # not alone on its line
+    assert mod.check_markers("<!-- community-only -->\n<!-- distribution-only\n/distribution-only -->\n<!-- /community-only -->\n")  # nested
+    assert mod.check_markers("<!-- distribution-only\n<!-- /community-only -->\n")  # wrong kind
+    assert not mod.check_markers("<!-- community-only -->\na\n<!-- /community-only -->\n<!-- distribution-only\nb\n/distribution-only -->\n")
 
 
 def test_gen_identity_rekey_with_a_distribution_block_serves_that_distributions_docs(tmp_path):
@@ -909,6 +937,9 @@ def test_gen_identity_rekey_with_a_distribution_block_serves_that_distributions_
     assert "community release" not in g and "This copy is a distribution" in g
     assert "community supported" not in sp and "Supported by Exabeam" not in sp and "distributed under the terms in its `LICENSE`" in sp
     assert "community supported" not in rd and "LICENSE-APACHE" in rd
+    assert "Apache-2.0 — see `LICENSE` / `NOTICE`" not in rd, "the community License line must not ship in a distribution copy"
+    assert "blue.svg)](LICENSE-APACHE)" in rd, "the Apache badge links to the Apache text in a distribution copy"
+    assert not sp.endswith("\n\n") and not rd.endswith("\n\n")
     # every bare community marketplace name left is a source link, never a command or a key
     for f in (guide, support, readme, work / "docs" / "index.md"):
         for m in re.finditer(r"open-agent-ai-security", f.read_text()):
