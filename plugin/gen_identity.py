@@ -116,6 +116,7 @@ def previous_identity():
     if not all(k in vals for k in ("SOCXEN_ID_NAME", "SOCXEN_ID_MARKETPLACE_REPO", "SOCXEN_ID_MARKETPLACE_NAME")):
         return None
     return {"key": f"{vals['SOCXEN_ID_NAME']}@{vals['SOCXEN_ID_MARKETPLACE_NAME']}", "repo": vals["SOCXEN_ID_MARKETPLACE_REPO"],
+            "name": vals["SOCXEN_ID_NAME"], "marketplace": vals["SOCXEN_ID_MARKETPLACE_NAME"],
             "license": vals.get("SOCXEN_ID_LICENSE", "")}      # absent in copies generated before the license followed
 
 
@@ -146,18 +147,84 @@ def _replace_bounded(text, subs):
     return text, kept
 
 
+# The bare marketplace name stands alone in `claude plugin marketplace update <name>`, `/plugin → Marketplaces →
+# <name>`, and the settings key `"<name>":`. It also opens the community site (`<name>.github.io`) and the
+# source repo path (`github.com/<name>/socxen`), which a re-keyed copy must keep pointing at the source — so
+# the bare-name rewrite stops at a `.` or `/` on either side, unlike the key and repo rewrites.
+_BARE_AFTER = r"[A-Za-z0-9_./-]"
+_BARE_BEFORE = r"[A-Za-z0-9_./@-]"   # `@`: a name after an @ is part of an install key, which the key rewrite owns
+
+# Prose that is true of the community distribution only, or of a distribution copy only, sits between these
+# markers in the shipped docs (#256). A copy re-keyed WITH a `distribution` block drops the community-only
+# blocks and unwraps the distribution-only ones; the upstream tree keeps both as HTML comments, which the
+# guide builder and GitHub render as nothing.
+_MARK_OPEN, _MARK_CLOSE = "<!-- community-only -->", "<!-- /community-only -->"
+_DIST_OPEN, _DIST_CLOSE = "<!-- distribution-only", "/distribution-only -->"
+_MARKER_LINE = re.compile(r"^[ \t]*(<!-- community-only -->|<!-- /community-only -->|<!-- distribution-only|/distribution-only -->)[ \t]*$")
+_COMMUNITY_BLOCK = re.compile(r"^[ \t]*<!-- community-only -->[ \t]*\n.*?^[ \t]*<!-- /community-only -->[ \t]*\n", re.S | re.M)
+_DISTRIBUTION_WRAP = re.compile(r"^[ \t]*(<!-- distribution-only|/distribution-only -->)[ \t]*\n", re.M)
+_BADGE_LINK = re.compile(r"(\[!\[License: [^\]]+\]\([^)]*badge/license-[^)]+\)\]\()LICENSE\)")
+
+
+def check_markers(text):
+    """The marked blocks a distribution copy switches must be well formed, or a stray marker ships prose it
+    should not. Returns a list of problems: a marker sharing a line with prose, opens and closes that do not
+    alternate or balance, or a marker of one kind closed by the other."""
+    problems, stack = [], []
+    for n, line in enumerate(text.split("\n"), 1):
+        if not any(m in line for m in (_MARK_OPEN, _MARK_CLOSE, _DIST_OPEN, _DIST_CLOSE)):
+            continue
+        m = _MARKER_LINE.match(line)
+        if not m:
+            problems.append(f"line {n}: a marker must stand alone on its line"); continue
+        tok = m.group(1)
+        if tok in (_MARK_OPEN, _DIST_OPEN):
+            if stack: problems.append(f"line {n}: {tok} opened inside an open block")
+            stack.append((tok, n))
+        else:
+            want = _MARK_OPEN if tok == _MARK_CLOSE else _DIST_OPEN
+            if not stack or stack[-1][0] != want:
+                problems.append(f"line {n}: {tok} closes nothing (or the wrong kind)")
+            else:
+                stack.pop()
+    problems += [f"line {n}: {tok} never closed" for tok, n in stack]
+    return problems
+
+
+def _switch_distribution_prose(text):
+    """Drop community-only blocks, unwrap distribution-only blocks, point the license badge at the Apache
+    text (LICENSE holds the distribution's terms in such a copy), and tidy the blank lines the removals
+    leave. Idempotent: a second pass finds nothing."""
+    text = _COMMUNITY_BLOCK.sub("", text)
+    text = _DISTRIBUTION_WRAP.sub("", text)
+    text = _BADGE_LINK.sub(r"\1LICENSE-APACHE)", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.rstrip("\n") + "\n" if text.strip() else text
+
+
 def rewrite_docs(prev, identity):
-    """Replace the previous install key and marketplace repo with the current ones in the shipped prose
-    and the shell fallbacks. Exact strings at identifier boundaries; nothing else in the prose is touched.
-    An occurrence that continues into a longer identifier (`socxen@open-agent-ai-security-dev`) names
-    something else and is left alone — and reported, so the maintainer sees what did not move."""
-    subs = [(prev["key"], install_key(identity)), (prev["repo"], identity["marketplace"]["repo"])]
-    subs = [(a, b) for a, b in subs if a and a != b]
+    """Replace the previous install key, marketplace repo, marketplace name and plugin cache path with the
+    current ones in the shipped prose and the shell fallbacks. Exact strings at identifier boundaries;
+    nothing else in the prose is touched. An occurrence that continues into a longer identifier
+    (`socxen@open-agent-ai-security-dev`) names something else and is left alone — and reported, so the
+    maintainer sees what did not move. A copy with a `distribution` block also switches the marked
+    community-only / distribution-only prose (#256)."""
+    new_key, new_repo = install_key(identity), identity["marketplace"]["repo"]
+    prev_mkt, new_mkt = prev.get("marketplace", ""), identity["marketplace"]["name"]
+    prev_path, new_path = f"plugins/cache/{prev_mkt}/{prev.get('name', '')}/", f"plugins/cache/{new_mkt}/{identity['name']}/"
+    subs = [(prev_path, new_path), (prev["key"], new_key), (prev["repo"], new_repo)]
+    subs = [(a, b) for a, b in subs if a and a != b and not a.startswith("plugins/cache//")]
+    bare = (prev_mkt, new_mkt) if prev_mkt and prev_mkt != new_mkt else None
+    switch = bool(identity.get("distribution"))
     changed, kept = [], []
     for f in doc_files():
         text = f.read_text()
         new, lines = _replace_bounded(text, subs)
         kept += [f"{f.relative_to(HERE.parent)}:{n}" for n in lines]
+        if bare:
+            new = re.sub(rf"(?<!{_BARE_BEFORE}){re.escape(bare[0])}(?!{_BARE_AFTER})", bare[1], new)
+        if switch:
+            new = _switch_distribution_prose(new)
         if new != text:
             f.write_text(new); changed.append(f)
     return changed, kept
@@ -281,6 +348,9 @@ def main(argv):
         readme = HERE / "README.md"
         if readme.exists() and (lic not in readme.read_text() or f"badge/license-{badge_slug(lic)}-" not in readme.read_text()):
             names.append("plugin/README.md (does not name this distribution's license)")
+        bad = [f"{f.relative_to(HERE.parent)} ({'; '.join(p)})" for f in doc_files() for p in [check_markers(f.read_text())] if p]
+        if bad:
+            names.append("malformed community-only / distribution-only markers in " + ", ".join(bad))
         key = install_key(identity)
         literal = [f for f in SHELL_FILES if (HERE / f).is_file()
                    and re.search(rf"(?<!{_BEFORE}){re.escape(key)}(?!{_AFTER})", (HERE / f).read_text())]

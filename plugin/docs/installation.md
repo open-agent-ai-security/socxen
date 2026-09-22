@@ -43,9 +43,15 @@ one, the call is refused.
   gate are shell scripts and Python, and the credentials file below is protected by Unix file
   permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
   key and secret unprotected. There is no PowerShell path.
+<!-- community-only -->
 - **Exabeam customers:** the supported build is delivered through the Exabeam Plug-in Forge, with its
   own install command; your Exabeam representative can point you at it. These instructions cover the
   community release; see [Support](support.md).
+<!-- /community-only -->
+<!-- distribution-only
+- **This copy is a distribution.** It is provided under the terms in its `LICENSE` file by the
+  organization that distributes it, which also provides its support; see [Support](support.md).
+/distribution-only -->
 - **Your own subscription.** socxen runs inside your Claude Code or Codex plan. An investigation is a long
   agent session and is billed by your provider like any other.
 
@@ -150,7 +156,7 @@ codex plugin add socxen@open-agent-ai-security
 
 Both commands matter on Claude Code: the first refreshes the catalog, the second installs from it.
 Restart or `/reload-plugins` to apply. Auto-update on Claude Code is per marketplace and off by default
-for community marketplaces; turn it on under `/plugin` → **Marketplaces** → `open-agent-ai-security`,
+for marketplaces you add yourself; turn it on under `/plugin` → **Marketplaces** → `open-agent-ai-security`,
 or fleet-wide in a managed `settings.json`:
 
 ```json
