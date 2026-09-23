@@ -290,7 +290,7 @@ DISTRIBUTION_KEYS = ("homepage", "repository", "license")      # manifest key or
 
 def manifest_fields(identity):
     """The manifest describes the plugin AS DISTRIBUTED. A catalog that serves this payload under its own
-    terms (Exabeam/plugins) sets an optional `distribution` block in identity.json — `license`, `homepage`,
+    terms (Exabeam-Labs/plugins) sets an optional `distribution` block in identity.json — `license`, `homepage`,
     `repository` — and the manifests take those values. The top-level `license` keeps meaning the
     software's license: it drives the SPDX headers, the README badge and identity.sh, and is untouched by
     the block, so the source stays under its own license while the package states the distribution's."""

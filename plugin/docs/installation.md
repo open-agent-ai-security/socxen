@@ -44,9 +44,9 @@ one, the call is refused.
   permissions, which Git Bash on NTFS does not enforce — so Git Bash can run the scripts but leaves your
   key and secret unprotected. There is no PowerShell path.
 <!-- community-only -->
-- **Exabeam customers:** the supported build is delivered through the Exabeam Plug-in Forge, with its
-  own install command; your Exabeam representative can point you at it. These instructions cover the
-  community release; see [Support](support.md).
+- **Exabeam customers:** the supported build is delivered through the
+  [Exabeam Plug-in Forge](https://exabeam-labs.github.io/plugins/), with its own install command. These
+  instructions cover the community release; see [Support](support.md).
 <!-- /community-only -->
 <!-- distribution-only
 - **This copy is a distribution.** It is provided under the terms in its `LICENSE` file by the
