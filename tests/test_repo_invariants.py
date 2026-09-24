@@ -740,15 +740,15 @@ def test_gen_identity_rekey_leaves_longer_identifiers_alone(tmp_path):
                "A shell default moves with the key: ${PLUGIN_KEY:-socxen@open-agent-ai-security}\n")
     sibling.write_text(fixture)
     ident = json.loads((work / "identity.json").read_text())
-    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam-Labs/plugins", "name": "exabeam"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
     after = sibling.read_text()
     assert after == ("Install the real thing with `claude plugin install soc@exabeam`.\n"
                      "Not `socxen@open-agent-ai-security-dev`, not `xsocxen@open-agent-ai-security`, and the catalog is\n"
-                     "Exabeam/plugins — never open-agent-ai-security/plugins-dev.\n"
+                     "Exabeam-Labs/plugins — never open-agent-ai-security/plugins-dev.\n"
                      "A shell default moves with the key: ${PLUGIN_KEY:-soc@exabeam}\n")
-    assert "soc@exabeam-dev" not in after and "xsoc@exabeam" not in after and "Exabeam/plugins-dev" not in after
+    assert "soc@exabeam-dev" not in after and "xsoc@exabeam" not in after and "Exabeam-Labs/plugins-dev" not in after
     assert "longer identifier(s) untouched" in out and "docs/sibling.md:2" in out and "docs/sibling.md:3" in out
     # the live instance the review found: install.sh documents its own boundary handling with a -dev key
     installer = (work / "install.sh").read_text()
@@ -780,7 +780,7 @@ def test_gen_identity_check_refuses_an_install_key_literal_in_the_shell_scripts(
     pf.write_text(pf.read_text().replace('\nKEY_FALLBACK="socxen@open-agent-ai-security"\n', ""))
     import json
     ident = json.loads((work / "identity.json").read_text())
-    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam-Labs/plugins", "name": "exabeam"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
     assert (work / "install.sh").read_bytes() == before and "install.sh" not in out
@@ -789,7 +789,7 @@ def test_gen_identity_check_refuses_an_install_key_literal_in_the_shell_scripts(
 
 def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
     """A vendor catalog that serves the payload under its own terms sets `license` in identity.json
-    (Exabeam/plugins does: LicenseRef-Exabeam-Enterprise-Agreement). Regenerating then relicenses the
+    (Exabeam-Labs/plugins does: LicenseRef-Exabeam-Enterprise-Agreement). Regenerating then relicenses the
     copy in every file that states a license — each SPDX header, the README's badge and License
     section, identity.sh, the manifests — so the copy says one thing about its terms, a license
     scanner reads the same answer its LICENSE gives, and --check holds it there. The LICENSE text
@@ -841,7 +841,7 @@ def test_gen_identity_rekey_relicenses_every_file_of_the_copy(tmp_path):
 
 
 def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp_path):
-    """A catalog that distributes the payload under its own terms (Exabeam/plugins) sets `distribution`
+    """A catalog that distributes the payload under its own terms (Exabeam-Labs/plugins) sets `distribution`
     in identity.json — license, homepage, repository. The manifests describe the plugin AS DISTRIBUTED,
     so they take those values; the source stays under its own license: every SPDX header, the README
     badge and identity.sh keep the top-level `license`. Without the block the manifests carry the
@@ -854,14 +854,14 @@ def test_gen_identity_distribution_block_sets_the_manifests_and_nothing_else(tmp
     readme_before = (work / "README.md").read_text()
     headers_before = {p.relative_to(work): p.read_text() for p in work.rglob("*") if p.is_file() and "SPDX-License-Identifier" in p.read_text(errors="ignore")}
     ident["distribution"] = {"license": "LicenseRef-Exabeam-Enterprise-Agreement",
-                             "homepage": "https://github.com/Exabeam/plugins", "repository": "https://github.com/Exabeam/plugins"}
+                             "homepage": "https://github.com/Exabeam-Labs/plugins", "repository": "https://github.com/Exabeam-Labs/plugins"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     assert subprocess.run(gen + ["--check"], capture_output=True, text=True).returncode == 1, "the manifests are stale until regenerated"
     out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
     assert "manifests carry the distribution's homepage, license, repository" in out, out
     for m in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         d = json.loads((work / m).read_text())
-        assert d["license"] == "LicenseRef-Exabeam-Enterprise-Agreement" and d["homepage"] == d["repository"] == "https://github.com/Exabeam/plugins", m
+        assert d["license"] == "LicenseRef-Exabeam-Enterprise-Agreement" and d["homepage"] == d["repository"] == "https://github.com/Exabeam-Labs/plugins", m
         assert d["name"] == ident["name"] and d["version"] == ident["version"]
     # the README changes only in its marked community-only / distribution-only blocks (#256): with those
     # switched on the "before" text the same way, the rest is byte-identical — badge, License line, headers
@@ -930,7 +930,7 @@ def test_gen_identity_rekey_with_a_distribution_block_serves_that_distributions_
         assert "<!-- community-only -->" in f.read_text() and "<!-- distribution-only" in f.read_text(), f
     # re-key WITHOUT a distribution block: names move, markers and prose stay
     ident = json.loads((work / "identity.json").read_text())
-    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam-Labs/plugins", "name": "exabeam"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     subprocess.run(gen, check=True, capture_output=True, text=True)
     g = guide.read_text()
@@ -939,7 +939,7 @@ def test_gen_identity_rekey_with_a_distribution_block_serves_that_distributions_
     assert "<!-- community-only -->" in g and "community release" in g, "no distribution block: the community prose stays"
     # now WITH the block: the community-only prose goes, the distribution-only prose appears
     ident["distribution"] = {"license": "LicenseRef-Exabeam-Enterprise-Agreement",
-                             "homepage": "https://github.com/Exabeam/plugins", "repository": "https://github.com/Exabeam/plugins"}
+                             "homepage": "https://github.com/Exabeam-Labs/plugins", "repository": "https://github.com/Exabeam-Labs/plugins"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     subprocess.run(gen, check=True, capture_output=True, text=True)
     for f in (guide, support, readme):
@@ -982,14 +982,14 @@ def test_gen_identity_rewrites_the_install_key_in_the_shipped_prose_on_a_rekey(t
     assert guide.read_text() == before
     # a re-key: name + marketplace patched, then regenerate
     ident = json.loads((work / "identity.json").read_text())
-    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam/plugins", "name": "exabeam"}
+    ident["name"], ident["marketplace"] = "soc", {"repo": "Exabeam-Labs/plugins", "name": "exabeam"}
     (work / "identity.json").write_text(json.dumps(ident, indent=2) + "\n")
     r = subprocess.run(gen + ["--check"], capture_output=True, text=True)
     assert r.returncode == 1 and "install key" in r.stderr, "before regenerating, --check names the guide as stale"
     out = subprocess.run(gen, check=True, capture_output=True, text=True).stdout
     assert "socxen@open-agent-ai-security → soc@exabeam" in out
     after = guide.read_text()
-    assert "soc@exabeam" in after and "Exabeam/plugins" in after
+    assert "soc@exabeam" in after and "Exabeam-Labs/plugins" in after
     assert "socxen@open-agent-ai-security" not in after and "open-agent-ai-security/plugins" not in after
     for f in ("README.md", "docs/index.md", "preflight.sh"):
         assert "socxen@open-agent-ai-security" not in (work / f).read_text(), f
