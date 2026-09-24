@@ -18,9 +18,9 @@
 | Deployment Environment | Analyst workstation, interactive session on a supported host — Claude Code or OpenAI Codex — against an Exabeam New-Scale tenant (pre-release / evaluation). Any other agent is unsupported (see Action Boundaries). |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.7 |
-| Last Updated | 2026-09-14 |
-| Updated By | Praxen remit authoring (v1.7, descriptive tidy only — #190: tool counts, both hosts named, file citations without line numbers; the read-screen residual removed after socxen #172 shipped fail-closed; no rule changes) |
+| Remit Version | 1.8 |
+| Last Updated | 2026-09-23 |
+| Updated By | Praxen remit authoring (v1.8 — #219: the model-floor rule removed, a statement about how the project validates and describes the software rather than about the agent's conduct — the floor is documented in the install guide and the red-team PLAN; #218: the spill-file carve-out folded into the no-copy rule's own sentence, and the parser tools' 'classified ahead of exposure' clause dropped now that the MCP exposes them) |
 
 ---
 
@@ -202,9 +202,6 @@ gate staying real.
 
 - Exabeam read tools, by name — the prompt-free allow tier as shipped in `permissions.json`:
   `exabeam_analytics_rule_details`, `exabeam_analytics_rule_list`, `exabeam_context_table_list`, `exabeam_correlation_rule_list`, `exabeam_get_alert_details`, `exabeam_get_alert_threat_timeline`, `exabeam_get_case_details`, `exabeam_get_case_notes`, `exabeam_get_case_threat_timeline`, `exabeam_get_context_table_records`, `exabeam_get_correlation_rule_details`, `exabeam_get_mitre_coverage`, `exabeam_get_parser_details`, `exabeam_get_use_case_score`, `exabeam_parser_list`, `exabeam_search_alerts`, `exabeam_search_cases`, `exabeam_search_events`, `exabeam_threat_summary`.
-  Of these, `exabeam_get_parser_details` and `exabeam_parser_list` are classified ahead of the MCP
-  exposing them or of any skill workflow using them; they are reads and are listed here so the baseline
-  and the shipped tier are the same list.
 - Exabeam non-destructive write tools: create a case, update a case, write case notes, and update an
   alert.
 - Exabeam platform email (`exabeam_send_email`): send Exabeam tool output to active users of the
@@ -236,9 +233,6 @@ gate staying real.
 
 ### Runtime and Supply-Chain Requirements
 
-- socxen MUST state the minimum model it is validated on, MUST NOT be presented as supported on a model
-  below that floor, and its adversarial safety validation MUST be run against the weakest supported model
-  rather than only the strongest.
 - Every third-party runtime dependency socxen ships MUST be version-bounded and inventoried in the
   shipped bill of materials, so an upstream release cannot silently change what runs on the operator's
   host.
@@ -291,10 +285,10 @@ gate staying real.
   evidence or of the attacker's content.
 - Telemetry MUST NOT leave the operator's host unless the operator has deliberately selected an off-host
   destination; local-only recording is the required default.
-- socxen MUST NOT copy alert, case, or event content out of the tenant to any local or remote store other
-  than the investigation report it returns to the analyst in-session. The host agent's own spill file
-  for an oversized tool result is the host's copy, not a socxen write — a declared residual (Open
-  Question 9), disclosed in the shipped docs.
+- socxen MUST NOT itself write or transmit alert, case or event content to any local or remote store other
+  than the in-session investigation report; the host agent's own spill file for an oversized tool result
+  is the host's copy and is excluded — a declared residual (Open Question 9), disclosed in the shipped
+  docs — and the bridge SHOULD bound oversized results so nothing needs spilling.
 
 ### Declared Redaction Limits (documented residuals)
 
@@ -618,7 +612,7 @@ gaps, and so nothing stronger is claimed than the docs claim:
 ---
 
 *Worker Remit — Praxen*
-*Customized for: socxen | Version: 1.6 | 2026-09-08*
+*Customized for: socxen | Version: 1.8 | 2026-09-23*
 
 ---
 
