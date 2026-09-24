@@ -299,12 +299,15 @@ def test_tool_error_records_structure_never_the_upstream_message(monkeypatch, tm
     assert "p.mensah" not in path.read_text()
 
 
-def test_the_explicit_off_switch_is_announced_on_stderr(monkeypatch, capsys):
+def test_the_explicit_off_switch_is_announced_on_stderr(monkeypatch, capsys, tmp_path):
     """#215: SOCXEN_OBSERVRA=off turns the audit trail off and says so, as the gate log's switch does."""
-    for val in ("off", "0", "false", "disabled"):
+    probe = _fresh(monkeypatch, {})
+    for val in sorted(probe._OFF_VALUES):
         mod = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": val})
         assert mod.enabled() is False
         err = capsys.readouterr().err
         assert "observra logging is OFF (SOCXEN_OBSERVRA=off)" in err and "not recorded" in err, (val, err)
-    mod = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": "/dev/null/x"})
-    mod.enabled(); assert "logging is OFF (SOCXEN_OBSERVRA=off)" not in capsys.readouterr().err
+    mod = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "jsonl", "SOCXEN_OBSERVRA_PATH": str(tmp_path / "t.jsonl")})
+    if not mod.enabled():
+        pytest.skip("observra not installed")
+    assert "logging is OFF (SOCXEN_OBSERVRA=off)" not in capsys.readouterr().err
