@@ -615,7 +615,17 @@ def test_the_access_probe_reports_each_family_and_never_prints_tenant_content(mo
         "exabeam_analytics_rule_list": RuntimeError("boom"),
         "exabeam_get_mitre_coverage": types.SimpleNamespace(isError=False, content=[types.SimpleNamespace(text='{"tactics":{"TA0040":{}}}')]),
     }
+    seen = {}
+    class FakeSession:
+        async def call_tool(self, tool, args, read_timeout_seconds=None):
+            seen[tool] = read_timeout_seconds
+            r = replies[tool]
+            if isinstance(r, Exception):
+                raise r
+            return r
     async def fake_remote(op, what="call", *, retry=False):
+        return await op(FakeSession())
+    async def _unused(op, what="call", *, retry=False):
         r = replies[what]
         if isinstance(r, Exception):
             raise r
@@ -624,11 +634,12 @@ def test_the_access_probe_reports_each_family_and_never_prints_tenant_content(mo
     lines = asyncio.run(B._access_lines())
     out = "\n".join(lines)
     assert "ACCESS alerts ok (answered)" in out
-    assert "ACCESS cases ok (answered with nothing in the last 24 hours — empty, or not entitled)" in out
+    assert "ACCESS cases empty (answered with nothing in the last 24 hours — empty, or not entitled)" in out
     assert "ACCESS events refused AAA_ESA_1003_403, HTTP 403 — needed by soc-investigate" in out
-    assert "ACCESS detection content refused RuntimeError — needed by rule-tuning" in out
+    assert "ACCESS detection content unanswered RuntimeError — needed by rule-tuning" in out, "a crash is not an entitlement finding"
     assert "ACCESS posture ok (answered)" in out
     assert "SECRET-ALERT" not in out and "p.mensah" not in out
+    assert all(t == B._PROBE_TIMEOUT for t in seen.values()) and len(seen) == 5, "every probe carries its own time bound"
     # every probe is bounded and read-only
     assert B._probe_args("search", ["alertId"])["arg0"]["limit"] == 1 and B._probe_args("list", None) == {"arg0": {"limit": 1}}
     assert all(t.startswith(("exabeam_search_", "exabeam_analytics_rule_list", "exabeam_get_")) for _, t, *_ in B._ACCESS_FAMILIES)

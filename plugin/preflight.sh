@@ -223,15 +223,19 @@ check_connectivity() {
       ok "Exabeam MCP reachable — ${out##*OK — }"
       # One line per capability family the key can (or cannot) reach (#260): an under-entitled key connects
       # cleanly and fails only when a skill first needs the family.
-      local fam state detail
+      local line fam detail
       while IFS= read -r line; do
         case "$line" in
           "ACCESS "*)
             line="${line#ACCESS }"
             case "$line" in
-              *" ok "*)      fam="${line%% ok *}"; detail="${line#* ok }"; ok "Key reaches ${fam} ${detail}" ;;
-              *" refused "*) fam="${line%% refused *}"; detail="${line#* refused }"
-                             warn "Key cannot reach ${fam}: ${detail}. Entitle the API key for it (installation guide, Key entitlements)" ;;
+              *" ok "*)         fam="${line%% ok *}"; detail="${line#* ok }"; ok "Key reaches ${fam} ${detail}" ;;
+              *" empty "*)      fam="${line%% empty *}"; detail="${line#* empty }"
+                                ok "${fam}: ${detail#(}" ;;
+              *" refused "*)    fam="${line%% refused *}"; detail="${line#* refused }"
+                                warn "Key cannot reach ${fam}: ${detail}. Entitle the API key for it (installation guide, Key entitlements)" ;;
+              *" unanswered "*) fam="${line%% unanswered *}"; detail="${line#* unanswered }"
+                                warn "${fam} did not answer the probe (${detail}) — a network or tenant problem, not necessarily an entitlement; re-run preflight" ;;
             esac ;;
         esac
       done <<< "$out"

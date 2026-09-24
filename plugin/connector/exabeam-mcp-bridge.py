@@ -23,10 +23,9 @@ starting the server.
 """
 import asyncio
 import contextlib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import ipaddress
-import datetime
 import json
 import os
 from pathlib import Path
@@ -1226,8 +1225,10 @@ async def call_tool(name, arguments):
 
 # One bounded read per capability family (#260). The key is issued access entitlements, and the grant asks
 # for no scopes, so an under-entitled key connects cleanly and fails only when a family is first used —
-# sometimes as an empty result. Each probe is one row, named fields, the last 24 hours; nothing is written
-# and no tenant content is printed, only whether the family answered and how many rows it returned.
+# sometimes as an empty result. The searches are one row, named fields, the last 24 hours; the rule list is
+# one item. Posture has no bounded form — both posture tools take no arguments, and get_mitre_coverage is
+# the smaller (~90k characters on staging, against ~1M for get_use_case_score). Nothing is written and no
+# tenant content is printed, only whether the family answered. Each probe is bounded in time (_PROBE_TIMEOUT).
 _ACCESS_FAMILIES = (
     ("alerts", "exabeam_search_alerts", "search", ["alertId"], "soc-investigate"),
     ("cases", "exabeam_search_cases", "search", ["case_id"], "soc-investigate, triage-cases"),
@@ -1237,10 +1238,13 @@ _ACCESS_FAMILIES = (
 )
 
 
+_PROBE_TIMEOUT = timedelta(seconds=30)
+
+
 def _probe_args(kind, fields):
     if kind == "search":
-        now = datetime.datetime.now(datetime.timezone.utc)
-        return {"arg0": {"startTime": (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        now = datetime.now(timezone.utc)
+        return {"arg0": {"startTime": (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                          "endTime": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "filter": "", "fields": fields,
                          "limit": 1, "orderBy": []}}
     return {"arg0": {"limit": 1}} if kind == "list" else {}
@@ -1263,28 +1267,34 @@ def _probe_rows(text):
 
 
 async def _access_lines():
-    """`ACCESS <family> ok|refused <detail>` per family, for preflight to print. A refusal carries the
-    platform's error code and status only (#173), never the message."""
+    """`ACCESS <family> ok|empty|refused|unanswered <detail>` per family, for preflight to print. `refused`
+    only when the platform said so — an HTTP 401/403 or a platform error code; a timeout, a dropped
+    connection or any other failure is `unanswered`, so preflight does not tell the operator to change
+    entitlements for a network problem. Codes and statuses only (#173), never a message."""
     lines = []
     for family, tool, kind, fields, used_by in _ACCESS_FAMILIES:
         try:
-            r = await remote(lambda s, tool=tool, a=_probe_args(kind, fields): s.call_tool(tool, a), tool, retry=False)
+            r = await remote(lambda s, tool=tool, a=_probe_args(kind, fields):
+                             s.call_tool(tool, a, read_timeout_seconds=_PROBE_TIMEOUT), tool, retry=False)
             text = " ".join(getattr(c, "text", "") or "" for c in (r.content or []))
             if getattr(r, "isError", False):
                 code, status = _error_facts(text)
-                why = ", ".join(x for x in (code, f"HTTP {status}" if status else None) if x) or "the tool reported an error"
-                lines.append(f"ACCESS {family} refused {why} — needed by {used_by}")
+                why = ", ".join(x for x in (code, f"HTTP {status}" if status else None) if x)
+                state = "refused" if (code or status in (401, 403)) else "unanswered"
+                lines.append(f"ACCESS {family} {state} {why or 'the tool reported an error'} — needed by {used_by}")
             else:
                 n = _probe_rows(text)
-                lines.append(f"ACCESS {family} ok " + ("(answered with nothing in the last 24 hours — empty, or not entitled)"
-                                                       if n == 0 else "(answered)"))
+                window = " in the last 24 hours" if kind == "search" else ""
+                lines.append(f"ACCESS {family} empty (answered with nothing{window} — empty, or not entitled)"
+                             if n == 0 else f"ACCESS {family} ok (answered)")
         except Exception as e:  # noqa: BLE001 — a failed probe is a finding, never a crash
             try:
                 leaf = _Leaf(e)
                 name, status = leaf.type_name, leaf.status
             except Exception:  # noqa: BLE001 — never let the classifier turn a finding into a crash
                 name, status = type(e).__name__, None
-            lines.append(f"ACCESS {family} refused {name}" + (f", HTTP {status}" if status else "")
+            state = "refused" if status in (401, 403) else "unanswered"
+            lines.append(f"ACCESS {family} {state} {name}" + (f", HTTP {status}" if status else "")
                          + f" — needed by {used_by}")
     return lines
 

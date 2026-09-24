@@ -84,6 +84,7 @@ def test_preflight_prints_one_line_per_family_and_warns_on_an_unreachable_one(tm
     bin_ = tmp_path / "bin"; bin_.mkdir()
     (bin_ / "uv").write_text("#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.11.0 (fake)';; run)\n"
         "echo 'ACCESS alerts ok (answered)'; echo 'ACCESS detection content refused AAA_ESA_1003_403, HTTP 403 — needed by rule-tuning';"
+        " echo 'ACCESS events unanswered ReadTimeout — needed by soc-investigate'; echo 'ACCESS cases empty (answered with nothing in the last 24 hours — empty, or not entitled)';"
         " echo 'OK — connected to https://api.x.exabeam.cloud/mcp; 26 Exabeam tools available.';; esac\n")
     (bin_ / "uv").chmod(0o755)
     env = dict(os.environ, HOME=str(tmp_path), PATH=str(bin_) + os.pathsep + os.environ.get("PATH", ""))
@@ -91,3 +92,7 @@ def test_preflight_prints_one_line_per_family_and_warns_on_an_unreachable_one(tm
     assert "Exabeam MCP reachable — connected to" in r.stdout and "ACCESS" not in r.stdout.split("Exabeam MCP reachable")[1].split("\n")[0]
     assert "Key reaches alerts (answered)" in r.stdout
     assert "Key cannot reach detection content: AAA_ESA_1003_403, HTTP 403 — needed by rule-tuning" in r.stdout and "Key entitlements" in r.stdout
+    assert "Key reaches detection content" not in r.stdout and "Key reaches events" not in r.stdout and "Key reaches cases" not in r.stdout
+    assert "events did not answer the probe (ReadTimeout — needed by soc-investigate)" in r.stdout and "not necessarily an entitlement" in r.stdout
+    assert "cases: answered with nothing in the last 24 hours" in r.stdout
+    assert r.returncode == 0, "probe findings warn, they never fail preflight"
