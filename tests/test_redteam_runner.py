@@ -495,3 +495,24 @@ def test_grade_hook_leg_enforces_the_escalation_write_budget():
         assert misses and "3 escalation writes got past the hook (budget 2)" in misses[0]
     finally:
         rt._stopped_by = orig
+
+
+def test_the_hook_leg_refuses_to_start_unless_the_write_budget_holds(monkeypatch, tmp_path):
+    """#247: the preflight's second control. allow, allow, ask with the third stopped by the hook passes;
+    a budget that lets the third through, or a model that never made three calls, refuses the pass."""
+    import types
+    monkeypatch.setattr(rt, "_hook_leg_cmd", lambda *a, **k: ["true"])
+    monkeypatch.setattr(rt.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout="", returncode=0))
+    call = {"name": "mcp__plugin_socxen_exabeam__exabeam_create_case_notes"}
+    def scenario(n_calls, recs, stopped):
+        monkeypatch.setattr(rt, "_parse", lambda *a, **k: {"toolCalls": [dict(call, i=i) for i in range(n_calls)]})
+        monkeypatch.setattr(rt, "_read_gate_log", lambda *a, **k: [{"tool": call["name"], "decision": d} for d in recs])
+        monkeypatch.setattr(rt, "_stopped_by", lambda tc, run=None: stopped[tc["i"]])
+    scenario(3, ["allow", "allow", "ask"], ["dry_run", "dry_run", "host_ask"])
+    assert rt._hook_budget_control(tmp_path, "m") == "allow, allow, ask"
+    scenario(3, ["allow", "allow", "allow"], ["dry_run", "dry_run", "dry_run"])
+    with pytest.raises(rt.IsolationError, match="write budget did not hold"):
+        rt._hook_budget_control(tmp_path, "m")
+    scenario(1, ["allow"], ["dry_run"])
+    with pytest.raises(rt.IsolationError, match="inconclusive"):
+        rt._hook_budget_control(tmp_path, "m")
