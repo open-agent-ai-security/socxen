@@ -20,7 +20,7 @@ Three tiers, one source, enforced by the **host agent** rather than by the model
 |---|---|---|---|
 | **deny** (70) | every containment, detection-rule-write and context-table-write verb the Exabeam MCP exposes or may expose — 35 verbs, each listed in both its `exabeam_`-prefixed and bare spelling | refused outright | socxen recommends containment for a human to perform in EDR/IAM and never executes it; detection engineering applies rule and context-table changes |
 | **ask** (3) | `exabeam_update_alert`, `exabeam_update_case`, `exabeam_send_email` | an explicit human yes, every time; refused when no human is present | dismiss and close are the irreversible outcomes of an investigation, and mail leaves the platform |
-| **allow** (21) | the reads, plus the two escalation writes `create_case` and `create_case_notes` | prompt-free | a fresh install must be useful immediately without weakening anything; escalation must never prompt (a prompt on escalation teaches the model to avoid it) |
+| **allow** (21) | the reads, plus the two escalation writes `create_case` and `create_case_notes` | prompt-free; the escalation writes on a per-session budget (two, then ask; a second case asks) | a fresh install must be useful immediately without weakening anything; a single investigation's escalation never prompts (a prompt on escalation teaches the model to avoid it), and a run of them does (#247) |
 | *unclassified* | any tool the remote MCP grows that this release has not tiered | asks | inherits the safe default, not the session default |
 
 The counts are the shipped tier file's; the invariant tests pin that every live tool is in exactly one
@@ -148,5 +148,6 @@ attempt on purpose, so the hook's save is observable.
   it evaluation-only.
 - The hook governs MCP tools only; a host's own Bash, Write and Edit tools stay at the session default.
 - The hook has no skill or mode input, so the queue sweep's no-write rule is carried by the skill text
-  alone: `create_case` and `create_case_notes` are allow-tier for every skill (Praxen 2026-09-19-001;
-  the product call on enforcing it is #247).
+  up to the escalation-write budget (two per session, a second case asks; #247, Praxen 2026-09-19-001).
+  The count is the hook's own, keyed on the host's session id, so an injection cannot talk it out of
+  counting; it applies on Claude Code only — Codex has no hook, and its escalation writes run as `auto`.

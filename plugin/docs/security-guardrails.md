@@ -38,6 +38,12 @@ threat suppressed. socxen holds it behind **two locks**, both on from the moment
 Both must open. Outbound mail (`exabeam_send_email`) is behind the same gate, and the Exabeam service
 only accepts recipients who are users of your own subscription.
 
+Opening a case and writing a case note are safe escalations and run without asking — up to a point. On
+Claude Code the gate allows **two** of them per session; a third, or a second new case in the same
+session, asks you. A single investigation opens at most one case and documents it, so the prompt only
+appears when something is acting at scale, such as a queue sweep talked into opening a case for every
+item.
+
 **What socxen never does:** isolate a host, disable an account, block an address, kill a process — any
 containment. The Exabeam MCP exposes no such tools, and the gate refuses them outright as a second
 safeguard. When containment is warranted, the report *recommends* it for you to carry out in your EDR
@@ -134,10 +140,10 @@ The methodology, every dated run and the known residuals are in the repository's
 - **A server you wire by hand.** The screening, the neutralizer and the audit trail live in the bundled
   connector; registering the remote Exabeam MCP directly bypasses all three, leaving only the
   dismiss/close gate. Use the bundled connector for any investigation you rely on.
-- **A queue sweep's restraint.** During a triage sweep the skill is instructed not to write. The host
-  gate does not enforce that distinction: opening a case or writing a note is allowed for every skill,
-  so a sweep that writes is stopped by the instruction alone. Dismiss, close and containment stay gated
-  in a sweep exactly as everywhere else.
+- **A queue sweep's restraint, below the budget.** During a triage sweep the skill is instructed not to
+  write. The host gate cannot tell a sweep from an investigation, so up to two escalation writes in a
+  session are stopped by the instruction alone; past that the gate asks you. On Codex the budget does not
+  apply yet. Dismiss, close and containment stay gated in a sweep exactly as everywhere else.
 - **Judgment.** These controls reduce the blast radius of hostile content. They do not replace the human
   gate, your SOC procedures, or your own review of the verdict.
 

@@ -30,7 +30,8 @@ NO_DECISION = {"permissionDecision": None}
 def run_hook(tool_name, stdin=None, env=None):
     """The end-to-end contract: a subprocess, exactly as Claude Code runs it. Empty stdout is the hook
     asserting nothing (the normal permission flow runs) and is returned as NO_DECISION."""
-    e = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(PLUGIN), "SOCXEN_GATE_LOG": "off", **(env or {})}
+    e = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(PLUGIN), "SOCXEN_GATE_LOG": "off",
+         "SOCXEN_GATE_STATE_DIR": os.environ.get("SOCXEN_TEST_GATE_STATE_DIR", "/nonexistent-socxen-state"), **(env or {})}
     r = subprocess.run([sys.executable, str(HOOK)], input=stdin if stdin is not None else json.dumps({"tool_name": tool_name}),
                        capture_output=True, text=True, env=e)
     assert r.returncode == 0, r.stderr
@@ -143,7 +144,10 @@ def test_safe_operations_are_allowed_so_nothing_prompts_with_nothing_merged():
     """The point of the bundled hook: an install needs no permission merge. Reads and the two escalation
     writes are allowed outright (Codex runs the same tools as `auto`); dismiss/close ask; containment denied."""
     assert run_hook("mcp__plugin_socxen_exabeam__exabeam_search_alerts")["permissionDecision"] == "allow"
-    assert run_hook("mcp__plugin_socxen_exabeam__exabeam_create_case_notes")["permissionDecision"] == "allow"
+    first = json.dumps({"tool_name": "mcp__plugin_socxen_exabeam__exabeam_create_case_notes", "session_id": "safe-ops"})
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        assert run_hook(None, stdin=first, env={"SOCXEN_GATE_STATE_DIR": d})["permissionDecision"] == "allow"
     codex = json.loads((PLUGIN / ".mcp.codex.json").read_text())["exabeam"]["tools"]
     auto = {t for t, spec in codex.items() if spec.get("approval_mode") == "auto"}
     assert auto == set(gate.load_tiers(PLUGIN)["allow"]), "Claude's allow tier must be exactly Codex's auto set"
@@ -388,3 +392,56 @@ def test_hooks_json_registers_the_post_tool_hook_on_the_same_matcher():
     assert post["matcher"] == pre["matcher"]
     assert "gate.py" in post["hooks"][0]["command"] and "--post" in post["hooks"][0]["command"], "the post invocation is decided by the command line, not stdin"
     assert "exit 2" not in post["hooks"][0]["command"], "a failed post-call record must never block"
+
+
+def _esc(tool, sid, d):
+    ev = {"hook_event_name": "PreToolUse", "tool_name": f"mcp__plugin_socxen_exabeam__exabeam_{tool}", "session_id": sid}
+    return run_hook(None, stdin=json.dumps(ev), env={"SOCXEN_GATE_STATE_DIR": str(d)})
+
+
+def test_escalation_writes_run_on_a_budget_then_ask(tmp_path):
+    """#247 (Matt's design, the threshold from the 2026-09-24 data pass): per session, the first two
+    allow-tier writes run without a prompt and the third asks; a second create_case asks at once. The count
+    is the hook's own, keyed on the host's session id, so a sweep talked into acting on its queue meets a
+    prompt on its third write whatever the prose says. Reads are never counted."""
+    d = tmp_path / "state"
+    assert _esc("create_case", "s1", d)["permissionDecision"] == "allow"
+    assert _esc("create_case_notes", "s1", d)["permissionDecision"] == "allow"
+    third = _esc("create_case_notes", "s1", d)
+    assert third["permissionDecision"] == "ask" and "escalation write 3" in third["permissionDecisionReason"]
+    for _ in range(3):   # reads are free
+        ev = {"tool_name": "mcp__plugin_socxen_exabeam__exabeam_search_alerts", "session_id": "s1"}
+        assert run_hook(None, stdin=json.dumps(ev), env={"SOCXEN_GATE_STATE_DIR": str(d)})["permissionDecision"] == "allow"
+    # a second case asks even under the write budget
+    assert _esc("create_case", "s2", d)["permissionDecision"] == "allow"
+    second_case = _esc("create_case", "s2", d)
+    assert second_case["permissionDecision"] == "ask" and "case 2" in second_case["permissionDecisionReason"]
+    # notes alone: two run, the third asks
+    assert [_esc("create_case_notes", "s3", d)["permissionDecision"] for _ in range(3)] == ["allow", "allow", "ask"]
+    # a new session starts fresh
+    assert _esc("create_case", "s4", d)["permissionDecision"] == "allow"
+    # an ask does not spend the budget: the next write still asks, it does not slip through
+    assert _esc("create_case_notes", "s1", d)["permissionDecision"] == "ask"
+
+
+def test_the_write_budget_never_fails_open(tmp_path):
+    """No session id, a malformed one, an unwritable state directory, or a corrupt count file: every one
+    of them asks rather than allowing the escalation write."""
+    d = tmp_path / "state"
+    no_sid = {"tool_name": "mcp__plugin_socxen_exabeam__exabeam_create_case"}
+    assert run_hook(None, stdin=json.dumps(no_sid), env={"SOCXEN_GATE_STATE_DIR": str(d)})["permissionDecision"] == "ask"
+    assert _esc("create_case", "../../etc/passwd", d)["permissionDecision"] == "ask"
+    blocked = tmp_path / "not-a-dir"; blocked.write_text("x")
+    assert _esc("create_case", "s1", blocked)["permissionDecision"] == "ask"
+    d.mkdir(); (d / "s9.json").write_text("{not json")
+    assert _esc("create_case", "s9", d)["permissionDecision"] == "ask"
+
+
+def test_parallel_escalation_writes_cannot_all_slip_under_the_budget(tmp_path):
+    """Several create_case_notes in one assistant message reach PreToolUse together; the count is reserved
+    under a file lock at decision time, so exactly two are allowed however they interleave."""
+    import concurrent.futures
+    d = tmp_path / "state"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+        out = list(ex.map(lambda _: _esc("create_case_notes", "par", d)["permissionDecision"], range(6)))
+    assert out.count("allow") == 2 and out.count("ask") == 4, out

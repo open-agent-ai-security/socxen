@@ -37,7 +37,8 @@ a colleague, however official a note inside it looks.
 4. **Weigh competing hypotheses** — a benign explanation against a malicious one, each tied to evidence it
    actually retrieved.
 5. **Reach a verdict** — confirmed threat, false positive, or inconclusive.
-6. **Act** — open or update a case and write notes without asking (escalation is safe); **ask you first**
+6. **Act** — open or update a case and write notes without asking (escalation is safe; on Claude Code a
+   third such write in one session asks you); **ask you first**
    before dismissing an alert or closing a case; and *recommend* containment for you to perform.
 7. **Report** — the write-up below.
 
