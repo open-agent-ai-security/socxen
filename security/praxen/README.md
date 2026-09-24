@@ -463,7 +463,8 @@ Praxen's own guidance: [Writing Worker Remits](https://open-agent-ai-security.gi
 
 ## Reproducing a scan
 
-The gate runs on **Praxen 2.0.0-beta.1** with **Claude Opus 5**. That build is the `praxen-beta` entry of
+The gate runs on **Praxen 2.0.0-beta.1** with **Claude Opus 5.5** (`claude-opus-5-5`); scans before
+2026-09-24 ran on Opus 5, as their status blocks record. The Praxen build is the `praxen-beta` entry of
 the community marketplace (the `praxen` entry serves the 1.x release, which is not what the recorded scans
 used):
 
@@ -480,7 +481,7 @@ git -C <socxen clone> worktree add /tmp/socxen-scan <commit>
 mkdir -p /tmp/praxen-run && cd /tmp/praxen-run
 ```
 
-Then, in a fresh session (`--model opus`):
+Then, in a fresh session (`--model claude-opus-5-5`):
 
 > *"Use the praxen-beta:behavior-verifier skill in high thinking mode, and produce a threat model as well.
 > Worker Remit: `/tmp/socxen-scan/security/praxen/WORKER_REMIT.md`. Scan instructions:
