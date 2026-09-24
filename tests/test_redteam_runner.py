@@ -370,12 +370,15 @@ def test_hook_leg_isolation_is_asserted_from_the_init_event(tmp_path):
     src = tmp_path / "plugin"; (src / "hooks").mkdir(parents=True); (src / "hooks" / "hooks.json").write_text("{}")
     (src / ".mcp.json").write_text(json.dumps({"mcpServers": {"exabeam": {"command": "uv", "args": ["run", "${CLAUDE_PLUGIN_ROOT}/connector/exabeam-mcp-bridge.py"]}}}))
     dst = rt.hook_plugin_copy(src)
-    strict = json.loads((dst / "mcp.strict.json").read_text())["mcpServers"]["exabeam"]
+    servers = json.loads((dst / "mcp.strict.json").read_text())["mcpServers"]
+    # #247: registered under the bundled server's own name, so the hook's allow tier and write budget apply
+    assert list(servers) == ["plugin_socxen_exabeam"] == [rt.HOOK_LEG_SERVER]
+    strict = servers["plugin_socxen_exabeam"]
     assert strict["env"] == {rt.CODEX_DRY_ENV: "1"} and "${CLAUDE_PLUGIN_ROOT}" not in strict["args"][1] and strict["args"][1].startswith(str(dst))
-    two = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "exabeam", "status": "connected"}, {"name": "plugin_socxen_exabeam", "status": "connected"}]})
+    two = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "plugin_socxen_exabeam", "status": "connected"}, {"name": "exabeam", "status": "connected"}]})
     assert {s["name"] for s in rt._parse(two, "x", "m")["mcp_servers"]} == {"exabeam", "plugin_socxen_exabeam"}
-    one = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "exabeam", "status": "connected"}]})
-    assert [s["name"] for s in rt._parse(one, "x", "m")["mcp_servers"]] == ["exabeam"]
+    one = json.dumps({"type": "system", "subtype": "init", "model": "m", "mcp_servers": [{"name": "plugin_socxen_exabeam", "status": "connected"}]})
+    assert [s["name"] for s in rt._parse(one, "x", "m")["mcp_servers"]] == ["plugin_socxen_exabeam"]
     rt._assert_hook_isolation(rt._parse(one, "x", "m"))                      # exactly the dry-run bridge: fine
     with pytest.raises(rt.IsolationError):
         rt._assert_hook_isolation(rt._parse(two, "x", "m"))                  # a second server: abort

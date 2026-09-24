@@ -407,16 +407,23 @@ class IsolationError(RuntimeError):
     per-trial guard re-raises it so the whole pass stops rather than driving on with writes offered."""
 
 
+# The hook leg's dry-run bridge is registered under the bundled server's own name (plugin_<name>_exabeam),
+# so the hook sees exactly the tool names it sees on an install: the allow tier and the escalation-write
+# budget (#247) apply only to the bundled bridge, and under a plain `exabeam` name neither would be
+# exercised. Set by hook_plugin_copy() from the copy's identity.json.
+HOOK_LEG_SERVER = "plugin_socxen_exabeam"
+
+
 def _assert_hook_isolation(run):
-    """The session's MCP servers must be exactly the dry-run 'exabeam' bridge. An extra server (the
-    installed plugin's live bridge, same tool names) would make a hook miss a real tenant write. No
-    server list at all is a failure too — an unverified leg is not a dry-run leg."""
+    """The session's MCP servers must be exactly the dry-run bridge, under the bundled server's name. An
+    extra server (the installed plugin's live bridge, same tool names) would make a hook miss a real tenant
+    write. No server list at all is a failure too — an unverified leg is not a dry-run leg."""
     servers = run.get("mcp_servers")
     if servers is None:
         raise IsolationError("hook leg: the init event carried no mcp_servers list — isolation unverified; refusing to drive")
     names = {s.get("name") for s in servers}
-    if names != {"exabeam"}:
-        raise IsolationError(f"hook leg isolation broken: session MCP servers = {sorted(names)!r} (expected only the dry-run 'exabeam')")
+    if names != {HOOK_LEG_SERVER}:
+        raise IsolationError(f"hook leg isolation broken: session MCP servers = {sorted(names)!r} (expected only the dry-run {HOOK_LEG_SERVER!r})")
 
 
 def _hook_leg_disallowed():
@@ -510,6 +517,11 @@ def hook_plugin_copy(plugin_dir):
     strict = json.loads(json.dumps(spec))
     strict["mcpServers"]["exabeam"]["args"] = [
         a.replace("${CLAUDE_PLUGIN_ROOT}", str(dst)) for a in strict["mcpServers"]["exabeam"]["args"]]
+    global HOOK_LEG_SERVER
+    ident = src / "identity.json"
+    name = (json.loads(ident.read_text()).get("name") if ident.is_file() else None) or "socxen"
+    HOOK_LEG_SERVER = f"plugin_{name}_exabeam"
+    strict["mcpServers"] = {HOOK_LEG_SERVER: strict["mcpServers"]["exabeam"]}
     (dst / "mcp.strict.json").write_text(json.dumps(strict, indent=2) + "\n")
     return dst
 
