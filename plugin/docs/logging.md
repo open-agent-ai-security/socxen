@@ -196,7 +196,9 @@ announcing it. The security guardrails are independent and keep running througho
 export SOCXEN_OBSERVRA=off
 ```
 
-Off means *off*: no file, and observra is never imported.
+Off means *off*: no file, and observra is never imported. The bridge says so on stderr when it starts —
+`bridge: observra logging is OFF (SOCXEN_OBSERVRA=off) — this session is not recorded` — so an unrecorded
+session is never a silent one.
 
 ## Known limitation
 

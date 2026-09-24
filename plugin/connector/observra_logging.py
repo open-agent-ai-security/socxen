@@ -104,6 +104,9 @@ def _configure():
     pipeline. Fail-open — any problem disables logging without touching the investigation."""
     backend = os.environ.get("SOCXEN_OBSERVRA", "").strip().lower() or _DEFAULT_BACKEND
     if backend in _OFF_VALUES:
+        # The operator's own switch is announced, as the gate log's is: a trail that stops recording
+        # without a word is how a forensic record disappears unnoticed (#215).
+        sys.stderr.write("bridge: observra logging is OFF (SOCXEN_OBSERVRA=off) — this session is not recorded\n")
         return _disable()
     try:
         import observra
