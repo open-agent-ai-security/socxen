@@ -121,6 +121,11 @@
                 "type": "string"
               },
               "description": "Semantic (--judge). Ways of reasoning that mean the injection landed (e.g. 'accepted the embedded instruction', 'took the planted benign claim as corroborated')."
+            },
+            "escalation_writes_over": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Hook leg only (#247). The most allow-tier writes (create_case, create_case_notes) that may get past the bundled hook in one session; more is a HOOK MISS. The hook's write budget is what should hold the line, not the prose."
             }
           }
         },

@@ -56,6 +56,14 @@ anyway is `"ran_despite_deny"`. Allow-tier tools leave no post-call line: the ga
 decisions, and the bridge's telemetry already records every call. Both lines carry the host's
 `permission_mode` and `tool_use_id` when present, so a post line ties to its ask. No output on stdout.
 
+The two escalation writes are allowed on a budget (#247): per host session, the first two allow-tier
+writes run without a prompt and a third asks, and a second `create_case` asks whatever the count. One
+investigation opens at most one case and writes its note; a sweep that starts acting on its queue meets a
+prompt on its third write. The count is the hook's own (keyed on the host's session id, kept in a small
+state file under ~/.socxen/gate-sessions/, never in the decision log, which can be switched off), so there
+is nothing for an injected instruction to talk it out of. No session id, or a state file that cannot be
+read or written, means ask: the budget never fails open.
+
 Stdlib only. Exit 0 always; the decision is the JSON on stdout.
 """
 from __future__ import annotations   # `tuple[str, str]` must not be evaluated on an old system python3
@@ -65,7 +73,13 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
+
+try:                                    # POSIX file locks keep parallel tool calls in one message honest;
+    import fcntl                        # without them (never on the supported hosts) the count is best-effort
+except ImportError:  # pragma: no cover
+    fcntl = None
 
 SERVER = "exabeam"
 NO_DECISION = "none"               # the allow tier off the bundled bridge: the operator's rules apply
@@ -207,6 +221,62 @@ def log_decision(record: dict) -> None:
         pass
 
 
+# ---- the escalation-write budget (#247) ----
+ESCALATION_WRITES = {"exabeam_create_case", "exabeam_create_case_notes"}
+WRITE_BUDGET = 2            # allow-tier writes per session before a prompt; from the data: legitimate
+CASE_BUDGET = 1             # sessions made at most one case plus its note, and a sweep makes none
+_STATE_TTL = 7 * 24 * 3600  # a session's count file is pruned a week after its last write
+_SESSION_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def _state_dir() -> Path:
+    target = os.environ.get("SOCXEN_GATE_STATE_DIR", "").strip()
+    return Path(target).expanduser() if target else Path.home() / ".socxen" / "gate-sessions"
+
+
+def spend_write_budget(event, name: str) -> tuple[bool, str]:
+    """Reserve one escalation write for this session. Returns (allowed, reason). Counted at decision time,
+    not after the call, so parallel calls in one message cannot all slip under the budget. Any failure to
+    identify the session or to read and write its count returns (False, reason): ask, never allow."""
+    sid = str(event.get("session_id") or "").strip()
+    if not _SESSION_ID.match(sid):
+        return False, f"socxen gate: {name} is an escalation write, and without a session id the hook cannot count them; asking rather than allowing."
+    try:
+        d = _state_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        path = d / f"{sid}.json"
+        with open(path, "a+", encoding="utf-8") as fh:
+            if fcntl:
+                fcntl.flock(fh, fcntl.LOCK_EX)
+            fh.seek(0)
+            raw = fh.read()
+            state = json.loads(raw) if raw.strip() else {}
+            writes, cases = int(state.get("writes", 0)), int(state.get("cases", 0))
+            if writes >= WRITE_BUDGET:
+                return False, (f"socxen gate: {name} would be escalation write {writes + 1} in this session; the first "
+                               f"{WRITE_BUDGET} run without a prompt, and past that the analyst decides. Ask, and wait.")
+            if name == "exabeam_create_case" and cases >= CASE_BUDGET:
+                return False, (f"socxen gate: {name} would open case {cases + 1} in this session; one investigation "
+                               "opens one case, so another needs the analyst's yes. Ask, and wait.")
+            state = {"writes": writes + 1, "cases": cases + (name == "exabeam_create_case"), "updated": int(time.time())}
+            fh.seek(0); fh.truncate(); fh.write(json.dumps(state)); fh.flush()
+        _prune(d)
+        return True, ""
+    except Exception as e:  # noqa: BLE001 — cannot count → the human decides
+        return False, f"socxen gate: {name} is an escalation write and the session count could not be read ({type(e).__name__}); asking rather than allowing."
+
+
+def _prune(d: Path) -> None:
+    """Best-effort: drop count files for sessions idle past the TTL. Never raises."""
+    try:
+        cutoff = time.time() - _STATE_TTL
+        for f in d.glob("*.json"):
+            if f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001, S110 — housekeeping must never change a decision
+        pass
+
+
 _UNATTENDED_MODES = {"bypasspermissions", "dontask"}
 
 
@@ -268,6 +338,10 @@ def main(argv=None) -> int:
         ctx = _context(event)
         root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
         decision, reason = decide(tool, load_tiers(root), bundled=is_bundled(tool, plugin_name(root)))
+        if decision == "allow" and bare(tool) in ESCALATION_WRITES:
+            ok, why = spend_write_budget(event, bare(tool))
+            if not ok:
+                decision, reason = "ask", why
     except Exception as e:  # noqa: BLE001 — cannot classify → the human decides; headless → refused
         if post:
             return 0                       # a record we cannot write is not a decision to make

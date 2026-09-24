@@ -118,7 +118,9 @@ verdict suppressing a real threat.** Three tiers:
 
 1. **Read & document (run freely):** every read tool — Search queries, `get_case_details` + threat
    timelines, alert/case retrieval, detection-rule details, MITRE coverage — plus the two safe writes: `exabeam_create_case_notes` (documentation) and
-   `exabeam_create_case` (escalating is always safe; err toward it when unsure).
+   `exabeam_create_case` (escalating is always safe; err toward it when unsure). On Claude Code the host
+   allows two of these per session without a prompt; a third, or a second new case, asks the analyst —
+   one investigation opens one case and documents it, so that prompt means something unusual is happening.
 
 2. **Close decisions and outbound mail (STOP and get an explicit yes):** `exabeam_update_alert`
    (dismiss), `exabeam_update_case` (close, esp. as false-positive) and `exabeam_send_email` (show the
