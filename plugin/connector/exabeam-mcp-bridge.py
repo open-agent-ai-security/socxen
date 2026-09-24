@@ -26,6 +26,7 @@ import contextlib
 from datetime import timedelta
 import hashlib
 import ipaddress
+import datetime
 import json
 import os
 from pathlib import Path
@@ -1223,9 +1224,76 @@ async def call_tool(name, arguments):
     return content
 
 
+# One bounded read per capability family (#260). The key is issued access entitlements, and the grant asks
+# for no scopes, so an under-entitled key connects cleanly and fails only when a family is first used —
+# sometimes as an empty result. Each probe is one row, named fields, the last 24 hours; nothing is written
+# and no tenant content is printed, only whether the family answered and how many rows it returned.
+_ACCESS_FAMILIES = (
+    ("alerts", "exabeam_search_alerts", "search", ["alertId"], "soc-investigate"),
+    ("cases", "exabeam_search_cases", "search", ["case_id"], "soc-investigate, triage-cases"),
+    ("events", "exabeam_search_events", "search", ["activity_type"], "soc-investigate"),
+    ("detection content", "exabeam_analytics_rule_list", "list", None, "rule-tuning"),
+    ("posture", "exabeam_get_mitre_coverage", "none", None, "rule-tuning, triage-cases"),
+)
+
+
+def _probe_args(kind, fields):
+    if kind == "search":
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return {"arg0": {"startTime": (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                         "endTime": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "filter": "", "fields": fields,
+                         "limit": 1, "orderBy": []}}
+    return {"arg0": {"limit": 1}} if kind == "list" else {}
+
+
+def _probe_rows(text):
+    """A row count from a result body, or None when the shape is not one we know. Never the content."""
+    try:
+        body = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    if isinstance(body, dict):
+        for k in ("totalRows", "total"):
+            if isinstance(body.get(k), int):
+                return body[k]
+        if isinstance(body.get("rows"), list):
+            return len(body["rows"])
+        return 1 if body else 0
+    return len(body) if isinstance(body, list) else None
+
+
+async def _access_lines():
+    """`ACCESS <family> ok|refused <detail>` per family, for preflight to print. A refusal carries the
+    platform's error code and status only (#173), never the message."""
+    lines = []
+    for family, tool, kind, fields, used_by in _ACCESS_FAMILIES:
+        try:
+            r = await remote(lambda s, tool=tool, a=_probe_args(kind, fields): s.call_tool(tool, a), tool, retry=False)
+            text = " ".join(getattr(c, "text", "") or "" for c in (r.content or []))
+            if getattr(r, "isError", False):
+                code, status = _error_facts(text)
+                why = ", ".join(x for x in (code, f"HTTP {status}" if status else None) if x) or "the tool reported an error"
+                lines.append(f"ACCESS {family} refused {why} — needed by {used_by}")
+            else:
+                n = _probe_rows(text)
+                lines.append(f"ACCESS {family} ok " + ("(answered with nothing in the last 24 hours — empty, or not entitled)"
+                                                       if n == 0 else "(answered)"))
+        except Exception as e:  # noqa: BLE001 — a failed probe is a finding, never a crash
+            try:
+                leaf = _Leaf(e)
+                name, status = leaf.type_name, leaf.status
+            except Exception:  # noqa: BLE001 — never let the classifier turn a finding into a crash
+                name, status = type(e).__name__, None
+            lines.append(f"ACCESS {family} refused {name}" + (f", HTTP {status}" if status else "")
+                         + f" — needed by {used_by}")
+    return lines
+
+
 async def _check():
     tools = await UPSTREAM.tools()
     dry = " [DRY RUN - writes refused at the bridge]" if DRY_RUN else ""
+    for line in await _access_lines():
+        print(line)
     print(f"OK — connected to {URL}; {len(tools)} Exabeam tools available.{dry}")
     await UPSTREAM.drop()
 

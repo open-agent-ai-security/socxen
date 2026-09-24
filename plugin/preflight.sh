@@ -221,6 +221,20 @@ check_connectivity() {
     step "Connecting to Exabeam MCP via the bundled bridge…"
     if out="$(uv run --quiet --locked "$bridge" --check 2>&1)"; then
       ok "Exabeam MCP reachable — ${out##*OK — }"
+      # One line per capability family the key can (or cannot) reach (#260): an under-entitled key connects
+      # cleanly and fails only when a skill first needs the family.
+      local fam state detail
+      while IFS= read -r line; do
+        case "$line" in
+          "ACCESS "*)
+            line="${line#ACCESS }"
+            case "$line" in
+              *" ok "*)      fam="${line%% ok *}"; detail="${line#* ok }"; ok "Key reaches ${fam} ${detail}" ;;
+              *" refused "*) fam="${line%% refused *}"; detail="${line#* refused }"
+                             warn "Key cannot reach ${fam}: ${detail}. Entitle the API key for it (installation guide, Key entitlements)" ;;
+            esac ;;
+        esac
+      done <<< "$out"
     else
       warn "Could not reach the Exabeam MCP: $(printf '%s' "$out" | tail -1) — check the region in EXABEAM_MCP_URL first (the slug from your console address), then the key and secret"
     fi

@@ -601,3 +601,34 @@ def test_error_facts_accepts_only_the_platform_code_shape_and_never_prose():
     assert B._error_facts('host:"WIN_SRV_01" rule:"UBA_DC_SVC_ACCT_ANOMALY"') == (None, None)
     assert B._error_facts("alert 4471 not found: case 447 missing; timeout after 500ms") == (None, None)
     assert B._error_facts('{"errors":[{"code":"AAA_ESA_1000_400","status":"nope"}]}') == ("AAA_ESA_1000_400", None)
+
+
+def test_the_access_probe_reports_each_family_and_never_prints_tenant_content(monkeypatch):
+    """#260: one bounded read per family; a family that answers is ok, one that answers empty says it may be
+    unentitled, one that errors is refused with the platform's code and status only, and an exception is
+    refused with its class. No row content ever reaches the output."""
+    import asyncio, types
+    replies = {
+        "exabeam_search_alerts": types.SimpleNamespace(isError=False, content=[types.SimpleNamespace(text='{"rows":[{"alertId":"SECRET-ALERT"}],"totalRows":1}')]),
+        "exabeam_search_cases": types.SimpleNamespace(isError=False, content=[types.SimpleNamespace(text='{"rows":[],"totalRows":0}')]),
+        "exabeam_search_events": types.SimpleNamespace(isError=True, content=[types.SimpleNamespace(text='{"errors":[{"code":"AAA_ESA_1003_403","status":403,"message":"user p.mensah lacks events"}]}')]),
+        "exabeam_analytics_rule_list": RuntimeError("boom"),
+        "exabeam_get_mitre_coverage": types.SimpleNamespace(isError=False, content=[types.SimpleNamespace(text='{"tactics":{"TA0040":{}}}')]),
+    }
+    async def fake_remote(op, what="call", *, retry=False):
+        r = replies[what]
+        if isinstance(r, Exception):
+            raise r
+        return r
+    monkeypatch.setattr(B, "remote", fake_remote)
+    lines = asyncio.run(B._access_lines())
+    out = "\n".join(lines)
+    assert "ACCESS alerts ok (answered)" in out
+    assert "ACCESS cases ok (answered with nothing in the last 24 hours — empty, or not entitled)" in out
+    assert "ACCESS events refused AAA_ESA_1003_403, HTTP 403 — needed by soc-investigate" in out
+    assert "ACCESS detection content refused RuntimeError — needed by rule-tuning" in out
+    assert "ACCESS posture ok (answered)" in out
+    assert "SECRET-ALERT" not in out and "p.mensah" not in out
+    # every probe is bounded and read-only
+    assert B._probe_args("search", ["alertId"])["arg0"]["limit"] == 1 and B._probe_args("list", None) == {"arg0": {"limit": 1}}
+    assert all(t.startswith(("exabeam_search_", "exabeam_analytics_rule_list", "exabeam_get_")) for _, t, *_ in B._ACCESS_FAMILIES)

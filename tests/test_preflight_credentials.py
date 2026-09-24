@@ -73,3 +73,21 @@ def test_preflight_fails_a_uv_below_the_lock_floor_and_accepts_the_floor(tmp_pat
     for v in ("uv 0.5.23 (fake)", "uv 0.6.0 (fake)", "uv 0.11.24 (Homebrew 2026-06-23 aarch64-apple-darwin)"):
         r = _preflight_with_fake_uv(tmp_path, v)
         assert "uv present" in r.stdout and "older than" not in r.stdout, (v, r.stdout)
+
+
+def test_preflight_prints_one_line_per_family_and_warns_on_an_unreachable_one(tmp_path):
+    """#260: the bridge's --check emits ACCESS lines before its OK line; preflight prints each as a ✓ or a
+    warning naming what to entitle, and still reports the connection itself as reachable."""
+    import os, subprocess
+    (tmp_path / ".exabeam-mcp.env").write_text("EXABEAM_MCP_URL=https://api.x.exabeam.cloud/mcp\nEXABEAM_API_KEY=k\nEXABEAM_API_SECRET=s\n")
+    (tmp_path / ".exabeam-mcp.env").chmod(0o600)
+    bin_ = tmp_path / "bin"; bin_.mkdir()
+    (bin_ / "uv").write_text("#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.11.0 (fake)';; run)\n"
+        "echo 'ACCESS alerts ok (answered)'; echo 'ACCESS detection content refused AAA_ESA_1003_403, HTTP 403 — needed by rule-tuning';"
+        " echo 'OK — connected to https://api.x.exabeam.cloud/mcp; 26 Exabeam tools available.';; esac\n")
+    (bin_ / "uv").chmod(0o755)
+    env = dict(os.environ, HOME=str(tmp_path), PATH=str(bin_) + os.pathsep + os.environ.get("PATH", ""))
+    r = subprocess.run(["bash", str(PREFLIGHT), "--platform", "none", "--no-color"], capture_output=True, text=True, env=env)
+    assert "Exabeam MCP reachable — connected to" in r.stdout and "ACCESS" not in r.stdout.split("Exabeam MCP reachable")[1].split("\n")[0]
+    assert "Key reaches alerts (answered)" in r.stdout
+    assert "Key cannot reach detection content: AAA_ESA_1003_403, HTTP 403 — needed by rule-tuning" in r.stdout and "Key entitlements" in r.stdout

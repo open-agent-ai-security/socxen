@@ -413,7 +413,10 @@ to your tenant, and the safety gate, and names the failing step.</p>
   connector refuses to start over <code>http://</code>, on purpose.</li>
 <li><strong>Investigations work but rule-tuning returns nothing.</strong> The key is entitled for alerts and cases but
   not for detection content. An under-entitled key installs and connects cleanly, and the reads it
-  lacks may come back empty rather than failing. See <a href="#key-entitlements">Key entitlements</a>.</li>
+  lacks may come back empty rather than failing. <code>preflight.sh</code> probes one read per family — alerts,
+  cases, events, detection content, posture — and names any the key cannot reach; a family that answers
+  with zero rows in its probe window may be empty or may be unentitled, so check the key's entitlements
+  if the matching skill finds nothing. See <a href="#key-entitlements">Key entitlements</a>.</li>
 <li><strong>The skill says the Exabeam MCP is not connected.</strong> The credentials file is missing or was added
   after the host started; add it and restart the host.</li>
 <li><strong><code>claude plugin list</code> shows an error beside socxen.</strong> The plugin installed but did not load; run
