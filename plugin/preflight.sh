@@ -231,7 +231,7 @@ check_connectivity() {
             case "$line" in
               *" ok "*)         fam="${line%% ok *}"; detail="${line#* ok }"; ok "Key reaches ${fam} ${detail}" ;;
               *" empty "*)      fam="${line%% empty *}"; detail="${line#* empty }"
-                                ok "${fam}: ${detail#(}" ;;
+                                detail="${detail#(}"; ok "${fam}: ${detail%)}" ;;
               *" refused "*)    fam="${line%% refused *}"; detail="${line#* refused }"
                                 warn "Key cannot reach ${fam}: ${detail}. Entitle the API key for it (installation guide, Key entitlements)" ;;
               *" unanswered "*) fam="${line%% unanswered *}"; detail="${line#* unanswered }"
