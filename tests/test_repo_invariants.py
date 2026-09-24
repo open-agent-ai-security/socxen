@@ -396,6 +396,18 @@ def _gen_codex_mcp():
     return mod.build()
 
 
+def test_the_bridge_is_launched_with_the_lock_enforced_on_both_hosts():
+    """#248: the connector ships a hash-pinned script lock, and it is honored only if the launch asks for
+    it. Both hosts launch with `uv run --quiet --locked`, preflight's connectivity check runs the bridge
+    the same way, and preflight states the uv floor the flag needs (script locks: 0.5.17; the `--locked`
+    warning on scripts gone: 0.5.23)."""
+    for label, args in (("plugin/.mcp.json", MCP["mcpServers"]["exabeam"]["args"]), ("plugin/.mcp.codex.json", CODEX_SERVER["args"])):
+        assert args[:3] == ["run", "--quiet", "--locked"], f"{label} launches the bridge without --locked: {args}"
+    assert (ROOT / "plugin" / "connector" / "exabeam-mcp-bridge.py.lock").is_file(), "the script lock must ship beside the bridge"
+    assert 'uv run --quiet --locked "$bridge" --check' in PREFLIGHT_SH, "preflight's connectivity check must launch the bridge as the hosts do"
+    assert 'UV_MIN="0.5.23"' in PREFLIGHT_SH, "preflight must state the uv floor --locked needs"
+
+
 def test_codex_gate_is_derived_from_the_claude_snippet():
     """The committed Codex gate must equal what the generator derives from the snippet.
 
