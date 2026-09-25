@@ -170,9 +170,10 @@ release channel**: whatever lands there reaches new installers immediately.
 
 **Cutting a release**
 
-1. Land all changes on `dev`. Run `uv run scripts/bump_version.py X.Y.Z` (bumps
-   `plugin.json`, the README pill, and regenerates the AI BOM), date the
-   `CHANGELOG.md` entry by hand, commit to `dev`.
+1. Land all changes on `dev`. Run `uv run scripts/bump_version.py X.Y.Z`: it edits
+   `plugin/identity.json`, regenerates both host manifests and `identity.sh` from it, rewrites
+   the README pill, and regenerates the AI BOM and the SBOM. Date the `CHANGELOG.md` entry by
+   hand, commit to `dev`.
 2. Open the release PR `dev → main`; promote with a **merge commit** (never
    squash), then fast-forward `dev` back up (see Branching above). `main` is
    branch-protected: the merge needs the `Repo invariants (no inference)` and
@@ -228,12 +229,13 @@ release channel**: whatever lands there reaches new installers immediately.
   rule can catch — see `tests/test_neutralize_coverage.py` for the pattern), then add a mutation to
   `scripts/mutation_check.py` that deletes or loosens the rule, and run it: the suite must fail with
   the rule gone. CI runs the gate on every PR (#120).
-- **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it updates
-  `plugin/.claude-plugin/plugin.json` and the `version-vX.Y.Z` pill in `plugin/README.md`, then
-  regenerates the AI BOM, and verifies they all agree. (If you edit by hand
-  instead, all three must match or CI fails — an invariant test guards the
-  pill↔plugin link, and `gen_aibom.py --check` guards the BOM against any
-  version / connector-dep / MCP / governance drift.)
+- **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it edits
+  `plugin/identity.json`, regenerates both host manifests (`.claude-plugin/plugin.json`,
+  `.codex-plugin/plugin.json`) and `identity.sh` from it, rewrites the `version-vX.Y.Z` pill in
+  `plugin/README.md`, regenerates the AI BOM and the SBOM, and verifies the manifests and the pill agree. If you edit
+  by hand instead, `identity.json` and the pill are the only files to edit; regenerate the rest.
+  CI fails on drift: `gen_identity.py --check`, `gen_aibom.py --check` and `gen_sbom.py --check`
+  guard the generated files, and an invariant test guards the pill↔plugin link.
 - **Connector dependencies:** the bridge's PEP 723 header is bounded and **locked**. If you add or
   change a dependency, re-lock in the same PR — `uv lock --script plugin/connector/exabeam-mcp-bridge.py`
   — and commit the updated `.lock` beside the script. `uv run` uses it automatically, so a stale lock
