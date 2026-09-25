@@ -232,7 +232,7 @@ release channel**: whatever lands there reaches new installers immediately.
 - **Version bumps:** run **`uv run scripts/bump_version.py X.Y.Z`** — it edits
   `plugin/identity.json`, regenerates both host manifests (`.claude-plugin/plugin.json`,
   `.codex-plugin/plugin.json`) and `identity.sh` from it, rewrites the `version-vX.Y.Z` pill in
-  `plugin/README.md`, regenerates the AI BOM and the SBOM, and verifies they all agree. If you edit
+  `plugin/README.md`, regenerates the AI BOM and the SBOM, and verifies the manifests and the pill agree. If you edit
   by hand instead, `identity.json` and the pill are the only files to edit; regenerate the rest.
   CI fails on drift: `gen_identity.py --check`, `gen_aibom.py --check` and `gen_sbom.py --check`
   guard the generated files, and an invariant test guards the pill↔plugin link.

@@ -12,7 +12,7 @@ bumping by hand is error-prone. This edits both and regenerates everything downs
   - `plugin/identity.json`                            → `version`  (the source; both manifests are
     regenerated from it by plugin/gen_identity.py)
   - `plugin/README.md`                                → the `version-vX.Y.Z` pill
-  - `plugin/identity.sh`                             → regenerated with the manifests
+  - `plugin/identity.sh`                              → regenerated with the manifests
   - `security/aibom.cdx.json` / `aibom.html`   → regenerated (stamps the new version)
   - `security/sbom.cdx.json` / `sbom.html`     → regenerated (stamps the new version)
 
@@ -84,6 +84,7 @@ def main(argv):
     if dry:
         for path, _ in edits:
             print(f"  would edit {path.relative_to(ROOT)}")
+        print("  would regenerate both host manifests + plugin/identity.sh (gen_identity.py)")
         print("  would regenerate security/aibom.cdx.json + security/aibom.html + security/sbom.cdx.json + security/sbom.html")
         return 0
 
