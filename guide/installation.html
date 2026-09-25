@@ -405,8 +405,8 @@ or fleet-wide in a managed <code>settings.json</code>:</p>
 </code></pre>
 <!-- community-only -->
 <h3 id="coming-from-socxen">Coming from socxen</h3>
-<p>Raffkin was called socxen before 0.10.0. The plugin key changed with the name, so an existing install does
-not update into it: remove the old plugin, then install the new one.</p>
+<p>Raffkin was called socxen during its pre-release. 1.0 is a new plugin, not an update: remove the old one,
+then install Raffkin.</p>
 <pre><code class="language-bash"># Claude Code
 claude plugin marketplace update open-agent-ai-security
 claude plugin uninstall socxen@open-agent-ai-security
@@ -417,12 +417,10 @@ codex plugin marketplace upgrade open-agent-ai-security
 codex plugin remove socxen@open-agent-ai-security
 codex plugin add raffkin@open-agent-ai-security
 </code></pre>
-<p>Your Exabeam credentials in <code>~/.exabeam-mcp.env</code> carry over unchanged. Through 0.10.x, Raffkin also reads
-the old names for its own settings and says so on stderr: a <code>SOCXEN_*</code> variable is honored when its
-<code>RAFFKIN_*</code> counterpart is unset, and an existing <code>~/.socxen</code> directory (telemetry, gate log) stays in use
-until you move it to <code>~/.raffkin</code>. Rename both before 0.11. Tool names in telemetry and permission rules
-change prefix, from <code>mcp__plugin_socxen_exabeam__</code> to <code>mcp__plugin_raffkin_exabeam__</code>, and the telemetry
-<code>agent_name</code> is <code>raffkin</code>.</p>
+<p>Your Exabeam credentials in <code>~/.exabeam-mcp.env</code> carry over. Nothing else does: rename any <code>SOCXEN_*</code>
+environment variables to <code>RAFFKIN_*</code>, and move <code>~/.socxen</code> to <code>~/.raffkin</code> if you want to keep its
+telemetry and gate log. Tool names now start <code>mcp__plugin_raffkin_exabeam__</code>, and telemetry reports
+<code>agent_name</code> <code>raffkin</code>.</p>
 <!-- /community-only -->
 
 <h2 id="troubleshooting">Troubleshooting</h2>

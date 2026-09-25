@@ -175,8 +175,8 @@ or fleet-wide in a managed `settings.json`:
 <!-- community-only -->
 ### Coming from socxen
 
-Raffkin was called socxen before 0.10.0. The plugin key changed with the name, so an existing install does
-not update into it: remove the old plugin, then install the new one.
+Raffkin was called socxen during its pre-release. 1.0 is a new plugin, not an update: remove the old one,
+then install Raffkin.
 
 ```bash
 # Claude Code
@@ -190,12 +190,10 @@ codex plugin remove socxen@open-agent-ai-security
 codex plugin add raffkin@open-agent-ai-security
 ```
 
-Your Exabeam credentials in `~/.exabeam-mcp.env` carry over unchanged. Through 0.10.x, Raffkin also reads
-the old names for its own settings and says so on stderr: a `SOCXEN_*` variable is honored when its
-`RAFFKIN_*` counterpart is unset, and an existing `~/.socxen` directory (telemetry, gate log) stays in use
-until you move it to `~/.raffkin`. Rename both before 0.11. Tool names in telemetry and permission rules
-change prefix, from `mcp__plugin_socxen_exabeam__` to `mcp__plugin_raffkin_exabeam__`, and the telemetry
-`agent_name` is `raffkin`.
+Your Exabeam credentials in `~/.exabeam-mcp.env` carry over. Nothing else does: rename any `SOCXEN_*`
+environment variables to `RAFFKIN_*`, and move `~/.socxen` to `~/.raffkin` if you want to keep its
+telemetry and gate log. Tool names now start `mcp__plugin_raffkin_exabeam__`, and telemetry reports
+`agent_name` `raffkin`.
 <!-- /community-only -->
 
 ## Troubleshooting
