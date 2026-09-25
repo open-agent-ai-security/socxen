@@ -63,6 +63,10 @@ PATTERN_SAMPLES = [
     ("token", "rk_" + "live_" + "4eC39HqLyjWDarjtT1zdp7dc"),
     ("token", "sk_" + "test_" + "4eC39HqLyjWDarjtT1zdp7dc"),
     ("token", "AIzaSyDaGmWKa4JsXZ-HjGw7ISLn_3namBGewQe"),
+    ("token", "glp" + "at-" + "xR7kQ2mN9vB4cL8wZ1tY"),
+    ("token", "sk" + "-" + "T3BlbkFJx9Qm2vL7nR4kW8zY1cP5"),
+    ("token", "sk" + "-proj-" + "Ab3dE5fG7hJ9kL2mN4pQ6rS8tU0vW"),
+    ("token", "sk" + "-ant-api03-" + "Zx9Yw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg"),
     ("ssn", "456-78-9012"),
 ]
 
@@ -335,3 +339,10 @@ def test_cell_reference_glued_to_the_sign_is_neutralized(line):
 ])
 def test_new_mid_line_forms_do_no_harm(prose):
     assert N.neutralize_output(prose)[0] == prose, N.neutralize_output(prose)[0]
+
+
+def test_hyphenated_sk_prefix_needs_a_digit():
+    """PRAX-2026-09-24-003: the sk- rule catches OpenAI/Anthropic keys; a digit-free name stays as written."""
+    for benign in ("sk-learn-preprocessing-pipeline", "risk-assessment-for-the-quarter"):
+        assert N.redact_secrets(benign, []) == benign
+
