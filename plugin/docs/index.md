@@ -50,7 +50,7 @@ for the terms this copy is distributed and supported under.*
 
 ```mermaid
 flowchart LR
-  A["Analyst<br/>alert · case · payload"] --> S{{"raffkin skill"}}
+  A["Analyst<br/>alert · case · payload"] --> S{{"Raffkin skill"}}
   S --> C["Bundled connector<br/>screen · neutralize · audit"]
   C <--> X["Exabeam New-Scale MCP"]
   S --> G{"Human-in-the-loop gate"}

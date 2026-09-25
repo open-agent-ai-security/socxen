@@ -85,7 +85,7 @@ sees the query value, because defang rewrites scheme and host, never the query s
 
 ## 4. Clickable is decided by destination, not authorship (#147)
 
-The model writes the text, so "raffkin wrote this link" carries no trust. The only link that stays
+The model writes the text, so "Raffkin wrote this link" carries no trust. The only link that stays
 clickable is one whose host **is exactly the API host in `EXABEAM_MCP_URL`** — derived by the bridge
 (`tenant_hosts_from_url`), never curated, never model-influenced. No wildcard: an earlier cut allowed
 every host under the region domain, and a region is shared by every tenant in it, so one tenant's content

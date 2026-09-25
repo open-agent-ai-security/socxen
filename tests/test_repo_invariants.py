@@ -221,9 +221,9 @@ def test_readme_version_badge_matches_plugin():
 def test_no_in_repo_marketplace():
     """Raffkin is published via the community marketplace
     (open-agent-ai-security/plugins, marketplace name 'open-agent-ai-security');
-    the repo-hosted 'raffkin' marketplace was retired in a hard cutover (#58).
+    the repo-hosted 'socxen' marketplace was retired in a hard cutover (#58).
     Reintroducing a marketplace.json here would either resurrect the dead
-    raffkin@raffkin install path or collide with the community marketplace's
+    socxen@socxen install path or collide with the community marketplace's
     name (a duplicate name silently REPLACES another marketplace — this
     overwrote praxen once). The plugin manifest itself must stay."""
     assert not (ROOT / "plugin/.claude-plugin/marketplace.json").exists(), (

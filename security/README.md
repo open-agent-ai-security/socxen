@@ -14,7 +14,7 @@ each one lives.
 > **Raffkin is red-teamed before every release.** It's an agentic SOC analyst that reads
 > attacker-influenceable telemetry and takes gated actions, so we adversarially test whether
 > an attacker who controls the data can make it suppress a real threat, bypass the human
-> gate, or leak. **→ [How we red-team raffkin](redteam/METHODOLOGY.md)** ·
+> gate, or leak. **→ [How we red-team Raffkin](redteam/METHODOLOGY.md)** ·
 > [test history](redteam/HISTORY.md)
 
 > **Raffkin is behavior-verified against a declared policy.** We publish a **Worker Remit** —

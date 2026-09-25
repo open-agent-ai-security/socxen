@@ -203,7 +203,7 @@ def render_html(bom):
 <title>Raffkin — Software Bill of Materials</title><style>{_CSS}</style></head>
 <body>
 <header><div class="wrap">
-  <h1><span class="sc">raffkin</span> — Software Bill of Materials</h1>
+  <h1><span class="sc">Raffkin</span> — Software Bill of Materials</h1>
   <p class="tag">{esc(root["description"])}</p>
   <div class="badges">{badges}</div>
 </div></header>

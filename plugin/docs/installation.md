@@ -172,30 +172,6 @@ or fleet-wide in a managed `settings.json`:
 }
 ```
 
-<!-- community-only -->
-### Coming from socxen
-
-Raffkin was called socxen during its pre-release. 1.0 is a new plugin, not an update: remove the old one,
-then install Raffkin. Don't run both. Each session would get two Exabeam servers and two copies of every
-skill, and the escalation-write budget is counted per plugin, so it doubles.
-
-```bash
-# Claude Code
-claude plugin marketplace update open-agent-ai-security
-claude plugin uninstall socxen@open-agent-ai-security
-claude plugin install raffkin@open-agent-ai-security
-
-# Codex
-codex plugin marketplace upgrade open-agent-ai-security
-codex plugin remove socxen@open-agent-ai-security
-codex plugin add raffkin@open-agent-ai-security
-```
-
-Your Exabeam credentials in `~/.exabeam-mcp.env` carry over. Nothing else does: rename any `SOCXEN_*`
-environment variables to `RAFFKIN_*`, and move `~/.socxen` to `~/.raffkin` if you want to keep its
-telemetry and gate log. Tool names now start `mcp__plugin_raffkin_exabeam__`, and telemetry reports
-`agent_name` `raffkin`.
-<!-- /community-only -->
 
 ## Troubleshooting
 
@@ -213,8 +189,6 @@ to your tenant, and the safety gate, and names the failing step.
   after the host started; add it and restart the host.
 - **`claude plugin list` shows an error beside Raffkin.** The plugin installed but did not load; run
   `claude plugin update raffkin@open-agent-ai-security` to get the current release, then restart.
-- **Two copies of Raffkin.** If you installed an early build from the retired `raffkin@raffkin`
-  marketplace, remove it first: `claude plugin marketplace remove raffkin`, then install as in step 1.
 - **On Codex, no `exabeam` server appears.** Codex drops a bundled server silently if any part of its
   configuration is invalid; run `codex plugin add raffkin@open-agent-ai-security` again and re-check.
 
