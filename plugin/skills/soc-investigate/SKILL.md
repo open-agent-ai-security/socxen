@@ -233,8 +233,8 @@ with the analyst's yes.
 ## Output
 
 Always end with the report (`reference/report-template.md`): the alert restated, the timeline, the
-evidence with its sources, the MITRE mapping, the verdict + confidence, the actions you took, and any
-recommended containment. The report is the audit trail this skill produces in place of a database.
+evidence with its sources, the MITRE mapping, the verdict + confidence, the actions you took, any
+recommended containment, and the **Flagged** line. The report is the audit trail this skill produces in place of a database.
 See `reference/examples/` for a full worked run in this shape (a coordinated-credential-access alert
 investigated end to end against a live MCP).
 
