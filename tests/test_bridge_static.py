@@ -149,7 +149,7 @@ def _dry_run_guard():
 def test_dry_run_is_off_unless_the_env_says_otherwise():
     """A dry run that turns itself on would silently stop protecting a real tenant; one that turns
     itself off would silently write to it. It must come from the environment and nowhere else."""
-    assert 'DRY_RUN = _truthy(os.environ.get("RAFFKIN_DRY_RUN", ""))' in SRC
+    assert 'DRY_RUN = _truthy(telemetry.env("DRY_RUN", ""))' in SRC      # RAFFKIN_DRY_RUN (or, for one release, SOCXEN_DRY_RUN)
     assert "DRY_RUN = True" not in SRC
 
 

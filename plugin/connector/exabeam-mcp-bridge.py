@@ -841,7 +841,7 @@ ALLOWED_LINK_HOSTS = tenant_hosts_from_url(URL)
 def _truthy(v):
     return str(v).strip().lower() in {"1", "true", "yes", "on"}
 
-DRY_RUN = _truthy(os.environ.get("RAFFKIN_DRY_RUN", ""))
+DRY_RUN = _truthy(telemetry.env("DRY_RUN", ""))
 
 # Safe (non-free-text) fields of a gated write to record in the audit log: identifiers, state and
 # disposition enums. These are the deterministic decision record — WHAT the agent did, on WHICH object,
@@ -1244,7 +1244,8 @@ async def _serve():
     # The session record is the operator's attestation of how this bridge was configured: telemetry
     # backend + resolved destination (added by the shim), dry-run state, gate-log location, plugin version.
     telemetry.session_start(dry_run=DRY_RUN, plugin_version=_plugin_version(),
-                            gate_log=os.environ.get("RAFFKIN_GATE_LOG", "").strip() or "~/.raffkin/gate.jsonl")
+                            gate_log=telemetry.env("GATE_LOG", "").strip()
+                            or os.path.join(telemetry.home_dir(), "gate.jsonl"))
     warm = asyncio.create_task(UPSTREAM.warm())     # alongside the stdio handshake, never before it
     try:
         async with stdio_server() as (read, write):

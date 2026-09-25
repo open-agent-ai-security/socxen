@@ -445,3 +445,19 @@ def test_parallel_escalation_writes_cannot_all_slip_under_the_budget(tmp_path):
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
         out = list(ex.map(lambda _: _esc("create_case_notes", "par", d)["permissionDecision"], range(6)))
     assert out.count("allow") == 2 and out.count("ask") == 4, out
+
+
+# ---- the rename (#261): pre-rename names are honored for one release, announced -----------------------
+
+def test_the_hook_honors_a_pre_rename_variable_and_directory(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("RAFFKIN_GATE_LOG", raising=False)
+    monkeypatch.setenv("SOCXEN_GATE_LOG", str(tmp_path / "old.jsonl"))
+    assert gate._env("GATE_LOG") == str(tmp_path / "old.jsonl")
+    assert "SOCXEN_GATE_LOG is the pre-rename name" in capsys.readouterr().err
+    monkeypatch.setenv("RAFFKIN_GATE_LOG", str(tmp_path / "new.jsonl"))
+    assert gate._env("GATE_LOG") == str(tmp_path / "new.jsonl"), "the new name wins when both are set"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert gate._home_dir() == tmp_path / ".raffkin"
+    (tmp_path / ".socxen").mkdir()
+    assert gate._home_dir() == tmp_path / ".socxen", "an existing trail keeps its path until the operator moves it"
+

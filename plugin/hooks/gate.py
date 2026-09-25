@@ -76,6 +76,34 @@ import sys
 import time
 from pathlib import Path
 
+# The rename (#261): for one release the pre-rename SOCXEN_* variables and ~/.socxen are still honored,
+# announced on stderr — the same rule as the bridge's telemetry shim (observra_logging.env / home_dir).
+_noted: set = set()
+
+
+def _note_once(msg: str) -> None:
+    if msg not in _noted:
+        _noted.add(msg)
+        print(f"Raffkin gate: {msg}", file=sys.stderr)
+
+
+def _env(name: str, default: str = "") -> str:
+    """RAFFKIN_<name>; the pre-rename SOCXEN_<name> when only it is set (read through 0.10.x)."""
+    value = os.environ.get("RAFFKIN_" + name)
+    if value is None and os.environ.get("SOCXEN_" + name) is not None:
+        _note_once(f"SOCXEN_{name} is the pre-rename name; set RAFFKIN_{name} (the old name is read through 0.10.x)")
+        return os.environ["SOCXEN_" + name]
+    return default if value is None else value
+
+
+def _home_dir() -> Path:
+    """~/.raffkin; a pre-rename ~/.socxen is used instead until it is moved (read through 0.10.x)."""
+    new, old = Path.home() / ".raffkin", Path.home() / ".socxen"
+    if not new.exists() and old.is_dir():
+        _note_once(f"{old} is the pre-rename directory; Raffkin keeps using it until you move it to {new}")
+        return old
+    return new
+
 try:                                    # POSIX file locks keep parallel tool calls in one message honest;
     import fcntl                        # without them (never on the supported hosts) the count is best-effort
 except ImportError:  # pragma: no cover
@@ -198,7 +226,7 @@ def _rotate(path: Path) -> None:
 
 
 def log_decision(record: dict) -> None:
-    target = os.environ.get("RAFFKIN_GATE_LOG", "").strip()
+    target = _env("GATE_LOG", "").strip()
     if target.lower() == "off":
         # The off switch discloses itself, as the telemetry shim's does — a silent switch is how a
         # forensic record disappears without anyone noticing.
@@ -207,10 +235,10 @@ def log_decision(record: dict) -> None:
     try:
         # Inside the guard: expanduser() on "~nosuchuser" and Path.home() with no HOME / unknown uid both
         # raise, and a crash here would turn "logging failed" into "every call blocked" via `|| exit 2`.
-        path = Path(target).expanduser() if target else Path.home() / ".raffkin" / "gate.jsonl"
+        path = Path(target).expanduser() if target else _home_dir() / "gate.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            limit = int(os.environ.get("RAFFKIN_GATE_LOG_MAX_BYTES", LOG_MAX_BYTES))
+            limit = int(_env("GATE_LOG_MAX_BYTES", "") or LOG_MAX_BYTES)
         except ValueError:
             limit = LOG_MAX_BYTES
         if path.exists() and path.stat().st_size >= limit:
@@ -230,8 +258,8 @@ _SESSION_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 
 def _state_dir() -> Path:
-    target = os.environ.get("RAFFKIN_GATE_STATE_DIR", "").strip()
-    return Path(target).expanduser() if target else Path.home() / ".raffkin" / "gate-sessions"
+    target = _env("GATE_STATE_DIR", "").strip()
+    return Path(target).expanduser() if target else _home_dir() / "gate-sessions"
 
 
 def spend_write_budget(event, name: str) -> tuple[bool, str]:

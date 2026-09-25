@@ -32,6 +32,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # read it); env still overrides. There is deliberately NO literal fallback: the install target is not a
 # cosmetic value, and a guessed name would install the upstream plugin after a re-key.
 if [ -f "$SCRIPT_DIR/identity.sh" ]; then . "$SCRIPT_DIR/identity.sh"; fi
+# The rename (#261): for one release a pre-rename SOCXEN_<name> is honored when RAFFKIN_<name> is unset,
+# announced on stderr, so an operator's saved overrides keep working until they move.
+for _rk in SCOPE REPO MARKETPLACE PLUGIN PLATFORM; do
+  eval "_rk_new=\${RAFFKIN_$_rk:-}; _rk_old=\${SOCXEN_$_rk:-}"
+  if [ -z "$_rk_new" ] && [ -n "$_rk_old" ]; then
+    eval "RAFFKIN_$_rk=\$_rk_old"
+    printf 'note: SOCXEN_%s is the pre-rename name; set RAFFKIN_%s (the old name is read through 0.10.x)\n' "$_rk" "$_rk" >&2
+  fi
+done
 MARKETPLACE_REPO="${RAFFKIN_REPO:-${RAFFKIN_ID_MARKETPLACE_REPO:-}}"
 MARKETPLACE_NAME="${RAFFKIN_MARKETPLACE:-${RAFFKIN_ID_MARKETPLACE_NAME:-}}"
 PLUGIN="${RAFFKIN_PLUGIN:-${RAFFKIN_ID_NAME:-}}"
