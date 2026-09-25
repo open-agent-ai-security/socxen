@@ -3,7 +3,7 @@
   Copyright 2026 Exabeam, Inc.
   SPDX-License-Identifier: Apache-2.0
 
-  socxen landing page. Self-contained like the Praxen and Observra landings: one file, the shared
+  Raffkin landing page. Self-contained like the Praxen and Observra landings: one file, the shared
   theme linked from assets/socxen-theme.css, vector brand assets under graphics/. Served by GitHub
   Pages from the repo root on `main`. No Jekyll (.nojekyll), so it is served verbatim.
 -->
@@ -11,8 +11,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>socxen — Agentic SOC Skill Suite for Exabeam New-Scale</title>
-  <meta name="description" content="socxen is an open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex, built end to end for the fact that SIEM data is untrusted input: guardrails and write gates in the code, behavior scan, red team and AI-BOM in the process.">
+  <title>Raffkin — Agentic SOC Skill Suite for Exabeam New-Scale</title>
+  <meta name="description" content="raffkin is an open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex, built end to end for the fact that SIEM data is untrusted input: guardrails and write gates in the code, behavior scan, red team and AI-BOM in the process.">
   <meta name="keywords" content="agentic SOC, SOC analyst agent, Exabeam New-Scale, MCP, Claude Code plugin, OpenAI Codex plugin, alert triage, AI SOC, prompt injection guardrails, red team, human in the loop">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://open-agent-ai-security.github.io/socxen/">
@@ -20,21 +20,21 @@
   <link rel="icon" type="image/png" sizes="256x256" href="graphics/web/favicon-256.png">
   <link rel="apple-touch-icon" sizes="180x180" href="graphics/web/favicon-180.png">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="socxen">
-  <meta property="og:title" content="socxen — Hunt the real threats. Leave the noise.">
+  <meta property="og:site_name" content="raffkin">
+  <meta property="og:title" content="raffkin — Hunt the real threats. Leave the noise.">
   <meta property="og:description" content="Open-source agentic SOC skills for Exabeam New-Scale, on Claude Code and Codex — built with security, not bolted on: guardrails, write gates, red team, behavior scan, AI-BOM.">
   <meta property="og:url" content="https://open-agent-ai-security.github.io/socxen/">
   <meta property="og:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
   <meta property="og:image:width" content="1280"><meta property="og:image:height" content="640">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="socxen — Agentic SOC Skill Suite">
+  <meta name="twitter:title" content="raffkin — Agentic SOC Skill Suite">
   <meta name="twitter:description" content="Hunt the real threats. Leave the noise.">
   <meta name="twitter:image" content="https://open-agent-ai-security.github.io/socxen/graphics/socxen-social.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareSourceCode",
-    "name": "socxen",
+    "name": "raffkin",
     "description": "Open-source agentic SOC skill suite for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex. Investigates alerts and cases to a written verdict, triages the open queue, finds noisy detection rules. Engineered for untrusted SIEM data: deterministic guardrails on read and write, a human gate on dismiss/close, containment recommended never executed, and a release process of behavior verification, red team, and an AI bill of materials.",
     "url": "https://open-agent-ai-security.github.io/socxen/",
     "codeRepository": "https://github.com/open-agent-ai-security/socxen",
@@ -190,7 +190,7 @@
 <body>
   <header class="nav">
     <div class="wrap nav-inner">
-      <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen — agentic SOC skill suite" width="141" height="36"></a>
+      <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="raffkin — agentic SOC skill suite" width="141" height="36"></a>
       <nav class="nav-links">
         <a href="#skills">The skills</a>
         <a href="#guardrails">Guardrails</a>
@@ -212,7 +212,7 @@
           <div class="pill"><span class="dot"></span> Open source · built with security · human-in-the-loop</div>
           <h1>Hunt the real threats.<br><span class="grad">Leave the noise.</span></h1>
           <p class="lede">
-            socxen is an <strong>agentic SOC skill suite</strong> for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.
+            Raffkin is an <strong>agentic SOC skill suite</strong> for Exabeam New-Scale — a plugin for Claude Code and OpenAI Codex.
             It works an alert to a written verdict, sweeps the queue, and finds the rules wasting your analysts' time.
             Most agent skills are a markdown file. This one is <strong>engineered for the fact that SIEM data is untrusted
             input</strong>: guardrails around every read and write, a human gate on every consequential action, and a release
@@ -224,7 +224,7 @@
           </div>
         </div>
         <div class="mascot-stage">
-          <img src="graphics/leo-hunting.svg" alt="Leo, the socxen lion, examining an alert through a crosshair loupe">
+          <img src="graphics/leo-hunting.svg" alt="Leo, the Raffkin lion, examining an alert through a crosshair loupe">
         </div>
       </div>
     </section>
@@ -278,7 +278,7 @@
         <div class="section-head">
           <p class="eyebrow">Built in, not bolted on</p>
           <h2>SIEM data is untrusted input. Build like it.</h2>
-          <p>An attacker can write to your logs — a user-agent string, a case note, a "baseline" pasted into an alert. If you expose that data to an agent with tools, you need a plan for what happens when it lies. socxen's plan is code you can read and tests you can run, at every layer between the data and an action.</p>
+          <p>An attacker can write to your logs — a user-agent string, a case note, a "baseline" pasted into an alert. If you expose that data to an agent with tools, you need a plan for what happens when it lies. Raffkin's plan is code you can read and tests you can run, at every layer between the data and an action.</p>
         </div>
         <ul class="checklist cols">
           <li><strong>Two locks on dismiss/close, out of the box</strong> — <span>a gate the plugin ships and the host enforces stops the call before it reaches Exabeam, and the skill asks you first. Never left to the model alone.</span></li>
@@ -344,7 +344,7 @@
           <a class="xcard" href="https://github.com/open-agent-ai-security/socxen/blob/main/security/praxen/README.md" target="_blank" rel="noopener">
             <span class="xtag">Praxen ABV</span>
             <h3>Agent behavior verification</h3>
-            <p>socxen is scanned by Praxen, its sister project, against a written Worker Remit before each release: zero Critical findings is the bar.</p>
+            <p>Raffkin is scanned by Praxen, its sister project, against a written Worker Remit before each release: zero Critical findings is the bar.</p>
             <div class="stat"><b>3.70</b><span>RAISE score · Established</span></div>
             <span class="go">Read the remit and results <span class="arw">→</span></span>
           </a>
@@ -362,12 +362,12 @@
           <div class="step-item"><h3>Install the plugin</h3><p>One marketplace add and one install, on Claude Code or Codex. The Exabeam MCP bridge comes bundled — nothing else to wire.</p></div>
           <div class="step-item"><h3>Add credentials</h3><p>A single <code>~/.exabeam-mcp.env</code> with your New-Scale API key. The bridge refreshes the token itself.</p></div>
           <div class="step-item"><h3>The gate is already on</h3><p>It ships inside the plugin on both hosts — a hook on Claude Code, approval policy on Codex. Reads run without a prompt. Nothing to configure.</p></div>
-          <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." socxen gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
+          <div class="step-item"><h3>Ask</h3><p>"Investigate alert <em>X</em>." Raffkin gathers evidence, writes the verdict, and asks you before anything is dismissed or closed.</p></div>
         </div>
         <div class="install-card">
           <div>
             <h2>The commands</h2>
-            <p>socxen runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Add your Exabeam credentials and hunt — the human-in-the-loop gate is already on.</p>
+            <p>Raffkin runs as a plugin in your coding agent. One command adds the community marketplace and installs it. Add your Exabeam credentials and hunt — the human-in-the-loop gate is already on.</p>
             <div class="copy-row">
               <button class="btn btn-primary" id="copyBtn" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy install command</button>
               <span class="copy-ok" id="copyOk">Copied ✓</span>
@@ -376,15 +376,15 @@
           </div>
           <div class="terminal">
             <div class="bar"><i></i><i></i><i></i><span>Terminal</span><span class="tabs"><button class="on" data-host="claude" type="button">Claude Code</button><button data-host="codex" type="button">Codex</button></span></div>
-<pre id="cmd-claude"><span class="cmt"># install socxen in your terminal</span>
+<pre id="cmd-claude"><span class="cmt"># install Raffkin in your terminal</span>
 <span class="pmt">$</span> claude plugin marketplace add open-agent-ai-security/plugins
-<span class="pmt">$</span> claude plugin install socxen@open-agent-ai-security
+<span class="pmt">$</span> claude plugin install raffkin@open-agent-ai-security
 
 <span class="cmt"># then, in Claude Code</span>
 <span class="pmt">&gt;</span> investigate alert 8f67ee43-bfa0-4f84-a5d0-42f97d893aed</pre>
-<pre id="cmd-codex" hidden><span class="cmt"># install socxen in your terminal</span>
+<pre id="cmd-codex" hidden><span class="cmt"># install Raffkin in your terminal</span>
 <span class="pmt">$</span> codex plugin marketplace add open-agent-ai-security/plugins
-<span class="pmt">$</span> codex plugin add socxen@open-agent-ai-security
+<span class="pmt">$</span> codex plugin add raffkin@open-agent-ai-security
 
 <span class="cmt"># the safety gate is already on — confirm the plugin loaded</span>
 <span class="pmt">$</span> codex plugin list
@@ -413,7 +413,7 @@
     <div class="wrap">
       <div class="foot-grid">
         <div class="foot-brand">
-          <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="socxen" width="125" height="32" style="height:32px;"></a>
+          <a class="brand" href="#top"><img class="logo" src="graphics/brand/socxen-wordmark-dark-background.svg" alt="raffkin" width="125" height="32" style="height:32px;"></a>
           <p>An agentic SOC skill suite for Exabeam New-Scale, built with security end to end — guardrails and write gates in the code, behavior scan, red team and AI-BOM in the process.</p>
         </div>
         <div class="foot-cols">
@@ -425,7 +425,7 @@
       <div class="sponsor-band">
         <span class="lbl">Proudly sponsored by</span>
         <a class="exa" href="https://www.exabeam.com/" target="_blank" rel="noopener" aria-label="Exabeam"><img class="exa-logo" src="graphics/exabeam-logo-white.svg" alt="Exabeam" width="187" height="32"></a>
-        <p class="sponsor-note">Exabeam contributed the initial code and continues to provide ongoing support and contributions to socxen — part of its commitment to security in an increasingly agentic world.</p>
+        <p class="sponsor-note">Exabeam contributed the initial code and continues to provide ongoing support and contributions to Raffkin — part of its commitment to security in an increasingly agentic world.</p>
       </div>
       <div class="foot-bottom">
         <span class="legal">All use and distribution is governed by the <a href="https://github.com/open-agent-ai-security/socxen/blob/main/plugin/LICENSE" target="_blank" rel="noopener">Apache 2.0 License</a> · © 2026 Exabeam, Inc.</span>
@@ -436,8 +436,8 @@
 
   <script>
     (function () {
-      var cmds = { claude: 'claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install socxen@open-agent-ai-security',
-                   codex:  'codex plugin marketplace add open-agent-ai-security/plugins && codex plugin add socxen@open-agent-ai-security && codex plugin list' };
+      var cmds = { claude: 'claude plugin marketplace add open-agent-ai-security/plugins && claude plugin install raffkin@open-agent-ai-security',
+                   codex:  'codex plugin marketplace add open-agent-ai-security/plugins && codex plugin add raffkin@open-agent-ai-security && codex plugin list' };
       var host = 'claude', btn = document.getElementById('copyBtn'), ok = document.getElementById('copyOk');
       document.querySelectorAll('.terminal .tabs button').forEach(function (b) {
         b.addEventListener('click', function () {

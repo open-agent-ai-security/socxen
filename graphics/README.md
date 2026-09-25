@@ -3,12 +3,12 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# socxen graphics
+# Raffkin graphics
 
-Brand and site assets for socxen. Same convention as [praxen/graphics](https://github.com/open-agent-ai-security/praxen/tree/main/graphics)
+Brand and site assets for Raffkin. Same convention as [praxen/graphics](https://github.com/open-agent-ai-security/praxen/tree/main/graphics)
 so the sister sites stay one family.
 
-> **Placeholder status.** Every socxen-specific asset here was drawn as vector shapes to mock up the site
+> **Placeholder status.** Every Raffkin-specific asset here was drawn as vector shapes to mock up the site
 > and is meant to be **replaced by art-department artwork in the same poses and file names**: the lion mark,
 > the wordmark (uses live `<text>`, not outlined paths — a font dependency the real masters must not have),
 > and the hero mascot. The community and Exabeam logos are the real ones, copied verbatim from praxen.
@@ -30,7 +30,7 @@ second hue. `leo-hunting.svg` is cropped tight (viewBox) so it fills the hero li
 |---|---|---|
 | `brand/socxen-mark.svg` | lion head mark, gold | source for the favicon and wordmark |
 | `brand/socxen-favicon.svg` | mark on a gold tile | master for `web/favicon-{32,180,256}.png` |
-| `brand/socxen-wordmark-dark-background.svg` | mark + "socxen" | landing nav + footer, docs top bar |
+| `brand/socxen-wordmark-dark-background.svg` | mark + "raffkin" | landing nav + footer, docs top bar |
 | `brand/socxen-wordmark-light-background.svg` | same, dark ink | available |
 | `brand/community-logo-{dark,light}-background.svg` | parent-org logo | footer "Part of the…" |
 | `leo-hunting.svg` | hero mascot | landing hero (referenced directly as SVG) |

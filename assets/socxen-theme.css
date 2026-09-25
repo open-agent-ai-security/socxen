@@ -3,10 +3,10 @@
   Copyright 2026 Exabeam, Inc.
   SPDX-License-Identifier: Apache-2.0
 
-  socxen shared design system — single source of truth for the visual theme.
+  Raffkin shared design system — single source of truth for the visual theme.
   Derived from the Praxen design system (open-agent-ai-security/praxen,
   assets/praxen-theme.css) so the three project sites read as one family;
-  only the accent hue differs: Praxen orange → socxen lion gold.
+  only the accent hue differs: Praxen orange → Raffkin lion gold.
 
   Consumed by two surfaces:
     - index.html / news.html (the marketing pages) LINK this file.
