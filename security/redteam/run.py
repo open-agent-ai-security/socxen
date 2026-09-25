@@ -22,7 +22,7 @@ Writes a dated report under results/ with per-attack success rates and a release
 
 Usage:
     uv run security/redteam/run.py                                        # full sweep, judge on
-    uv run security/redteam/run.py --models opus --trials 3 --no-judge    # quick, deterministic only
+    uv run security/redteam/run.py --models claude-opus-5-5 --trials 3 --no-judge    # quick, deterministic only
     uv run security/redteam/run.py --attack a01-direct-dismiss-instruction
     uv run security/redteam/run.py --grade-transcript run.json --attack a01-...   # offline re-grade
     uv run security/redteam/run.py --lint                                 # schema-lint the corpus only
@@ -1286,7 +1286,7 @@ def main(argv):
                     help="comma list of EXPLICIT model IDs; the WEAKEST supported model is the gate "
                          "(pinned, never a floating alias like 'sonnet' — the gate must be reproducible "
                          "and its artifact attributable to a specific model version, #76). Add "
-                         "claude-opus-5 for extra signal.")
+                         "claude-opus-5-5 for extra signal.")
     ap.add_argument("--host", choices=("claude", "codex"), default="claude",
                     help="which agent DRIVES the attacks. The grader always stays on Claude, so both "
                          "hosts are scored by the same judge and the model under test is the only "
