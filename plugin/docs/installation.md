@@ -176,7 +176,8 @@ or fleet-wide in a managed `settings.json`:
 ### Coming from socxen
 
 Raffkin was called socxen during its pre-release. 1.0 is a new plugin, not an update: remove the old one,
-then install Raffkin.
+then install Raffkin. Don't run both. Each session would get two Exabeam servers and two copies of every
+skill, and the escalation-write budget is counted per plugin, so it doubles.
 
 ```bash
 # Claude Code
