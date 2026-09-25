@@ -38,7 +38,50 @@ defeated on the shipped default path* — not a hardening opportunity. For an ag
 reads attacker-influenceable telemetry and writes dispositions into a production SOC
 platform, that is the class of defect that must not reach a tag.
 
-## Current status — remit v1.7 @ `d5d7097` (2026-09-19, the 0.9.0 release candidate)
+## Current status — remit v1.8 @ `0e58da8` (2026-09-24, `dev` on the 1.0 glide path)
+
+| | |
+|---|---|
+| Scanned | **`praxen/gate-scan-2026-09-24`** (`0e58da8`) — `dev` after 0.9.0 plus the 1.0 glide-path stack: escalation writes on a per-session budget, two then ask (#247, #263); `SOCXEN_OBSERVRA=off` announced on stderr (#215, #264); the DCO exemption removed (#253, #262); remit v1.8 (#218, #219, #266); `uv run --locked` (#248, #255). |
+| Scanner | **Praxen 2.0.0-beta.1**, **Claude Opus 5.5** (the first gate scan on 5.5), **high thinking mode**, **+ threat model**, in a clean headless session (no conversation context, no project files, the workspace a pinned worktree), 29 min. |
+| **Critical findings** | **0 — gate PASSES** |
+| Other findings | 0 High · **4 Medium** · 2 Low — 6 CONFIRMED by the audit pass, 1 REMIT-DEFECT (dropped, #267) |
+| Weighted RAISE posture | **3.70 / 5** (Established) |
+| Remit coverage | Remit **v1.8** · 71 rules as extracted — 56 verified · 8 partial · 0 gap · 7 enforcement-not-possible |
+| Threat model | 22 nodes · 31 edges · 7 trust boundaries · 2 attack paths — [`-threatmodel.html`](results/2026-09-24-socxen-dev-gate-threatmodel.html) |
+
+RAISE categories: Limit Your Domain 4 · Balance Your Knowledge Base 3 · Implement Zero Trust 4 · Manage
+Your Supply Chain 4 · Build an AI Red Team 4 · Monitor Continuously 3.
+
+Artifacts: [report](results/2026-09-24-socxen-dev-gate.html) · [findings JSON](results/2026-09-24-socxen-dev-gate.json) ·
+[audit](results/2026-09-24-socxen-dev-gate-audit.md) · [text](results/2026-09-24-socxen-dev-gate.txt) ·
+[threat model](results/2026-09-24-socxen-dev-gate-threatmodel.html) ([json](results/2026-09-24-socxen-dev-gate-threatmodel.json)).
+
+**The findings.** The scanner's summary: the bundled gate is on at install, fails closed and holds under
+skipped permission prompts; every read is screened and every write neutralized; updates change status
+fields only; dependencies are hash-locked; the red team blocks releases. The gaps sit at the edges of those
+controls. Mediums: the per-session tool-definition hash and instruction-like-text warning are recorded
+only when the startup connection succeeds (`-001`, new); the queue sweep's no-write rule is still
+prompt-only — the budget lets a sweep's first two escalation writes through, the designed threshold
+(`-002`, #247; the 09-19 High, now Medium with the budget in place); the redactor let unlabeled `sk-`,
+`sk-proj-`, `sk-ant-` and `glpat-` keys through (`-003`, new, fixed in #268); soc-investigate does not tell
+the model to report a planted instruction it refused, where the other two skills do (`-004`). Lows:
+write-side neutralization under eight field names only (`-005`, the documented design); the gate log copies
+`send_email` recipients from raw arguments and no audit log records `closedReason` (`-007`, carried).
+The auditor dropped `-006` as a remit defect — the remit's future-rule-write-tool clause asks for deny
+where the documented design asks — and flagged two more rules that bundle declared residuals; all three
+are #267, for remit v1.9.
+
+**Disposition (maintainer approval, Steve Wilson, 2026-09-24).** Gate passes. No finding blocks the
+path to 1.0.
+
+**Against the 09-19 scan** (1 High · 1 Medium · 5 Low, RAISE 3.55): the High (`-001` there, #247) is
+Medium here with the write budget in place; the `SOCXEN_OBSERVRA=off` Low (#215) and the `uv run` lock
+Medium (#248) are closed in this tree and do not recur. This scan also changed the scanner model
+(Opus 5 → 5.5), so the remaining deltas — RAISE 3.55 → 3.70, 72 → 71 rules extracted — are read as
+variance plus the model, not as closures.
+
+## Previous — remit v1.7 @ `d5d7097` (2026-09-19, the 0.9.0 release candidate)
 
 | | |
 |---|---|
