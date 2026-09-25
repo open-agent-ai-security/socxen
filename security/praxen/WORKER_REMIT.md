@@ -18,9 +18,9 @@
 | Deployment Environment | Analyst workstation, interactive session on a supported host — Claude Code or OpenAI Codex — against an Exabeam New-Scale tenant (pre-release / evaluation). Any other agent is unsupported (see Action Boundaries). |
 | Primary Model | Claude Sonnet 4.6 (validated floor) |
 | Secondary Models | Claude Opus (release sweep). Models below the floor, e.g. Haiku, are not supported. |
-| Remit Version | 1.8 |
-| Last Updated | 2026-09-23 |
-| Updated By | Praxen remit authoring (v1.8 — #219: the model-floor rule removed, a statement about how the project validates and describes the software rather than about the agent's conduct — the floor is documented in the install guide and the red-team PLAN; #218: the spill-file carve-out folded into the no-copy rule's own sentence, and the parser tools' 'classified ahead of exposure' clause dropped now that the MCP exposes them) |
+| Remit Version | 1.9 |
+| Last Updated | 2026-09-25 |
+| Updated By | Praxen remit authoring (v1.9 — #261: the project is renamed socxen → Raffkin; the plugin key, skill and MCP namespaces, environment variables and home directory follow, and no rule changes. v1.8 — #219: the model-floor rule removed, a statement about how the project validates and describes the software rather than about the agent's conduct — the floor is documented in the install guide and the red-team PLAN; #218: the spill-file carve-out folded into the no-copy rule's own sentence, and the parser tools' 'classified ahead of exposure' clause dropped now that the MCP exposes them) |
 
 ---
 

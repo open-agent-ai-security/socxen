@@ -403,6 +403,28 @@ or fleet-wide in a managed <code>settings.json</code>:</p>
   }
 }
 </code></pre>
+<!-- community-only -->
+<h3 id="coming-from-socxen">Coming from socxen</h3>
+<p>Raffkin was called socxen before 0.10.0. The plugin key changed with the name, so an existing install does
+not update into it: remove the old plugin, then install the new one.</p>
+<pre><code class="language-bash"># Claude Code
+claude plugin marketplace update open-agent-ai-security
+claude plugin uninstall socxen@open-agent-ai-security
+claude plugin install raffkin@open-agent-ai-security
+
+# Codex
+codex plugin marketplace upgrade open-agent-ai-security
+codex plugin remove socxen@open-agent-ai-security
+codex plugin add raffkin@open-agent-ai-security
+</code></pre>
+<p>Your Exabeam credentials in <code>~/.exabeam-mcp.env</code> carry over unchanged. Through 0.10.x, Raffkin also reads
+the old names for its own settings and says so on stderr: a <code>SOCXEN_*</code> variable is honored when its
+<code>RAFFKIN_*</code> counterpart is unset, and an existing <code>~/.socxen</code> directory (telemetry, gate log) stays in use
+until you move it to <code>~/.raffkin</code>. Rename both before 0.11. Tool names in telemetry and permission rules
+change prefix, from <code>mcp__plugin_socxen_exabeam__</code> to <code>mcp__plugin_raffkin_exabeam__</code>, and the telemetry
+<code>agent_name</code> is <code>raffkin</code>.</p>
+<!-- /community-only -->
+
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>Run <code>preflight.sh</code> first (step 3 above); it checks the CLI, <code>uv</code>, the credentials file, the connection
 to your tenant, and the safety gate, and names the failing step.</p>
