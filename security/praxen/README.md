@@ -64,7 +64,7 @@ controls. Mediums: the per-session tool-definition hash and instruction-like-tex
 only when the startup connection succeeds (`-001`, new); the queue sweep's no-write rule is still
 prompt-only — the budget lets a sweep's first two escalation writes through, the designed threshold
 (`-002`, #247; the 09-19 High, now Medium with the budget in place); the redactor let unlabeled `sk-`,
-`sk-proj-`, `sk-ant-` and `glpat-` keys through (`-003`, new, fixed in #268); soc-investigate does not tell
+`sk-proj-`, `sk-ant-` and `glpat-` keys through (`-003`, new, fix in #268); soc-investigate does not tell
 the model to report a planted instruction it refused, where the other two skills do (`-004`). Lows:
 write-side neutralization under eight field names only (`-005`, the documented design); the gate log copies
 `send_email` recipients from raw arguments and no audit log records `closedReason` (`-007`, carried).
