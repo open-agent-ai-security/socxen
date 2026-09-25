@@ -78,35 +78,7 @@ def _agent_name(root=None):
 AGENT = _agent_name()
 FRAMEWORK = "mcp"
 _DEFAULT_BACKEND = "jsonl"                              # ON by default — assurance is the default posture
-_DEFAULT_PATH = "~/.raffkin/telemetry.jsonl"          # the documented default; home_dir() may keep the pre-rename one
-
-# The rename (#261): for one release the pre-rename SOCXEN_* variables and ~/.socxen are still honored,
-# announced once on stderr, so an operator's settings and dashboards keep working until they move.
-_noted = set()
-
-
-def _note_once(msg):
-    if msg not in _noted:
-        _noted.add(msg)
-        sys.stderr.write(f"bridge: {msg}\n")
-
-
-def env(name, default=""):
-    """RAFFKIN_<name>; the pre-rename SOCXEN_<name> when only it is set (read through 0.10.x)."""
-    value = os.environ.get("RAFFKIN_" + name)
-    if value is None and os.environ.get("SOCXEN_" + name) is not None:
-        _note_once(f"SOCXEN_{name} is the pre-rename name; set RAFFKIN_{name} (the old name is read through 0.10.x)")
-        return os.environ["SOCXEN_" + name]
-    return default if value is None else value
-
-
-def home_dir():
-    """~/.raffkin; a pre-rename ~/.socxen is used instead until it is moved (read through 0.10.x)."""
-    new, old = os.path.expanduser("~/.raffkin"), os.path.expanduser("~/.socxen")
-    if not os.path.exists(new) and os.path.isdir(old):
-        _note_once(f"{old} is the pre-rename directory; Raffkin keeps using it until you move it to {new}")
-        return old
-    return new
+_DEFAULT_PATH = "~/.raffkin/telemetry.jsonl"
 _OFF_VALUES = {"off", "0", "false", "no", "none", "disabled"}
 
 # Lazily-populated runtime state. `on` is tri-state: None = not yet configured, True/False = decided.
@@ -122,7 +94,7 @@ def _disable(reason=None):
 
 def _int_env(name, default):
     try:
-        return int(env(name, "").strip() or default)
+        return int(os.environ.get(name, "").strip() or default)
     except ValueError:
         return default
 
@@ -130,7 +102,7 @@ def _int_env(name, default):
 def _configure():
     """Decide once whether telemetry is on (it is, unless explicitly off) and stand up the observra
     pipeline. Fail-open — any problem disables logging without touching the investigation."""
-    backend = env("OBSERVRA", "").strip().lower() or _DEFAULT_BACKEND
+    backend = os.environ.get("RAFFKIN_OBSERVRA", "").strip().lower() or _DEFAULT_BACKEND
     if backend in _OFF_VALUES:
         # The operator's own switch is announced, as the gate log's is: a trail that stops recording
         # without a word is how a forensic record disappears unnoticed (#215).
@@ -144,15 +116,15 @@ def _configure():
         # Network backends need a destination. Resolve it HERE so it can be disclosed and recorded as the
         # actual endpoint (scheme + host), not the backend keyword — Praxen PRAX-2026-09-05-007.
         if backend == "webhook":
-            url = env("OBSERVRA_URL", "").strip()
+            url = os.environ.get("RAFFKIN_OBSERVRA_URL", "").strip()
             if url:
                 kwargs["url"] = url
         elif backend in ("otel", "otel_log"):
-            ep = env("OBSERVRA_ENDPOINT", "").strip()
+            ep = os.environ.get("RAFFKIN_OBSERVRA_ENDPOINT", "").strip()
             if ep:
                 kwargs["endpoint"] = ep
         if backend == "jsonl":
-            path = os.path.expanduser(env("OBSERVRA_PATH", "") or os.path.join(home_dir(), "telemetry.jsonl"))
+            path = os.path.expanduser(os.environ.get("RAFFKIN_OBSERVRA_PATH", _DEFAULT_PATH))
             if path.startswith("~"):
                 # HOME/USERPROFILE unset (some daemon/container contexts) -> expanduser was a no-op. Don't
                 # create a literal "~" directory under CWD; fall back to the temp dir and say where.
@@ -163,8 +135,8 @@ def _configure():
             kwargs["path"] = path
             # initialize() forwards kwargs to the backend constructor (observra >= 1.1), so the rotation
             # bounds ride along. Clamped so a stray 0/negative can't turn rotation into per-event thrashing.
-            kwargs["max_bytes"] = max(4096, _int_env("OBSERVRA_MAX_BYTES", 10_485_760))  # >=4 KB
-            kwargs["backup_count"] = max(1, _int_env("OBSERVRA_BACKUPS", 5))
+            kwargs["max_bytes"] = max(4096, _int_env("RAFFKIN_OBSERVRA_MAX_BYTES", 10_485_760))  # >=4 KB
+            kwargs["backup_count"] = max(1, _int_env("RAFFKIN_OBSERVRA_BACKUPS", 5))
         observra.initialize(backend=backend, **kwargs)   # ValueError on an unknown backend -> fail-open
         observra.initialize_session()                    # a stable session/trace for this bridge process
         context.initialize_trace()

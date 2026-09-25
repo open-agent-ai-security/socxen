@@ -32,9 +32,8 @@ sys.path.insert(0, str(ROOT / "plugin" / "connector"))
 def _fresh(monkeypatch, env):
     """Import a pristine copy of the shim under a controlled environment (its on/off decision is cached
     per-module, so each scenario needs its own module instance)."""
-    for key in ("OBSERVRA", "OBSERVRA_PATH", "OBSERVRA_MAX_BYTES", "OBSERVRA_BACKUPS"):
-        monkeypatch.delenv("RAFFKIN_" + key, raising=False)
-        monkeypatch.delenv("SOCXEN_" + key, raising=False)      # the pre-rename names are honored (#261)
+    for key in ("RAFFKIN_OBSERVRA", "RAFFKIN_OBSERVRA_PATH", "RAFFKIN_OBSERVRA_MAX_BYTES", "RAFFKIN_OBSERVRA_BACKUPS"):
+        monkeypatch.delenv(key, raising=False)
     for key, val in env.items():
         monkeypatch.setenv(key, val)
     spec = importlib.util.spec_from_file_location(
@@ -312,24 +311,3 @@ def test_the_explicit_off_switch_is_announced_on_stderr(monkeypatch, capsys, tmp
     if not mod.enabled():
         pytest.skip("observra not installed")
     assert "logging is OFF (RAFFKIN_OBSERVRA=off)" not in capsys.readouterr().err
-
-
-# ---- the rename (#261): pre-rename names are honored for one release, announced -----------------------
-
-def test_a_pre_rename_variable_is_honored_and_announced(monkeypatch, capsys):
-    t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "off"})
-    assert t.env("OBSERVRA") == "off"
-    assert "SOCXEN_OBSERVRA is the pre-rename name; set RAFFKIN_OBSERVRA" in capsys.readouterr().err
-    t = _fresh(monkeypatch, {"SOCXEN_OBSERVRA": "off", "RAFFKIN_OBSERVRA": "jsonl"})
-    assert t.env("OBSERVRA") == "jsonl", "the new name wins when both are set"
-
-
-def test_a_pre_rename_home_directory_is_kept_until_it_is_moved(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    t = _fresh(monkeypatch, {})
-    assert t.home_dir() == str(tmp_path / ".raffkin"), "a fresh install uses the new directory"
-    (tmp_path / ".socxen").mkdir()
-    assert t.home_dir() == str(tmp_path / ".socxen"), "an existing trail keeps its path until the operator moves it"
-    (tmp_path / ".raffkin").mkdir()
-    assert t.home_dir() == str(tmp_path / ".raffkin")
-
