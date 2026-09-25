@@ -22,16 +22,16 @@ so the sister sites stay one family.
 ## The mascot: Leo
 
 A lion — the SOC's hunter — in the community's black hoodie, holding a crosshair loupe up to a planted alert.
-Accent is **lion gold** (`#e6a23c` / `#f2bd5c` / `#c4841c` in `assets/socxen-theme.css`) where Praxen is
+Accent is **lion gold** (`#e6a23c` / `#f2bd5c` / `#c4841c` in `assets/raffkin-theme.css`) where Praxen is
 orange, Observra blue, and the community violet. The signal-teal (`#2fbf9f`) in the loupe is the theme's
 second hue. `leo-hunting.svg` is cropped tight (viewBox) so it fills the hero like Praxy does.
 
 | File | Form | Used by |
 |---|---|---|
-| `brand/socxen-mark.svg` | lion head mark, gold | source for the favicon and wordmark |
-| `brand/socxen-favicon.svg` | mark on a gold tile | master for `web/favicon-{32,180,256}.png` |
-| `brand/socxen-wordmark-dark-background.svg` | mark + "raffkin" | landing nav + footer, docs top bar |
-| `brand/socxen-wordmark-light-background.svg` | same, dark ink | available |
+| `brand/raffkin-mark.svg` | lion head mark, gold | source for the favicon and wordmark |
+| `brand/raffkin-favicon.svg` | mark on a gold tile | master for `web/favicon-{32,180,256}.png` |
+| `brand/raffkin-wordmark-dark-background.svg` | mark + "raffkin" | landing nav + footer, docs top bar |
+| `brand/raffkin-wordmark-light-background.svg` | same, dark ink | available |
 | `brand/community-logo-{dark,light}-background.svg` | parent-org logo | footer "Part of the…" |
 | `leo-hunting.svg` | hero mascot | landing hero (referenced directly as SVG) |
 | `socxen-social.png` | 1280×640 OG / Twitter card | `<meta property="og:image">` |
@@ -46,6 +46,6 @@ build environment); `sips` resizes:
 ```sh
 CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 "$CH" --headless=new --hide-scrollbars --window-size=256,256 --default-background-color=00000000 \
-  --screenshot=graphics/web/favicon-256.png "file://$PWD/<wrapper.html showing brand/socxen-favicon.svg at 256px>"
+  --screenshot=graphics/web/favicon-256.png "file://$PWD/<wrapper.html showing brand/raffkin-favicon.svg at 256px>"
 for sz in 180 32; do sips -z $sz $sz graphics/web/favicon-256.png --out graphics/web/favicon-$sz.png; done
 ```
